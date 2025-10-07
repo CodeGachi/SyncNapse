@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ci": "vitest run --reporter=dot"
+    "test:ci": "node --experimental-vm-modules ../node_modules/vitest/vitest.mjs run --reporter=dot"
   },
   "dependencies": {
     "next": "^14.2.33",
