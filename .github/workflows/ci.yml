@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.18.0'
+          cache: 'npm'
+      - name: Install root deps
+        run: npm i --ignore-scripts
+      - name: Install workspaces deps
+        run: |
+          npm -w frontend i --ignore-scripts
+          npm -w backend i --ignore-scripts
+      - name: Generate Prisma Client
+        run: npm -w backend run prisma:generate
+      - name: Test
+        run: |
+          npm -w frontend run test:ci
+          npm -w backend run test:ci
+      - name: Lint
+        run: |
+          npm -w frontend run lint
+          npm -w backend run lint
+      - name: Build
+        run: |
+          npm -w frontend run build
+          npm -w backend run build

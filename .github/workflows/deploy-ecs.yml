@@ -1,0 +1,70 @@
+name: Deploy to ECS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/deploy-ecs.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
+      ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
+      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+      ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
+      ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata (tags)
+        id: meta
+        run: |
+          echo "sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Build images
+        run: |
+          docker build -t $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }} -f frontend/Dockerfile ./frontend
+          docker build -t $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }} -f backend/Dockerfile ./backend
+
+      - name: Tag latest
+        run: |
+          docker tag $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }} $ECR_REPO_FRONTEND:latest
+          docker tag $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }} $ECR_REPO_BACKEND:latest
+
+      - name: Push images
+        run: |
+          docker push $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }}
+          docker push $ECR_REPO_FRONTEND:latest
+          docker push $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }}
+          docker push $ECR_REPO_BACKEND:latest
+
+      - name: Update ECS service (frontend)
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_FRONTEND" --force-new-deployment > /dev/null
+
+      - name: Update ECS service (backend)
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_BACKEND" --force-new-deployment > /dev/null
