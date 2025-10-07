@@ -1,14 +1,40 @@
 {
+  "root": true,
+  "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "project": true
+    "project": ["./tsconfig.json"],
+    "sourceType": "module",
+    "ecmaVersion": 2022
   },
   "env": {
-    "node": true
+    "node": true,
+    "es2022": true
   },
+  "plugins": ["@typescript-eslint", "import"],
   "extends": [
     "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
     "plugin:import/recommended",
     "plugin:import/typescript",
     "prettier"
-  ]
+  ],
+  "ignorePatterns": [
+    "dist/**"
+  ],
+  "overrides": [
+    {
+      "files": ["**/*.spec.ts", "**/*.test.ts"],
+      "env": { "jest": true }
+    }
+  ],
+  "settings": {
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts"]
+    },
+    "import/resolver": {
+      "typescript": {
+        "project": "./tsconfig.json"
+      }
+    }
+  }
 }
