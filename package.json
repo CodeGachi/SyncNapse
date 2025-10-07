@@ -1,0 +1,31 @@
+{
+  "name": "@syncnapse/root",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SyncNapse monorepo (frontend: Next.js, backend: Nest.js, infra helpers)",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "engines": {
+    "node": ">=20.18.0",
+    "npm": ">=10.8.0"
+  },
+  "scripts": {
+    "build": "npm -w backend run build && npm -w frontend run build",
+    "dev": "concurrently -n FRONTEND,BACKEND -c blue,green \"npm -w frontend run dev\" \"npm -w backend run start:dev\"",
+    "lint": "npm -w frontend run lint && npm -w backend run lint",
+    "format": "npm -w frontend run format && npm -w backend run format",
+    "test": "npm -w frontend run test && npm -w backend run test",
+    "test:ci": "npm -w frontend run test:ci && npm -w backend run test:ci",
+    "db:up": "cd db && docker compose up -d",
+    "db:down": "cd db && docker compose down",
+    "db:logs": "docker logs -f syncnapse-postgres",
+    "dev:all": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "dev:all:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "dev:all:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

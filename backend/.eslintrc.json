@@ -1,0 +1,14 @@
+{
+  "parserOptions": {
+    "project": true
+  },
+  "env": {
+    "node": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:import/recommended",
+    "plugin:import/typescript",
+    "prettier"
+  ]
+}

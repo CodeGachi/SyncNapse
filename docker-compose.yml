@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: syncnapse-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-syncnapse}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: syncnapse-n8n
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - GENERIC_TIMEZONE=Asia/Seoul
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      # Development convenience: disable secure cookie and user management
+      - N8N_SECURE_COOKIE=false
+      - N8N_USER_MANAGEMENT_DISABLED=true
+      # DB(권장: Postgres 사용)
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=syncnapse
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=change_me
+      # Encryption key for credentials at rest
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    depends_on:
+      - postgres
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+
+
+  # Frontend and backend services will be added in a later step
+  # to wire bind mounts and Dockerfiles for dev and prod.
+  frontend:
+    build:
+      context: ./frontend
+    image: syncnapse/frontend:local
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    image: syncnapse/backend:local
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  n8n_data:
+
+networks:
+  default:
+    name: syncnapse_net

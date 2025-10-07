@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  displayName   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  folders       Folder[]
+  authProvider  String   // e.g., cognito, credentials, oauth
+  role          String   // e.g., user, admin
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  notes     LectureNote[]
+  @@index([userId])
+}
+
+model LectureNote {
+  id             String   @id @default(cuid())
+  folderId       String
+  title          String
+  sourceFileUrl  String?  // original lecture material file storage URL
+  audioFileUrl   String?  // recorded audio file storage URL
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  folder         Folder   @relation(fields: [folderId], references: [id])
+  transcript     TranscriptSegment[]
+  translations   TranslationSegment[]
+  typingSections TypingSection[]
+  mediaLinks     MediaLink[]
+  @@index([folderId])
+}
+
+model TranscriptSegment {
+  id            String   @id @default(cuid())
+  noteId        String
+  // timestamps in seconds with decimal precision
+  startSec      Decimal
+  endSec        Decimal
+  text          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  note          LectureNote @relation(fields: [noteId], references: [id])
+  // links to other entities at that timestamp
+  links         MediaLink[]
+  @@index([noteId, startSec])
+}
+
+model TranslationSegment {
+  id            String   @id @default(cuid())
+  noteId        String
+  sourceLang    String
+  targetLang    String
+  startSec      Decimal
+  endSec        Decimal
+  text          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  note          LectureNote @relation(fields: [noteId], references: [id])
+  links         MediaLink[]
+  @@index([noteId, targetLang, startSec])
+}
+
+model TypingSection {
+  id            String   @id @default(cuid())
+  noteId        String
+  // a named section of typed notes that can map to a time range
+  title         String
+  content       String
+  startSec      Decimal?
+  endSec        Decimal?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  note          LectureNote @relation(fields: [noteId], references: [id])
+  links         MediaLink[]
+  @@index([noteId, startSec])
+}
+
+// A generic link that associates a time range to resources (file page, transcript, translation, typing)
+model MediaLink {
+  id                 String   @id @default(cuid())
+  noteId             String
+  // the canonical timestamp range this link represents
+  startSec           Decimal
+  endSec             Decimal
+  // link type: 'file_page', 'transcript', 'translation', 'typing'
+  linkType           String
+  // detailed reference: page number for file, foreign keys for segments/sections
+  filePageNumber     Int?
+  transcriptId       String?
+  translationId      String?
+  typingSectionId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  note               LectureNote @relation(fields: [noteId], references: [id])
+  transcriptSegment  TranscriptSegment? @relation(fields: [transcriptId], references: [id])
+  translationSegment TranslationSegment? @relation(fields: [translationId], references: [id])
+  typingSection      TypingSection? @relation(fields: [typingSectionId], references: [id])
+  @@index([noteId, startSec])
+}
