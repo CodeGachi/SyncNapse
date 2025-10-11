@@ -54,6 +54,24 @@ npm run lint
 npm run build
 ```
 
+### 필수 명령어 모음(카테고리)
+
+- 실행/개발
+  - `npm run dev`: 프론트/백 동시 개발 서버 실행
+  - `npm run dev:all`: 도커로 전체 스택(dev) 실행
+  - `npm run dev:all:logs`: 전체 스택 로그 팔로우
+  - `npm run dev:all:down`: 전체 스택 중지/정리
+
+- 도커 등가 환경(CI 동일) Lint/Test/Build
+  - `npm run ci:lint`: 프론트/백 린트(컨테이너 내부, EACCES 무관)
+  - `npm run ci:test`: 프론트/백 테스트(컨테이너 내부)
+  - `npm run ci:build`: 프론트/백 빌드(도커 이미지 빌드)
+  - 대상 지정: `ci:lint:frontend`, `ci:lint:backend`, `ci:test:frontend`, `ci:test:backend`
+
+- 데이터베이스/유틸
+  - `npm run db:up` / `npm run db:down` / `npm run db:logs`
+  - `npm -w backend run prisma:generate`
+
 ## 4) 프로젝트 구조
 
 ```

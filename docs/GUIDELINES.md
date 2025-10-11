@@ -179,6 +179,42 @@ const audios = await fetch(sessionDetail._links.audios.href).then(r => r.json())
 
 ---
 
+## CI 작업 가이드(로컬 등가 환경)
+
+### 목적
+- GitHub Actions와 동일한 Node(Alpine) 컨테이너 환경에서 Lint/Test/Build를 재현하여 환경 차이, 권한(EACCES) 문제를 피합니다.
+
+### 사전 준비
+- 루트 `.env`에 `NODE_VERSION`이 있어야 합니다. 없으면 현재 Node 버전으로 설정하세요.
+```bash
+echo "NODE_VERSION=$(node -p \"process.versions.node.replace(/^v/, '')\")" >> .env
+```
+
+### 명령어
+- 전체
+```bash
+npm run ci:lint
+npm run ci:test
+npm run ci:build
+```
+- 대상 지정
+```bash
+npm run ci:lint:frontend
+npm run ci:lint:backend
+npm run ci:test:frontend
+npm run ci:test:backend
+```
+
+### 동작 원리
+- `scripts/docker-ci.mjs`가 루트 `.env`를 읽어 `NODE_VERSION`을 주입하고, `docker-compose.tools.yml`의 컨테이너에서 npm 스크립트를 실행합니다.
+- 컨테이너 내부에서 `npm ci` 후 실행하므로 로컬 퍼미션과 무관하게 동작합니다.
+
+### 트러블슈팅
+- `.env`에 `NODE_VERSION` 누락 시 오류 → 위 사전 준비를 수행하세요.
+- 프론트 린트 캐시 오류 → 툴 컴포즈가 컨테이너 내부에서 캐시 생성/권한 부여를 수행합니다.
+
+---
+
 ## 백엔드 코드 구조(요약과 예시)
 
 ### NestJS 모듈 구성
