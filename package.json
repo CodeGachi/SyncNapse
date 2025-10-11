@@ -12,6 +12,13 @@
     "npm": ">=10.9.0"
   },
   "scripts": {
+    "ci:lint": "node scripts/docker-ci.mjs lint all",
+    "ci:test": "node scripts/docker-ci.mjs test all",
+    "ci:build": "node scripts/docker-ci.mjs build all",
+    "ci:lint:frontend": "node scripts/docker-ci.mjs lint frontend",
+    "ci:lint:backend": "node scripts/docker-ci.mjs lint backend",
+    "ci:test:frontend": "node scripts/docker-ci.mjs test frontend",
+    "ci:test:backend": "node scripts/docker-ci.mjs test backend",
     "install": "npm i --ignore-scripts && npm -w backend i --ignore-scripts && npm -w backend exec prisma generate && npm -w frontend i --ignore-scripts",
     "build": "npm -w backend run build && npm -w frontend run build",
     "dev": "concurrently -n FRONTEND,BACKEND -c blue,green \"npm -w frontend run dev\" \"npm -w backend run start:dev\"",

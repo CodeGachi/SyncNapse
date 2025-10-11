@@ -16,17 +16,18 @@ export class HalExceptionFilter implements ExceptionFilter {
 
     const isHttp = exception instanceof HttpException;
     let status = isHttp ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-    const errBody = isHttp ? (exception.getResponse() as any) : { message: 'Internal Server Error' };
+    const errBody = isHttp ? (exception.getResponse() as unknown as { message?: string | string[]; errors?: unknown }) : { message: 'Internal Server Error' };
 
     if (status === HttpStatus.BAD_REQUEST && Array.isArray(errBody?.message)) {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
     }
 
-    const anyErr = exception as any;
-    const prismaCode = (anyErr?.code || anyErr?.errorCode || anyErr?.meta?.code || (/(P\d{4})/.exec(anyErr?.message || '')?.[1])) as string | undefined;
+    const anyErr = exception as { code?: string; errorCode?: string; meta?: { code?: string }; message?: string };
+    const match = /P\d{4}/.exec(anyErr?.message || '');
+    const prismaCode = anyErr?.code || anyErr?.errorCode || anyErr?.meta?.code || (match ? match[0] : undefined);
     try {
       this.logger.error(`[HalException] type=${anyErr?.constructor?.name || 'unknown'} code=${prismaCode || 'none'} ts=${Date.now()}`);
-    } catch (err) {
+    } catch {
       // intentionally swallow logging errors
     }
 
@@ -65,7 +66,7 @@ export class HalExceptionFilter implements ExceptionFilter {
     if (request.url.startsWith('/api/sessions')) {
       links.list = this.links.self('/api/sessions');
       links.create = this.links.action('/api/sessions', 'POST');
-      const m = request.url.match(/^\/api\/sessions\/([^\/]+)/);
+      const m = request.url.match(/^\/api\/sessions\/([^/]+)/);
       if (m) {
         const sid = m[1];
         links.session = this.links.self(`/api/sessions/${sid}`);

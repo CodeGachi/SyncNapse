@@ -41,7 +41,7 @@ export class RequestLoggingInterceptor implements NestInterceptor<unknown, unkno
           const statusFromError = err instanceof HttpException ? err.getStatus() : undefined;
           const statusFromResponse = (res?.statusCode && Number(res.statusCode)) || undefined;
           const statusCode = statusFromError ?? statusFromResponse ?? 500;
-          const payload = {
+          const payload: Record<string, unknown> = {
             requestId,
             method,
             url,
@@ -49,8 +49,8 @@ export class RequestLoggingInterceptor implements NestInterceptor<unknown, unkno
             ms,
             ip,
             userAgent,
-            errorName: (err as any)?.name,
-          } as Record<string, unknown>;
+            errorName: (err as { name?: string })?.name,
+          };
           if (statusCode >= 500) {
             this.logging.error('http_request', payload);
           } else {

@@ -1,0 +1,41 @@
+services:
+  frontend-lint:
+    image: node:${NODE_VERSION}-alpine
+    working_dir: /app
+    env_file:
+      - .env
+    volumes:
+      - ./frontend:/app
+    command: sh -lc "npm ci --no-audit --no-fund && mkdir -p .next/cache/eslint && chmod -R 777 .next || true && npm run lint"
+
+  frontend-test:
+    image: node:${NODE_VERSION}-alpine
+    working_dir: /app
+    env_file:
+      - .env
+    volumes:
+      - ./frontend:/app
+    command: sh -lc "npm ci --no-audit --no-fund && npm run test"
+
+  backend-lint:
+    image: node:${NODE_VERSION}-alpine
+    working_dir: /app
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    command: sh -lc "npm ci --no-audit --no-fund && npm run lint"
+
+  backend-test:
+    image: node:${NODE_VERSION}-alpine
+    working_dir: /app
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    command: sh -lc "npm ci --no-audit --no-fund && npm run test:ci"
+
+networks:
+  default:
+    name: syncnapse_net
+
