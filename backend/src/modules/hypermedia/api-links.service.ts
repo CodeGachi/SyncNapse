@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { LinkBuilderService } from './link-builder.service';
 
 type OpenApiDoc = {
-  paths?: Record<string, Record<string, any>>;
+  paths?: Record<string, Record<string, unknown>>;
 };
 
 @Injectable()
@@ -27,7 +27,7 @@ export class ApiLinksService {
 
     const paths = this.openApiDoc?.paths || {};
     for (const originalPath of Object.keys(paths)) {
-      const methods = paths[originalPath];
+      const methods = paths[originalPath] as Record<string, unknown>;
       const withoutApi = originalPath.replace(/^\/api(\/|$)/, '/');
       const normPath = withoutApi.startsWith('/') ? withoutApi : `/${withoutApi}`;
 

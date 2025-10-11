@@ -16,7 +16,7 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Login' })
   @ApiOkResponse({ description: 'Login returns token + HAL links', schema: { type: 'object' } })
-  async login(@Body() body: LoginDto) {
+  async login(@Body() _body: LoginDto) {
     throw new HttpException('Auth login not implemented', HttpStatus.NOT_IMPLEMENTED);
   }
 }

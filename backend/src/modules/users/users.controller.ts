@@ -13,7 +13,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   @ApiOkResponse({ description: 'Current user (HAL)', schema: { type: 'object' } })
-  async getMe(@CurrentUser() user: { id: string }) {
+  async getMe(@CurrentUser() _user: { id: string }) {
     // Skeleton only: mark as not implemented for now
     throw new HttpException('Users me not implemented', HttpStatus.NOT_IMPLEMENTED);
   }

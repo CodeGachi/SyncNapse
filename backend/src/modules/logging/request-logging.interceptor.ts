@@ -6,8 +6,8 @@ import { LoggingService } from './logging.service';
 export class RequestLoggingInterceptor implements NestInterceptor<unknown, unknown> {
   constructor(private readonly logging: LoggingService) {}
   intercept(context: ExecutionContext, next: CallHandler<unknown>): Observable<unknown> {
-    const req: any = context.switchToHttp().getRequest();
-    const res: any = context.switchToHttp().getResponse();
+    const req = context.switchToHttp().getRequest<{ method?: string; originalUrl?: string; url?: string; headers?: Record<string, unknown>; ip?: string; connection?: { remoteAddress?: string }; get?: (name: string) => string }>();
+    const res = context.switchToHttp().getResponse<{ statusCode?: number }>();
     const start = Date.now();
     const method = req?.method;
     const url = req?.originalUrl || req?.url;

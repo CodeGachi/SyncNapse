@@ -20,11 +20,11 @@ async function bootstrap() {
 
   // Trust proxy (for correct client IP when behind nginx)
   try {
-    const httpAdapter = app.getHttpAdapter().getInstance() as any;
+    const httpAdapter = app.getHttpAdapter().getInstance() as { set?: (key: string, value: unknown) => void };
     if (httpAdapter?.set) {
       httpAdapter.set('trust proxy', true);
     }
-  } catch (e) {
+  } catch {
     // ignore if adapter doesn't support set
   }
 
@@ -34,7 +34,7 @@ async function bootstrap() {
   // Register request logging interceptor globally
   try {
     app.useGlobalInterceptors(app.get(RequestLoggingInterceptor));
-  } catch (e) {
+  } catch {
     // continue even if interceptor provider is unavailable
   }
 
@@ -56,15 +56,15 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, document);
 
   // Expose raw OpenAPI JSON for external tools (e.g., APIDog)
-  const http = app.getHttpAdapter().getInstance();
-  http.get('/api/docs-json', (_req: unknown, res: any) => {
+  const http = app.getHttpAdapter().getInstance() as { get: (path: string, handler: (req: unknown, res: { json: (v: unknown) => void }) => void) => void };
+  http.get('/api/docs-json', (_req: unknown, res: { json: (v: unknown) => void }) => {
     res.json(document);
   });
 
   try {
     const apiLinks = app.get(ApiLinksService);
-    apiLinks.setOpenApiDocument(document as any);
-  } catch (e) {
+    apiLinks.setOpenApiDocument(document as unknown as { paths?: Record<string, Record<string, unknown>> });
+  } catch {
     // If service not available, continue without dynamic links
   }
 
@@ -85,8 +85,8 @@ async function bootstrap() {
     const arch = process.arch;
     const platform = process.platform;
     console.info(`[debug] node=${node} openssl=${openssl} uv=${uv} arch=${arch} platform=${platform}`);
-  } catch (e) {
-    console.warn(`[debug] failed to read process.versions: ${(e as Error)?.message || 'unknown error'}`);
+  } catch (err) {
+    console.warn(`[debug] failed to read process.versions: ${(err as Error)?.message || 'unknown error'}`);
   }
 }
 

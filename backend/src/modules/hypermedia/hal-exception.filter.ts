@@ -1,4 +1,4 @@
-import { ArgumentsHost, Catch, ExceptionFilter, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { LinkBuilderService } from './link-builder.service';
 
@@ -26,7 +26,9 @@ export class HalExceptionFilter implements ExceptionFilter {
     const prismaCode = (anyErr?.code || anyErr?.errorCode || anyErr?.meta?.code || (/(P\d{4})/.exec(anyErr?.message || '')?.[1])) as string | undefined;
     try {
       this.logger.error(`[HalException] type=${anyErr?.constructor?.name || 'unknown'} code=${prismaCode || 'none'} ts=${Date.now()}`);
-    } catch {}
+    } catch (err) {
+      // intentionally swallow logging errors
+    }
 
     switch (prismaCode) {
       case 'P2002': // Unique constraint failed
@@ -92,7 +94,7 @@ export class HalExceptionFilter implements ExceptionFilter {
       response.setHeader('WWW-Authenticate', 'Bearer');
     }
 
-    const code = this.mapStatusToCode(status, exception);
+    const code = this.mapStatusToCode(status);
     const details = Array.isArray(errBody?.message) ? errBody.message : (errBody?.errors || undefined);
 
     response.status(status);
@@ -110,7 +112,7 @@ export class HalExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private mapStatusToCode(status: number, exception: unknown): string {
+  private mapStatusToCode(status: number): string {
     switch (status) {
       case HttpStatus.BAD_REQUEST:
         return 'bad_request';
