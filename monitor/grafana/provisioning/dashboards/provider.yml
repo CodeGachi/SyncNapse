@@ -1,0 +1,12 @@
+apiVersion: 1
+providers:
+  - name: SyncNapse
+    orgId: 1
+    folder: SyncNapse
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

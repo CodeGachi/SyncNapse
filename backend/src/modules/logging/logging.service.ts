@@ -1,30 +1,26 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class LoggingService {
-  private readonly logger = new Logger('App');
+  private writeJsonToStdout(level: 'info' | 'warn' | 'error' | 'debug', message: string, meta?: Record<string, unknown>) {
+    const payload = { timestamp: new Date().toISOString(), level, service: 'backend', msg: message, ...(meta || {}) };
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(payload));
+  }
 
   log(message: string, meta?: Record<string, unknown>) {
-    if (meta) {
-      this.logger.log(`${message} ${JSON.stringify(meta)}`);
-    } else {
-      this.logger.log(message);
-    }
+    this.writeJsonToStdout('info', message, meta);
   }
 
   warn(message: string, meta?: Record<string, unknown>) {
-    if (meta) {
-      this.logger.warn(`${message} ${JSON.stringify(meta)}`);
-    } else {
-      this.logger.warn(message);
-    }
+    this.writeJsonToStdout('warn', message, meta);
   }
 
   error(message: string, meta?: Record<string, unknown>) {
-    if (meta) {
-      this.logger.error(`${message} ${JSON.stringify(meta)}`);
-    } else {
-      this.logger.error(message);
-    }
+    this.writeJsonToStdout('error', message, meta);
+  }
+
+  debug(message: string, meta?: Record<string, unknown>) {
+    this.writeJsonToStdout('debug', message, meta);
   }
 }

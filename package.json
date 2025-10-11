@@ -8,10 +8,11 @@
     "backend"
   ],
   "engines": {
-    "node": ">=20.18.0",
-    "npm": ">=10.8.0"
+    "node": ">=22.20.0",
+    "npm": ">=10.9.0"
   },
   "scripts": {
+    "install": "npm i --ignore-scripts && npm -w backend i --ignore-scripts && npm -w backend exec prisma generate && npm -w frontend i --ignore-scripts",
     "build": "npm -w backend run build && npm -w frontend run build",
     "dev": "concurrently -n FRONTEND,BACKEND -c blue,green \"npm -w frontend run dev\" \"npm -w backend run start:dev\"",
     "lint": "npm -w frontend run lint && npm -w backend run lint",
@@ -21,9 +22,13 @@
     "db:up": "cd db && docker compose up -d",
     "db:down": "cd db && docker compose down",
     "db:logs": "docker logs -f syncnapse-postgres",
-    "dev:all": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "dev:all": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build",
     "dev:all:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
-    "dev:all:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f"
+    "dev:all:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f",
+    "n8n:export:workflows": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'mkdir -p /exports && n8n export:workflow --all --separate --output=/exports'",
+    "n8n:export:credentials": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'mkdir -p /exports && n8n export:credentials --all --output=/exports'",
+    "n8n:import:workflows": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'n8n import:workflow --input=/exports'",
+    "n8n:import:credentials": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'n8n import:credentials --input=/exports'"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

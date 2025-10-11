@@ -1,7 +1,6 @@
 name: Deploy to ECS
 
 on:
-  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -14,14 +13,6 @@ jobs:
   build-and-deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
-      ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
-      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-      ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
-      ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +21,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -43,16 +34,25 @@ jobs:
           echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build images
+        env:
+          ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
+          ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
         run: |
           docker build -t $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }} -f frontend/Dockerfile ./frontend
           docker build -t $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }} -f backend/Dockerfile ./backend
 
       - name: Tag latest
+        env:
+          ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
+          ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
         run: |
           docker tag $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }} $ECR_REPO_FRONTEND:latest
           docker tag $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }} $ECR_REPO_BACKEND:latest
 
       - name: Push images
+        env:
+          ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
+          ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
         run: |
           docker push $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }}
           docker push $ECR_REPO_FRONTEND:latest
@@ -60,9 +60,15 @@ jobs:
           docker push $ECR_REPO_BACKEND:latest
 
       - name: Update ECS service (frontend)
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
         run: |
           aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_FRONTEND" --force-new-deployment > /dev/null
 
       - name: Update ECS service (backend)
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
         run: |
           aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_BACKEND" --force-new-deployment > /dev/null

@@ -36,11 +36,11 @@ if (Object.keys(rootEnv).length === 0) {
 
 const backendEnvPath = path.join(repoRoot, 'backend', '.env');
 const backendEnv = {
-  NODE_ENV: rootEnv.NODE_ENV ?? 'development',
-  PORT: rootEnv.PORT ?? '4000',
-  DEBUG_LEVEL: rootEnv.DEBUG_LEVEL ?? 'info',
-  DATABASE_URL: rootEnv.DATABASE_URL ?? 'postgresql://postgres:change_me@localhost:5432/syncnapse?schema=public',
-  JWT_SECRET: rootEnv.JWT_SECRET ?? 'change_me_dev',
+  NODE_ENV: rootEnv.NODE_ENV,
+  PORT: rootEnv.PORT,
+  DEBUG_LEVEL: rootEnv.DEBUG_LEVEL,
+  DATABASE_URL: rootEnv.DATABASE_URL,
+  JWT_SECRET: rootEnv.JWT_SECRET,
 };
 
 fs.mkdirSync(path.dirname(backendEnvPath), { recursive: true });

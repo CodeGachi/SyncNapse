@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -22,27 +23,32 @@ model Folder {
   id        String   @id @default(cuid())
   userId    String
   name      String
+  parentId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])
+  // Hierarchical self relation
+  parent    Folder?  @relation("FolderToChildren", fields: [parentId], references: [id])
+  children  Folder[] @relation("FolderToChildren")
+  // Many-to-many with LectureNote
   notes     LectureNote[]
   @@index([userId])
+  @@index([parentId])
 }
 
 model LectureNote {
   id             String   @id @default(cuid())
-  folderId       String
   title          String
   sourceFileUrl  String?  // original lecture material file storage URL
   audioFileUrl   String?  // recorded audio file storage URL
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  folder         Folder   @relation(fields: [folderId], references: [id])
+  // Many-to-many with Folder
+  folders        Folder[]
   transcript     TranscriptSegment[]
   translations   TranslationSegment[]
   typingSections TypingSection[]
   mediaLinks     MediaLink[]
-  @@index([folderId])
 }
 
 model TranscriptSegment {

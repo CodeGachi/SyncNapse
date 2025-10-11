@@ -1,15 +1,63 @@
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: syncnapse-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+  loki:
+    image: grafana/loki:2.9.7
+    container_name: syncnapse-loki
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitor/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+  promtail:
+    image: grafana/promtail:2.9.7
+    container_name: syncnapse-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./monitor/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: syncnapse-grafana
+    env_file:
+      - .env
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/syncnapse-logs.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitor/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitor/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - loki
   frontend:
     build:
       context: ./frontend
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+    env_file:
+      - .env
     container_name: syncnapse-frontend
     environment:
-      - NODE_ENV=development
-      - DEBUG_LEVEL=${DEBUG_LEVEL:-info}
+      - NODE_ENV=${FRONTEND_NODE_ENV}
+      - DEBUG_LEVEL=${DEBUG_LEVEL}
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT_PUBLIC}:3000"
     volumes:
       - ./frontend:/app
       - ./frontend/node_modules:/app/node_modules
@@ -20,36 +68,62 @@ services:
   backend:
     build:
       context: ./backend
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+    env_file:
+      - .env
     container_name: syncnapse-backend
     environment:
-      - NODE_ENV=development
-      - DEBUG_LEVEL=${DEBUG_LEVEL:-info}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:change_me@postgres:5432/syncnapse}
-      - PORT=4000
+      - NODE_ENV=${BACKEND_NODE_ENV}
+      - DEBUG_LEVEL=${DEBUG_LEVEL}
+      - DATABASE_URL=${DATABASE_URL}
+      - PORT=${BACKEND_PORT}
       - CHOKIDAR_USEPOLLING=true
       - NPM_CONFIG_LOGLEVEL=warn
     ports:
-      - "4000:4000"
+      - "${BACKEND_PORT_PUBLIC}:4000"
     volumes:
       - ./backend:/app
       - ./backend/node_modules:/app/node_modules
-    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npm run start:dev"
+    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push && npm run start:dev"
     depends_on:
       postgres:
         condition: service_healthy
 
   postgres:
     extends:
-      file: docker-compose.yml
+      file: db/docker-compose.yml
       service: postgres
     container_name: syncnapse-postgres-dev
+    env_file:
+      - .env
 
   n8n:
     extends:
       file: docker-compose.yml
       service: n8n
     container_name: syncnapse-n8n-dev
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE}
+      - N8N_USER_MANAGEMENT_DISABLED=${N8N_USER_MANAGEMENT_DISABLED}
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
+      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
+      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
+      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
+      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+      - QUEUE_HEALTH_CHECK_ACTIVE=${QUEUE_HEALTH_CHECK_ACTIVE}
+    env_file:
+      - .env
 
 networks:
   default:
     name: syncnapse_net
+volumes:
+  grafana-data:
+  pgdata:
+  loki-data:
