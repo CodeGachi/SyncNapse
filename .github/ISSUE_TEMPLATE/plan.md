@@ -10,10 +10,10 @@ assignees: ''
 # Title
 
 ## Frontend
-- [] 
+- [ ] 
 
 ## Backend
-- []
+- [ ]
 
 ## etc
-- []
+- [ ]
