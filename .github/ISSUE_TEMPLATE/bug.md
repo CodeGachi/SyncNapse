@@ -3,7 +3,7 @@ name: Bug
 about: Bug report
 title: "[BUG] "
 labels: Bug, Plan
-assignees: ''
+assignees: Nyam2C, ansrudgh, hmink8
 
 ---
 
