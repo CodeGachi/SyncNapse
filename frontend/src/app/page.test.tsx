@@ -1,9 +1,27 @@
 import { render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import HomePage from './page';
 
+// Mock next/navigation
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}));
+
 describe('HomePage', () => {
-  it('renders welcome text', () => {
+  it('renders SyncNapse title', () => {
     render(<HomePage />);
-    expect(screen.getByText(/Frontend is running/i)).toBeInTheDocument();
+    expect(screen.getByText('SyncNapse')).toBeInTheDocument();
+  });
+
+  it('renders login button', () => {
+    render(<HomePage />);
+    expect(screen.getByText('로그인')).toBeInTheDocument();
+  });
+
+  it('renders description text', () => {
+    render(<HomePage />);
+    expect(screen.getByText(/스마트한 필기 서비스/i)).toBeInTheDocument();
   });
 });
