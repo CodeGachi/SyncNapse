@@ -13,9 +13,11 @@
     "test:ci": "node --experimental-vm-modules ../node_modules/vitest/vitest.mjs run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "next": "^14.2.33",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.5.0",
@@ -24,10 +26,13 @@
     "@types/node": "^20.14.11",
     "@types/react": "^18.3.7",
     "@vitejs/plugin-react-swc": "^4.1.0",
+    "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.7",
     "jsdom": "^25.0.0",
+    "postcss": "^8.5.6",
     "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.18",
     "typescript": "^5.5.4",
     "vite": "^5.4.20",
     "vitest": "^3.2.4"
