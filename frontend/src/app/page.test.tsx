@@ -17,7 +17,7 @@ describe('HomePage', () => {
 
   it('renders login button', () => {
     render(<HomePage />);
-    expect(screen.getByText('로그인')).toBeInTheDocument();
+    expect(screen.getByText('Sign in with Google')).toBeInTheDocument();
   });
 
   it('renders description text', () => {
