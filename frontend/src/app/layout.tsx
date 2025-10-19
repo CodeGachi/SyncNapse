@@ -2,7 +2,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "SyncNapse",
-  description: "Study assistant platform",
+  description: "강의 자료 통합 플랫폼",
 };
 
 export default function RootLayout({
