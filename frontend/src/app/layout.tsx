@@ -1,8 +1,9 @@
 import "./globals.css";
+import { QueryProvider } from "@/providers/query-client-provider";
 
 export const metadata = {
   title: "SyncNapse",
-  description: "강의 자료 통합 플랫폼",
+  description: "Integrated lecture materials platform",
 };
 
 export default function RootLayout({
@@ -12,7 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

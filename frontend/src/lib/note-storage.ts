@@ -1,6 +1,13 @@
 /**
  * 노트 데이터 저장소 (더미)
- * 추후 백엔드 API로 대체 예정
+ *
+ * @deprecated 이 파일은 더 이상 사용되지 않습니다.
+ * 대신 TanStack Query를 사용하세요:
+ *
+ * - 노트 조회: import { useNotes, useNote } from "@/lib/api/queries/notes.queries"
+ * - 노트 생성/수정/삭제: import { useCreateNote, useUpdateNote, useDeleteNote } from "@/lib/api/mutations/notes.mutations"
+ *
+ * 새로운 API는 자동 캐싱, 낙관적 업데이트, 에러 재시도를 지원합니다.
  */
 
 import type { Note, NoteData, NoteFile } from "./types";

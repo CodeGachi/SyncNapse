@@ -4,8 +4,9 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { useNotePlayer, useNoteTabs, useRecordingList, useScriptPanel, useNotePanel, useFilePanel } from "@/features/note";
+import { useEffect } from "react";
+import { useNoteEditorStore } from "@/stores";
+import { useRecordingList } from "@/features/note/player";
 import { NoteSidebar } from "@/components/note/note-sidebar";
 import { FileTabs } from "@/components/note/file-tabs";
 import { PdfViewer } from "@/components/note/pdf-viewer";
@@ -24,17 +25,43 @@ interface NotePageClientProps {
 }
 
 export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClientProps) {
-  const [note, setNote] = useState<Note | null>(null);
-  const { isPlaying, formattedTime, togglePlay } = useNotePlayer();
-  const { isExpanded: isRecordingExpanded, recordings, toggleExpanded: toggleRecordingExpanded } = useRecordingList();
-  const { isScriptOpen, toggleScript } = useScriptPanel();
-  const { isNotePanelOpen, toggleNotePanel, blocks, addBlock, updateBlock, deleteBlock } = useNotePanel();
-  const { isFilePanelOpen, toggleFilePanel, files: uploadedFiles, addFile, removeFile, selectedFileId, selectFile, getSelectedFile, loadFiles, renameFile, copyFile } = useFilePanel();
-  const { activeTab, activeCategories, isExpanded, handleTabChange: originalHandleTabChange, handleCategoryToggle, toggleExpand } = useNoteTabs();
+  // Zustand Store - Note Editor State
+  const {
+    isNotePanelOpen,
+    toggleNotePanel,
+    blocks,
+    addBlock,
+    updateBlock,
+    deleteBlock,
+    isFilePanelOpen,
+    toggleFilePanel,
+    files: uploadedFiles,
+    addFile,
+    removeFile,
+    selectedFileId,
+    selectFile,
+    loadFiles,
+    renameFile,
+    copyFile,
+    isScriptOpen,
+    toggleScript,
+    activeTab,
+    setActiveTab,
+    activeCategories,
+    toggleCategory,
+    isExpanded,
+    toggleExpand,
+    isPlaying,
+    togglePlay,
+    currentTime,
+  } = useNoteEditorStore();
+
+  // Recording list는 여전히 별도 hook 사용 (간단한 로컬 상태)
+  const { recordings, isExpanded: isRecordingExpanded, toggleExpanded: toggleRecordingExpanded } = useRecordingList();
 
   // 탭 변경 시 파일도 선택
   const handleTabChange = (index: number) => {
-    originalHandleTabChange(index);
+    setActiveTab(index);
     if (uploadedFiles[index]) {
       selectFile(uploadedFiles[index].id);
     }
@@ -50,42 +77,40 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
 
   // 클라이언트에서 노트 데이터 불러오기
   useEffect(() => {
+    let note: Note | null = null;
+
     if (noteId) {
-      const foundNote = getNoteById(noteId);
-      setNote(foundNote);
-
-      // 노트의 파일들을 파일 패널에 로드
-      if (foundNote?.files && foundNote.files.length > 0) {
-        const fileItems = foundNote.files.map((noteFile) => ({
-          id: noteFile.id,
-          name: noteFile.name,
-          type: noteFile.type,
-          size: noteFile.size,
-          uploadedAt: foundNote.createdAt,
-          url: noteFile.url || "",
-        }));
-        loadFiles(fileItems);
-      }
+      note = getNoteById(noteId);
     } else if (initialTitle) {
-      const foundNote = getNoteByTitle(initialTitle);
-      setNote(foundNote);
+      note = getNoteByTitle(initialTitle);
+    }
 
-      // 노트의 파일들을 파일 패널에 로드
-      if (foundNote?.files && foundNote.files.length > 0) {
-        const fileItems = foundNote.files.map((noteFile) => ({
-          id: noteFile.id,
-          name: noteFile.name,
-          type: noteFile.type,
-          size: noteFile.size,
-          uploadedAt: foundNote.createdAt,
-          url: noteFile.url || "",
-        }));
-        loadFiles(fileItems);
-      }
+    // 노트의 파일들을 파일 패널에 로드
+    if (note?.files && note.files.length > 0) {
+      const fileItems = note.files.map((noteFile) => ({
+        id: noteFile.id,
+        name: noteFile.name,
+        type: noteFile.type,
+        size: noteFile.size,
+        uploadedAt: note!.createdAt,
+        url: noteFile.url || "",
+      }));
+      loadFiles(fileItems);
     }
   }, [noteId, initialTitle, loadFiles]);
 
-  const noteTitle = note?.title || initialTitle || "제목 없음";
+  // 노트 제목 결정
+  const getNoteTitle = () => {
+    if (noteId) {
+      const note = getNoteById(noteId);
+      return note?.title || "제목 없음";
+    } else if (initialTitle) {
+      return initialTitle;
+    }
+    return "제목 없음";
+  };
+
+  const noteTitle = getNoteTitle();
 
   // 업로드된 파일을 탭용 파일 형식으로 변환
   const files = uploadedFiles.map((file, index) => ({
@@ -94,7 +119,29 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
   }));
 
   // 선택된 파일 가져오기
-  const selectedFile = getSelectedFile();
+  const selectedFile = uploadedFiles.find((file) => file.id === selectedFileId);
+
+  // 파일 추가 래퍼 함수 (File -> FileItem으로 변환)
+  const handleAddFile = async (file: File) => {
+    const url = URL.createObjectURL(file);
+    const fileItem = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+      url,
+      file,
+    };
+    addFile(fileItem);
+  };
+
+  // 시간 포맷팅
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   return (
     <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
@@ -189,7 +236,7 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
               {/* 녹음바 */}
               <RecordingBar
                 isPlaying={isPlaying}
-                time={formattedTime}
+                time={formatTime(currentTime)}
                 onPlayToggle={togglePlay}
                 isExpanded={isRecordingExpanded}
                 onToggleExpand={toggleRecordingExpanded}
@@ -205,7 +252,7 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
               <FilePanel
                 isOpen={isFilePanelOpen}
                 files={uploadedFiles}
-                onAddFile={addFile}
+                onAddFile={handleAddFile}
                 onRemoveFile={removeFile}
                 selectedFileId={selectedFileId}
                 onSelectFile={selectFile}
@@ -216,7 +263,7 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
               {/* 카테고리 버튼 */}
               <CategoryButtons
                 activeCategories={activeCategories}
-                onCategoryToggle={handleCategoryToggle}
+                onCategoryToggle={toggleCategory}
                 onNotesToggle={toggleNotePanel}
                 isNotesOpen={isNotePanelOpen}
                 onFilesToggle={toggleFilePanel}

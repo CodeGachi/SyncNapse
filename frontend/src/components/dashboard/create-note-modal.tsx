@@ -1,14 +1,23 @@
 /**
- * 노트 설정 모달 UI 컴포넌트 (프레젠테이셔널)
- * 비즈니스 로직은 features/note/use-note-settings.ts에 위치
+ * 노트 설정 모달 UI 컴포넌트
+ * Zustand 기반 상태 관리로 마이그레이션
  */
 
 "use client";
 
-import { FileConflictModal } from "@/components/common/file-conflict-modal";
+import { useRef, useEffect } from "react";
+import { FileConflictModal } from "./file-conflict-modal";
 import { FILE_CONSTRAINTS } from "@/lib/constants";
-import { useNoteSettings } from "@/features/note";
-import type { NoteData } from "@/lib/types";
+import { useNoteSettingsStore } from "@/stores";
+import { useUploadQueue } from "@/hooks";
+import {
+  validateFiles,
+  generateSafeFileName,
+  calculateStorageUsage,
+  isZipFile,
+  processZipFile,
+} from "@/lib/utils";
+import type { NoteData, FileConflict, ConflictResolution, Folder } from "@/lib/types";
 
 interface NoteSettingsModalProps {
   isOpen: boolean;
@@ -21,6 +30,7 @@ export function NoteSettingsModal({
   onClose,
   onSubmit,
 }: NoteSettingsModalProps) {
+  // Zustand Store
   const {
     title,
     selectedLocation,
@@ -31,31 +41,194 @@ export function NoteSettingsModal({
     showConflictModal,
     validationErrors,
     autoExtractZip,
-    fileInputRef,
-    folders,
-    uploadQueue,
-    storageUsage,
     setTitle,
     setSelectedLocation,
     setSelectedFileIndex,
     setValidationErrors,
     setAutoExtractZip,
     setShowConflictModal,
-    handleFilesAdded,
-    removeFile,
-    handleDragOver,
-    handleDragLeave,
-    handleDrop,
-    handleConflictResolve,
-    handleSelectClick,
+    setIsDragActive,
+    setConflicts,
+    addUploadedFiles,
+    removeUploadedFile,
+    updateUploadedFile,
     reset,
-    getNoteData,
-  } = useNoteSettings();
+  } = useNoteSettingsStore();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 더미 폴더 목록 (나중에 API로 대체)
+  const folders: Folder[] = [
+    { id: "root", name: "루트" },
+    { id: "folder1", name: "📁 폴더 1" },
+    { id: "folder2", name: "📁 폴더 2" },
+    { id: "folder3", name: "📁 폴더 3" },
+  ];
+
+  // 업로드 큐 관리
+  const uploadQueue = useUploadQueue({
+    maxConcurrent: 2,
+    onFileComplete: (file) => {
+      console.log("파일 업로드 완료:", file.file.name);
+    },
+    onFileError: (file, error) => {
+      console.error("파일 업로드 실패:", file.file.name, error);
+    },
+  });
+
+  // 큐 자동 처리
+  useEffect(() => {
+    if (uploadQueue.stats.pending > 0 && uploadQueue.activeUploads < 2) {
+      uploadQueue.processQueue();
+    }
+  }, [uploadQueue]);
+
+  // 업로드 큐 상태를 uploadedFiles에 동기화
+  useEffect(() => {
+    uploadQueue.queue.forEach((queueFile) => {
+      const existingFile = uploadedFiles.find(
+        (uf) =>
+          uf.file.name === queueFile.file.name &&
+          uf.file.size === queueFile.file.size
+      );
+      if (existingFile) {
+        updateUploadedFile(existingFile.file, {
+          progress: queueFile.progress,
+          status: queueFile.status,
+          error: queueFile.error,
+        });
+      }
+    });
+  }, [uploadQueue.queue, uploadedFiles, updateUploadedFile]);
+
+  const handleFilesAdded = async (files: File[]) => {
+    setValidationErrors([]);
+
+    // ZIP 파일 처리
+    const processedFiles: File[] = [];
+    for (const file of files) {
+      if (isZipFile(file)) {
+        const extracted = await processZipFile(file, {
+          autoExtract: autoExtractZip,
+          allowedExtensions: FILE_CONSTRAINTS.ALLOWED_EXTENSIONS as unknown as string[],
+          maxFileSize: FILE_CONSTRAINTS.MAX_FILE_SIZE,
+        });
+        processedFiles.push(...extracted);
+      } else {
+        processedFiles.push(file);
+      }
+    }
+
+    // 1. 파일 검증
+    const existingFiles = uploadedFiles.map((uf) => uf.file);
+    const { validFiles, invalidFiles, duplicates } = validateFiles(
+      processedFiles,
+      existingFiles
+    );
+
+    // 2. 검증 실패 파일 에러 표시
+    if (invalidFiles.length > 0) {
+      const errors = invalidFiles.map((f) => `${f.file.name}: ${f.error}`);
+      setValidationErrors(errors);
+    }
+
+    // 3. 중복 파일 충돌 처리
+    if (duplicates.length > 0) {
+      const conflictList: FileConflict[] = duplicates.map((newFile) => {
+        const existing = existingFiles.find(
+          (ef) =>
+            ef.name === newFile.name &&
+            ef.size === newFile.size &&
+            ef.lastModified === newFile.lastModified
+        )!;
+        return {
+          newFile,
+          existingFile: existing,
+          suggestedName: generateSafeFileName(newFile.name, existingFiles),
+        };
+      });
+      setConflicts(conflictList);
+      setShowConflictModal(true);
+    }
+
+    // 4. 유효한 파일 추가
+    if (validFiles.length > 0) {
+      addFilesToQueue(validFiles);
+    }
+  };
+
+  const addFilesToQueue = (files: File[]) => {
+    const newUploadFiles = files.map((file) => ({
+      file,
+      progress: 0,
+      status: "pending" as const,
+    }));
+
+    addUploadedFiles(newUploadFiles);
+    uploadQueue.addFiles(files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const files = Array.from(e.dataTransfer.files);
+    handleFilesAdded(files);
+  };
+
+  const handleConflictResolve = (resolutions: Map<File, ConflictResolution>) => {
+    const filesToAdd: File[] = [];
+
+    resolutions.forEach((resolution, file) => {
+      if (resolution === "replace") {
+        // 기존 파일 제거 후 새 파일 추가
+        const existingFile = uploadedFiles.find((uf) => uf.file.name === file.name);
+        if (existingFile) {
+          removeUploadedFile(existingFile.file);
+        }
+        filesToAdd.push(file);
+      } else if (resolution === "rename") {
+        // 새 이름으로 파일 추가
+        const suggestedName = generateSafeFileName(
+          file.name,
+          uploadedFiles.map((uf) => uf.file)
+        );
+        const renamedFile = new File([file], suggestedName, { type: file.type });
+        filesToAdd.push(renamedFile);
+      }
+    });
+
+    if (filesToAdd.length > 0) {
+      addFilesToQueue(filesToAdd);
+    }
+
+    setShowConflictModal(false);
+    setConflicts([]);
+  };
+
+  const handleSelectClick = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     handleFilesAdded(files);
   };
+
+  const getNoteData = (): NoteData => ({
+    title: title || "제목 없음",
+    location: selectedLocation,
+    files: uploadedFiles.map((uf) => uf.file),
+  });
 
   const handleSubmit = () => {
     const noteData = getNoteData();
@@ -63,6 +236,11 @@ export function NoteSettingsModal({
     reset();
     onClose();
   };
+
+  const storageUsage =
+    uploadedFiles.length > 0
+      ? calculateStorageUsage(uploadedFiles.map((uf) => uf.file))
+      : null;
 
   if (!isOpen) return null;
 
@@ -436,7 +614,7 @@ export function NoteSettingsModal({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        removeFile(uf.file);
+                        removeUploadedFile(uf.file);
                         const queueFile = uploadQueue.queue.find(
                           (qf) =>
                             qf.file.name === uf.file.name &&

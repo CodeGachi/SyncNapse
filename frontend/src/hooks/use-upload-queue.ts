@@ -1,5 +1,16 @@
 /**
  * 업로드 큐 관리 훅
+ *
+ * @deprecated 이 훅은 더 이상 사용되지 않습니다.
+ * 대신 TanStack Query 기반의 useFileUpload를 사용하세요:
+ *
+ * import { useFileUpload } from "@/hooks/use-file-upload";
+ *
+ * 새로운 훅은 다음 기능을 제공합니다:
+ * - TanStack Query 자동 상태 관리
+ * - 자동 에러 처리 및 재시도
+ * - 진행률 추적
+ * - 병렬 업로드 (동시 업로드 수 제한)
  */
 
 import { useState, useCallback, useRef } from "react";

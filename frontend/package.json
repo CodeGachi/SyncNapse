@@ -13,12 +13,15 @@
     "test:ci": "node --experimental-vm-modules ../node_modules/vitest/vitest.mjs run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-query-devtools": "^5.90.2",
     "clsx": "^2.1.1",
     "firebase": "^12.4.0",
     "next": "^14.2.33",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

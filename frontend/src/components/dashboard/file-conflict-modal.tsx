@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Modal } from "./modal";
-import { Button } from "./button";
+import { Modal } from "@/components/common/modal";
+import { Button } from "@/components/common/button";
 import { formatFileSize, formatDate } from "@/lib/utils";
 import type { FileConflict, ConflictResolution } from "@/lib/types";
 

@@ -6,12 +6,14 @@
 
 import { NoteSettingsModal } from "@/components/dashboard/create-note-modal";
 import { useDashboard } from "@/features/dashboard";
+import { useDashboardStore } from "@/stores";
 import { useAuth } from "@/features/auth/use-auth";
 import { useGoogleLogin } from "@/features/auth/google-login";
 
 export function DashboardSidebar() {
-  const { isModalOpen, setIsModalOpen, handleCreateNote } = useDashboard();
-  const { user } = useAuth();
+  const { handleCreateNote } = useDashboard();
+  const { user } = useAuth(); // TanStack Query로 사용자 정보 가져오기
+  const { isModalOpen, setIsModalOpen } = useDashboardStore();
   const { handleLogout } = useGoogleLogin();
 
   return (
