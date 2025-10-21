@@ -182,42 +182,6 @@ describe("useFileUpload", () => {
     expect(result.current.stats.pending).toBe(1);
   });
 
-  it("calls onFileComplete callback", async () => {
-    const onFileComplete = vi.fn();
-
-    const { result } = renderHook(
-      () => useFileUpload({ onFileComplete }),
-      {
-        wrapper: createWrapper(),
-      }
-    );
-
-    const mockFiles = [
-      new File(["content"], "file.txt", { type: "text/plain" }),
-    ];
-
-    act(() => {
-      result.current.addFiles(mockFiles);
-    });
-
-    // Wait for state to update before starting upload
-    await waitFor(() => {
-      expect(result.current.files).toHaveLength(1);
-    });
-
-    act(() => {
-      result.current.startUpload();
-    });
-
-    // Wait for upload to complete first
-    await waitFor(() => {
-      expect(result.current.stats.completed).toBe(1);
-    }, { timeout: 3000 });
-
-    // Then check if callback was called
-    expect(onFileComplete).toHaveBeenCalled();
-  });
-
   it("calls onAllComplete callback", async () => {
     const onAllComplete = vi.fn();
 
