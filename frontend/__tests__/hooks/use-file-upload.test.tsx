@@ -118,12 +118,14 @@ describe("useFileUpload", () => {
       result.current.addFiles(mockFiles);
     });
 
+    // Wait for state to update before starting upload
+    await waitFor(() => {
+      expect(result.current.files).toHaveLength(1);
+    });
+
     act(() => {
       result.current.startUpload();
     });
-
-    // After starting upload, files should be in the files array
-    expect(result.current.files).toHaveLength(1);
 
     // Wait for upload to complete
     await waitFor(() => {
