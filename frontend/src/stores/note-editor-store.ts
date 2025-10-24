@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { NoteBlock } from "@/features/note/editor/use-note-panel";
 import type { FileItem } from "@/features/note/file/use-file-panel";
+import type { Question, AutoSaveStatus, SupportedLanguage, ScriptSegment } from "@/lib/types";
 
 interface NoteEditorState {
   // Note Panel State
@@ -30,6 +31,27 @@ interface NoteEditorState {
   isPlaying: boolean;
   currentTime: number;
   isRecordingExpanded: boolean;
+
+  // Question State
+  questions: Question[];
+  isQuestionModalOpen: boolean;
+  isQuestionListExpanded: boolean;
+
+  // AutoSave State
+  autoSaveStatus: AutoSaveStatus;
+  lastSavedAt: string | null;
+
+  // Etc Panel State
+  isEtcPanelOpen: boolean;
+
+  // Tags Panel State
+  isTagsPanelOpen: boolean;
+
+  // Script Translation State
+  scriptSegments: ScriptSegment[];
+  isTranslationEnabled: boolean;
+  targetLanguage: SupportedLanguage;
+  originalLanguage: SupportedLanguage;
 
   // Note Panel Actions
   toggleNotePanel: () => void;
@@ -59,6 +81,29 @@ interface NoteEditorState {
   togglePlay: () => void;
   setCurrentTime: (time: number) => void;
   toggleRecordingExpanded: () => void;
+
+  // Question Actions
+  addQuestion: (content: string, author: string) => void;
+  answerQuestion: (id: string, answer: string) => void;
+  deleteQuestion: (id: string) => void;
+  toggleQuestionModal: () => void;
+  toggleQuestionListExpanded: () => void;
+
+  // AutoSave Actions
+  setAutoSaveStatus: (status: AutoSaveStatus) => void;
+  updateLastSavedAt: () => void;
+
+  // Etc Panel Actions
+  toggleEtcPanel: () => void;
+
+  // Tags Panel Actions
+  toggleTagsPanel: () => void;
+
+  // Script Translation Actions
+  toggleTranslation: () => void;
+  setTargetLanguage: (language: SupportedLanguage) => void;
+  setScriptSegments: (segments: ScriptSegment[]) => void;
+  updateSegmentTranslation: (id: string, translatedText: string) => void;
 
   // Reset
   reset: () => void;
@@ -92,6 +137,27 @@ const initialState = {
   isPlaying: false,
   currentTime: 0,
   isRecordingExpanded: false,
+
+  // Question
+  questions: [],
+  isQuestionModalOpen: false,
+  isQuestionListExpanded: false,
+
+  // AutoSave
+  autoSaveStatus: "idle" as AutoSaveStatus,
+  lastSavedAt: null,
+
+  // Etc Panel
+  isEtcPanelOpen: false,
+
+  // Tags Panel
+  isTagsPanelOpen: false,
+
+  // Script Translation
+  scriptSegments: [],
+  isTranslationEnabled: false,
+  targetLanguage: "en" as SupportedLanguage,
+  originalLanguage: "ko" as SupportedLanguage,
 };
 
 export const useNoteEditorStore = create<NoteEditorState>()(
@@ -134,7 +200,11 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       // File Panel Actions
       toggleFilePanel: () =>
-        set((state) => ({ isFilePanelOpen: !state.isFilePanelOpen })),
+        set((state) => ({
+          isFilePanelOpen: !state.isFilePanelOpen,
+          isEtcPanelOpen: false,
+          isTagsPanelOpen: false,
+        })),
 
       addFile: (file) =>
         set((state) => {
@@ -217,6 +287,81 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       toggleRecordingExpanded: () =>
         set((state) => ({ isRecordingExpanded: !state.isRecordingExpanded })),
+
+      // Question Actions
+      addQuestion: (content, author) =>
+        set((state) => {
+          const newQuestion: Question = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            content,
+            author,
+            timestamp: new Date().toISOString(),
+            status: "pending",
+          };
+          return { questions: [...state.questions, newQuestion] };
+        }),
+
+      answerQuestion: (id, answer) =>
+        set((state) => ({
+          questions: state.questions.map((q) =>
+            q.id === id
+              ? {
+                  ...q,
+                  answer,
+                  status: "answered" as const,
+                  answeredAt: new Date().toISOString(),
+                }
+              : q
+          ),
+        })),
+
+      deleteQuestion: (id) =>
+        set((state) => ({
+          questions: state.questions.filter((q) => q.id !== id),
+        })),
+
+      toggleQuestionModal: () =>
+        set((state) => ({ isQuestionModalOpen: !state.isQuestionModalOpen })),
+
+      toggleQuestionListExpanded: () =>
+        set((state) => ({ isQuestionListExpanded: !state.isQuestionListExpanded })),
+
+      // AutoSave Actions
+      setAutoSaveStatus: (status) => set({ autoSaveStatus: status }),
+
+      updateLastSavedAt: () =>
+        set({ lastSavedAt: new Date().toISOString(), autoSaveStatus: "saved" }),
+
+      // Etc Panel Actions
+      toggleEtcPanel: () =>
+        set((state) => ({
+          isEtcPanelOpen: !state.isEtcPanelOpen,
+          isFilePanelOpen: false,
+          isTagsPanelOpen: false,
+        })),
+
+      // Tags Panel Actions
+      toggleTagsPanel: () =>
+        set((state) => ({
+          isTagsPanelOpen: !state.isTagsPanelOpen,
+          isFilePanelOpen: false,
+          isEtcPanelOpen: false,
+        })),
+
+      // Script Translation Actions
+      toggleTranslation: () =>
+        set((state) => ({ isTranslationEnabled: !state.isTranslationEnabled })),
+
+      setTargetLanguage: (language) => set({ targetLanguage: language }),
+
+      setScriptSegments: (segments) => set({ scriptSegments: segments }),
+
+      updateSegmentTranslation: (id, translatedText) =>
+        set((state) => ({
+          scriptSegments: state.scriptSegments.map((segment) =>
+            segment.id === id ? { ...segment, translatedText } : segment
+          ),
+        })),
 
       // Reset
       reset: () => set(initialState),

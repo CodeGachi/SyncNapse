@@ -1,11 +1,11 @@
 /**
- * SyncNapse Google OAuth 로그인 기능 훅
- * TanStack Query 기반으로 마이그레이션
+ * Google OAuth Login Hook
  */
 
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGoogleLogin as useGoogleLoginMutation, useLogout } from "@/lib/api/mutations/auth.mutations";
 import { getGoogleLoginUrl } from "@/lib/api/auth.api";
 import { mockGoogleLogin, mockLogout } from "@/lib/mock/auth.mock";
@@ -14,6 +14,7 @@ const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
 
 export function useGoogleLogin() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const loginMutation = useGoogleLoginMutation({
     onSuccess: () => {
@@ -27,7 +28,11 @@ export function useGoogleLogin() {
 
   const logoutMutation = useLogout({
     onSuccess: () => {
-      window.location.href = "/";
+      // Clear all TanStack Query cache
+      queryClient.clear();
+
+      // Replace current history entry (prevents going back to authenticated pages)
+      router.replace("/");
     },
   });
 
@@ -82,7 +87,12 @@ export function useGoogleLogin() {
       if (USE_MOCK) {
         await mockLogout();
         console.log("[Mock] 로그아웃 완료");
-        window.location.href = "/";
+
+        // Clear all TanStack Query cache
+        queryClient.clear();
+
+        // Replace current history entry (prevents going back to authenticated pages)
+        router.replace("/");
       } else {
         logoutMutation.mutate();
       }

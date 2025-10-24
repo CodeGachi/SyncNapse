@@ -1,20 +1,106 @@
 /**
  * 스크립트 패널 컴포넌트
+ * 녹음 스크립트 표시 및 번역 기능
  */
+
+"use client";
+
+import { useNoteEditorStore } from "@/stores";
+import type { SupportedLanguage, LanguageOption } from "@/lib/types";
 
 interface ScriptPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const LANGUAGE_OPTIONS: LanguageOption[] = [
+  { code: "ko", name: "Korean", nativeName: "한국어" },
+  { code: "en", name: "English", nativeName: "English" },
+  { code: "ja", name: "Japanese", nativeName: "日本語" },
+  { code: "zh", name: "Chinese", nativeName: "中文" },
+  { code: "es", name: "Spanish", nativeName: "Español" },
+  { code: "fr", name: "French", nativeName: "Français" },
+  { code: "de", name: "German", nativeName: "Deutsch" },
+  { code: "ru", name: "Russian", nativeName: "Русский" },
+  { code: "ar", name: "Arabic", nativeName: "العربية" },
+  { code: "pt", name: "Portuguese", nativeName: "Português" },
+];
+
 export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
+  const {
+    scriptSegments,
+    isTranslationEnabled,
+    targetLanguage,
+    originalLanguage,
+    toggleTranslation,
+    setTargetLanguage,
+  } = useNoteEditorStore();
+
   if (!isOpen) return null;
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const getLanguageName = (code: SupportedLanguage): string => {
+    return LANGUAGE_OPTIONS.find((opt) => opt.code === code)?.nativeName || code;
+  };
 
   return (
     <div className="mt-3 bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-6 w-full">
       {/* 헤더 */}
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-white text-lg font-bold">Script</h3>
+        <div className="flex items-center gap-4">
+          <h3 className="text-white text-lg font-bold">Script</h3>
+
+          {/* 번역 토글 */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={isTranslationEnabled}
+                onChange={toggleTranslation}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </div>
+            <span className="text-white text-sm">번역</span>
+          </label>
+
+          {/* 언어 선택 */}
+          {isTranslationEnabled && (
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm">
+                {getLanguageName(originalLanguage)}
+              </span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M3 8h10M8 3l5 5-5 5"
+                  stroke="#b9b9b9"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <select
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value as SupportedLanguage)}
+                className="bg-[#1e1e1e] text-white text-sm px-3 py-1 rounded-md border border-[#3a3a3a] focus:outline-none focus:border-blue-500"
+              >
+                {LANGUAGE_OPTIONS.filter((opt) => opt.code !== originalLanguage).map(
+                  (option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.nativeName}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onClose}
           className="text-[#b9b9b9] hover:text-white transition-colors"
@@ -37,10 +123,57 @@ export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
 
       {/* 스크립트 내용 영역 */}
       <div className="bg-[#1e1e1e] rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
-        <p className="text-[#b9b9b9] text-sm">
-          스크립트 내용이 여기에 표시됩니다.
-        </p>
+        {scriptSegments.length === 0 ? (
+          <p className="text-[#b9b9b9] text-sm text-center py-8">
+            스크립트 내용이 여기에 표시됩니다.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {scriptSegments.map((segment) => (
+              <div
+                key={segment.id}
+                className="border-l-2 border-blue-500 pl-3 py-1"
+              >
+                {/* 타임스탬프 및 화자 */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-blue-400 text-xs font-mono">
+                    {formatTime(segment.timestamp)}
+                  </span>
+                  {segment.speaker && (
+                    <span className="text-gray-400 text-xs">
+                      • {segment.speaker}
+                    </span>
+                  )}
+                </div>
+
+                {/* 원본 텍스트 */}
+                <p className="text-white text-sm leading-relaxed mb-2">
+                  {segment.originalText}
+                </p>
+
+                {/* 번역 텍스트 */}
+                {isTranslationEnabled && segment.translatedText && (
+                  <p className="text-gray-300 text-sm leading-relaxed italic border-t border-gray-700 pt-2">
+                    {segment.translatedText}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* 하단 정보 */}
+      {scriptSegments.length > 0 && (
+        <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
+          <span>{scriptSegments.length}개 세그먼트</span>
+          {isTranslationEnabled && (
+            <span>
+              번역: {getLanguageName(originalLanguage)} → {getLanguageName(targetLanguage)}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

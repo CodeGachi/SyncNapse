@@ -4,6 +4,9 @@
 
 "use client";
 
+import { useNoteEditorStore } from "@/stores";
+import type { SupportedLanguage } from "@/lib/types";
+
 interface Recording {
   id: number;
   title: string;
@@ -23,6 +26,19 @@ interface RecordingBarProps {
   onToggleScript?: () => void;
 }
 
+const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
+  ko: "한국어",
+  en: "English",
+  ja: "日本語",
+  zh: "中文",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  ru: "Русский",
+  ar: "العربية",
+  pt: "Português",
+};
+
 export function RecordingBar({
   isPlaying,
   time,
@@ -33,6 +49,12 @@ export function RecordingBar({
   isScriptOpen = false,
   onToggleScript
 }: RecordingBarProps) {
+  const { isTranslationEnabled, targetLanguage, originalLanguage } = useNoteEditorStore();
+
+  const displayLanguage = isTranslationEnabled
+    ? `${LANGUAGE_NAMES[originalLanguage]} → ${LANGUAGE_NAMES[targetLanguage]}`
+    : LANGUAGE_NAMES[originalLanguage];
+
   return (
     <div className={`w-full bg-[#363636] border-2 border-white rounded-[30px] transition-all duration-300 ${
       isExpanded ? 'h-[190px] p-[10px] px-6' : 'px-6 py-2.5'
@@ -65,8 +87,8 @@ export function RecordingBar({
           <p className="text-[#b9b9b9] text-[12px] font-bold">{time}</p>
         </div>
 
-        {/* 언어 선택 */}
-        <button className="flex items-center gap-1 px-1 py-1 cursor-pointer hover:opacity-80 transition-opacity">
+        {/* 언어 표시 */}
+        <div className="flex items-center gap-1 px-1 py-1">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <circle cx="9" cy="9" r="8" stroke="white" strokeWidth="2" />
             <path
@@ -75,8 +97,13 @@ export function RecordingBar({
               strokeWidth="2"
             />
           </svg>
-          <span className="text-white text-[12px] font-bold">한국어</span>
-        </button>
+          <span
+            className={`text-white text-[12px] font-bold ${isTranslationEnabled ? 'text-blue-400' : ''}`}
+            title={isTranslationEnabled ? "번역 활성화됨" : ""}
+          >
+            {displayLanguage}
+          </span>
+        </div>
 
         {/* 북마크 */}
         <button className="flex items-center gap-1 px-1 py-1 cursor-pointer hover:opacity-80 transition-opacity">

@@ -5,24 +5,30 @@
 "use client";
 
 import { NoteSettingsModal } from "@/components/dashboard/create-note-modal";
+import { NotificationCenter } from "@/components/common/notification-center";
 import { useDashboard } from "@/features/dashboard";
-import { useDashboardStore } from "@/stores";
 import { useAuth } from "@/features/auth/use-auth";
 import { useGoogleLogin } from "@/features/auth/google-login";
+import { useModalStore } from "@/stores";
 
 export function DashboardSidebar() {
   const { handleCreateNote } = useDashboard();
   const { user } = useAuth(); // TanStack Query로 사용자 정보 가져오기
-  const { isModalOpen, setIsModalOpen } = useDashboardStore();
   const { handleLogout } = useGoogleLogin();
+
+  // Zustand로 모달 상태 관리
+  const { isNoteSettingsModalOpen, openNoteSettingsModal, closeNoteSettingsModal } =
+    useModalStore();
 
   return (
     <>
     <aside className="w-[214px] h-screen bg-[#191919] flex flex-col p-4 border-r border-[#2F2F2F]">
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-white text-xl font-bold flex items-center gap-2">
           SyncNapse
         </h1>
+        {/* 알림 센터 */}
+        <NotificationCenter />
       </div>
 
       {/* profile */}
@@ -50,7 +56,7 @@ export function DashboardSidebar() {
 
       {/* new note button */}
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={openNoteSettingsModal}
         className="w-full bg-[#6B7B3E] hover:bg-[#7A8A4D] text-white font-bold py-3 px-4 rounded-lg mb-4 transition-colors"
       >
         New Note
@@ -87,8 +93,8 @@ export function DashboardSidebar() {
 
     {/* note creation modal */}
     <NoteSettingsModal
-      isOpen={isModalOpen}
-      onClose={() => setIsModalOpen(false)}
+      isOpen={isNoteSettingsModalOpen}
+      onClose={closeNoteSettingsModal}
       onSubmit={handleCreateNote}
     />
     </>

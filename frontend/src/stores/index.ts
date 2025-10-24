@@ -5,4 +5,5 @@
 export { useAuthStore } from "./auth-store";
 export { useNoteSettingsStore } from "./note-settings-store";
 export { useNoteEditorStore } from "./note-editor-store";
-export { useDashboardStore } from "./dashboard-store";
+export { useNotificationStore, notify } from "./notification-store";
+export { useModalStore } from "./modal-store";

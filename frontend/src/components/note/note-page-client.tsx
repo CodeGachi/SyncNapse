@@ -4,9 +4,12 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNoteEditorStore } from "@/stores";
 import { useRecordingList } from "@/features/note/player";
+import { useNote } from "@/lib/api/queries/notes.queries";
+import { useUpdateNote } from "@/lib/api/mutations/notes.mutations";
+import { useAutoSave } from "@/hooks/use-auto-save";
 import { NoteSidebar } from "@/components/note/note-sidebar";
 import { FileTabs } from "@/components/note/file-tabs";
 import { PdfViewer } from "@/components/note/pdf-viewer";
@@ -16,8 +19,9 @@ import { SidebarIcons } from "@/components/note/sidebar-icons";
 import { ScriptPanel } from "@/components/note/script-panel";
 import { NotePanel } from "@/components/note/note-panel";
 import { FilePanel } from "@/components/note/file-panel";
-import { getNoteById, getNoteByTitle } from "@/lib/note-storage";
-import type { Note } from "@/lib/types";
+import { EtcPanel } from "@/components/note/etc-panel";
+import { TagsPanel } from "@/components/note/tags-panel";
+import { AutoSaveBadge } from "@/components/note/auto-save-badge";
 
 interface NotePageClientProps {
   noteId: string | null;
@@ -25,6 +29,15 @@ interface NotePageClientProps {
 }
 
 export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClientProps) {
+  // TanStack Query - 노트 데이터 조회
+  const { data: note, isLoading, error } = useNote(noteId);
+
+  // TanStack Query - 노트 업데이트
+  const updateNote = useUpdateNote();
+
+  // 사용자 정보 (추후 useAuth로 대체)
+  const currentUser = { name: "사용자", email: "user@example.com" };
+
   // Zustand Store - Note Editor State
   const {
     isNotePanelOpen,
@@ -54,10 +67,37 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
     isPlaying,
     togglePlay,
     currentTime,
+    // 새 기능들
+    questions,
+    addQuestion,
+    deleteQuestion,
+    autoSaveStatus,
+    lastSavedAt,
+    isEtcPanelOpen,
+    toggleEtcPanel,
+    isTagsPanelOpen,
+    toggleTagsPanel,
   } = useNoteEditorStore();
 
   // Recording list는 여전히 별도 hook 사용 (간단한 로컬 상태)
   const { recordings, isExpanded: isRecordingExpanded, toggleExpanded: toggleRecordingExpanded } = useRecordingList();
+
+  // 자동저장 훅
+  useAutoSave({
+    noteId: noteId || "",
+    enabled: !!noteId,
+    onSave: async () => {
+      if (!noteId) return;
+      await updateNote.mutateAsync({
+        noteId,
+        updates: {
+          // blocks를 업데이트 (실제로는 백엔드 API에 맞게 수정 필요)
+          // 임시로 updatedAt만 업데이트
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    },
+  });
 
   // 탭 변경 시 파일도 선택
   const handleTabChange = (index: number) => {
@@ -75,42 +115,56 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
     }
   };
 
-  // 클라이언트에서 노트 데이터 불러오기
+  // 질문 추가 핸들러
+  const handleAddQuestion = (content: string, author: string) => {
+    addQuestion(content, author);
+    // 추후 백엔드 API 연동
+  };
+
+  // TanStack Query로 받은 노트 데이터를 파일 패널에 로드
   useEffect(() => {
-    let note: Note | null = null;
-
-    if (noteId) {
-      note = getNoteById(noteId);
-    } else if (initialTitle) {
-      note = getNoteByTitle(initialTitle);
-    }
-
-    // 노트의 파일들을 파일 패널에 로드
     if (note?.files && note.files.length > 0) {
       const fileItems = note.files.map((noteFile) => ({
         id: noteFile.id,
         name: noteFile.name,
         type: noteFile.type,
         size: noteFile.size,
-        uploadedAt: note!.createdAt,
+        uploadedAt: note.createdAt,
         url: noteFile.url || "",
       }));
       loadFiles(fileItems);
     }
-  }, [noteId, initialTitle, loadFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note]);
 
-  // 노트 제목 결정
-  const getNoteTitle = () => {
-    if (noteId) {
-      const note = getNoteById(noteId);
-      return note?.title || "제목 없음";
-    } else if (initialTitle) {
-      return initialTitle;
-    }
-    return "제목 없음";
-  };
+  // 로딩 상태 처리
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#1e1e1e]">
+        <div className="text-white text-xl">로딩 중...</div>
+      </div>
+    );
+  }
 
-  const noteTitle = getNoteTitle();
+  // 에러 상태 처리
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#1e1e1e]">
+        <div className="text-red-500 text-xl">노트를 불러오는데 실패했습니다.</div>
+      </div>
+    );
+  }
+
+  // 노트가 없는 경우
+  if (!note) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#1e1e1e]">
+        <div className="text-white text-xl">노트를 찾을 수 없습니다.</div>
+      </div>
+    );
+  }
+
+  const noteTitle = note.title || "제목 없음";
 
   // 업로드된 파일을 탭용 파일 형식으로 변환
   const files = uploadedFiles.map((file, index) => ({
@@ -153,10 +207,14 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
         {/* 필기/탭 영역 */}
         <div className="flex flex-col gap-3 flex-1">
           {/* 제목 영역 */}
-          <div className="flex justify-between items-center px-2.5 h-[39px]">
-            <h1 className="text-[32px] font-bold text-white leading-[39px]">
-              {noteTitle}
-            </h1>
+          <div className="flex justify-between items-center px-2.5 min-h-[39px]">
+            <div className="flex items-center gap-4">
+              <h1 className="text-[32px] font-bold text-white leading-[39px]">
+                {noteTitle}
+              </h1>
+              {/* 자동저장 배지 */}
+              <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
+            </div>
 
             {/* 사이드바 확장 버튼 */}
             <button
@@ -260,6 +318,20 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
                 onCopyFile={copyFile}
               />
 
+              {/* etc 패널 */}
+              <EtcPanel
+                isOpen={isEtcPanelOpen}
+                questions={questions}
+                onAddQuestion={handleAddQuestion}
+                onDeleteQuestion={deleteQuestion}
+                currentUser={currentUser}
+              />
+
+              {/* tags 패널 */}
+              <TagsPanel
+                isOpen={isTagsPanelOpen}
+              />
+
               {/* 카테고리 버튼 */}
               <CategoryButtons
                 activeCategories={activeCategories}
@@ -268,6 +340,10 @@ export function NotePageClient({ noteId, noteTitle: initialTitle }: NotePageClie
                 isNotesOpen={isNotePanelOpen}
                 onFilesToggle={toggleFilePanel}
                 isFilesOpen={isFilePanelOpen}
+                onEtcToggle={toggleEtcPanel}
+                isEtcOpen={isEtcPanelOpen}
+                onTagsToggle={toggleTagsPanel}
+                isTagsOpen={isTagsPanelOpen}
               />
             </>
           )}

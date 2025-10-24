@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/common/button";
 import { NoteSettingsModal } from "@/components/dashboard/create-note-modal";
 import { createNote } from "@/lib/note-storage";
+import { useModalStore } from "@/stores";
 
 export function ActionSection() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
+
+  // Zustand로 모달 상태 관리
+  const { isNoteSettingsModalOpen, openNoteSettingsModal, closeNoteSettingsModal } =
+    useModalStore();
 
   const handleCreateNote = (noteData: {
     title: string;
@@ -20,7 +23,7 @@ export function ActionSection() {
     // 노트 저장소에 저장
     const newNote = createNote(noteData);
 
-    setIsModalOpen(false);
+    closeNoteSettingsModal();
 
     // ID로 노트 페이지 이동
     router.push(`/note?id=${newNote.id}`);
@@ -41,7 +44,7 @@ export function ActionSection() {
         <Button
           variant="outline"
           size="lg"
-          onClick={() => setIsModalOpen(true)}
+          onClick={openNoteSettingsModal}
         >
           새 노트 만들기
         </Button>
@@ -49,8 +52,8 @@ export function ActionSection() {
 
       {/* 모달 */}
       <NoteSettingsModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isNoteSettingsModalOpen}
+        onClose={closeNoteSettingsModal}
         onSubmit={handleCreateNote}
       />
     </>

@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { UploadedFile, FileConflict, Folder } from "@/lib/types";
+import type { UploadedFile } from "@/lib/types";
 
 interface NoteSettingsState {
   // State
@@ -14,8 +14,6 @@ interface NoteSettingsState {
   uploadedFiles: UploadedFile[];
   selectedFileIndex: number | null;
   isDragActive: boolean;
-  conflicts: FileConflict[];
-  showConflictModal: boolean;
   validationErrors: string[];
   autoExtractZip: boolean;
 
@@ -28,8 +26,6 @@ interface NoteSettingsState {
   updateUploadedFile: (file: File, updates: Partial<UploadedFile>) => void;
   setSelectedFileIndex: (index: number | null) => void;
   setIsDragActive: (active: boolean) => void;
-  setConflicts: (conflicts: FileConflict[]) => void;
-  setShowConflictModal: (show: boolean) => void;
   setValidationErrors: (errors: string[]) => void;
   setAutoExtractZip: (enabled: boolean) => void;
   reset: () => void;
@@ -41,8 +37,6 @@ const initialState = {
   uploadedFiles: [],
   selectedFileIndex: null,
   isDragActive: false,
-  conflicts: [],
-  showConflictModal: false,
   validationErrors: [],
   autoExtractZip: false,
 };
@@ -80,10 +74,6 @@ export const useNoteSettingsStore = create<NoteSettingsState>()(
       setSelectedFileIndex: (index) => set({ selectedFileIndex: index }),
 
       setIsDragActive: (active) => set({ isDragActive: active }),
-
-      setConflicts: (conflicts) => set({ conflicts }),
-
-      setShowConflictModal: (show) => set({ showConflictModal: show }),
 
       setValidationErrors: (errors) => set({ validationErrors: errors }),
 
