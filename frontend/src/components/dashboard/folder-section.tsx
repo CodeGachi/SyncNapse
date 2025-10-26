@@ -11,7 +11,6 @@ interface Folder {
 export function FolderSection() {
   const router = useRouter();
 
-  // TODO: 나중에 API에서 폴더 데이터 가져오기
   const folders: Folder[] = [];
 
   return (

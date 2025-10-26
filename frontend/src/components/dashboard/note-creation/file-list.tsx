@@ -6,34 +6,31 @@
 "use client";
 
 import type { UploadedFile } from "@/lib/types";
-import type { UploadQueue } from "@/hooks/use-upload-queue";
+import type { useFileUpload } from "@/hooks/use-file-upload";
 
 interface FileListProps {
   uploadedFiles: UploadedFile[];
-  selectedFileIndex: number | null;
-  uploadQueue: UploadQueue;
-  onSelectFile: (index: number) => void;
+  uploadQueue: ReturnType<typeof useFileUpload>;
   onRemoveFile: (file: File) => void;
 }
 
 export function FileList({
   uploadedFiles,
-  selectedFileIndex,
   uploadQueue,
-  onSelectFile,
   onRemoveFile,
 }: FileListProps) {
   const handleRetry = (fileName: string, fileSize: number) => {
-    const queueFile = uploadQueue.queue.find(
+    const queueFile = uploadQueue.files.find(
       (qf) => qf.file.name === fileName && qf.file.size === fileSize
     );
     if (queueFile) {
-      uploadQueue.retryFile(queueFile.id);
+      uploadQueue.retryFailed();
+      uploadQueue.startUpload();
     }
   };
 
   const handleCancel = (fileName: string, fileSize: number) => {
-    const queueFile = uploadQueue.queue.find(
+    const queueFile = uploadQueue.files.find(
       (qf) => qf.file.name === fileName && qf.file.size === fileSize
     );
     if (queueFile) {
@@ -55,12 +52,7 @@ export function FileList({
           uploadedFiles.map((uf, index) => (
             <div
               key={index}
-              onClick={() => onSelectFile(index)}
-              className={`rounded-lg p-4 flex justify-between items-center cursor-pointer transition-colors ${
-                selectedFileIndex === index
-                  ? "bg-[#AFC02B] bg-opacity-20 border-2 border-[#AFC02B]"
-                  : "bg-[#575757] hover:bg-[#6A6A6A]"
-              }`}
+              className="rounded-lg p-4 flex justify-between items-center transition-colors bg-[#575757] hover:bg-[#6A6A6A]"
             >
               <div className="flex items-center gap-4">
                 {/* 파일 아이콘 */}
@@ -102,62 +94,11 @@ export function FileList({
               </div>
 
               <div className="flex items-center gap-2">
-                {/* 상태별 UI */}
-                {uf.status === "uploading" ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all bg-[#3B82F6]"
-                        style={{ width: `${uf.progress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-[#2563EB]">
-                      {uf.progress}%
-                    </span>
-                    {/* 취소 버튼 */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCancel(uf.file.name, uf.file.size);
-                      }}
-                      className="text-xs text-orange-400 hover:text-orange-300"
-                      title="업로드 취소"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <circle
-                          cx="7"
-                          cy="7"
-                          r="6"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M4 4L10 10M10 4L4 10"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ) : uf.status === "completed" ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all bg-[#22C55E]"
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-[#16A34A]">
-                      완료
-                    </span>
-                  </div>
+                {/* 상태별 UI - 완료 또는 실패만 표시 */}
+                {uf.status === "completed" ? (
+                  <span className="text-xs font-medium text-[#16A34A]">
+                    완료
+                  </span>
                 ) : uf.status === "error" ? (
                   <button
                     onClick={(e) => {
@@ -168,26 +109,7 @@ export function FileList({
                   >
                     재시도
                   </button>
-                ) : uf.status === "cancelled" ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-400">
-                      취소됨
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRetry(uf.file.name, uf.file.size);
-                      }}
-                      className="text-xs text-blue-400 hover:text-blue-300 underline"
-                    >
-                      재시도
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs font-medium text-[#9CA3AF]">
-                    대기 중
-                  </span>
-                )}
+                ) : null}
 
                 {/* 삭제 버튼 */}
                 <button

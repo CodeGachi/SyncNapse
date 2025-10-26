@@ -1,14 +1,14 @@
 /**
- * 전역 상수 정의
- * 모든 상수를 한 곳에서 관리합니다.
+ * Global constant definitions
+ * Manages all constants in a single place.
  */
 
 // ============================================================================
-// 파일 관련 상수
+// File-related constants
 // ============================================================================
 
 export const FILE_CONSTRAINTS = {
-  // 파일 타입 제한 (MIME type)
+  // File type restrictions (MIME type)
   ALLOWED_TYPES: [
     "application/pdf",
     "application/msword",
@@ -23,7 +23,7 @@ export const FILE_CONSTRAINTS = {
     "application/x-zip-compressed",
   ] as const,
 
-  // 파일 확장자 제한
+// File extension restrictions
   ALLOWED_EXTENSIONS: [
     ".pdf",
     ".doc",
@@ -38,13 +38,10 @@ export const FILE_CONSTRAINTS = {
     ".zip",
   ] as const,
 
-  // 최대 파일 크기 (100MB)
   MAX_FILE_SIZE: 100 * 1024 * 1024,
 
-  // 최대 파일 개수
   MAX_FILES: 10,
 
-  // 최대 전체 용량 (1GB)
   MAX_TOTAL_SIZE: 1024 * 1024 * 1024,
 } as const;
 

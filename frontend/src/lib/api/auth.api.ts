@@ -1,6 +1,6 @@
 /**
- * SyncNapse 인증 API
- * 백엔드와 통신하는 인증 관련 API 함수들
+ * SyncNapse Authentication API
+ * Authentication-related API functions that communicate with the backend
  */
 
 import { apiClient, getAuthHeaders } from "./client";

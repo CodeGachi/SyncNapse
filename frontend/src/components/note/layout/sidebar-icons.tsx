@@ -1,22 +1,22 @@
 /**
- * 우측 사이드바 아이콘 버튼들
+ * 우측 사이드바 아이콘 버튼들 - Client Component
+ * 우측 패널이 닫혀있을 때 표시되는 아이콘들
  */
 
 "use client";
 
-interface SidebarIconsProps {
-  isExpanded: boolean;
-  onToggle: () => void;
-}
+import { useNoteEditorStore } from "@/stores";
 
-export function SidebarIcons({ isExpanded, onToggle }: SidebarIconsProps) {
+export function SidebarIcons() {
+  const { isExpanded, toggleExpand } = useNoteEditorStore();
+
   if (isExpanded) return null;
 
   return (
     <div className="fixed right-0 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-[#2f2f2f] rounded-l-lg p-2">
       {/* 마이크 아이콘 (녹음) */}
       <button
-        onClick={onToggle}
+        onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="녹음"
       >
@@ -29,7 +29,7 @@ export function SidebarIcons({ isExpanded, onToggle }: SidebarIconsProps) {
 
       {/* 클립보드 아이콘 (Notes) */}
       <button
-        onClick={onToggle}
+        onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="Notes"
       >
@@ -41,7 +41,7 @@ export function SidebarIcons({ isExpanded, onToggle }: SidebarIconsProps) {
 
       {/* 파일 아이콘 (Files) */}
       <button
-        onClick={onToggle}
+        onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="Files"
       >
@@ -53,7 +53,7 @@ export function SidebarIcons({ isExpanded, onToggle }: SidebarIconsProps) {
 
       {/* 눈 아이콘 (View) */}
       <button
-        onClick={onToggle}
+        onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="View"
       >
@@ -65,7 +65,7 @@ export function SidebarIcons({ isExpanded, onToggle }: SidebarIconsProps) {
 
       {/* 더보기 아이콘 (More) */}
       <button
-        onClick={onToggle}
+        onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="More"
       >

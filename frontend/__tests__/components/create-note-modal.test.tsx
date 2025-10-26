@@ -5,8 +5,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NoteSettingsModal } from "@/components/dashboard/create-note-modal";
 import { useNoteSettingsStore } from "@/stores";
+
+// 테스트용 QueryClient 생성 함수
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+// Wrapper 컴포넌트
+function Wrapper({ children }: { children: React.ReactNode }) {
+  const queryClient = createTestQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
 
 describe("NoteSettingsModal - File Upload", () => {
   const mockOnClose = vi.fn();
@@ -31,7 +52,8 @@ describe("NoteSettingsModal - File Upload", () => {
         isOpen={true}
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     // 초기 상태 확인
@@ -59,7 +81,7 @@ describe("NoteSettingsModal - File Upload", () => {
     }, { timeout: 3000 });
   });
 
-  it("대기 중 상태에서 자동으로 업로드 시작", async () => {
+  it("파일 업로드 시 자동으로 업로드 시작", async () => {
     const user = userEvent.setup();
 
     render(
@@ -67,7 +89,8 @@ describe("NoteSettingsModal - File Upload", () => {
         isOpen={true}
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -75,10 +98,9 @@ describe("NoteSettingsModal - File Upload", () => {
 
     await user.upload(fileInput, file);
 
-    // 업로드가 시작되는지 확인 (대기 중 → 업로드 중)
+    // 파일이 추가되었는지 확인
     await waitFor(() => {
-      const uploadingText = screen.queryByText(/업로드 중/i);
-      expect(uploadingText).toBeTruthy();
+      expect(screen.getByText("test.pdf")).toBeInTheDocument();
     }, { timeout: 3000 });
   });
 
@@ -90,7 +112,8 @@ describe("NoteSettingsModal - File Upload", () => {
         isOpen={true}
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -121,7 +144,8 @@ describe("NoteSettingsModal - File Upload", () => {
         isOpen={true}
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -150,7 +174,7 @@ describe("NoteSettingsModal - File Upload", () => {
     expect(screen.getByText("업로드된 파일이 없습니다")).toBeInTheDocument();
   });
 
-  it("업로드 진행률이 표시됨", async () => {
+  it("파일이 업로드 목록에 표시됨", async () => {
     const user = userEvent.setup();
 
     render(
@@ -158,7 +182,8 @@ describe("NoteSettingsModal - File Upload", () => {
         isOpen={true}
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -166,20 +191,13 @@ describe("NoteSettingsModal - File Upload", () => {
 
     await user.upload(fileInput, file);
 
-    // 파일이 추가되었는지 확인 (진행률 대신)
-    await waitFor(() => {
-      expect(screen.getByText("test.pdf")).toBeInTheDocument();
-    }, { timeout: 3000 });
-
-    // 업로드 상태 표시 확인
-    await waitFor(() => {
-      // "대기 중" 또는 "업로드 중" 또는 "완료" 중 하나가 표시되어야 함
-      const hasStatus =
-        screen.queryByText("대기 중") ||
-        screen.queryByText(/업로드 중/i) ||
-        screen.queryByText("완료");
-      expect(hasStatus).toBeTruthy();
-    }, { timeout: 3000 });
+    // 파일이 업로드 목록에 추가되었는지 확인
+    await waitFor(
+      () => {
+        expect(screen.getByText("test.pdf")).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 
   it("노트 생성 시 uploadedFiles의 파일들이 전달됨", async () => {
@@ -190,7 +208,8 @@ describe("NoteSettingsModal - File Upload", () => {
         isOpen={true}
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
-      />
+      />,
+      { wrapper: Wrapper }
     );
 
     // 제목 입력

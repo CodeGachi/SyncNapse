@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useNoteEditorStore } from "@/stores";
+import { useScriptTranslationStore } from "@/stores";
 import type { SupportedLanguage } from "@/lib/types";
 
 interface Recording {
@@ -49,7 +49,7 @@ export function RecordingBar({
   isScriptOpen = false,
   onToggleScript
 }: RecordingBarProps) {
-  const { isTranslationEnabled, targetLanguage, originalLanguage } = useNoteEditorStore();
+  const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
 
   const displayLanguage = isTranslationEnabled
     ? `${LANGUAGE_NAMES[originalLanguage]} → ${LANGUAGE_NAMES[targetLanguage]}`

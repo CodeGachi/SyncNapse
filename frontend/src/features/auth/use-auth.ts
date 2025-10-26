@@ -1,6 +1,5 @@
 /**
- * 인증 상태 관리 훅
- * TanStack Query 기반으로 마이그레이션
+ * Authentication state management hook
  */
 
 "use client";
@@ -14,6 +13,6 @@ export function useAuth() {
     user: user || null,
     loading: isLoading,
     isAuthenticated: !!user && !isError,
-    refetch, // 수동 갱신 함수
+    refetch, // Manual update function
   };
 }

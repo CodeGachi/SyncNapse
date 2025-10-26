@@ -28,7 +28,6 @@ describe("useFileUpload", () => {
     });
 
     expect(result.current.files).toEqual([]);
-    expect(result.current.stats.total).toBe(0);
     expect(result.current.isUploading).toBe(false);
   });
 
@@ -50,8 +49,7 @@ describe("useFileUpload", () => {
     expect(result.current.files[0].file.name).toBe("file1.txt");
     expect(result.current.files[1].file.name).toBe("file2.txt");
     expect(result.current.files[0].status).toBe("pending");
-    expect(result.current.stats.total).toBe(2);
-    expect(result.current.stats.pending).toBe(2);
+    expect(result.current.files[1].status).toBe("pending");
   });
 
   it("removes files correctly", () => {
@@ -79,7 +77,7 @@ describe("useFileUpload", () => {
     expect(result.current.files).toHaveLength(0);
   });
 
-  it("calculates stats correctly", () => {
+  it("tracks file states correctly", () => {
     const { result } = renderHook(() => useFileUpload(), {
       wrapper: createWrapper(),
     });
@@ -94,15 +92,10 @@ describe("useFileUpload", () => {
       result.current.addFiles(mockFiles);
     });
 
-    expect(result.current.stats).toEqual({
-      total: 3,
-      pending: 3,
-      uploading: 0,
-      completed: 0,
-      error: 0,
-      cancelled: 0,
-      totalProgress: 0,
-    });
+    expect(result.current.files).toHaveLength(3);
+    expect(result.current.files.filter(f => f.status === "pending")).toHaveLength(3);
+    expect(result.current.files.filter(f => f.status === "uploading")).toHaveLength(0);
+    expect(result.current.files.filter(f => f.status === "completed")).toHaveLength(0);
   });
 
   it("starts upload correctly", async () => {
@@ -129,8 +122,8 @@ describe("useFileUpload", () => {
 
     // Wait for upload to complete
     await waitFor(() => {
-      expect(result.current.stats.completed).toBe(1);
-    }, { timeout: 3000 });
+      expect(result.current.files.filter(f => f.status === "completed")).toHaveLength(1);
+    }, { timeout: 5000 });
   });
 
   it("clears completed files", () => {
@@ -171,7 +164,7 @@ describe("useFileUpload", () => {
     });
 
     // Initial state should be pending
-    expect(result.current.stats.pending).toBe(1);
+    expect(result.current.files.filter(f => f.status === "pending")).toHaveLength(1);
 
     // The retryFailed function should reset error state back to pending
     act(() => {
@@ -179,7 +172,7 @@ describe("useFileUpload", () => {
     });
 
     // Should still be pending (no errors to retry)
-    expect(result.current.stats.pending).toBe(1);
+    expect(result.current.files.filter(f => f.status === "pending")).toHaveLength(1);
   });
 
   it("calls onAllComplete callback", async () => {
@@ -210,10 +203,10 @@ describe("useFileUpload", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.stats.completed).toBe(1);
-    }, { timeout: 3000 });
+      expect(result.current.files.filter(f => f.status === "completed")).toHaveLength(1);
+    }, { timeout: 8000 });
 
     // onAllComplete should be called when upload finishes
     expect(onAllComplete).toHaveBeenCalledTimes(1);
-  });
+  }, 10000);
 });

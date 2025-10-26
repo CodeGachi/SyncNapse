@@ -15,7 +15,7 @@ import {
   processZipFile,
 } from "@/lib/utils";
 import { FILE_CONSTRAINTS } from "@/lib/constants";
-import { useUploadQueue } from "@/hooks";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import type { FileConflict, ConflictResolution, NoteData, Folder, UploadedFile } from "@/lib/types";
 
 export function useNoteSettings() {
@@ -30,8 +30,8 @@ export function useNoteSettings() {
   const [autoExtractZip, setAutoExtractZip] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 업로드 큐 관리
-  const uploadQueue = useUploadQueue({
+  // 파일 업로드 관리 (TanStack Query 기반)
+  const uploadQueue = useFileUpload({
     maxConcurrent: 2,
     onFileComplete: (file) => {
       console.log("파일 업로드 완료:", file.file.name);
@@ -39,14 +39,10 @@ export function useNoteSettings() {
     onFileError: (file, error) => {
       console.error("파일 업로드 실패:", file.file.name, error);
     },
+    onAllComplete: (results) => {
+      console.log("모든 파일 업로드 완료:", results);
+    },
   });
-
-  // 큐 자동 처리
-  useEffect(() => {
-    if (uploadQueue.stats.pending > 0 && uploadQueue.activeUploads < 2) {
-      uploadQueue.processQueue();
-    }
-  }, [uploadQueue]);
 
   // 더미 폴더 목록 (나중에 API로 대체)
   const folders: Folder[] = [
@@ -116,23 +112,26 @@ export function useNoteSettings() {
     const newUploadFiles: UploadedFile[] = files.map((file) => ({
       file,
       progress: 0,
-      status: "pending" as const,
+      status: "uploading" as const,
     }));
 
     setUploadedFiles((prev) => [...prev, ...newUploadFiles]);
     uploadQueue.addFiles(files);
+
+    // 자동으로 업로드 시작
+    uploadQueue.startUpload();
   };
 
-  // 업로드 큐 상태를 uploadedFiles에 동기화
+  // 업로드 상태를 uploadedFiles에 동기화
   useEffect(() => {
-    uploadQueue.queue.forEach((queueFile) => {
+    uploadQueue.files.forEach((queueFile) => {
       setUploadedFiles((prev) =>
         prev.map((uf) =>
           uf.file.name === queueFile.file.name &&
           uf.file.size === queueFile.file.size
             ? {
                 ...uf,
-                progress: queueFile.progress,
+                progress: 0,
                 status: queueFile.status,
                 error: queueFile.error,
               }
@@ -140,7 +139,11 @@ export function useNoteSettings() {
         )
       );
     });
-  }, [uploadQueue.queue]);
+  }, [
+    // 배열 길이와 각 파일의 상태를 의존성으로 추가
+    uploadQueue.files.length,
+    ...uploadQueue.files.map((f) => `${f.id}-${f.status}`),
+  ]);
 
   const removeFile = (file: File) => {
     setUploadedFiles((prev) => prev.filter((f) => f.file !== file));

@@ -1,17 +1,14 @@
 /**
- * 파일 업로드 관련 TanStack Query Mutations
- *
  * 파일 업로드/삭제 작업을 위한 useMutation 훅들
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   uploadFile,
-  uploadFiles,
   uploadFilesParallel,
   deleteFile,
   type UploadResult,
-  type UploadProgress,
+  type FileUploadResult,
 } from "../files.api";
 
 /**
@@ -19,9 +16,6 @@ import {
  *
  * @example
  * const uploadSingleFile = useUploadFile({
- *   onProgress: (progress) => {
- *     console.log(`업로드 진행: ${progress.percentage}%`);
- *   },
  *   onSuccess: (result) => {
  *     console.log("업로드 완료:", result);
  *   },
@@ -30,7 +24,6 @@ import {
  * uploadSingleFile.mutate(file);
  */
 export function useUploadFile(options?: {
-  onProgress?: (progress: UploadProgress) => void;
   onSuccess?: (result: UploadResult) => void;
   onError?: (error: Error) => void;
 }) {
@@ -44,56 +37,12 @@ export function useUploadFile(options?: {
       file: File;
       signal?: AbortSignal;
     }) => {
-      return uploadFile(file, options?.onProgress, signal);
+      return uploadFile(file, signal);
     },
 
     onSuccess: (result) => {
-      // 파일 목록 캐시 무효화 (필요한 경우)
       queryClient.invalidateQueries({ queryKey: ["files"] });
-
       options?.onSuccess?.(result);
-    },
-
-    onError: (error: Error) => {
-      options?.onError?.(error);
-    },
-  });
-}
-
-/**
- * 여러 파일 업로드 뮤테이션 (순차)
- *
- * @example
- * const uploadMultipleFiles = useUploadFiles({
- *   onProgress: (fileIndex, progress) => {
- *     console.log(`파일 ${fileIndex + 1} 업로드 진행: ${progress.percentage}%`);
- *   },
- * });
- *
- * uploadMultipleFiles.mutate(files);
- */
-export function useUploadFiles(options?: {
-  onProgress?: (fileIndex: number, progress: UploadProgress) => void;
-  onSuccess?: (results: UploadResult[]) => void;
-  onError?: (error: Error) => void;
-}) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      files,
-      signal,
-    }: {
-      files: File[];
-      signal?: AbortSignal;
-    }) => {
-      return uploadFiles(files, options?.onProgress, signal);
-    },
-
-    onSuccess: (results) => {
-      queryClient.invalidateQueries({ queryKey: ["files"] });
-
-      options?.onSuccess?.(results);
     },
 
     onError: (error: Error) => {
@@ -108,8 +57,10 @@ export function useUploadFiles(options?: {
  * @example
  * const uploadFilesParallel = useUploadFilesParallel({
  *   maxConcurrent: 3,
- *   onProgress: (fileIndex, progress) => {
- *     console.log(`파일 ${fileIndex + 1}: ${progress.percentage}%`);
+ *   onSuccess: (results) => {
+ *     const successful = results.filter(r => r.success);
+ *     const failed = results.filter(r => !r.success);
+ *     console.log(`완료: ${successful.length}, 실패: ${failed.length}`);
  *   },
  * });
  *
@@ -117,24 +68,18 @@ export function useUploadFiles(options?: {
  */
 export function useUploadFilesParallel(options?: {
   maxConcurrent?: number;
-  onProgress?: (fileIndex: number, progress: UploadProgress) => void;
-  onSuccess?: (results: UploadResult[]) => void;
+  onSuccess?: (results: FileUploadResult[]) => void;
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (files: File[]) => {
-      return uploadFilesParallel(
-        files,
-        options?.onProgress,
-        options?.maxConcurrent
-      );
+      return uploadFilesParallel(files, options?.maxConcurrent);
     },
 
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
-
       options?.onSuccess?.(results);
     },
 

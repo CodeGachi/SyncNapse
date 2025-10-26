@@ -1,7 +1,5 @@
 /**
  * Dashboard feature hook
- *
- * TanStack Query를 사용하여 노트 목록 조회 및 생성
  */
 
 "use client";
@@ -14,10 +12,8 @@ import type { NoteData } from "@/lib/types";
 export function useDashboard() {
   const router = useRouter();
 
-  // TanStack Query - 노트 목록 조회
   const { data: notes = [], isLoading, error } = useNotes();
 
-  // TanStack Query - 노트 생성
   const createNote = useCreateNote({
     onSuccess: (newNote) => {
       console.log("노트 생성 성공:", newNote);

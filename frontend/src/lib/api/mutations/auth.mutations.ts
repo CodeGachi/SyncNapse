@@ -6,9 +6,9 @@ import {
 import { exchangeCodeForToken, logout as logoutApi } from "../auth.api";
 
 /**
- * 구글 로그인 (코드 교환)
+ * 로그인 (코드 교환)
  */
-export function useGoogleLogin(
+export function useLogin(
   options?: UseMutationOptions<
     { token: string; user: any },
     Error,

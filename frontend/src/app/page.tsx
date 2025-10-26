@@ -1,7 +1,6 @@
 import { GoogleLoginButton } from "@/components/auth/google-login-button";
 
 export default function Home() {
-  // Server Component - GoogleLoginButton is a Client Component
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-2xl w-full text-center space-y-8">

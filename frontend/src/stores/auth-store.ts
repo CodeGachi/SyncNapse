@@ -40,6 +40,10 @@ export const useAuthStore = create<AuthUIState>()(
       toggleProfileDropdown: () =>
         set((state) => ({ isProfileDropdownOpen: !state.isProfileDropdownOpen })),
     }),
-    { name: "AuthUIStore" }
+    {
+      name: "AuthUIStore",
+      enabled: process.env.NODE_ENV === "development",
+      anonymousActionType: "authUIStore",
+    }
   )
 );

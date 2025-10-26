@@ -1,13 +1,10 @@
 /**
- * 파일 업로드 훅 (TanStack Query 기반)
- *
- * 기존 use-upload-queue.ts를 대체하는 새로운 업로드 훅
- * TanStack Query를 사용하여 상태 관리 및 에러 처리를 자동화
+ * File upload hook
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useUploadFilesParallel } from "@/lib/api/mutations/files.mutations";
-import type { UploadResult, UploadProgress } from "@/lib/api/files.api";
+import type { UploadResult, FileUploadResult } from "@/lib/api/files.api";
 
 export interface FileUploadItem {
   id: string;
@@ -18,15 +15,6 @@ export interface FileUploadItem {
   result?: UploadResult;
 }
 
-export interface FileUploadStats {
-  total: number;
-  pending: number;
-  uploading: number;
-  completed: number;
-  error: number;
-  cancelled: number;
-  totalProgress: number;
-}
 
 export interface UseFileUploadOptions {
   maxConcurrent?: number;
@@ -41,7 +29,6 @@ export interface UseFileUploadOptions {
  * @example
  * const {
  *   files,
- *   stats,
  *   addFiles,
  *   removeFile,
  *   startUpload,
@@ -63,47 +50,58 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   } = options;
 
   const [files, setFiles] = useState<FileUploadItem[]>([]);
-  const progressMapRef = useRef<Map<number, number>>(new Map());
 
-  // TanStack Query 뮤테이션
   const uploadMutation = useUploadFilesParallel({
     maxConcurrent,
-    onProgress: (fileIndex, progress) => {
-      progressMapRef.current.set(fileIndex, progress.percentage);
-
-      setFiles((prev) =>
-        prev.map((file, index) =>
-          index === fileIndex
-            ? {
-                ...file,
-                progress: progress.percentage,
-                status: "uploading" as const,
-              }
-            : file
-        )
-      );
-    },
     onSuccess: (results) => {
       setFiles((prev) =>
-        prev.map((file, index) => {
-          const result = results[index];
-          const updatedFile = {
-            ...file,
-            progress: 100,
-            status: "completed" as const,
-            result,
-          };
+        prev.map((file) => {
+          // 파일 객체를 기준으로 결과를 찾음
+          const uploadResult = results.find((r) => r.file === file.file);
 
-          if (onFileComplete) {
-            onFileComplete(updatedFile);
+          if (!uploadResult) {
+            // 업로드 결과를 찾지 못한 경우 (업로드되지 않음)
+            return file;
           }
 
-          return updatedFile;
+          if (uploadResult.success && uploadResult.result) {
+            const updatedFile = {
+              ...file,
+              progress: 100,
+              status: "completed" as const,
+              result: uploadResult.result,
+            };
+
+            if (onFileComplete) {
+              onFileComplete(updatedFile);
+            }
+
+            return updatedFile;
+          } else if (!uploadResult.success) {
+            const error = uploadResult.error || new Error("Unknown error");
+            const updatedFile = {
+              ...file,
+              status: "error" as const,
+              error: error.message,
+            };
+
+            if (onFileError) {
+              onFileError(updatedFile, error);
+            }
+
+            return updatedFile;
+          }
+
+          return file;
         })
       );
 
+      // 모든 파일의 결과 반환 (성공/실패 모두 포함)
       if (onAllComplete) {
-        onAllComplete(results);
+        const successfulResults = results
+          .filter((r) => r.success && r.result)
+          .map((r) => r.result as UploadResult);
+        onAllComplete(successfulResults);
       }
     },
     onError: (error) => {
@@ -162,7 +160,15 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       return;
     }
 
-    progressMapRef.current.clear();
+    // 업로드 시작 시 상태를 uploading으로 변경
+    setFiles((prev) =>
+      prev.map((file) =>
+        file.status === "pending" || file.status === "error"
+          ? { ...file, status: "uploading" as const, error: undefined }
+          : file
+      )
+    );
+
     uploadMutation.mutate(filesToUpload);
   }, [files, uploadMutation]);
 
@@ -172,7 +178,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const cancelAll = useCallback(() => {
     uploadMutation.reset();
     setFiles([]);
-    progressMapRef.current.clear();
   }, [uploadMutation]);
 
   /**
@@ -202,26 +207,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     );
   }, []);
 
-  /**
-   * 통계 계산
-   */
-  const stats: FileUploadStats = {
-    total: files.length,
-    pending: files.filter((f) => f.status === "pending").length,
-    uploading: files.filter((f) => f.status === "uploading").length,
-    completed: files.filter((f) => f.status === "completed").length,
-    error: files.filter((f) => f.status === "error").length,
-    cancelled: files.filter((f) => f.status === "cancelled").length,
-    totalProgress:
-      files.length > 0
-        ? files.reduce((sum, f) => sum + f.progress, 0) / files.length
-        : 0,
-  };
-
   return {
     // 상태
     files,
-    stats,
     isUploading: uploadMutation.isPending,
 
     // 액션

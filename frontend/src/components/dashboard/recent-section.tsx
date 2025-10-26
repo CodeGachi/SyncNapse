@@ -11,7 +11,6 @@ interface Note {
 export function RecentSection() {
   const router = useRouter();
 
-  // TODO: 나중에 API에서 최근 노트 데이터 가져오기
   const notes: Note[] = [];
 
   const formatDate = (dateString: string) => {

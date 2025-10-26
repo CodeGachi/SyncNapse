@@ -1,26 +1,21 @@
 /**
- * 노트 에디터 Zustand Store
- * 노트 편집 페이지의 모든 패널 상태 통합 관리
+ * 노트 에디터 Core Store (리팩토링됨)
+ * 패널 상태는 panels-store로, 번역 상태는 script-translation-store로 분리
  */
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { NoteBlock } from "@/features/note/editor/use-note-panel";
 import type { FileItem } from "@/features/note/file/use-file-panel";
-import type { Question, AutoSaveStatus, SupportedLanguage, ScriptSegment } from "@/lib/types";
+import type { Question, AutoSaveStatus } from "@/lib/types";
 
 interface NoteEditorState {
-  // Note Panel State
-  isNotePanelOpen: boolean;
+  // Note Blocks
   blocks: NoteBlock[];
 
-  // File Panel State
-  isFilePanelOpen: boolean;
+  // File State
   files: FileItem[];
   selectedFileId: string | null;
-
-  // Script Panel State
-  isScriptOpen: boolean;
 
   // UI State
   activeTab: number;
@@ -41,36 +36,19 @@ interface NoteEditorState {
   autoSaveStatus: AutoSaveStatus;
   lastSavedAt: string | null;
 
-  // Etc Panel State
-  isEtcPanelOpen: boolean;
-
-  // Tags Panel State
-  isTagsPanelOpen: boolean;
-
-  // Script Translation State
-  scriptSegments: ScriptSegment[];
-  isTranslationEnabled: boolean;
-  targetLanguage: SupportedLanguage;
-  originalLanguage: SupportedLanguage;
-
-  // Note Panel Actions
-  toggleNotePanel: () => void;
+  // Note Block Actions
   addBlock: (afterId: string, type?: NoteBlock["type"]) => string;
   updateBlock: (id: string, updates: Partial<NoteBlock>) => void;
   deleteBlock: (id: string) => void;
   setBlocks: (blocks: NoteBlock[]) => void;
 
-  // File Panel Actions
-  toggleFilePanel: () => void;
+  // File Actions
   addFile: (file: FileItem) => void;
   removeFile: (id: string) => void;
   selectFile: (id: string) => void;
   loadFiles: (files: FileItem[]) => void;
   renameFile: (id: string, newName: string) => void;
   copyFile: (id: string) => void;
-
-  // Script Panel Actions
-  toggleScript: () => void;
 
   // UI Actions
   setActiveTab: (index: number) => void;
@@ -93,25 +71,12 @@ interface NoteEditorState {
   setAutoSaveStatus: (status: AutoSaveStatus) => void;
   updateLastSavedAt: () => void;
 
-  // Etc Panel Actions
-  toggleEtcPanel: () => void;
-
-  // Tags Panel Actions
-  toggleTagsPanel: () => void;
-
-  // Script Translation Actions
-  toggleTranslation: () => void;
-  setTargetLanguage: (language: SupportedLanguage) => void;
-  setScriptSegments: (segments: ScriptSegment[]) => void;
-  updateSegmentTranslation: (id: string, translatedText: string) => void;
-
   // Reset
   reset: () => void;
 }
 
 const initialState = {
-  // Note Panel
-  isNotePanelOpen: false,
+  // Note Blocks
   blocks: [
     {
       id: "1",
@@ -120,13 +85,9 @@ const initialState = {
     },
   ],
 
-  // File Panel
-  isFilePanelOpen: false,
+  // Files
   files: [],
   selectedFileId: null,
-
-  // Script Panel
-  isScriptOpen: false,
 
   // UI
   activeTab: 0,
@@ -146,18 +107,6 @@ const initialState = {
   // AutoSave
   autoSaveStatus: "idle" as AutoSaveStatus,
   lastSavedAt: null,
-
-  // Etc Panel
-  isEtcPanelOpen: false,
-
-  // Tags Panel
-  isTagsPanelOpen: false,
-
-  // Script Translation
-  scriptSegments: [],
-  isTranslationEnabled: false,
-  targetLanguage: "en" as SupportedLanguage,
-  originalLanguage: "ko" as SupportedLanguage,
 };
 
 export const useNoteEditorStore = create<NoteEditorState>()(
@@ -165,10 +114,7 @@ export const useNoteEditorStore = create<NoteEditorState>()(
     (set, get) => ({
       ...initialState,
 
-      // Note Panel Actions
-      toggleNotePanel: () =>
-        set((state) => ({ isNotePanelOpen: !state.isNotePanelOpen })),
-
+      // Note Block Actions
       addBlock: (afterId, type = "text") => {
         const state = get();
         const index = state.blocks.findIndex((b) => b.id === afterId);
@@ -192,24 +138,16 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       deleteBlock: (id) =>
         set((state) => {
-          if (state.blocks.length === 1) return state; // 최소 1개 유지
+          if (state.blocks.length === 1) return state;
           return { blocks: state.blocks.filter((block) => block.id !== id) };
         }),
 
       setBlocks: (blocks) => set({ blocks }),
 
-      // File Panel Actions
-      toggleFilePanel: () =>
-        set((state) => ({
-          isFilePanelOpen: !state.isFilePanelOpen,
-          isEtcPanelOpen: false,
-          isTagsPanelOpen: false,
-        })),
-
+      // File Actions
       addFile: (file) =>
         set((state) => {
           const newFiles = [...state.files, file];
-          // 첫 번째 파일이면 자동 선택
           const selectedId =
             state.files.length === 0 ? file.id : state.selectedFileId;
           return { files: newFiles, selectedFileId: selectedId };
@@ -219,13 +157,10 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         set((state) => {
           const fileToRemove = state.files.find((f) => f.id === id);
           if (fileToRemove?.url) {
-            // Blob URL 메모리 해제
             URL.revokeObjectURL(fileToRemove.url);
           }
 
           const newFiles = state.files.filter((file) => file.id !== id);
-
-          // 선택된 파일이 삭제되면 다음 파일 선택
           let newSelectedId = state.selectedFileId;
           if (state.selectedFileId === id) {
             newSelectedId = newFiles.length > 0 ? newFiles[0].id : null;
@@ -240,7 +175,9 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         set((state) => ({
           files,
           selectedFileId:
-            files.length > 0 && !state.selectedFileId ? files[0].id : state.selectedFileId,
+            files.length > 0 && !state.selectedFileId
+              ? files[0].id
+              : state.selectedFileId,
         })),
 
       renameFile: (id, newName) =>
@@ -257,16 +194,15 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
           const newFile: FileItem = {
             ...fileToCopy,
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id:
+              Date.now().toString() +
+              Math.random().toString(36).substr(2, 9),
             name: `${fileToCopy.name.replace(/(\.[^.]+)$/, "")} - 복사본$1`,
             uploadedAt: new Date().toISOString(),
           };
 
           return { files: [...state.files, newFile] };
         }),
-
-      // Script Panel Actions
-      toggleScript: () => set((state) => ({ isScriptOpen: !state.isScriptOpen })),
 
       // UI Actions
       setActiveTab: (index) => set({ activeTab: index }),
@@ -286,13 +222,17 @@ export const useNoteEditorStore = create<NoteEditorState>()(
       setCurrentTime: (time) => set({ currentTime: time }),
 
       toggleRecordingExpanded: () =>
-        set((state) => ({ isRecordingExpanded: !state.isRecordingExpanded })),
+        set((state) => ({
+          isRecordingExpanded: !state.isRecordingExpanded,
+        })),
 
       // Question Actions
       addQuestion: (content, author) =>
         set((state) => {
           const newQuestion: Question = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            id:
+              Date.now().toString() +
+              Math.random().toString(36).substr(2, 9),
             content,
             author,
             timestamp: new Date().toISOString(),
@@ -321,51 +261,31 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         })),
 
       toggleQuestionModal: () =>
-        set((state) => ({ isQuestionModalOpen: !state.isQuestionModalOpen })),
+        set((state) => ({
+          isQuestionModalOpen: !state.isQuestionModalOpen,
+        })),
 
       toggleQuestionListExpanded: () =>
-        set((state) => ({ isQuestionListExpanded: !state.isQuestionListExpanded })),
+        set((state) => ({
+          isQuestionListExpanded: !state.isQuestionListExpanded,
+        })),
 
       // AutoSave Actions
       setAutoSaveStatus: (status) => set({ autoSaveStatus: status }),
 
       updateLastSavedAt: () =>
-        set({ lastSavedAt: new Date().toISOString(), autoSaveStatus: "saved" }),
-
-      // Etc Panel Actions
-      toggleEtcPanel: () =>
-        set((state) => ({
-          isEtcPanelOpen: !state.isEtcPanelOpen,
-          isFilePanelOpen: false,
-          isTagsPanelOpen: false,
-        })),
-
-      // Tags Panel Actions
-      toggleTagsPanel: () =>
-        set((state) => ({
-          isTagsPanelOpen: !state.isTagsPanelOpen,
-          isFilePanelOpen: false,
-          isEtcPanelOpen: false,
-        })),
-
-      // Script Translation Actions
-      toggleTranslation: () =>
-        set((state) => ({ isTranslationEnabled: !state.isTranslationEnabled })),
-
-      setTargetLanguage: (language) => set({ targetLanguage: language }),
-
-      setScriptSegments: (segments) => set({ scriptSegments: segments }),
-
-      updateSegmentTranslation: (id, translatedText) =>
-        set((state) => ({
-          scriptSegments: state.scriptSegments.map((segment) =>
-            segment.id === id ? { ...segment, translatedText } : segment
-          ),
-        })),
+        set({
+          lastSavedAt: new Date().toISOString(),
+          autoSaveStatus: "saved",
+        }),
 
       // Reset
       reset: () => set(initialState),
     }),
-    { name: "NoteEditorStore" }
+    {
+      name: "NoteEditorStore",
+      enabled: process.env.NODE_ENV === "development",
+      anonymousActionType: "noteEditorStore",
+    }
   )
 );

@@ -6,7 +6,7 @@
 
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGoogleLogin as useGoogleLoginMutation, useLogout } from "@/lib/api/mutations/auth.mutations";
+import { useLogin, useLogout } from "@/lib/api/mutations/auth.mutations";
 import { getGoogleLoginUrl } from "@/lib/api/auth.api";
 import { mockGoogleLogin, mockLogout } from "@/lib/mock/auth.mock";
 
@@ -16,7 +16,7 @@ export function useGoogleLogin() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const loginMutation = useGoogleLoginMutation({
+  const loginMutation = useLogin({
     onSuccess: () => {
       router.push("/dashboard");
     },
@@ -28,21 +28,14 @@ export function useGoogleLogin() {
 
   const logoutMutation = useLogout({
     onSuccess: () => {
-      // Clear all TanStack Query cache
       queryClient.clear();
-
-      // Replace current history entry (prevents going back to authenticated pages)
       router.replace("/");
     },
   });
 
-  /**
-   * Google 로그인 시작
-   */
   const handleGoogleLogin = async () => {
     try {
       if (USE_MOCK) {
-        // ===== Mock 모드 (개발용) =====
         console.log("[Mock] Google 로그인 시작...");
         const { user, token } = await mockGoogleLogin();
 
@@ -51,16 +44,13 @@ export function useGoogleLogin() {
           name: user.name,
         });
 
-        // 대시보드로 리다이렉트
         window.location.href = "/dashboard";
       } else {
-        // ===== Real 모드 (백엔드 연동) =====
         console.log("[Real] Google OAuth 시작...");
 
-        // 현재 페이지 URL 저장 (로그인 후 돌아오기 위함)
         sessionStorage.setItem("auth_redirect", window.location.pathname);
 
-        // 백엔드 Google OAuth URL로 리다이렉트
+        // Redirect to the backend Google OAuth URL
         const loginUrl = getGoogleLoginUrl();
         console.log("[Real] 리다이렉트:", loginUrl);
 
@@ -73,25 +63,20 @@ export function useGoogleLogin() {
   };
 
   /**
-   * 인증 코드 교환 (OAuth 콜백 페이지에서 사용)
+   * Authorization code exchange (used in the OAuth callback page)
    */
   const handleCodeExchange = (code: string) => {
     loginMutation.mutate({ code });
   };
 
-  /**
-   * 로그아웃
-   */
   const handleLogout = async () => {
     try {
       if (USE_MOCK) {
         await mockLogout();
         console.log("[Mock] 로그아웃 완료");
 
-        // Clear all TanStack Query cache
         queryClient.clear();
 
-        // Replace current history entry (prevents going back to authenticated pages)
         router.replace("/");
       } else {
         logoutMutation.mutate();

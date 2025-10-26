@@ -1,5 +1,4 @@
 /**
- * 노트 생성 설정 Zustand Store
  * 노트 생성 모달의 상태 관리 (제목, 위치, 파일 등)
  */
 
@@ -12,7 +11,6 @@ interface NoteSettingsState {
   title: string;
   selectedLocation: string;
   uploadedFiles: UploadedFile[];
-  selectedFileIndex: number | null;
   isDragActive: boolean;
   validationErrors: string[];
   autoExtractZip: boolean;
@@ -24,7 +22,6 @@ interface NoteSettingsState {
   addUploadedFiles: (files: UploadedFile[]) => void;
   removeUploadedFile: (file: File) => void;
   updateUploadedFile: (file: File, updates: Partial<UploadedFile>) => void;
-  setSelectedFileIndex: (index: number | null) => void;
   setIsDragActive: (active: boolean) => void;
   setValidationErrors: (errors: string[]) => void;
   setAutoExtractZip: (enabled: boolean) => void;
@@ -35,7 +32,6 @@ const initialState = {
   title: "",
   selectedLocation: "root",
   uploadedFiles: [],
-  selectedFileIndex: null,
   isDragActive: false,
   validationErrors: [],
   autoExtractZip: false,
@@ -71,8 +67,6 @@ export const useNoteSettingsStore = create<NoteSettingsState>()(
           ),
         })),
 
-      setSelectedFileIndex: (index) => set({ selectedFileIndex: index }),
-
       setIsDragActive: (active) => set({ isDragActive: active }),
 
       setValidationErrors: (errors) => set({ validationErrors: errors }),
@@ -81,6 +75,10 @@ export const useNoteSettingsStore = create<NoteSettingsState>()(
 
       reset: () => set(initialState),
     }),
-    { name: "NoteSettingsStore" }
+    {
+      name: "NoteSettingsStore",
+      enabled: process.env.NODE_ENV === "development",
+      anonymousActionType: "noteSettingsStore",
+    }
   )
 );

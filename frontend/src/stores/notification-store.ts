@@ -95,7 +95,11 @@ export const useNotificationStore = create<NotificationState>()(
           unreadCount: 0,
         }),
     }),
-    { name: "NotificationStore" }
+    {
+      name: "NotificationStore",
+      enabled: process.env.NODE_ENV === "development",
+      anonymousActionType: "notificationStore",
+    }
   )
 );
 

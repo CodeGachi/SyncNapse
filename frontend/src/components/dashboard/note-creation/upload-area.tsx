@@ -1,11 +1,12 @@
 /**
- * 파일 업로드 영역 컴포넌트
- * 드래그&드롭 및 파일 선택 기능
+ * File upload area component
+ * Provides drag-and-drop and file selection functionality
  */
 
 "use client";
 
 import { useRef } from "react";
+import { FILE_CONSTRAINTS } from "@/lib/constants";
 
 interface UploadAreaProps {
   isDragActive: boolean;
@@ -44,12 +45,11 @@ export function UploadArea({
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".pdf,.doc,.docx,.jpg,.png,.mp4,.mov,.zip"
+        accept={FILE_CONSTRAINTS.ALLOWED_EXTENSIONS.join(",")}
         onChange={onFileChange}
         className="hidden"
       />
-
-      {/* 업로드 아이콘 */}
+      
       <svg
         width="50"
         height="40"

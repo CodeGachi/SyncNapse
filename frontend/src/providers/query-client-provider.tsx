@@ -23,13 +23,13 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
             retryDelay: 1000,
           },
         },
+        // Consider applying QueryCache / MutationCache
       })
   );
 
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {/* Show DevTools only in development environment */}
       {process.env.NODE_ENV === "development" && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}

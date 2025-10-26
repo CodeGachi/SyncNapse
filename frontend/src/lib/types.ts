@@ -1,10 +1,10 @@
 /**
- * 전역 타입 정의
- * 모든 타입 정의를 한 곳에서 관리합니다.
+ * Global type definitions
+ * Manages all type declarations in a single place.
  */
 
 // ============================================================================
-// 파일 관련 타입
+// File-related types
 // ============================================================================
 
 export interface UploadedFile {
@@ -33,53 +33,16 @@ export interface FileConflict {
 }
 
 export type ConflictResolution =
-  | "replace" // 기존 파일 덮어쓰기
-  | "rename" // 새 이름으로 저장
-  | "skip" // 건너뛰기
-  | "cancel"; // 취소
+  | "replace" 
+  | "rename" 
+  | "skip" 
+  | "cancel"; 
 
 export interface StorageUsage {
   totalBytes: number;
   totalMB: number;
   totalGB: number;
   usagePercentage: number;
-}
-
-// ============================================================================
-// 업로드 큐 관련 타입
-// ============================================================================
-
-export interface UploadFile {
-  id: string;
-  file: File;
-  progress: number;
-  status: "pending" | "uploading" | "completed" | "error" | "cancelled";
-  error?: string;
-  uploadedBytes?: number;
-  totalBytes?: number;
-  startTime?: number;
-  endTime?: number;
-}
-
-export interface UploadQueueOptions {
-  maxConcurrent?: number;
-  onFileComplete?: (file: UploadFile) => void;
-  onFileError?: (file: UploadFile, error: Error) => void;
-  onQueueComplete?: () => void;
-  uploadFunction?: (
-    file: File,
-    onProgress: (progress: number) => void
-  ) => Promise<void>;
-}
-
-export interface UploadQueueStats {
-  total: number;
-  pending: number;
-  uploading: number;
-  completed: number;
-  error: number;
-  cancelled: number;
-  totalProgress: number;
 }
 
 // ============================================================================
@@ -125,7 +88,7 @@ export interface NoteFile {
   name: string;
   type: string;
   size: number;
-  url?: string; // 백엔드 URL (추후 구현)
+  url?: string; 
 }
 
 export interface Tag {
@@ -135,7 +98,7 @@ export interface Tag {
 }
 
 // ============================================================================
-// 알림 관련 타입
+// Notification-related types
 // ============================================================================
 
 export type NotificationType = "info" | "success" | "warning" | "error";
@@ -202,7 +165,8 @@ export type SupportedLanguage =
   | "de" // 독일어
   | "ru" // 러시아어
   | "ar" // 아랍어
-  | "pt"; // 포르투갈어
+  | "pt" // 포르투갈어
+
 
 export interface LanguageOption {
   code: SupportedLanguage;

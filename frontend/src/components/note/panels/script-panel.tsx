@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useNoteEditorStore } from "@/stores";
+import { useScriptTranslationStore } from "@/stores";
 import type { SupportedLanguage, LanguageOption } from "@/lib/types";
 
 interface ScriptPanelProps {
@@ -34,7 +34,7 @@ export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
     originalLanguage,
     toggleTranslation,
     setTargetLanguage,
-  } = useNoteEditorStore();
+  } = useScriptTranslationStore();
 
   if (!isOpen) return null;
 
