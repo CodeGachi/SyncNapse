@@ -10,13 +10,22 @@ datasource db {
 
 model User {
   id            String   @id @default(cuid())
-  email         String   @unique
+  email         String   @db.Citext @unique
   displayName   String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
   folders       Folder[]
   authProvider  String   // e.g., cognito, credentials, oauth
   role          String   // e.g., user, admin
+  // Back-relations
+  // Ink back-relations
+  inkLayersCreated       InkLayer[]   @relation("InkLayerCreatedBy")
+  inkStrokesCreated      InkStroke[]  @relation("InkStrokeCreatedBy")
+  // Uploads and Q&A back-relations
+  uploads                Upload[]     @relation("UserUploads")
+  questionsAsked         Question[]   @relation("UserAskedQuestions")
+  answersAuthored        Answer[]     @relation("UserAnsweredAnswers")
 }
 
 model Folder {
@@ -26,12 +35,13 @@ model Folder {
   parentId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   user      User     @relation(fields: [userId], references: [id])
   // Hierarchical self relation
   parent    Folder?  @relation("FolderToChildren", fields: [parentId], references: [id])
   children  Folder[] @relation("FolderToChildren")
-  // Many-to-many with LectureNote
-  notes     LectureNote[]
+  // Many-to-many with LectureNote via explicit join
+  notesLink FolderLectureNote[]
   @@index([userId])
   @@index([parentId])
 }
@@ -43,57 +53,87 @@ model LectureNote {
   audioFileUrl   String?  // recorded audio file storage URL
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  // Many-to-many with Folder
-  folders        Folder[]
+  deletedAt      DateTime?
+  // Many-to-many with Folder via explicit join
+  foldersLink    FolderLectureNote[]
   transcript     TranscriptSegment[]
   translations   TranslationSegment[]
   typingSections TypingSection[]
   mediaLinks     MediaLink[]
+  // Time-aligned chunks
+  chunks         MediaChunk[]
+  // Structured assets and user artifacts
+  materialPages  MaterialPage[]
+  audioRecordings AudioRecording[]
+  inkLayers      InkLayer[]
+  // Section sync mappings removed to match DB schema
+  questions      Question[]
+}
+
+// Explicit join table mapping for Folder <-> LectureNote
+model FolderLectureNote {
+  folderId String
+  noteId   String
+
+  folder Folder @relation(fields: [folderId], references: [id])
+  note   LectureNote @relation(fields: [noteId], references: [id])
+
+  @@id([folderId, noteId])
+  @@map("FolderLectureNote")
 }
 
 model TranscriptSegment {
   id            String   @id @default(cuid())
   noteId        String
+  chunkId       String?
   // timestamps in seconds with decimal precision
-  startSec      Decimal
-  endSec        Decimal
+  startSec      Decimal  @db.Decimal(7, 2)
+  endSec        Decimal  @db.Decimal(7, 2)
   text          String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   note          LectureNote @relation(fields: [noteId], references: [id])
+  chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
   // links to other entities at that timestamp
   links         MediaLink[]
   @@index([noteId, startSec])
+  @@index([chunkId])
 }
 
 model TranslationSegment {
   id            String   @id @default(cuid())
   noteId        String
+  chunkId       String?
   sourceLang    String
   targetLang    String
-  startSec      Decimal
-  endSec        Decimal
+  startSec      Decimal  @db.Decimal(7, 2)
+  endSec        Decimal  @db.Decimal(7, 2)
   text          String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   note          LectureNote @relation(fields: [noteId], references: [id])
+  chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
   links         MediaLink[]
   @@index([noteId, targetLang, startSec])
+  @@index([chunkId])
 }
 
 model TypingSection {
   id            String   @id @default(cuid())
   noteId        String
+  chunkId       String?
   // a named section of typed notes that can map to a time range
   title         String
   content       String
-  startSec      Decimal?
-  endSec        Decimal?
+  startSec      Decimal? @db.Decimal(7, 2)
+  endSec        Decimal? @db.Decimal(7, 2)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   note          LectureNote @relation(fields: [noteId], references: [id])
+  chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
   links         MediaLink[]
   @@index([noteId, startSec])
+  @@index([chunkId])
 }
 
 // A generic link that associates a time range to resources (file page, transcript, translation, typing)
@@ -101,8 +141,8 @@ model MediaLink {
   id                 String   @id @default(cuid())
   noteId             String
   // the canonical timestamp range this link represents
-  startSec           Decimal
-  endSec             Decimal
+  startSec           Decimal @db.Decimal(7, 2)
+  endSec             Decimal @db.Decimal(7, 2)
   // link type: 'file_page', 'transcript', 'translation', 'typing'
   linkType           String
   // detailed reference: page number for file, foreign keys for segments/sections
@@ -110,11 +150,244 @@ model MediaLink {
   transcriptId       String?
   translationId      String?
   typingSectionId    String?
+  // extended references: material page and audio slice
+  materialPageId     String?
+  audioSliceId       String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   note               LectureNote @relation(fields: [noteId], references: [id])
   transcriptSegment  TranscriptSegment? @relation(fields: [transcriptId], references: [id])
   translationSegment TranslationSegment? @relation(fields: [translationId], references: [id])
   typingSection      TypingSection? @relation(fields: [typingSectionId], references: [id])
+  materialPage       MaterialPage? @relation(fields: [materialPageId], references: [id])
+  audioSlice         AudioSlice? @relation(fields: [audioSliceId], references: [id])
   @@index([noteId, startSec])
+}
+
+// Material pages belong to a note and represent per-page assets
+model MaterialPage {
+  id         String   @id @default(cuid())
+  noteId     String
+  pageNumber Int
+  pageUrl    String?
+  // canonicalization
+  pageHash   String?   // sha256 or stable content hash
+  canonicalPageId String?
+  viewTransform Json?  // normalized transform to render canonical into this page viewport
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  note       LectureNote @relation(fields: [noteId], references: [id])
+  links      MediaLink[]
+  canonical  CanonicalPage? @relation(fields: [canonicalPageId], references: [id])
+  inkLayers  InkLayer[]
+  questions  Question[]
+  @@unique([noteId, pageNumber])
+  @@index([canonicalPageId])
+}
+
+// Audio recordings attached to a note (file-level)
+model AudioRecording {
+  id           String   @id @default(cuid())
+  noteId       String
+  fileUrl      String
+  durationSec  Decimal? @db.Decimal(7, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  note         LectureNote @relation(fields: [noteId], references: [id])
+  slices       AudioSlice[]
+  @@index([noteId])
+}
+
+// Sliced audio segments with optional file offset for alignment
+model AudioSlice {
+  id             String   @id @default(cuid())
+  recordingId    String
+  chunkId        String?
+  startSec       Decimal @db.Decimal(7, 2)
+  endSec         Decimal @db.Decimal(7, 2)
+  fileOffsetSec  Decimal? @db.Decimal(7, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  recording      AudioRecording @relation(fields: [recordingId], references: [id])
+  chunk          MediaChunk? @relation(fields: [chunkId], references: [id])
+  links          MediaLink[]
+  @@index([recordingId, startSec])
+  @@index([chunkId])
+}
+
+// User-specific bookmarks tied to a note and an optional page/time
+// Removed Bookmark and VocabEntry to match current DB schema
+
+// Live sessions for presenter/listeners with invite links and Q&A
+
+// Removed SessionInvite to match current DB schema
+
+// Timestamped Q&A during/after sessions
+// Removed Q&A models to match current DB schema
+
+// Trusted devices per user for MFA remember/WebAuthn binding and session management
+// Removed TrustedDevice and RefreshToken to match current DB schema
+
+// LiveSession/SessionMember/SectionSync removed to match DB schema
+
+// Time-aligned chunk to group transcript/translation/typing and audio slices
+model MediaChunk {
+  id          String   @id @default(cuid())
+  noteId      String
+  startSec    Decimal @db.Decimal(7, 2)
+  endSec      Decimal @db.Decimal(7, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  note        LectureNote @relation(fields: [noteId], references: [id])
+  transcripts TranscriptSegment[]
+  translations TranslationSegment[]
+  typings     TypingSection[]
+  slices      AudioSlice[]
+  inkLayers   InkLayer[]
+
+  @@index([noteId, startSec])
+}
+
+// Canonicalized page deduplication unit
+model CanonicalPage {
+  id          String   @id @default(cuid())
+  contentHash String   @unique // sha256 of normalized page bitmap/vector
+  sourceType  String             // pdf|image|other
+  renderKey   String?            // storage key for canonical render (e.g., PNG)
+  width       Int
+  height      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  materialPages MaterialPage[]
+  inkLayers     InkLayer[]
+}
+
+// Ink grouping per chunk/page with style and ownership
+model InkLayer {
+  id               String   @id @default(cuid())
+  noteId           String
+  chunkId          String?
+  canonicalPageId  String?
+  materialPageId   String?
+  title            String?
+  color            String?  // default stroke color
+  opacity          Float?   // 0..1
+  blendMode        String?  // normal/multiply/... (client-defined)
+  zIndex           Int?     // layer order
+  createdByUserId  String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  note        LectureNote @relation(fields: [noteId], references: [id])
+  chunk       MediaChunk? @relation(fields: [chunkId], references: [id])
+  canonical   CanonicalPage? @relation(fields: [canonicalPageId], references: [id])
+  material    MaterialPage? @relation(fields: [materialPageId], references: [id])
+  createdBy   User @relation("InkLayerCreatedBy", fields: [createdByUserId], references: [id])
+  strokes     InkStroke[]
+
+  @@index([noteId, chunkId])
+  @@index([canonicalPageId])
+  @@index([materialPageId])
+}
+
+// Individual stroke data (vector points), large payload -> JSON
+model InkStroke {
+  id          String   @id @default(cuid())
+  layerId     String
+  tool        String?     // pen|highlighter|eraser|shape
+  color       String?
+  thickness   Float?
+  // raw points array with x,y,t,pressure; client-normalized to canonical/page space
+  points      Json
+  // optional precomputed bounding box {x,y,w,h}
+  bbox        Json?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  layer       InkLayer @relation(fields: [layerId], references: [id])
+  createdBy   User @relation("InkStrokeCreatedBy", fields: [createdById], references: [id])
+
+  @@index([layerId])
+}
+
+// === Chunked upload schema ===
+
+enum UploadStatus {
+  PENDING
+  RECEIVING
+  ASSEMBLING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Upload {
+  id             String        @id @default(cuid())
+  userId         String?
+  fileName       String
+  mimeType       String?
+  totalSizeBytes Int?
+  totalChunks    Int
+  receivedChunks Int           @default(0)
+  status         UploadStatus  @default(PENDING)
+  checksumSha256 String?
+  storageKey     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  completedAt    DateTime?
+
+  chunks         UploadChunk[]
+  user           User?         @relation("UserUploads", fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model UploadChunk {
+  id         String   @id @default(cuid())
+  uploadId   String
+  index      Int
+  sizeBytes  Int?
+  checksum   String?
+  receivedAt DateTime @default(now())
+
+  upload     Upload   @relation(fields: [uploadId], references: [id])
+
+  @@unique([uploadId, index])
+  @@index([uploadId])
+}
+
+// === Q&A schema with slide (MaterialPage) reference ===
+
+model Question {
+  id              String      @id @default(cuid())
+  askedByUserId   String
+  noteId          String?
+  materialPageId  String?
+  startSec        Decimal?    @db.Decimal(7, 2)
+  text            String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  askedBy         User          @relation("UserAskedQuestions", fields: [askedByUserId], references: [id])
+  note            LectureNote?  @relation(fields: [noteId], references: [id])
+  materialPage    MaterialPage? @relation(fields: [materialPageId], references: [id])
+  answers         Answer[]
+
+  @@index([askedByUserId])
+  @@index([noteId, startSec])
+}
+
+model Answer {
+  id             String   @id @default(cuid())
+  questionId     String
+  answeredByUserId String
+  text           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  question       Question @relation(fields: [questionId], references: [id])
+  answeredBy     User     @relation("UserAnsweredAnswers", fields: [answeredByUserId], references: [id])
+
+  @@index([questionId])
+  @@index([answeredByUserId])
 }
