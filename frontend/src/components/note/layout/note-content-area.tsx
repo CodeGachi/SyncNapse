@@ -7,7 +7,7 @@
 
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
-import { PdfViewer } from "@/components/note/viewer/pdf-viewer";
+import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/editor/note-panel";
 import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
 
@@ -17,10 +17,6 @@ interface NoteContentAreaProps {
 
 export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
   const {
-    blocks,
-    addBlock,
-    updateBlock,
-    deleteBlock,
     files: uploadedFiles,
     removeFile,
     selectedFileId,
@@ -116,7 +112,7 @@ export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
         <div className="flex-1 flex flex-col gap-0 overflow-hidden">
           {/* PDF 뷰어 - 상단 절반 */}
           <div className={`${isNotePanelOpen ? 'h-1/2' : 'h-full'} transition-all duration-300`}>
-            <PdfViewer
+            <CustomPdfViewer
               fileUrl={selectedFile?.url}
               fileName={selectedFile?.name}
               fileType={selectedFile?.type}
@@ -126,13 +122,7 @@ export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
           {/* 노트 패널 - 하단 절반 */}
           {isNotePanelOpen && (
             <div className="h-1/2 overflow-y-auto p-3 bg-[#1e1e1e]">
-              <NotePanel
-                isOpen={isNotePanelOpen}
-                blocks={blocks}
-                onAddBlock={addBlock}
-                onUpdateBlock={updateBlock}
-                onDeleteBlock={deleteBlock}
-              />
+              <NotePanel isOpen={isNotePanelOpen} />
             </div>
           )}
         </div>

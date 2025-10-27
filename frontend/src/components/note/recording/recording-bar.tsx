@@ -19,11 +19,13 @@ interface RecordingBarProps {
   isPlaying: boolean;
   time: string;
   onPlayToggle: () => void;
+  onStop?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   recordings?: Recording[];
   isScriptOpen?: boolean;
   onToggleScript?: () => void;
+  isRecording?: boolean;
 }
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -43,11 +45,13 @@ export function RecordingBar({
   isPlaying,
   time,
   onPlayToggle,
+  onStop,
   isExpanded = false,
   onToggleExpand,
   recordings = [],
   isScriptOpen = false,
-  onToggleScript
+  onToggleScript,
+  isRecording = false,
 }: RecordingBarProps) {
   const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
 
@@ -119,10 +123,15 @@ export function RecordingBar({
         {/* 구분선 */}
         <div className="w-px h-5 bg-white" />
 
-        {/* 종료 버튼 */}
-        <button className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity">
-          <span className="text-white text-[12px] font-bold">종료</span>
-        </button>
+        {/* 종료 버튼 (녹음 중일 때만 표시) */}
+        {isRecording && onStop && (
+          <button
+            onClick={onStop}
+            className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-white text-[12px] font-bold">종료</span>
+          </button>
+        )}
 
         {/* 구분선 */}
         <div className="w-px h-5 bg-white" />

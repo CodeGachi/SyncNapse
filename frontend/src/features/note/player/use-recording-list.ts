@@ -1,54 +1,52 @@
 /**
- * 녹음 목록 관리 훅
+ * 녹음 목록 관리 훅 (Store 연동)
  */
 
 "use client";
 
-import { useState } from "react";
-
-interface Recording {
-  id: number;
-  title: string;
-  time: string;
-  date: string;
-  duration: string;
-}
+import { useNoteEditorStore } from "@/stores";
 
 export function useRecordingList() {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const {
+    isRecordingExpanded,
+    toggleRecordingExpanded,
+    recordings,
+    selectRecording,
+    removeRecording,
+  } = useNoteEditorStore();
 
-  // 더미 녹음 목록
-  const recordings: Recording[] = [
-    {
-      id: 1,
-      title: "녹음(1)",
-      time: "10:27 PM",
-      date: "2025/10/04",
-      duration: "2:33",
-    },
-    {
-      id: 2,
-      title: "녹음(2)",
-      time: "10:27 PM",
-      date: "2025/10/04",
-      duration: "2:33",
-    },
-    {
-      id: 3,
-      title: "녹음(3)",
-      time: "10:27 PM",
-      date: "2025/10/04",
-      duration: "2:33",
-    },
-  ];
+  // Recording 타입을 RecordingBar가 기대하는 형식으로 변환
+  const formattedRecordings = recordings.map((recording) => {
+    const date = new Date(recording.createdAt);
+    const time = date.toLocaleTimeString("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const dateStr = date.toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).replace(/\. /g, "/").replace(".", "");
 
-  const toggleExpanded = () => {
-    setIsExpanded((prev) => !prev);
-  };
+    const mins = Math.floor(recording.duration / 60);
+    const secs = recording.duration % 60;
+    const duration = `${mins}:${secs.toString().padStart(2, "0")}`;
+
+    return {
+      id: parseInt(recording.id, 10) || 0,
+      title: recording.title,
+      time,
+      date: dateStr,
+      duration,
+    };
+  });
 
   return {
-    isExpanded,
-    recordings,
-    toggleExpanded,
+    isExpanded: isRecordingExpanded,
+    recordings: formattedRecordings,
+    toggleExpanded: toggleRecordingExpanded,
+    selectRecording,
+    removeRecording,
   };
 }

@@ -5,9 +5,11 @@
 
 "use client";
 
+import { useState } from "react";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
-import { useRecordingList } from "@/features/note/player";
+import { useRecordingList, useRecording, type RecordingData } from "@/features/note/player";
 import { RecordingBar } from "@/components/note/recording/recording-bar";
+import { RecordingNameModal } from "@/components/note/recording/recording-name-modal";
 import { CategoryButtons } from "@/components/note/layout/category-buttons";
 import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { FilePanel } from "@/components/note/panels/file-panel";
@@ -32,6 +34,7 @@ export function RightSidePanel() {
     questions,
     addQuestion,
     deleteQuestion,
+    addRecording,
   } = useNoteEditorStore();
 
   const {
@@ -48,6 +51,23 @@ export function RightSidePanel() {
   } = usePanelsStore();
 
   const { recordings, isExpanded: isRecordingExpanded, toggleExpanded: toggleRecordingExpanded } = useRecordingList();
+
+  // 녹음 기능
+  const {
+    isRecording,
+    isPaused,
+    formattedTime: recordingTime,
+    error: recordingError,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    cancelRecording,
+  } = useRecording();
+
+  // 녹음 이름 모달 상태
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [pendingRecordingData, setPendingRecordingData] = useState<RecordingData | null>(null);
 
   // 사용자 정보 (추후 useAuth로 대체)
   const currentUser = { name: "사용자", email: "user@example.com" };
@@ -73,6 +93,54 @@ export function RightSidePanel() {
     // 추후 백엔드 API 연동
   };
 
+  // 녹음 재생/일시정지 토글
+  const handlePlayToggle = () => {
+    if (isRecording) {
+      // 녹음 중이면 일시정지/재개
+      if (isPaused) {
+        resumeRecording();
+      } else {
+        pauseRecording();
+      }
+    } else {
+      // 녹음 중이 아니면 녹음 시작
+      startRecording();
+    }
+  };
+
+  // 녹음 종료 (모달 열기)
+  const handleStopRecording = async () => {
+    try {
+      const recordingData = await stopRecording();
+      setPendingRecordingData(recordingData);
+      setIsNameModalOpen(true);
+    } catch (error) {
+      console.error("녹음 종료 실패:", error);
+      alert("녹음 저장에 실패했습니다");
+    }
+  };
+
+  // 녹음 저장 (이름과 함께)
+  const handleSaveRecording = (title: string) => {
+    if (!pendingRecordingData) return;
+
+    addRecording({
+      title,
+      duration: pendingRecordingData.duration,
+      createdAt: pendingRecordingData.createdAt,
+      audioBlob: pendingRecordingData.audioBlob,
+    });
+
+    setIsNameModalOpen(false);
+    setPendingRecordingData(null);
+  };
+
+  // 녹음 저장 취소
+  const handleCancelSave = () => {
+    setIsNameModalOpen(false);
+    setPendingRecordingData(null);
+  };
+
   // 시간 포맷팅
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -90,14 +158,24 @@ export function RightSidePanel() {
         <>
           {/* 녹음바 */}
           <RecordingBar
-            isPlaying={isPlaying}
-            time={formatTime(currentTime)}
-            onPlayToggle={togglePlay}
+            isPlaying={isRecording ? !isPaused : isPlaying}
+            time={isRecording ? recordingTime : formatTime(currentTime)}
+            onPlayToggle={handlePlayToggle}
+            onStop={handleStopRecording}
             isExpanded={isRecordingExpanded}
             onToggleExpand={toggleRecordingExpanded}
             recordings={recordings}
             isScriptOpen={isScriptOpen}
             onToggleScript={toggleScript}
+            isRecording={isRecording}
+          />
+
+          {/* 녹음 이름 설정 모달 */}
+          <RecordingNameModal
+            isOpen={isNameModalOpen}
+            duration={pendingRecordingData?.duration || 0}
+            onSave={handleSaveRecording}
+            onCancel={handleCancelSave}
           />
 
           {/* 스크립트 패널 */}

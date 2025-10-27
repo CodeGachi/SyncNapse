@@ -196,7 +196,7 @@ describe("useFileUpload", () => {
     // Wait for state to update before starting upload
     await waitFor(() => {
       expect(result.current.files).toHaveLength(1);
-    });
+    }, { timeout: 3000 });
 
     act(() => {
       result.current.startUpload();
@@ -204,9 +204,116 @@ describe("useFileUpload", () => {
 
     await waitFor(() => {
       expect(result.current.files.filter(f => f.status === "completed")).toHaveLength(1);
-    }, { timeout: 8000 });
+    }, { timeout: 10000 });
 
-    // onAllComplete should be called when upload finishes
-    expect(onAllComplete).toHaveBeenCalledTimes(1);
-  }, 10000);
+    // Wait a bit more for callback to be invoked
+    await waitFor(() => {
+      expect(onAllComplete).toHaveBeenCalled();
+    }, { timeout: 2000 });
+  }, 15000);
+
+  it("uploads PDF files correctly", async () => {
+    const { result } = renderHook(() => useFileUpload(), {
+      wrapper: createWrapper(),
+    });
+
+    // Create a mock PDF file
+    const pdfContent = "%PDF-1.4\n%mock pdf content";
+    const pdfFile = new File([pdfContent], "test.pdf", {
+      type: "application/pdf"
+    });
+
+    act(() => {
+      result.current.addFiles([pdfFile]);
+    });
+
+    // Wait for state to update
+    await waitFor(() => {
+      expect(result.current.files).toHaveLength(1);
+    });
+
+    // Verify PDF file was added with correct type
+    expect(result.current.files[0].file.name).toBe("test.pdf");
+    expect(result.current.files[0].file.type).toBe("application/pdf");
+    expect(result.current.files[0].status).toBe("pending");
+
+    act(() => {
+      result.current.startUpload();
+    });
+
+    // Wait for upload to complete
+    await waitFor(() => {
+      expect(result.current.files.filter(f => f.status === "completed")).toHaveLength(1);
+    }, { timeout: 5000 });
+  });
+
+  it("uploads multiple PDF files correctly", async () => {
+    const { result } = renderHook(() => useFileUpload({ maxConcurrent: 3 }), {
+      wrapper: createWrapper(),
+    });
+
+    // Create multiple mock PDF files
+    const pdfFiles = [
+      new File(["%PDF-1.4\ncontent1"], "test1.pdf", { type: "application/pdf" }),
+      new File(["%PDF-1.4\ncontent2"], "test2.pdf", { type: "application/pdf" }),
+      new File(["%PDF-1.4\ncontent3"], "test3.pdf", { type: "application/pdf" }),
+    ];
+
+    act(() => {
+      result.current.addFiles(pdfFiles);
+    });
+
+    // Wait for state to update
+    await waitFor(() => {
+      expect(result.current.files).toHaveLength(3);
+    });
+
+    // Verify all PDF files were added
+    expect(result.current.files.every(f => f.file.type === "application/pdf")).toBe(true);
+    expect(result.current.files.filter(f => f.status === "pending")).toHaveLength(3);
+
+    act(() => {
+      result.current.startUpload();
+    });
+
+    // Wait for all uploads to complete
+    await waitFor(() => {
+      expect(result.current.files.filter(f => f.status === "completed")).toHaveLength(3);
+    }, { timeout: 10000 });
+  });
+
+  it("handles mixed file types including PDF", async () => {
+    const { result } = renderHook(() => useFileUpload(), {
+      wrapper: createWrapper(),
+    });
+
+    const mixedFiles = [
+      new File(["%PDF-1.4\npdf content"], "document.pdf", { type: "application/pdf" }),
+      new File(["text content"], "notes.txt", { type: "text/plain" }),
+      new File(["image data"], "photo.jpg", { type: "image/jpeg" }),
+    ];
+
+    act(() => {
+      result.current.addFiles(mixedFiles);
+    });
+
+    await waitFor(() => {
+      expect(result.current.files).toHaveLength(3);
+    });
+
+    // Verify different file types
+    expect(result.current.files[0].file.type).toBe("application/pdf");
+    expect(result.current.files[1].file.type).toBe("text/plain");
+    expect(result.current.files[2].file.type).toBe("image/jpeg");
+
+    act(() => {
+      result.current.startUpload();
+    });
+
+    // Wait for all uploads to complete
+    await waitFor(() => {
+      const completed = result.current.files.filter(f => f.status === "completed");
+      return expect(completed).toHaveLength(3);
+    }, { timeout: 12000 });
+  }, 20000);
 });

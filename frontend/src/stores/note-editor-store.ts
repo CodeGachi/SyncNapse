@@ -1,6 +1,7 @@
 /**
  * 노트 에디터 Core Store (리팩토링됨)
  * 패널 상태는 panels-store로, 번역 상태는 script-translation-store로 분리
+ * PDF 페이지별 노트 기능 추가
  */
 
 import { create } from "zustand";
@@ -9,9 +10,34 @@ import type { NoteBlock } from "@/features/note/editor/use-note-panel";
 import type { FileItem } from "@/features/note/file/use-file-panel";
 import type { Question, AutoSaveStatus } from "@/lib/types";
 
+/**
+ * PDF 페이지별 노트 데이터 구조
+ * Key: fileId-pageNumber (예: "file123-1", "file123-2")
+ * Value: NoteBlock[]
+ */
+export interface PageNotes {
+  [key: string]: NoteBlock[];
+}
+
+/**
+ * 녹음 데이터 인터페이스
+ */
+export interface Recording {
+  id: string;
+  title: string;
+  duration: number; // 초 단위
+  createdAt: Date;
+  audioUrl: string; // Blob URL
+  audioBlob?: Blob; // 실제 오디오 데이터
+}
+
 interface NoteEditorState {
-  // Note Blocks
+  // Note Blocks (DEPRECATED - 페이지별 노트로 대체)
   blocks: NoteBlock[];
+
+  // Page-based Notes (NEW)
+  pageNotes: PageNotes;
+  currentPage: number;
 
   // File State
   files: FileItem[];
@@ -27,6 +53,10 @@ interface NoteEditorState {
   currentTime: number;
   isRecordingExpanded: boolean;
 
+  // Recording State
+  recordings: Recording[];
+  currentRecordingId: string | null;
+
   // Question State
   questions: Question[];
   isQuestionModalOpen: boolean;
@@ -36,11 +66,20 @@ interface NoteEditorState {
   autoSaveStatus: AutoSaveStatus;
   lastSavedAt: string | null;
 
-  // Note Block Actions
+  // Note Block Actions (DEPRECATED)
   addBlock: (afterId: string, type?: NoteBlock["type"]) => string;
   updateBlock: (id: string, updates: Partial<NoteBlock>) => void;
   deleteBlock: (id: string) => void;
   setBlocks: (blocks: NoteBlock[]) => void;
+
+  // Page-based Note Actions (NEW)
+  getPageKey: (fileId: string, page: number) => string;
+  getCurrentPageBlocks: () => NoteBlock[];
+  setCurrentPage: (page: number) => void;
+  addPageBlock: (afterId: string, type?: NoteBlock["type"]) => string;
+  updatePageBlock: (id: string, updates: Partial<NoteBlock>) => void;
+  deletePageBlock: (id: string) => void;
+  initializePageNotes: (fileId: string, totalPages: number) => void;
 
   // File Actions
   addFile: (file: FileItem) => void;
@@ -60,6 +99,13 @@ interface NoteEditorState {
   setCurrentTime: (time: number) => void;
   toggleRecordingExpanded: () => void;
 
+  // Recording Actions
+  addRecording: (recording: Omit<Recording, "id" | "audioUrl">) => void;
+  removeRecording: (id: string) => void;
+  updateRecordingTitle: (id: string, title: string) => void;
+  selectRecording: (id: string) => void;
+  clearRecordings: () => void;
+
   // Question Actions
   addQuestion: (content: string, author: string) => void;
   answerQuestion: (id: string, answer: string) => void;
@@ -76,7 +122,7 @@ interface NoteEditorState {
 }
 
 const initialState = {
-  // Note Blocks
+  // Note Blocks (DEPRECATED)
   blocks: [
     {
       id: "1",
@@ -84,6 +130,10 @@ const initialState = {
       content: "",
     },
   ],
+
+  // Page-based Notes (NEW)
+  pageNotes: {},
+  currentPage: 1,
 
   // Files
   files: [],
@@ -98,6 +148,10 @@ const initialState = {
   isPlaying: false,
   currentTime: 0,
   isRecordingExpanded: false,
+
+  // Recording
+  recordings: [],
+  currentRecordingId: null,
 
   // Question
   questions: [],
@@ -143,6 +197,106 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         }),
 
       setBlocks: (blocks) => set({ blocks }),
+
+      // Page-based Note Actions (NEW)
+      getPageKey: (fileId, page) => `${fileId}-${page}`,
+
+      getCurrentPageBlocks: () => {
+        const state = get();
+        if (!state.selectedFileId) return [];
+        const pageKey = get().getPageKey(state.selectedFileId, state.currentPage);
+        return state.pageNotes[pageKey] || [
+          {
+            id: `${pageKey}-1`,
+            type: "text",
+            content: "",
+          },
+        ];
+      },
+
+      setCurrentPage: (page) => set({ currentPage: page }),
+
+      addPageBlock: (afterId, type = "text") => {
+        const state = get();
+        if (!state.selectedFileId) return "";
+
+        const pageKey = state.getPageKey(state.selectedFileId, state.currentPage);
+        const currentBlocks = state.pageNotes[pageKey] || [];
+        const index = currentBlocks.findIndex((b) => b.id === afterId);
+
+        const newBlock: NoteBlock = {
+          id: `${pageKey}-${Date.now()}`,
+          type,
+          content: "",
+        };
+
+        const newBlocks = [...currentBlocks];
+        newBlocks.splice(index + 1, 0, newBlock);
+
+        set({
+          pageNotes: {
+            ...state.pageNotes,
+            [pageKey]: newBlocks,
+          },
+        });
+
+        return newBlock.id;
+      },
+
+      updatePageBlock: (id, updates) => {
+        const state = get();
+        if (!state.selectedFileId) return;
+
+        const pageKey = state.getPageKey(state.selectedFileId, state.currentPage);
+        const currentBlocks = state.pageNotes[pageKey] || [];
+
+        set({
+          pageNotes: {
+            ...state.pageNotes,
+            [pageKey]: currentBlocks.map((block) =>
+              block.id === id ? { ...block, ...updates } : block
+            ),
+          },
+        });
+      },
+
+      deletePageBlock: (id) => {
+        const state = get();
+        if (!state.selectedFileId) return;
+
+        const pageKey = state.getPageKey(state.selectedFileId, state.currentPage);
+        const currentBlocks = state.pageNotes[pageKey] || [];
+
+        if (currentBlocks.length === 1) return;
+
+        set({
+          pageNotes: {
+            ...state.pageNotes,
+            [pageKey]: currentBlocks.filter((block) => block.id !== id),
+          },
+        });
+      },
+
+      initializePageNotes: (fileId, totalPages) => {
+        const state = get();
+        const newPageNotes: PageNotes = { ...state.pageNotes };
+
+        // 각 페이지에 대해 빈 노트 블록 초기화
+        for (let page = 1; page <= totalPages; page++) {
+          const pageKey = get().getPageKey(fileId, page);
+          if (!newPageNotes[pageKey]) {
+            newPageNotes[pageKey] = [
+              {
+                id: `${pageKey}-1`,
+                type: "text",
+                content: "",
+              },
+            ];
+          }
+        }
+
+        set({ pageNotes: newPageNotes, currentPage: 1 });
+      },
 
       // File Actions
       addFile: (file) =>
@@ -225,6 +379,70 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         set((state) => ({
           isRecordingExpanded: !state.isRecordingExpanded,
         })),
+
+      // Recording Actions
+      addRecording: (recording) =>
+        set((state) => {
+          const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+          const audioUrl = recording.audioBlob
+            ? URL.createObjectURL(recording.audioBlob)
+            : "";
+
+          const newRecording: Recording = {
+            ...recording,
+            id,
+            audioUrl,
+          };
+
+          return {
+            recordings: [...state.recordings, newRecording],
+          };
+        }),
+
+      removeRecording: (id) =>
+        set((state) => {
+          // Blob URL 정리
+          const recording = state.recordings.find((r) => r.id === id);
+          if (recording?.audioUrl) {
+            URL.revokeObjectURL(recording.audioUrl);
+          }
+
+          return {
+            recordings: state.recordings.filter((r) => r.id !== id),
+            currentRecordingId: state.currentRecordingId === id ? null : state.currentRecordingId,
+          };
+        }),
+
+      updateRecordingTitle: (id, title) =>
+        set((state) => ({
+          recordings: state.recordings.map((r) =>
+            r.id === id ? { ...r, title } : r
+          ),
+        })),
+
+      selectRecording: (id) =>
+        set({
+          currentRecordingId: id,
+          isPlaying: false,
+          currentTime: 0,
+        }),
+
+      clearRecordings: () =>
+        set((state) => {
+          // 모든 Blob URL 정리
+          state.recordings.forEach((r) => {
+            if (r.audioUrl) {
+              URL.revokeObjectURL(r.audioUrl);
+            }
+          });
+
+          return {
+            recordings: [],
+            currentRecordingId: null,
+            isPlaying: false,
+            currentTime: 0,
+          };
+        }),
 
       // Question Actions
       addQuestion: (content, author) =>
