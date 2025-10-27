@@ -222,7 +222,6 @@ model Bookmark {
   noteId         String
   userId         String
   startSec       Decimal @db.Decimal(7, 2)
-  endSec         Decimal @db.Decimal(7, 2)
   tag            String?
   comment        String?
   createdAt      DateTime @default(now())
