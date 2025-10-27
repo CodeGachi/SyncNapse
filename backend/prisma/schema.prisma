@@ -16,6 +16,7 @@ model User {
   updatedAt     DateTime @updatedAt
   deletedAt     DateTime?
   folders       Folder[]
+  bookmark      Bookmark[]
   authProvider  String   // e.g., cognito, credentials, oauth
   role          String   // e.g., user, admin
   // Back-relations
@@ -66,6 +67,7 @@ model LectureNote {
   materialPages  MaterialPage[]
   audioRecordings AudioRecording[]
   inkLayers      InkLayer[]
+  bookmark       Bookmark[]
   // Section sync mappings removed to match DB schema
   questions      Question[]
 }
@@ -213,6 +215,23 @@ model AudioSlice {
   links          MediaLink[]
   @@index([recordingId, startSec])
   @@index([chunkId])
+}
+
+model Bookmark {
+  id             String   @id @default(cuid())
+  noteId         String
+  userId         String
+  startSec       Decimal @db.Decimal(7, 2)
+  endSec         Decimal @db.Decimal(7, 2)
+  tag            String?
+  comment        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  note           LectureNote @relation(fields: [noteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user           User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  @@index([noteId, startSec])
+  @@index([userId])
+  @@unique([userId, noteId, startSec])
 }
 
 // User-specific bookmarks tied to a note and an optional page/time
