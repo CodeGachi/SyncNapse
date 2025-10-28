@@ -6,8 +6,23 @@ import { useState } from "react";
 
 export interface NoteBlock {
   id: string;
-  type: "text" | "heading1" | "heading2" | "heading3" | "bullet" | "numbered" | "code";
+  type:
+    | "text"
+    | "heading1"
+    | "heading2"
+    | "heading3"
+    | "bullet"
+    | "numbered"
+    | "code"
+    | "strikethrough"
+    | "checkbox"
+    | "toggle"
+    | "divider"
+    | "quote";
   content: string;
+  checked?: boolean; // checkbox용
+  expanded?: boolean; // toggle용
+  indent?: number; // 들여쓰기 레벨 (0~5)
 }
 
 export function useNotePanel() {

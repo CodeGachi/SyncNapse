@@ -27,11 +27,11 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
             activeTab === index
               ? "bg-[#2f2f2f] border-t border-x border-[#3c3c3c]"
               : "bg-[#1e1e1e] border-t border-r border-[#3c3c3c] border-b"
-          } h-[39px] w-[130px] flex items-center justify-between gap-1 px-2.5 cursor-pointer hover:bg-[#2f2f2f] transition-colors group`}
+          } h-[32px] w-[120px] flex items-center justify-between gap-1 px-2 cursor-pointer hover:bg-[#2f2f2f] transition-colors group`}
         >
           <div className="flex items-center gap-1 flex-1 min-w-0">
             {/* 파일 아이콘 */}
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none" className="flex-shrink-0">
+            <svg width="14" height="14" viewBox="0 0 17 17" fill="none" className="flex-shrink-0">
               <path
                 d="M10 2V6H14"
                 stroke="white"
@@ -43,7 +43,7 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
                 strokeWidth="2"
               />
             </svg>
-            <span className="text-white text-[16px] font-bold truncate">
+            <span className="text-white text-xs font-medium truncate">
               {file.name}
             </span>
           </div>

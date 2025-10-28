@@ -40,7 +40,8 @@ interface NoteEditorState {
   currentPage: number;
 
   // File State
-  files: FileItem[];
+  files: FileItem[]; // 업로드된 모든 파일 목록
+  openedTabs: string[]; // 탭에 열린 파일 ID 목록
   selectedFileId: string | null;
 
   // UI State
@@ -83,11 +84,16 @@ interface NoteEditorState {
 
   // File Actions
   addFile: (file: FileItem) => void;
-  removeFile: (id: string) => void;
+  removeFile: (id: string) => void; // files 목록에서 완전히 삭제
   selectFile: (id: string) => void;
   loadFiles: (files: FileItem[]) => void;
   renameFile: (id: string, newName: string) => void;
   copyFile: (id: string) => void;
+
+  // Tab Actions
+  openFileInTab: (fileId: string) => void; // 파일을 탭에 열기
+  closeTab: (fileId: string) => void; // 탭에서만 닫기 (파일은 유지)
+  getOpenedFiles: () => FileItem[]; // 탭에 열린 파일들 가져오기
 
   // UI Actions
   setActiveTab: (index: number) => void;
@@ -137,6 +143,7 @@ const initialState = {
 
   // Files
   files: [],
+  openedTabs: [],
   selectedFileId: null,
 
   // UI
@@ -302,9 +309,8 @@ export const useNoteEditorStore = create<NoteEditorState>()(
       addFile: (file) =>
         set((state) => {
           const newFiles = [...state.files, file];
-          const selectedId =
-            state.files.length === 0 ? file.id : state.selectedFileId;
-          return { files: newFiles, selectedFileId: selectedId };
+          // 파일 추가 시 탭에는 자동으로 열지 않음
+          return { files: newFiles };
         }),
 
       removeFile: (id) =>
@@ -315,12 +321,18 @@ export const useNoteEditorStore = create<NoteEditorState>()(
           }
 
           const newFiles = state.files.filter((file) => file.id !== id);
+          const newOpenedTabs = state.openedTabs.filter((tabId) => tabId !== id);
+
           let newSelectedId = state.selectedFileId;
           if (state.selectedFileId === id) {
-            newSelectedId = newFiles.length > 0 ? newFiles[0].id : null;
+            newSelectedId = newOpenedTabs.length > 0 ? newOpenedTabs[0] : null;
           }
 
-          return { files: newFiles, selectedFileId: newSelectedId };
+          return {
+            files: newFiles,
+            openedTabs: newOpenedTabs,
+            selectedFileId: newSelectedId
+          };
         }),
 
       selectFile: (id) => set({ selectedFileId: id }),
@@ -357,6 +369,68 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
           return { files: [...state.files, newFile] };
         }),
+
+      // Tab Actions
+      openFileInTab: (fileId) =>
+        set((state) => {
+          // 이미 열려있으면 해당 탭으로 이동
+          if (state.openedTabs.includes(fileId)) {
+            const tabIndex = state.openedTabs.indexOf(fileId);
+            return {
+              activeTab: tabIndex,
+              selectedFileId: fileId,
+            };
+          }
+
+          // 새 탭 추가
+          const newOpenedTabs = [...state.openedTabs, fileId];
+          return {
+            openedTabs: newOpenedTabs,
+            activeTab: newOpenedTabs.length - 1,
+            selectedFileId: fileId,
+          };
+        }),
+
+      closeTab: (fileId) =>
+        set((state) => {
+          const newOpenedTabs = state.openedTabs.filter((id) => id !== fileId);
+
+          let newActiveTab = state.activeTab;
+          let newSelectedId = state.selectedFileId;
+
+          // 닫은 탭이 현재 선택된 탭이면 다른 탭 선택
+          if (state.selectedFileId === fileId) {
+            if (newOpenedTabs.length > 0) {
+              // 현재 탭 인덱스가 마지막이면 이전 탭으로, 아니면 현재 위치 유지
+              const currentIndex = state.openedTabs.indexOf(fileId);
+              const newIndex = currentIndex >= newOpenedTabs.length ? newOpenedTabs.length - 1 : currentIndex;
+              newActiveTab = newIndex;
+              newSelectedId = newOpenedTabs[newIndex];
+            } else {
+              newActiveTab = 0;
+              newSelectedId = null;
+            }
+          } else {
+            // 다른 탭을 닫은 경우 activeTab 인덱스 조정
+            const closedIndex = state.openedTabs.indexOf(fileId);
+            if (closedIndex < state.activeTab) {
+              newActiveTab = state.activeTab - 1;
+            }
+          }
+
+          return {
+            openedTabs: newOpenedTabs,
+            activeTab: newActiveTab,
+            selectedFileId: newSelectedId,
+          };
+        }),
+
+      getOpenedFiles: () => {
+        const state = get();
+        return state.openedTabs
+          .map((id) => state.files.find((f) => f.id === id))
+          .filter((f): f is FileItem => f !== undefined);
+      },
 
       // UI Actions
       setActiveTab: (index) => set({ activeTab: index }),

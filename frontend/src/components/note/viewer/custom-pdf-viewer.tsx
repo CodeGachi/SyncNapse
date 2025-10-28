@@ -17,6 +17,7 @@ interface CustomPdfViewerProps {
 
 export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [scale, setScale] = useState(1.5);
@@ -24,6 +25,11 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfjsLib, setPdfjsLib] = useState<any>(null);
+
+  // 패닝 상태
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 });
 
   const { currentPage, setCurrentPage, selectedFileId, initializePageNotes } = useNoteEditorStore();
 
@@ -84,29 +90,54 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
     loadPdf();
   }, [pdfjsLib, fileUrl, isPdf, selectedFileId, initializePageNotes, setCurrentPage]);
 
-  // PDF 페이지 렌더링
+  // 비 PDF 파일 로드 시 노트 초기화 (1페이지만 있다고 가정)
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current || currentPage < 1 || currentPage > numPages) return;
+    if (!fileUrl || isPdf) return;
+
+    // 이미지나 기타 파일은 1페이지만 있다고 가정
+    if (selectedFileId) {
+      initializePageNotes(selectedFileId, 1);
+      setCurrentPage(1);
+    }
+  }, [fileUrl, isPdf, selectedFileId, initializePageNotes, setCurrentPage]);
+
+  // PDF 페이지 렌더링 (컨테이너 크기에 맞춤)
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current || !containerRef.current || currentPage < 1 || currentPage > numPages) return;
 
     const renderPage = async () => {
       try {
         const page = await pdfDoc.getPage(currentPage);
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
 
         const context = canvas.getContext("2d");
         if (!context) return;
 
-        const viewport = page.getViewport({ scale, rotation });
+        // 컨테이너 크기 가져오기 (padding 최소화)
+        const containerWidth = container.clientWidth - 16; // padding 고려
+        const containerHeight = container.clientHeight - 16;
+
+        // 원본 viewport 계산
+        const viewport = page.getViewport({ scale: 1, rotation });
+
+        // 컨테이너에 맞는 스케일 계산
+        const scaleX = containerWidth / viewport.width;
+        const scaleY = containerHeight / viewport.height;
+        const autoScale = Math.min(scaleX, scaleY) * scale;
+
+        // 실제 렌더링할 viewport
+        const scaledViewport = page.getViewport({ scale: autoScale, rotation });
 
         // 캔버스 크기 설정
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        canvas.height = scaledViewport.height;
+        canvas.width = scaledViewport.width;
 
         // 렌더링
         const renderContext = {
           canvasContext: context,
-          viewport: viewport,
+          viewport: scaledViewport,
         };
 
         await page.render(renderContext).promise;
@@ -141,7 +172,7 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
 
   // 줌 컨트롤
   const handleZoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.25, 3));
+    setScale((prev) => Math.min(prev + 0.25, 5));
   };
 
   const handleZoomOut = () => {
@@ -150,6 +181,34 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
 
   const handleResetZoom = () => {
     setScale(1.5);
+  };
+
+  // 패닝 핸들러
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+    setScrollStart({
+      x: containerRef.current.scrollLeft,
+      y: containerRef.current.scrollTop,
+    });
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !containerRef.current) return;
+    const dx = e.clientX - panStart.x;
+    const dy = e.clientY - panStart.y;
+    containerRef.current.scrollLeft = scrollStart.x - dx;
+    containerRef.current.scrollTop = scrollStart.y - dy;
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPanning(false);
   };
 
   // 회전 컨트롤
@@ -185,7 +244,7 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
         case "=":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
-            setScale((prev) => Math.min(prev + 0.25, 3));
+            setScale((prev) => Math.min(prev + 0.25, 5));
           }
           break;
         case "-":
@@ -210,7 +269,15 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
   return (
     <div className="w-full h-full bg-[#2f2f2f] border-x border-b border-[#3c3c3c] rounded-bl-[15px] rounded-br-[15px] flex flex-col overflow-hidden">
       {/* PDF 뷰어 컨텐츠 영역 */}
-      <div className="flex-1 flex items-center justify-center overflow-auto bg-[#2a2a2a]">
+      <div
+        ref={containerRef}
+        className="flex-1 flex items-center justify-center overflow-auto bg-[#2a2a2a]"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        style={{ cursor: isPanning ? "grabbing" : "grab" }}
+      >
         {!fileUrl ? (
           <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
@@ -222,7 +289,7 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
           </div>
         ) : isPdf ? (
           // PDF 파일 - canvas 렌더링
-          <div className="flex items-center justify-center p-4">
+          <div className="flex items-center justify-center p-2 w-full h-full">
             {loading && (
               <div className="flex flex-col items-center gap-3 text-white">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
@@ -333,7 +400,7 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
 
             <button
               onClick={handleZoomIn}
-              disabled={scale >= 3}
+              disabled={scale >= 5}
               className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="확대 (Ctrl + +)"
             >

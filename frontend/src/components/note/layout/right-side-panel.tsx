@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useRecordingList, useRecording, type RecordingData } from "@/features/note/player";
 import { RecordingBar } from "@/components/note/recording/recording-bar";
@@ -23,6 +23,7 @@ export function RightSidePanel() {
     removeFile,
     selectedFileId,
     selectFile,
+    openFileInTab,
     renameFile,
     copyFile,
     activeCategories,
@@ -31,10 +32,14 @@ export function RightSidePanel() {
     isPlaying,
     togglePlay,
     currentTime,
+    setCurrentTime,
     questions,
     addQuestion,
     deleteQuestion,
     addRecording,
+    recordings,
+    currentRecordingId,
+    selectRecording,
   } = useNoteEditorStore();
 
   const {
@@ -50,7 +55,7 @@ export function RightSidePanel() {
     toggleTagsPanel,
   } = usePanelsStore();
 
-  const { recordings, isExpanded: isRecordingExpanded, toggleExpanded: toggleRecordingExpanded } = useRecordingList();
+  const { recordings: formattedRecordings, isExpanded: isRecordingExpanded, toggleExpanded: toggleRecordingExpanded } = useRecordingList();
 
   // 녹음 기능
   const {
@@ -68,6 +73,9 @@ export function RightSidePanel() {
   // 녹음 이름 모달 상태
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [pendingRecordingData, setPendingRecordingData] = useState<RecordingData | null>(null);
+
+  // 오디오 재생용 ref
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // 사용자 정보 (추후 useAuth로 대체)
   const currentUser = { name: "사용자", email: "user@example.com" };
@@ -102,21 +110,83 @@ export function RightSidePanel() {
       } else {
         pauseRecording();
       }
+    } else if (currentRecordingId && audioRef.current) {
+      // 녹음본 재생 중이면 재생/일시정지
+      if (isPlaying) {
+        audioRef.current.pause();
+        togglePlay();
+      } else {
+        audioRef.current.play();
+        togglePlay();
+      }
     } else {
-      // 녹음 중이 아니면 녹음 시작
+      // 녹음 시작
       startRecording();
     }
   };
 
-  // 녹음 종료 (모달 열기)
+  // 녹음 선택 핸들러
+  const handleRecordingSelect = (id: number) => {
+    const recording = recordings.find((r) => parseInt(r.id, 10) === id || r.id === id.toString());
+    if (!recording) return;
+
+    selectRecording(recording.id);
+
+    // 오디오 재생
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = recording.audioUrl;
+      audioRef.current.load();
+      audioRef.current.play();
+      if (!isPlaying) togglePlay();
+    }
+  };
+
+  // 오디오 시간 업데이트
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+
+    const audio = audioRef.current;
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(Math.floor(audio.currentTime));
+    };
+
+    const handleEnded = () => {
+      if (isPlaying) togglePlay();
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("ended", handleEnded);
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("ended", handleEnded);
+    };
+  }, [isPlaying, setCurrentTime, togglePlay]);
+
+  // 녹음 종료 (모달 열기) 또는 재생 중지
   const handleStopRecording = async () => {
-    try {
-      const recordingData = await stopRecording();
-      setPendingRecordingData(recordingData);
-      setIsNameModalOpen(true);
-    } catch (error) {
-      console.error("녹음 종료 실패:", error);
-      alert("녹음 저장에 실패했습니다");
+    if (isRecording) {
+      // 녹음 중이면 녹음 종료
+      try {
+        const recordingData = await stopRecording();
+        setPendingRecordingData(recordingData);
+        setIsNameModalOpen(true);
+      } catch (error) {
+        console.error("녹음 종료 실패:", error);
+        alert("녹음 저장에 실패했습니다");
+      }
+    } else {
+      // 재생 중이면 재생 중지
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        if (isPlaying) togglePlay();
+      }
     }
   };
 
@@ -150,8 +220,8 @@ export function RightSidePanel() {
 
   return (
     <div
-      className={`fixed right-0 top-0 h-full flex flex-col gap-3 pt-6 px-6 bg-[#1e1e1e] transition-all duration-300 ${
-        isExpanded ? 'translate-x-0 w-[424px]' : 'translate-x-full w-0'
+      className={`fixed right-0 top-0 h-full flex flex-col gap-2 pt-6 px-4 bg-[#1e1e1e] transition-all duration-300 ${
+        isExpanded ? 'translate-x-0 w-[500px]' : 'translate-x-full w-0'
       }`}
     >
       {isExpanded && (
@@ -164,10 +234,11 @@ export function RightSidePanel() {
             onStop={handleStopRecording}
             isExpanded={isRecordingExpanded}
             onToggleExpand={toggleRecordingExpanded}
-            recordings={recordings}
+            recordings={formattedRecordings}
             isScriptOpen={isScriptOpen}
             onToggleScript={toggleScript}
             isRecording={isRecording}
+            onRecordingSelect={handleRecordingSelect}
           />
 
           {/* 녹음 이름 설정 모달 */}
@@ -189,6 +260,7 @@ export function RightSidePanel() {
             onRemoveFile={removeFile}
             selectedFileId={selectedFileId}
             onSelectFile={selectFile}
+            onOpenFileInTab={openFileInTab}
             onRenameFile={renameFile}
             onCopyFile={copyFile}
           />

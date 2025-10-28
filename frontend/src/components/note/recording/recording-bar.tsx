@@ -26,6 +26,7 @@ interface RecordingBarProps {
   isScriptOpen?: boolean;
   onToggleScript?: () => void;
   isRecording?: boolean;
+  onRecordingSelect?: (id: number) => void;
 }
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -52,6 +53,7 @@ export function RecordingBar({
   isScriptOpen = false,
   onToggleScript,
   isRecording = false,
+  onRecordingSelect,
 }: RecordingBarProps) {
   const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
 
@@ -123,8 +125,8 @@ export function RecordingBar({
         {/* 구분선 */}
         <div className="w-px h-5 bg-white" />
 
-        {/* 종료 버튼 (녹음 중일 때만 표시) */}
-        {isRecording && onStop && (
+        {/* 종료 버튼 */}
+        {onStop && (
           <button
             onClick={onStop}
             className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
@@ -176,6 +178,7 @@ export function RecordingBar({
           {recordings.map((recording) => (
             <div
               key={recording.id}
+              onClick={() => onRecordingSelect?.(recording.id)}
               className="flex items-center justify-between py-2 px-3 hover:bg-[#444444] rounded-lg cursor-pointer transition-colors"
             >
               <div className="flex items-center gap-3">

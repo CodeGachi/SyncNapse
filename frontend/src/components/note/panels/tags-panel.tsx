@@ -5,8 +5,6 @@
 
 "use client";
 
-import { useState } from "react";
-
 interface TagsPanelProps {
   isOpen: boolean;
   tags?: string[];
@@ -20,20 +18,7 @@ export function TagsPanel({
   onAddTag,
   onRemoveTag,
 }: TagsPanelProps) {
-  const [newTag, setNewTag] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-
   if (!isOpen) return null;
-
-  const handleAddTag = () => {
-    if (!newTag.trim()) return;
-
-    if (onAddTag) {
-      onAddTag(newTag.trim());
-    }
-    setNewTag("");
-    setIsAdding(false);
-  };
 
   return (
     <div
@@ -46,35 +31,7 @@ export function TagsPanel({
         {/* 헤더 */}
         <div className="flex items-center justify-between">
           <h3 className="text-white font-bold text-sm">Tags</h3>
-          <button
-            onClick={() => setIsAdding(!isAdding)}
-            className="text-xs text-blue-500 hover:text-blue-400 transition-colors"
-          >
-            {isAdding ? "취소" : "+ 추가"}
-          </button>
         </div>
-
-        {/* 태그 입력 폼 */}
-        {isAdding && (
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
-              placeholder="태그 입력"
-              className="flex-1 px-3 py-2 bg-[#1e1e1e] border border-[#3a3a3a] rounded-md text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              autoFocus
-            />
-            <button
-              onClick={handleAddTag}
-              disabled={!newTag.trim()}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              추가
-            </button>
-          </div>
-        )}
 
         {/* 태그 목록 */}
         <div className="space-y-2 max-h-[200px] overflow-y-auto">

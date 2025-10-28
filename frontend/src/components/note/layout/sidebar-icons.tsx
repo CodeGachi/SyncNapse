@@ -5,12 +5,29 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import { useNoteEditorStore } from "@/stores";
 
 export function SidebarIcons() {
   const { isExpanded, toggleExpand } = useNoteEditorStore();
+  const [isVisible, setIsVisible] = useState(true);
 
-  if (isExpanded) return null;
+  // 화면 크기 감지
+  useEffect(() => {
+    const handleResize = () => {
+      const minWidth = 1200;
+      setIsVisible(window.innerWidth >= minWidth);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  if (isExpanded || !isVisible) return null;
 
   return (
     <div className="fixed right-0 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-[#2f2f2f] rounded-l-lg p-2">

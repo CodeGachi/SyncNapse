@@ -4,8 +4,8 @@
 
 "use client";
 
-import { useRef, useState, useEffect } from "react";
 import type { FileItem } from "@/features/note";
+import { useFilePanel } from "@/features/note/file-panel/use-file-panel";
 
 interface FilePanelProps {
   isOpen: boolean;
@@ -14,108 +14,44 @@ interface FilePanelProps {
   onRemoveFile: (id: string) => void;
   selectedFileId: string | null;
   onSelectFile: (id: string) => void;
+  onOpenFileInTab: (id: string) => void;
   onRenameFile?: (id: string, newName: string) => void;
   onCopyFile?: (id: string) => void;
 }
 
-interface ContextMenuState {
-  visible: boolean;
-  x: number;
-  y: number;
-  fileId: string | null;
-}
-
-export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFileId, onSelectFile, onRenameFile, onCopyFile }: FilePanelProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    fileId: null,
+export function FilePanel({
+  isOpen,
+  files,
+  onAddFile,
+  onRemoveFile,
+  selectedFileId,
+  onSelectFile,
+  onOpenFileInTab,
+  onRenameFile,
+  onCopyFile
+}: FilePanelProps) {
+  const {
+    fileInputRef,
+    contextMenu,
+    focusedFileId,
+    setFocusedFileId,
+    renamingFileId,
+    renameValue,
+    setRenameValue,
+    handleFileChange,
+    handleContextMenu,
+    handleDelete,
+    handleRename,
+    handleRenameSubmit,
+    handleCopy,
+    handleKeyDown,
+  } = useFilePanel({
+    files,
+    onAddFile,
+    onRemoveFile,
+    onRenameFile,
+    onCopyFile,
   });
-  const [focusedFileId, setFocusedFileId] = useState<string | null>(null);
-  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (selectedFiles && selectedFiles.length > 0) {
-      Array.from(selectedFiles).forEach((file) => {
-        onAddFile(file);
-      });
-    }
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  const handleContextMenu = (e: React.MouseEvent, fileId: string) => {
-    e.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      fileId,
-    });
-  };
-
-  const handleDelete = (fileId: string) => {
-    onRemoveFile(fileId);
-    setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
-  };
-
-  const handleRename = (fileId: string) => {
-    const file = files.find((f) => f.id === fileId);
-    if (file) {
-      setRenamingFileId(fileId);
-      setRenameValue(file.name);
-      setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
-    }
-  };
-
-  const handleRenameSubmit = (fileId: string) => {
-    if (renameValue.trim() && onRenameFile) {
-      onRenameFile(fileId, renameValue.trim());
-    }
-    setRenamingFileId(null);
-    setRenameValue("");
-  };
-
-  const handleCopy = (fileId: string) => {
-    if (onCopyFile) {
-      onCopyFile(fileId);
-    }
-    setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, fileId: string) => {
-    if (e.key === "Delete") {
-      e.preventDefault();
-      onRemoveFile(fileId);
-    }
-    if (e.key === "F2") {
-      e.preventDefault();
-      handleRename(fileId);
-    }
-  };
-
-  // 컨텍스트 메뉴 닫기
-  useEffect(() => {
-    const handleClick = () => {
-      setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
-    };
-    if (contextMenu.visible) {
-      document.addEventListener("click", handleClick);
-      return () => document.removeEventListener("click", handleClick);
-    }
-  }, [contextMenu.visible]);
 
   if (!isOpen) return null;
 
@@ -127,40 +63,40 @@ export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFile
       }}
     >
       {/* 헤더 */}
-      <div className="px-6 py-4 border-b border-[#444444]">
-        <h3 className="text-white text-lg font-bold">files</h3>
+      <div className="px-4 py-3 border-b border-[#444444]">
+        <h3 className="text-white text-sm font-bold">files</h3>
       </div>
 
       {/* 파일 목록 */}
-      <div className="px-6 py-4 max-h-[240px] overflow-y-auto">
+      <div className="px-4 py-3 max-h-[240px] overflow-y-auto">
         {files.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-[#666666] text-sm">업로드된 파일이 없습니다</p>
             <p className="text-[#555555] text-xs mt-1">아래 버튼으로 파일을 추가하세요</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {files.map((file) => (
               <div
                 key={file.id}
                 tabIndex={0}
-                onClick={() => onSelectFile(file.id)}
+                onClick={() => onOpenFileInTab(file.id)}
                 onContextMenu={(e) => handleContextMenu(e, file.id)}
                 onKeyDown={(e) => handleKeyDown(e, file.id)}
                 onFocus={() => setFocusedFileId(file.id)}
                 onBlur={() => setFocusedFileId(null)}
-                className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer outline-none ${
+                className={`flex items-center justify-between p-2 rounded-lg transition-all cursor-pointer outline-none ${
                   selectedFileId === file.id
                     ? "bg-[#4f4f4f] ring-2 ring-[#007aff]"
                     : "bg-[#363636] hover:bg-[#3f3f3f]"
                 } group`}
               >
-                <div className="flex items-center gap-3 flex-1">
+                <div className="flex items-center gap-2 flex-1">
                   {/* 파일 아이콘 */}
-                  <div className="w-8 h-8 bg-[#444444] rounded flex items-center justify-center flex-shrink-0">
+                  <div className="w-6 h-6 bg-[#444444] rounded flex items-center justify-center flex-shrink-0">
                     <svg
-                      width="16"
-                      height="16"
+                      width="12"
+                      height="12"
                       viewBox="0 0 16 16"
                       fill="none"
                       stroke="white"
@@ -196,7 +132,6 @@ export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFile
                     ) : (
                       <p className="text-white text-sm font-medium truncate">{file.name}</p>
                     )}
-                    <p className="text-[#b9b9b9] text-xs">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
 
@@ -206,11 +141,11 @@ export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFile
                     e.stopPropagation();
                     onRemoveFile(file.id);
                   }}
-                  className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[#ff4444] transition-all"
+                  className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[#ff4444] transition-all"
                 >
                   <svg
-                    width="12"
-                    height="12"
+                    width="10"
+                    height="10"
                     viewBox="0 0 12 12"
                     fill="none"
                     stroke="white"
@@ -274,7 +209,7 @@ export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFile
       )}
 
       {/* 파일 추가 버튼 */}
-      <div className="px-6 py-4 border-t border-[#444444]">
+      <div className="px-4 py-3 border-t border-[#444444]">
         <input
           ref={fileInputRef}
           type="file"
@@ -286,11 +221,11 @@ export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFile
         />
         <label
           htmlFor="file-upload"
-          className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#444444] hover:bg-[#4f4f4f] rounded-lg cursor-pointer transition-colors"
+          className="flex items-center justify-center gap-1.5 w-full py-2 bg-[#444444] hover:bg-[#4f4f4f] rounded-lg cursor-pointer transition-colors"
         >
           <svg
-            width="16"
-            height="16"
+            width="12"
+            height="12"
             viewBox="0 0 16 16"
             fill="none"
             stroke="white"
@@ -298,7 +233,7 @@ export function FilePanel({ isOpen, files, onAddFile, onRemoveFile, selectedFile
           >
             <path d="M8 2v12M2 8h12" />
           </svg>
-          <span className="text-white text-sm font-medium">파일 추가</span>
+          <span className="text-white text-xs font-medium">추가</span>
         </label>
       </div>
 
