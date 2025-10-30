@@ -4,23 +4,24 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  createFolderApi,
-  updateFolderApi,
-  deleteFolderApi,
-} from "../folders.api";
-import type { Folder } from "@/lib/types";
+  createFolder as createFolderApi,
+  renameFolder as renameFolderApi,
+  deleteFolder as deleteFolderApi,
+} from "../client/folders.api";
+import type { DBFolder } from "@/lib/db/folders";
 
 /**
  * 폴더 생성 뮤테이션
  */
 export function useCreateFolder(options?: {
-  onSuccess?: (data: Folder) => void;
+  onSuccess?: (data: DBFolder) => void;
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createFolderApi,
+    mutationFn: ({ name, parentId }: { name: string; parentId: string | null }) =>
+      createFolderApi(name, parentId),
     onSuccess: (newFolder) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
       queryClient.setQueryData(["folders", newFolder.id], newFolder);
@@ -34,10 +35,10 @@ export function useCreateFolder(options?: {
 }
 
 /**
- * 폴더 수정 뮤테이션
+ * 폴더 수정 뮤테이션 (이름 변경)
  */
 export function useUpdateFolder(options?: {
-  onSuccess?: (data: Folder) => void;
+  onSuccess?: () => void;
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
@@ -45,30 +46,33 @@ export function useUpdateFolder(options?: {
   return useMutation({
     mutationFn: ({
       folderId,
-      updates,
+      newName,
     }: {
       folderId: string;
-      updates: Partial<Omit<Folder, "id">>;
-    }) => updateFolderApi(folderId, updates),
+      newName: string;
+    }) => renameFolderApi(folderId, newName),
 
-    onMutate: async ({ folderId, updates }) => {
+    onMutate: async ({ folderId, newName }) => {
       await queryClient.cancelQueries({ queryKey: ["folders", folderId] });
 
-      const previousFolder = queryClient.getQueryData<Folder>(["folders", folderId]);
+      const previousFolder = queryClient.getQueryData<DBFolder>(["folders", folderId]);
 
       if (previousFolder) {
-        queryClient.setQueryData<Folder>(["folders", folderId], {
+        queryClient.setQueryData<DBFolder>(["folders", folderId], {
           ...previousFolder,
-          ...updates,
+          name: newName,
+          updatedAt: Date.now(),
         });
       }
 
-      const previousFolders = queryClient.getQueryData<Folder[]>(["folders"]);
+      const previousFolders = queryClient.getQueryData<DBFolder[]>(["folders"]);
       if (previousFolders) {
-        queryClient.setQueryData<Folder[]>(
+        queryClient.setQueryData<DBFolder[]>(
           ["folders"],
           previousFolders.map((folder) =>
-            folder.id === folderId ? { ...folder, ...updates } : folder
+            folder.id === folderId
+              ? { ...folder, name: newName, updatedAt: Date.now() }
+              : folder
           )
         );
       }
@@ -87,17 +91,16 @@ export function useUpdateFolder(options?: {
       options?.onError?.(err);
     },
 
-    onSuccess: (updatedFolder) => {
-      queryClient.setQueryData(["folders", updatedFolder.id], updatedFolder);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
 
-      options?.onSuccess?.(updatedFolder);
+      options?.onSuccess?.();
     },
   });
 }
 
 /**
- * 폴더 삭제 뮤테이션
+ * 폴더 삭제 뮤테이션 (휴지통으로 이동)
  */
 export function useDeleteFolder(options?: {
   onSuccess?: () => void;
@@ -111,10 +114,10 @@ export function useDeleteFolder(options?: {
     onMutate: async (folderId) => {
       await queryClient.cancelQueries({ queryKey: ["folders"] });
 
-      const previousFolders = queryClient.getQueryData<Folder[]>(["folders"]);
+      const previousFolders = queryClient.getQueryData<DBFolder[]>(["folders"]);
 
       if (previousFolders) {
-        queryClient.setQueryData<Folder[]>(
+        queryClient.setQueryData<DBFolder[]>(
           ["folders"],
           previousFolders.filter((folder) => folder.id !== folderId)
         );

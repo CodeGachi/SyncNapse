@@ -27,7 +27,6 @@ function CallbackContent() {
 
     if (errorParam) {
       // OAuth 에러 처리
-      console.error("OAuth 에러:", errorParam);
       alert("로그인에 실패했습니다.");
       router.replace("/");
       return;
@@ -35,11 +34,9 @@ function CallbackContent() {
 
     if (code) {
       // 인증 코드를 백엔드로 전송
-      console.log("[OAuth] 인증 코드 수신:", code.substring(0, 10) + "...");
       handleCodeExchange(code);
     } else {
       // 코드가 없으면 홈으로
-      console.error("[OAuth] 인증 코드가 없습니다.");
       router.replace("/");
     }
   }, [searchParams, handleCodeExchange, router]);

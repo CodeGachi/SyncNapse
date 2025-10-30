@@ -11,23 +11,29 @@ import type { NoteData } from "@/lib/types";
 
 export function useDashboard() {
   const router = useRouter();
-
   const { data: notes = [], isLoading, error } = useNotes();
 
-  const createNote = useCreateNote({
-    onSuccess: (newNote) => {
-      console.log("노트 생성 성공:", newNote);
-      router.push(`/note?id=${newNote.id}`);
-    },
-    onError: (error) => {
-      console.error("노트 생성 실패:", error);
-      alert("노트 생성에 실패했습니다.");
-    },
-  });
+  const createNoteMutation = useCreateNote();
 
-  const handleCreateNote = (noteData: NoteData) => {
-    console.log("노트 생성:", noteData);
-    createNote.mutate(noteData);
+  const handleCreateNote = async (noteData: NoteData): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      createNoteMutation.mutate(
+        {
+          title: noteData.title,
+          folderId: noteData.location || "root",
+          files: noteData.files || [],
+        },
+        {
+          onSuccess: (newNote) => {
+            router.push(`/note?id=${newNote.id}`);
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        }
+      );
+    });
   };
 
   const handleNoteClick = (noteId: string) => {
@@ -42,7 +48,7 @@ export function useDashboard() {
 
     // 노트 생성
     handleCreateNote,
-    isCreating: createNote.isPending,
+    isCreating: createNoteMutation.isPending,
 
     // 네비게이션
     handleNoteClick,

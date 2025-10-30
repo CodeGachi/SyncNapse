@@ -21,7 +21,6 @@ export function useGoogleLogin() {
       router.push("/dashboard");
     },
     onError: (error) => {
-      console.error("로그인 실패:", error);
       alert("로그인에 실패했습니다.");
     },
   });
@@ -36,28 +35,16 @@ export function useGoogleLogin() {
   const handleGoogleLogin = async () => {
     try {
       if (USE_MOCK) {
-        console.log("[Mock] Google 로그인 시작...");
         const { user, token } = await mockGoogleLogin();
-
-        console.log("[Mock] 로그인 성공:", {
-          email: user.email,
-          name: user.name,
-        });
-
         window.location.href = "/dashboard";
       } else {
-        console.log("[Real] Google OAuth 시작...");
-
         sessionStorage.setItem("auth_redirect", window.location.pathname);
 
         // Redirect to the backend Google OAuth URL
         const loginUrl = getGoogleLoginUrl();
-        console.log("[Real] 리다이렉트:", loginUrl);
-
         window.location.href = loginUrl;
       }
     } catch (err: any) {
-      console.error("로그인 실패:", err);
       alert(err.message || "로그인에 실패했습니다. 다시 시도해주세요.");
     }
   };
@@ -73,16 +60,13 @@ export function useGoogleLogin() {
     try {
       if (USE_MOCK) {
         await mockLogout();
-        console.log("[Mock] 로그아웃 완료");
-
         queryClient.clear();
-
         router.replace("/");
       } else {
         logoutMutation.mutate();
       }
     } catch (err: any) {
-      console.error("로그아웃 실패:", err);
+      // 로그아웃 실패 처리
     }
   };
 

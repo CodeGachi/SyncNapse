@@ -3,7 +3,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import type { FileItem } from "../types";
+import type { FileItem } from "@/features/note";
 
 interface ContextMenuState {
   visible: boolean;
@@ -131,6 +131,7 @@ export function useFilePanel({
     focusedFileId,
     setFocusedFileId,
     renamingFileId,
+    setRenamingFileId,
     renameValue,
     setRenameValue,
     handleFileChange,

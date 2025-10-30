@@ -23,6 +23,7 @@ log.txt
 .DS_Store
 .idea/
 .vscode/
+.claude/
 
 # docker
 .docker/

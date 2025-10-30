@@ -9,7 +9,7 @@ import { useNoteEditorStore } from "@/stores";
  */
 export function NoteSidebar() {
   const router = useRouter();
-  const { autoSaveStatus } = useNoteEditorStore();
+  const autoSaveStatus = useNoteEditorStore((state) => state.autoSaveStatus);
   const [isNavigating, setIsNavigating] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
 
@@ -39,25 +39,6 @@ export function NoteSidebar() {
 
     // 저장 완료 후 대시보드로 이동
     setIsNavigating(true);
-
-    // 혹시 저장이 완료될 때까지 잠깐 대기
-    if (autoSaveStatus === "saving") {
-      await new Promise((resolve) => {
-        const checkInterval = setInterval(() => {
-          if (autoSaveStatus !== "saving") {
-            clearInterval(checkInterval);
-            resolve(true);
-          }
-        }, 100);
-
-        // 최대 3초 대기
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          resolve(true);
-        }, 3000);
-      });
-    }
-
     router.push("/dashboard");
   };
 

@@ -2,6 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.googleusercontent.com',
+        pathname: '**',
+      },
+    ],
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],

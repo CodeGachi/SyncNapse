@@ -55,7 +55,7 @@ export function NotePanel({ isOpen }: NotePanelProps) {
               <span className="font-bold text-[#888888]">리스트:</span> - 글머리 | 1. , a. , i. 번호 | [] 체크박스
             </p>
             <p className="text-[#b9b9b9] text-xs leading-relaxed">
-              <span className="font-bold text-[#888888]">기타:</span> ``` 코드 | " 인용 | &gt; 토글 | --- 구분선
+              <span className="font-bold text-[#888888]">기타:</span> ``` 코드 | &quot; 인용 | &gt; 토글 | --- 구분선
             </p>
           </div>
         </div>

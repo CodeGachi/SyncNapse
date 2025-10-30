@@ -22,7 +22,7 @@ export function NotificationContainer() {
     if (newIds.length > 0) {
       setVisibleNotifications((prev) => [...newIds, ...prev]);
     }
-  }, [notifications]);
+  }, [notifications, visibleNotifications]);
 
   // 표시할 알림들 (최근 5개만)
   const displayNotifications = notifications

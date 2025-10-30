@@ -21,6 +21,13 @@ export function NotificationToast({
 }: NotificationToastProps) {
   const [isExiting, setIsExiting] = useState(false);
 
+  const handleClose = () => {
+    setIsExiting(true);
+    setTimeout(() => {
+      onClose();
+    }, 300); // 애니메이션 시간과 맞추기
+  };
+
   useEffect(() => {
     if (duration > 0) {
       const timer = setTimeout(() => {
@@ -29,14 +36,8 @@ export function NotificationToast({
 
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
-
-  const handleClose = () => {
-    setIsExiting(true);
-    setTimeout(() => {
-      onClose();
-    }, 300); // 애니메이션 시간과 맞추기
-  };
 
   const getTypeStyles = () => {
     switch (notification.type) {

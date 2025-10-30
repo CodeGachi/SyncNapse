@@ -6,6 +6,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { useNoteEditorStore } from "@/stores";
 
 interface PdfViewerProps {
@@ -70,10 +71,13 @@ export function PdfViewer({ fileUrl, fileName, fileType, totalPages = 10 }: PdfV
       ) : isImage ? (
         // 이미지 파일
         <div className="w-full h-full p-4 overflow-auto flex items-center justify-center">
-          <img
+          <Image
             src={fileUrl}
             alt={fileName || "Image"}
+            width={800}
+            height={600}
             className="max-w-full max-h-full object-contain"
+            unoptimized
           />
         </div>
       ) : (

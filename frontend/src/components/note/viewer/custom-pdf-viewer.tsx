@@ -7,6 +7,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { useNoteEditorStore } from "@/stores";
 
 interface CustomPdfViewerProps {
@@ -77,10 +78,7 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
         if (selectedFileId) {
           initializePageNotes(selectedFileId, pdf.numPages);
         }
-
-        console.log(`PDF 로드 완료: ${pdf.numPages} 페이지`);
       } catch (err) {
-        console.error("PDF 로드 실패:", err);
         setError("PDF를 로드할 수 없습니다");
       } finally {
         setLoading(false);
@@ -141,9 +139,8 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
         };
 
         await page.render(renderContext).promise;
-        console.log(`페이지 ${currentPage} 렌더링 완료`);
       } catch (err) {
-        console.error("페이지 렌더링 실패:", err);
+        // 페이지 렌더링 실패
       }
     };
 
@@ -316,10 +313,13 @@ export function CustomPdfViewer({ fileUrl, fileName, fileType }: CustomPdfViewer
         ) : isImage ? (
           // 이미지 파일
           <div className="w-full h-full p-4 overflow-auto flex items-center justify-center">
-            <img
+            <Image
               src={fileUrl}
               alt={fileName || "Image"}
+              width={800}
+              height={600}
               className="max-w-full max-h-full object-contain"
+              unoptimized
             />
           </div>
         ) : (

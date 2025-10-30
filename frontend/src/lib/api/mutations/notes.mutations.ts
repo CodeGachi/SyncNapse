@@ -10,11 +10,11 @@ import {
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import {
-  createNoteApi,
-  updateNoteApi,
-  deleteNoteApi,
-} from "../notes.api";
-import type { Note, NoteData } from "@/lib/types";
+  createNote as createNoteApi,
+  updateNote as updateNoteApi,
+  deleteNote as deleteNoteApi,
+} from "../client/notes.api";
+import type { DBNote } from "@/lib/db/notes";
 
 /**
  * 노트 생성 뮤테이션
@@ -26,18 +26,19 @@ import type { Note, NoteData } from "@/lib/types";
  *   },
  * });
  *
- * createNote.mutate({ title: "새 노트", location: "root", files: [] });
+ * createNote.mutate({ title: "새 노트", folderId: "root", files: [] });
  */
 export function useCreateNote(
   options?: {
-    onSuccess?: (data: Note) => void;
+    onSuccess?: (data: DBNote) => void;
     onError?: (error: Error) => void;
   }
 ) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createNoteApi,
+    mutationFn: ({ title, folderId, files }: { title: string; folderId: string; files: File[] }) =>
+      createNoteApi(title, folderId, files),
     onSuccess: (newNote) => {
       // 노트 목록 캐시 무효화 (자동 재조회)
       queryClient.invalidateQueries({ queryKey: ["notes"] });
@@ -66,14 +67,14 @@ export function useCreateNote(
  */
 export function useUpdateNote(
   options?: {
-    onSuccess?: (data: Note) => void;
+    onSuccess?: () => void;
     onError?: (error: Error) => void;
   }
 ) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ noteId, updates }: { noteId: string; updates: Partial<Omit<Note, "id" | "createdAt">> }) =>
+    mutationFn: ({ noteId, updates }: { noteId: string; updates: Partial<Omit<DBNote, "id" | "createdAt">> }) =>
       updateNoteApi(noteId, updates),
 
     // 낙관적 업데이트: 서버 응답 전에 UI 즉시 업데이트
@@ -82,25 +83,25 @@ export function useUpdateNote(
       await queryClient.cancelQueries({ queryKey: ["notes", noteId] });
 
       // 이전 값 백업 (롤백용)
-      const previousNote = queryClient.getQueryData<Note>(["notes", noteId]);
+      const previousNote = queryClient.getQueryData<DBNote>(["notes", noteId]);
 
       // 낙관적 업데이트 적용
       if (previousNote) {
-        queryClient.setQueryData<Note>(["notes", noteId], {
+        queryClient.setQueryData<DBNote>(["notes", noteId], {
           ...previousNote,
           ...updates,
-          updatedAt: new Date().toISOString(),
+          updatedAt: Date.now(),
         });
       }
 
       // 노트 목록도 낙관적 업데이트
-      const previousNotes = queryClient.getQueryData<Note[]>(["notes"]);
+      const previousNotes = queryClient.getQueryData<DBNote[]>(["notes"]);
       if (previousNotes) {
-        queryClient.setQueryData<Note[]>(
+        queryClient.setQueryData<DBNote[]>(
           ["notes"],
           previousNotes.map((note) =>
             note.id === noteId
-              ? { ...note, ...updates, updatedAt: new Date().toISOString() }
+              ? { ...note, ...updates, updatedAt: Date.now() }
               : note
           )
         );
@@ -123,14 +124,11 @@ export function useUpdateNote(
     },
 
     // 성공 시 재검증
-    onSuccess: (updatedNote) => {
-      // 서버에서 받은 정확한 데이터로 캐시 업데이트
-      queryClient.setQueryData(["notes", updatedNote.id], updatedNote);
-
+    onSuccess: () => {
       // 노트 목록 재검증
       queryClient.invalidateQueries({ queryKey: ["notes"] });
 
-      options?.onSuccess?.(updatedNote);
+      options?.onSuccess?.();
     },
   });
 }
@@ -163,11 +161,11 @@ export function useDeleteNote(
       await queryClient.cancelQueries({ queryKey: ["notes"] });
 
       // 이전 값 백업
-      const previousNotes = queryClient.getQueryData<Note[]>(["notes"]);
+      const previousNotes = queryClient.getQueryData<DBNote[]>(["notes"]);
 
       // 낙관적 업데이트: 노트 목록에서 제거
       if (previousNotes) {
-        queryClient.setQueryData<Note[]>(
+        queryClient.setQueryData<DBNote[]>(
           ["notes"],
           previousNotes.filter((note) => note.id !== noteId)
         );
@@ -222,10 +220,10 @@ export function useDeleteManyNotes(
     onMutate: async (noteIds) => {
       await queryClient.cancelQueries({ queryKey: ["notes"] });
 
-      const previousNotes = queryClient.getQueryData<Note[]>(["notes"]);
+      const previousNotes = queryClient.getQueryData<DBNote[]>(["notes"]);
 
       if (previousNotes) {
-        queryClient.setQueryData<Note[]>(
+        queryClient.setQueryData<DBNote[]>(
           ["notes"],
           previousNotes.filter((note) => !noteIds.includes(note.id))
         );

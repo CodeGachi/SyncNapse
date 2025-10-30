@@ -3,42 +3,22 @@
  */
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchFolders, fetchFolderById } from "../folders.api";
-import type { Folder } from "@/lib/types";
+import { fetchAllFolders } from "../client/folders.api";
+import type { DBFolder } from "@/lib/db/folders";
 
 /**
- * 모든 폴더 조회
+ * 모든 폴더 조회 (IndexedDB 또는 Backend)
  */
-export function useFolders(
-  options?: Omit<UseQueryOptions<Folder[], Error>, "queryKey" | "queryFn">
+export function useFoldersQuery(
+  options?: Omit<UseQueryOptions<DBFolder[], Error>, "queryKey" | "queryFn">
 ) {
   return useQuery({
     queryKey: ["folders"],
-    queryFn: fetchFolders,
-    staleTime: 1000 * 60 * 5, // 5분
+    queryFn: fetchAllFolders,
+    staleTime: 0, // 항상 최신 상태 유지
     gcTime: 1000 * 60 * 10, // 10분
     retry: 2,
-    ...options,
-  });
-}
-
-/**
- * ID로 폴더 조회
- */
-export function useFolder(
-  folderId: string | null,
-  options?: Omit<UseQueryOptions<Folder, Error>, "queryKey" | "queryFn">
-) {
-  return useQuery({
-    queryKey: ["folders", folderId],
-    queryFn: () => {
-      if (!folderId) throw new Error("Folder ID is required");
-      return fetchFolderById(folderId);
-    },
-    enabled: !!folderId,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
-    retry: 2,
+    refetchOnWindowFocus: true, // 윈도우 포커스 시 재조회
     ...options,
   });
 }

@@ -34,13 +34,13 @@ export function useNoteSettings() {
   const uploadQueue = useFileUpload({
     maxConcurrent: 2,
     onFileComplete: (file) => {
-      console.log("파일 업로드 완료:", file.file.name);
+      // 파일 업로드 완료
     },
     onFileError: (file, error) => {
-      console.error("파일 업로드 실패:", file.file.name, error);
+      // 파일 업로드 실패
     },
     onAllComplete: (results) => {
-      console.log("모든 파일 업로드 완료:", results);
+      // 모든 파일 업로드 완료
     },
   });
 
@@ -139,11 +139,8 @@ export function useNoteSettings() {
         )
       );
     });
-  }, [
-    // 배열 길이와 각 파일의 상태를 의존성으로 추가
-    uploadQueue.files.length,
-    ...uploadQueue.files.map((f) => `${f.id}-${f.status}`),
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadQueue.files]);
 
   const removeFile = (file: File) => {
     setUploadedFiles((prev) => prev.filter((f) => f.file !== file));

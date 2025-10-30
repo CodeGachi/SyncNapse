@@ -36,6 +36,7 @@ export function FilePanel({
     focusedFileId,
     setFocusedFileId,
     renamingFileId,
+    setRenamingFileId,
     renameValue,
     setRenameValue,
     handleFileChange,

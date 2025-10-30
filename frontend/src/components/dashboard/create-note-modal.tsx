@@ -4,10 +4,11 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FILE_CONSTRAINTS } from "@/lib/constants";
 import { useNoteSettingsStore } from "@/stores";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { useFolders } from "@/features/dashboard/use-folders";
 import {
   validateFiles,
   generateSafeFileName,
@@ -15,15 +16,16 @@ import {
   isZipFile,
   processZipFile,
 } from "@/lib/utils";
-import type { NoteData, Folder } from "@/lib/types";
+import type { NoteData } from "@/lib/types";
 import { Modal } from "@/components/common/modal";
 import { UploadArea } from "./note-creation/upload-area";
 import { FileList } from "./note-creation/file-list";
+import { FolderSelectorModal } from "./folder-selector-modal";
 
 interface NoteSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (noteData: NoteData) => void;
+  onSubmit: (noteData: NoteData) => Promise<void> | void;
 }
 
 export function NoteSettingsModal({
@@ -49,25 +51,33 @@ export function NoteSettingsModal({
     reset,
   } = useNoteSettingsStore();
 
-  // 더미 폴더 목록 (나중에 API로 대체)
-  const folders: Folder[] = [
-    { id: "root", name: "루트" },
-    { id: "folder1", name: "📁 폴더 1" },
-    { id: "folder2", name: "📁 폴더 2" },
-    { id: "folder3", name: "📁 폴더 3" },
-  ];
+  // IndexedDB에서 폴더 목록 가져오기
+  const { folders: dbFolders, buildFolderTree } = useFolders();
+
+  // 폴더 선택 모달 상태
+  const [isFolderSelectorOpen, setIsFolderSelectorOpen] = useState(false);
+
+  // 노트 생성 로딩 상태
+  const [isCreating, setIsCreating] = useState(false);
+
+  // 선택된 폴더 이름 가져오기
+  const getSelectedFolderName = () => {
+    if (selectedLocation === "root") return "루트";
+    const folder = dbFolders.find((f) => f.id === selectedLocation);
+    return folder?.name || "루트";
+  };
 
   // 파일 업로드 관리 (TanStack Query 기반)
   const uploadQueue = useFileUpload({
     maxConcurrent: 2,
     onFileComplete: (file) => {
-      console.log("파일 업로드 완료:", file.file.name);
+      // 파일 업로드 완료
     },
     onFileError: (file, error) => {
-      console.error("파일 업로드 실패:", file.file.name, error);
+      // 파일 업로드 실패
     },
     onAllComplete: (results) => {
-      console.log("모든 파일 업로드 완료:", results);
+      // 모든 파일 업로드 완료
     },
   });
 
@@ -183,16 +193,33 @@ export function NoteSettingsModal({
     handleFilesAdded(files);
   };
 
+  // 모달 닫기 핸들러 (취소 시 데이터 초기화)
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
   // 제출 핸들러
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isCreating) return;
+
     const noteData: NoteData = {
       title: title || "제목 없음",
       location: selectedLocation,
       files: uploadedFiles.map((uf) => uf.file),
     };
-    onSubmit(noteData);
-    reset();
-    onClose();
+
+    try {
+      setIsCreating(true);
+      await onSubmit(noteData);
+      reset();
+      onClose();
+    } catch (error) {
+      console.error("Failed to create note:", error);
+      alert("노트 생성에 실패했습니다.");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const storageUsage =
@@ -203,7 +230,7 @@ export function NoteSettingsModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       overlayClassName="fixed inset-0 z-40 transition-opacity"
       overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -220,7 +247,7 @@ export function NoteSettingsModal({
           </p>
         </div>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="text-[#9CA3AF] hover:text-white transition-colors"
         >
           <svg
@@ -307,17 +334,33 @@ export function NoteSettingsModal({
           />
         </div>
         <div className="w-48">
-          <select
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            className="w-full bg-[#575757] text-white px-4 py-2.5 rounded-lg outline-none focus:ring-2 focus:ring-[#AFC02B] cursor-pointer text-sm"
+          <button
+            type="button"
+            onClick={() => setIsFolderSelectorOpen(true)}
+            className="w-full bg-[#575757] text-white px-4 py-2.5 rounded-lg outline-none hover:ring-2 hover:ring-[#AFC02B] cursor-pointer text-sm flex items-center justify-between gap-2"
           >
-            {folders.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
-              </option>
-            ))}
-          </select>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <svg
+                className="w-4 h-4 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+              </svg>
+              <span className="truncate">{getSelectedFolderName()}</span>
+            </div>
+            <svg
+              className="w-4 h-4 flex-shrink-0 text-gray-400"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -372,20 +415,29 @@ export function NoteSettingsModal({
 
         <div className="flex gap-7">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="px-5 py-[11px] bg-[#B9B9B9] text-[#374151] rounded-lg font-medium text-base hover:bg-[#A0A0A0] transition-colors border border-[#D1D5DB]"
           >
             취소
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!title.trim()}
+            disabled={!title.trim() || isCreating}
             className="px-[18px] py-[10px] bg-[#AFC02B] text-white rounded-lg font-medium text-base hover:bg-[#9DB025] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            노트 생성
+            {isCreating ? "Creating..." : "노트 생성"}
           </button>
         </div>
       </div>
+
+      {/* 폴더 선택 모달 */}
+      <FolderSelectorModal
+        isOpen={isFolderSelectorOpen}
+        onClose={() => setIsFolderSelectorOpen(false)}
+        onSelect={(folderId) => setSelectedLocation(folderId)}
+        folderTree={buildFolderTree()}
+        selectedFolderId={selectedLocation}
+      />
     </Modal>
   );
 }
