@@ -13,7 +13,7 @@ export class RootController {
     return {
       _links: {
         self: this.links.self('/api'),
-        login: this.links.action('/api/auth/login', 'POST'),
+        login: this.links.action('/api/auth/login', 'GET'),
         profile: this.links.self('/api/users/me'),
         sessions: this.links.self('/api/sessions'),
       },
