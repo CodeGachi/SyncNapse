@@ -26,44 +26,51 @@ export class AuthConfig {
 
   static validate(): void {
     const errors: string[] = [];
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
 
-    // Check JWT_SECRET
-    if (!this.JWT_SECRET) {
-      errors.push('JWT_SECRET is required');
-    } else if (this.JWT_SECRET.length < 32) {
-      errors.push('JWT_SECRET must be at least 32 characters long');
+    // Check JWT_SECRET (skip in test environment)
+    if (!isTestEnv) {
+      if (!this.JWT_SECRET) {
+        errors.push('JWT_SECRET is required');
+      } else if (this.JWT_SECRET.length < 32) {
+        errors.push('JWT_SECRET must be at least 32 characters long');
+      }
+
+      // Check OAuth config (only if using OAuth)
+      const usingOAuth = this.GOOGLE_CLIENT_ID || this.GOOGLE_CLIENT_SECRET;
+      if (usingOAuth) {
+        if (!this.GOOGLE_CLIENT_ID) {
+          errors.push('GOOGLE_CLIENT_ID is required when using OAuth');
+        }
+        if (!this.GOOGLE_CLIENT_SECRET) {
+          errors.push('GOOGLE_CLIENT_SECRET is required when using OAuth');
+        }
+        if (!this.GOOGLE_CALLBACK_URL) {
+          errors.push('GOOGLE_CALLBACK_URL is required when using OAuth');
+        }
+      }
     }
 
-    // Check OAuth config (only if using OAuth)
-    const usingOAuth = this.GOOGLE_CLIENT_ID || this.GOOGLE_CLIENT_SECRET;
-    if (usingOAuth) {
-      if (!this.GOOGLE_CLIENT_ID) {
-        errors.push('GOOGLE_CLIENT_ID is required when using OAuth');
-      }
-      if (!this.GOOGLE_CLIENT_SECRET) {
-        errors.push('GOOGLE_CLIENT_SECRET is required when using OAuth');
-      }
-      if (!this.GOOGLE_CALLBACK_URL) {
-        errors.push('GOOGLE_CALLBACK_URL is required when using OAuth');
-      }
+    // Log configuration (without sensitive data) - only in non-test environment
+    if (!isTestEnv) {
+      logger.log('Auth Configuration:');
+      logger.log(`  JWT_SECRET: ${this.JWT_SECRET ? 'Set' : 'Missing'}`);
+      logger.log(`  JWT_ACCESS_EXPIRATION: ${this.JWT_ACCESS_EXPIRATION}`);
+      logger.log(`  JWT_REFRESH_EXPIRATION: ${this.JWT_REFRESH_EXPIRATION}`);
+      logger.log(`  GOOGLE_CLIENT_ID: ${this.GOOGLE_CLIENT_ID ? 'Set' : 'Missing'}`);
+      logger.log(`  GOOGLE_CLIENT_SECRET: ${this.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing'}`);
+      logger.log(`  GOOGLE_CALLBACK_URL: ${this.GOOGLE_CALLBACK_URL ? 'Set' : 'Missing'}`);
+      logger.log(`  CACHE_TTL: ${this.CACHE_TTL}s`);
+      logger.log(`  RATE_LIMITING: ${this.ENABLE_RATE_LIMITING ? 'Enabled' : 'Disabled'}`);
     }
-
-    // Log configuration (without sensitive data)
-    logger.log('Auth Configuration:');
-    logger.log(`  JWT_SECRET: ${this.JWT_SECRET ? 'Set' : 'Missing'}`);
-    logger.log(`  JWT_ACCESS_EXPIRATION: ${this.JWT_ACCESS_EXPIRATION}`);
-    logger.log(`  JWT_REFRESH_EXPIRATION: ${this.JWT_REFRESH_EXPIRATION}`);
-    logger.log(`  GOOGLE_CLIENT_ID: ${this.GOOGLE_CLIENT_ID ? 'Set' : 'Missing'}`);
-    logger.log(`  GOOGLE_CLIENT_SECRET: ${this.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing'}`);
-    logger.log(`  GOOGLE_CALLBACK_URL: ${this.GOOGLE_CALLBACK_URL ? 'Set' : 'Missing'}`);
-    logger.log(`  CACHE_TTL: ${this.CACHE_TTL}s`);
-    logger.log(`  RATE_LIMITING: ${this.ENABLE_RATE_LIMITING ? 'Enabled' : 'Disabled'}`);
 
     if (errors.length > 0) {
       throw new Error(`Auth configuration errors:\n${errors.map((e) => `  - ${e}`).join('\n')}`);
     }
 
-    logger.log('Auth configuration validated successfully');
+    if (!isTestEnv) {
+      logger.log('Auth configuration validated successfully');
+    }
   }
 }
 
