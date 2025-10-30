@@ -6,6 +6,8 @@ import { LoggingModule } from './logging/logging.module';
 import { HypermediaModule } from './hypermedia/hypermedia.module';
 import { RootController } from './root.controller';
 import { ExportsModule } from './exports/exports.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { ExportsModule } from './exports/exports.module';
     LoggingModule,
     HypermediaModule,
     ExportsModule,
+    UploadsModule,
+    StorageModule,
   ],
   controllers: [RootController],
 })
