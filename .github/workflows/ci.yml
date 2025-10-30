@@ -34,6 +34,10 @@ jobs:
           npm -w backend i --ignore-scripts
       - name: Generate Prisma Client
         run: npm -w backend run prisma:generate
+      - name: Setup environment files
+        run: |
+          cp .env.example .env
+          node scripts/sync-envs.mjs
       - name: Test
         run: |
           npm -w frontend run test:ci

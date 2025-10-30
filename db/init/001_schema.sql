@@ -36,6 +36,8 @@ CREATE TABLE "LectureNote" (
     "title" TEXT NOT NULL,
     "sourceFileUrl" TEXT,
     "audioFileUrl" TEXT,
+    "sourceBlobId" TEXT,
+    "audioBlobId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -121,6 +123,7 @@ CREATE TABLE "MaterialPage" (
     "noteId" TEXT NOT NULL,
     "pageNumber" INTEGER NOT NULL,
     "pageUrl" TEXT,
+    "pageBlobId" TEXT,
     "pageHash" TEXT,
     "canonicalPageId" TEXT,
     "viewTransform" JSONB,
@@ -135,6 +138,7 @@ CREATE TABLE "AudioRecording" (
     "id" TEXT NOT NULL,
     "noteId" TEXT NOT NULL,
     "fileUrl" TEXT NOT NULL,
+    "fileBlobId" TEXT,
     "durationSec" DECIMAL(7,2),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -287,6 +291,80 @@ CREATE TABLE "Answer" (
     CONSTRAINT "Answer_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "AuditLog" (
+    "id" TEXT NOT NULL,
+    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "userId" TEXT,
+    "method" TEXT,
+    "path" TEXT,
+    "status" INTEGER,
+    "ip" TEXT,
+    "userAgent" TEXT,
+    "requestId" TEXT,
+    "action" TEXT,
+    "resourceId" TEXT,
+    "payload" JSONB,
+
+    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RefreshToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usedAt" TIMESTAMP(3),
+    "replacedBy" TEXT,
+    "revokedAt" TIMESTAMP(3),
+    "revokedReason" TEXT,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+
+    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OAuthState" (
+    "id" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "redirectUrl" TEXT,
+    "codeVerifier" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+
+    CONSTRAINT "OAuthState_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "JwtBlacklist" (
+    "id" TEXT NOT NULL,
+    "jti" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "reason" TEXT,
+
+    CONSTRAINT "JwtBlacklist_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "FileBlob" (
+    "id" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "mimeType" TEXT,
+    "sizeBytes" INTEGER NOT NULL,
+    "data" BYTEA NOT NULL,
+    "checksum" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "FileBlob_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -295,6 +373,12 @@ CREATE INDEX "Folder_userId_idx" ON "Folder"("userId");
 
 -- CreateIndex
 CREATE INDEX "Folder_parentId_idx" ON "Folder"("parentId");
+
+-- CreateIndex
+CREATE INDEX "LectureNote_sourceBlobId_idx" ON "LectureNote"("sourceBlobId");
+
+-- CreateIndex
+CREATE INDEX "LectureNote_audioBlobId_idx" ON "LectureNote"("audioBlobId");
 
 -- CreateIndex
 CREATE INDEX "TranscriptSegment_noteId_startSec_idx" ON "TranscriptSegment"("noteId", "startSec");
@@ -321,10 +405,16 @@ CREATE INDEX "MediaLink_noteId_startSec_idx" ON "MediaLink"("noteId", "startSec"
 CREATE INDEX "MaterialPage_canonicalPageId_idx" ON "MaterialPage"("canonicalPageId");
 
 -- CreateIndex
+CREATE INDEX "MaterialPage_pageBlobId_idx" ON "MaterialPage"("pageBlobId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "MaterialPage_noteId_pageNumber_key" ON "MaterialPage"("noteId", "pageNumber");
 
 -- CreateIndex
 CREATE INDEX "AudioRecording_noteId_idx" ON "AudioRecording"("noteId");
+
+-- CreateIndex
+CREATE INDEX "AudioRecording_fileBlobId_idx" ON "AudioRecording"("fileBlobId");
 
 -- CreateIndex
 CREATE INDEX "AudioSlice_recordingId_startSec_idx" ON "AudioSlice"("recordingId", "startSec");
@@ -380,11 +470,59 @@ CREATE INDEX "Answer_questionId_idx" ON "Answer"("questionId");
 -- CreateIndex
 CREATE INDEX "Answer_answeredByUserId_idx" ON "Answer"("answeredByUserId");
 
+-- CreateIndex
+CREATE INDEX "AuditLog_userId_at_idx" ON "AuditLog"("userId", "at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RefreshToken_token_key" ON "RefreshToken"("token");
+
+-- CreateIndex
+CREATE INDEX "RefreshToken_userId_idx" ON "RefreshToken"("userId");
+
+-- CreateIndex
+CREATE INDEX "RefreshToken_token_idx" ON "RefreshToken"("token");
+
+-- CreateIndex
+CREATE INDEX "RefreshToken_expiresAt_idx" ON "RefreshToken"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OAuthState_state_key" ON "OAuthState"("state");
+
+-- CreateIndex
+CREATE INDEX "OAuthState_state_idx" ON "OAuthState"("state");
+
+-- CreateIndex
+CREATE INDEX "OAuthState_expiresAt_idx" ON "OAuthState"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "JwtBlacklist_jti_key" ON "JwtBlacklist"("jti");
+
+-- CreateIndex
+CREATE INDEX "JwtBlacklist_jti_idx" ON "JwtBlacklist"("jti");
+
+-- CreateIndex
+CREATE INDEX "JwtBlacklist_expiresAt_idx" ON "JwtBlacklist"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "FileBlob_fileName_idx" ON "FileBlob"("fileName");
+
+-- CreateIndex
+CREATE INDEX "FileBlob_mimeType_idx" ON "FileBlob"("mimeType");
+
+-- CreateIndex
+CREATE INDEX "FileBlob_createdAt_idx" ON "FileBlob"("createdAt");
+
 -- AddForeignKey
 ALTER TABLE "Folder" ADD CONSTRAINT "Folder_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Folder" ADD CONSTRAINT "Folder_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Folder"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LectureNote" ADD CONSTRAINT "LectureNote_sourceBlobId_fkey" FOREIGN KEY ("sourceBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LectureNote" ADD CONSTRAINT "LectureNote_audioBlobId_fkey" FOREIGN KEY ("audioBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "FolderLectureNote" ADD CONSTRAINT "FolderLectureNote_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "Folder"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -435,7 +573,13 @@ ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_noteId_fkey" FOREIGN KEY
 ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_canonicalPageId_fkey" FOREIGN KEY ("canonicalPageId") REFERENCES "CanonicalPage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_pageBlobId_fkey" FOREIGN KEY ("pageBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "AudioRecording" ADD CONSTRAINT "AudioRecording_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AudioRecording" ADD CONSTRAINT "AudioRecording_fileBlobId_fkey" FOREIGN KEY ("fileBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AudioSlice" ADD CONSTRAINT "AudioSlice_recordingId_fkey" FOREIGN KEY ("recordingId") REFERENCES "AudioRecording"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -493,3 +637,9 @@ ALTER TABLE "Answer" ADD CONSTRAINT "Answer_questionId_fkey" FOREIGN KEY ("quest
 
 -- AddForeignKey
 ALTER TABLE "Answer" ADD CONSTRAINT "Answer_answeredByUserId_fkey" FOREIGN KEY ("answeredByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -60,7 +60,7 @@ services:
       - "${FRONTEND_PORT_PUBLIC}:3000"
     volumes:
       - ./frontend:/app
-      - ./frontend/node_modules:/app/node_modules
+      - /app/node_modules
     command: sh -lc "npm install --no-audit --no-fund && npm run dev"
     depends_on:
       - backend
@@ -84,7 +84,7 @@ services:
       - "${BACKEND_PORT_PUBLIC}:4000"
     volumes:
       - ./backend:/app
-      - ./backend/node_modules:/app/node_modules
+      - /app/node_modules
     command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push && npm run start:dev"
     depends_on:
       postgres:

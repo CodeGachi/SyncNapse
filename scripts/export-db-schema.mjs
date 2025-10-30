@@ -25,7 +25,7 @@ try {
 
   // Validate schema first
   log('running prisma validate', { backendDir });
-  const validate = spawnSync('npx', ['prisma', 'validate'], { cwd: backendDir, encoding: 'utf8' });
+  const validate = spawnSync('npx', ['prisma', 'validate'], { cwd: backendDir, encoding: 'utf8', shell: true });
   if (validate.status !== 0) {
     console.error('[export-db-schema] prisma validate failed');
     if (validate.stdout) console.error(validate.stdout);
@@ -35,7 +35,7 @@ try {
 
   function runDiff(args, label) {
     log('running prisma migrate diff', { label, args });
-    const r = spawnSync('npx', ['prisma', 'migrate', 'diff', ...args], { cwd: backendDir, encoding: 'utf8' });
+    const r = spawnSync('npx', ['prisma', 'migrate', 'diff', ...args], { cwd: backendDir, encoding: 'utf8', shell: true });
     return r;
   }
 
