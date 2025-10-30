@@ -1,10 +1,12 @@
+// Set JWT_SECRET before importing modules that use AuthConfig
+process.env.JWT_SECRET = 'test-jwt-secret-key-at-least-32-characters-long';
+
 import { JwtStrategy } from './jwt.strategy';
 import { JwtBlacklistService } from '../services/jwt-blacklist.service';
 
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
   let jwtBlacklistService: JwtBlacklistService;
-  const originalEnv = process.env;
 
   const mockBlacklistService = {
     isBlacklisted: jest.fn().mockResolvedValue(false),
@@ -13,14 +15,9 @@ describe('JwtStrategy', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    process.env = { ...originalEnv, JWT_SECRET: 'test-jwt-secret-key' };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jwtBlacklistService = mockBlacklistService as any;
     strategy = new JwtStrategy(jwtBlacklistService);
-  });
-
-  afterAll(() => {
-    process.env = originalEnv;
   });
 
   describe('validate', () => {
@@ -73,16 +70,13 @@ describe('JwtStrategy', () => {
       expect(strategyInstance).toBeInstanceOf(JwtStrategy);
     });
 
-    it('should use JWT_SECRET from environment', () => {
-      // Arrange
-      const customSecret = 'custom-secret-key-for-testing';
-      process.env.JWT_SECRET = customSecret;
-
-      // Act
+    it('should create strategy instance successfully', () => {
+      // Arrange & Act
       const strategyInstance = new JwtStrategy(jwtBlacklistService);
 
       // Assert - strategy should be created without errors
       expect(strategyInstance).toBeDefined();
+      expect(strategyInstance).toBeInstanceOf(JwtStrategy);
     });
   });
 });
