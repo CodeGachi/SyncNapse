@@ -161,6 +161,20 @@ CREATE TABLE "AudioSlice" (
 );
 
 -- CreateTable
+CREATE TABLE "Bookmark" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "startSec" DECIMAL(7,2) NOT NULL,
+    "tag" TEXT,
+    "comment" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Bookmark_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "MediaChunk" (
     "id" TEXT NOT NULL,
     "noteId" TEXT NOT NULL,
@@ -409,6 +423,15 @@ CREATE INDEX "AudioSlice_recordingId_startSec_idx" ON "AudioSlice"("recordingId"
 CREATE INDEX "AudioSlice_chunkId_idx" ON "AudioSlice"("chunkId");
 
 -- CreateIndex
+CREATE INDEX "Bookmark_noteId_startSec_idx" ON "Bookmark"("noteId", "startSec");
+
+-- CreateIndex
+CREATE INDEX "Bookmark_userId_idx" ON "Bookmark"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Bookmark_userId_noteId_startSec_key" ON "Bookmark"("userId", "noteId", "startSec");
+
+-- CreateIndex
 CREATE INDEX "MediaChunk_noteId_startSec_idx" ON "MediaChunk"("noteId", "startSec");
 
 -- CreateIndex
@@ -563,6 +586,12 @@ ALTER TABLE "AudioSlice" ADD CONSTRAINT "AudioSlice_recordingId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "AudioSlice" ADD CONSTRAINT "AudioSlice_chunkId_fkey" FOREIGN KEY ("chunkId") REFERENCES "MediaChunk"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Bookmark" ADD CONSTRAINT "Bookmark_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Bookmark" ADD CONSTRAINT "Bookmark_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MediaChunk" ADD CONSTRAINT "MediaChunk_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
