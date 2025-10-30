@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class OAuthCallbackResponseDto {
+export class TokenPairDto {
   @ApiProperty({
     description: 'JWT access token for API authentication',
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWlkIiwiaWF0IjoxNjE2MjM5MDIyfQ...',
@@ -22,17 +22,7 @@ export class OAuthCallbackResponseDto {
   @ApiProperty({
     description: 'Token type (always "Bearer")',
     example: 'Bearer',
+    default: 'Bearer',
   })
-  tokenType!: string;
-
-  @ApiProperty({
-    description: 'HATEOAS links for navigation',
-    example: {
-      self: { href: '/api/auth/google/callback', method: 'GET' },
-      me: { href: '/api/users/me', method: 'GET' },
-      refresh: { href: '/api/auth/refresh', method: 'POST' },
-      logout: { href: '/api/auth/logout', method: 'POST' },
-    },
-  })
-  _links!: Record<string, unknown>;
+  tokenType?: string;
 }

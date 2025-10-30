@@ -26,6 +26,9 @@ model User {
   uploads                Upload[]     @relation("UserUploads")
   questionsAsked         Question[]   @relation("UserAskedQuestions")
   answersAuthored        Answer[]     @relation("UserAnsweredAnswers")
+  auditLogs              AuditLog[]
+  // Auth-related back-relations
+  refreshTokens          RefreshToken[]
 }
 
 model Folder {
@@ -51,6 +54,8 @@ model LectureNote {
   title          String
   sourceFileUrl  String?  // original lecture material file storage URL
   audioFileUrl   String?  // recorded audio file storage URL
+  sourceBlobId   String?  // optional: file stored in DB (not recommended for production)
+  audioBlobId    String?  // optional: audio stored in DB (not recommended for production)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   deletedAt      DateTime?
@@ -68,6 +73,12 @@ model LectureNote {
   inkLayers      InkLayer[]
   // Section sync mappings removed to match DB schema
   questions      Question[]
+  // FileBlob relations
+  sourceBlob     FileBlob? @relation("LectureNoteSourceBlob", fields: [sourceBlobId], references: [id])
+  audioBlob      FileBlob? @relation("LectureNoteAudioBlob", fields: [audioBlobId], references: [id])
+  
+  @@index([sourceBlobId])
+  @@index([audioBlobId])
 }
 
 // Explicit join table mapping for Folder <-> LectureNote
@@ -170,6 +181,7 @@ model MaterialPage {
   noteId     String
   pageNumber Int
   pageUrl    String?
+  pageBlobId String?  // optional: page image stored in DB (not recommended for production)
   // canonicalization
   pageHash   String?   // sha256 or stable content hash
   canonicalPageId String?
@@ -181,8 +193,10 @@ model MaterialPage {
   canonical  CanonicalPage? @relation(fields: [canonicalPageId], references: [id])
   inkLayers  InkLayer[]
   questions  Question[]
+  pageBlob   FileBlob? @relation("MaterialPageBlob", fields: [pageBlobId], references: [id])
   @@unique([noteId, pageNumber])
   @@index([canonicalPageId])
+  @@index([pageBlobId])
 }
 
 // Audio recordings attached to a note (file-level)
@@ -190,12 +204,15 @@ model AudioRecording {
   id           String   @id @default(cuid())
   noteId       String
   fileUrl      String
+  fileBlobId   String?  // optional: audio file stored in DB (not recommended for production)
   durationSec  Decimal? @db.Decimal(7, 2)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   note         LectureNote @relation(fields: [noteId], references: [id])
   slices       AudioSlice[]
+  fileBlob     FileBlob? @relation("AudioRecordingBlob", fields: [fileBlobId], references: [id])
   @@index([noteId])
+  @@index([fileBlobId])
 }
 
 // Sliced audio segments with optional file offset for alignment
@@ -390,4 +407,98 @@ model Answer {
 
   @@index([questionId])
   @@index([answeredByUserId])
+}
+
+// === Audit Log ===
+model AuditLog {
+  id         String   @id @default(cuid())
+  at         DateTime @default(now())
+  userId     String?
+  method     String?
+  path       String?
+  status     Int?
+  ip         String?
+  userAgent  String?
+  requestId  String?
+  action     String?
+  resourceId String?
+  payload    Json?
+
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, at])
+}
+
+// === Auth Enhancement Tables ===
+
+// Refresh Token for JWT token renewal
+model RefreshToken {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique  // hashed refresh token
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  usedAt       DateTime?
+  replacedBy   String?  // new refresh token id when rotated
+  revokedAt    DateTime?
+  revokedReason String?  // logout, compromised, expired
+  ipAddress    String?
+  userAgent    String?
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// OAuth state for CSRF protection
+model OAuthState {
+  id          String   @id @default(cuid())
+  state       String   @unique
+  provider    String
+  redirectUrl String?
+  codeVerifier String? // PKCE verifier
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  usedAt      DateTime?
+
+  @@index([state])
+  @@index([expiresAt])
+}
+
+// JWT Blacklist for logout
+model JwtBlacklist {
+  id        String   @id @default(cuid())
+  jti       String   @unique  // JWT ID (unique token identifier)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  reason    String?  // logout, security
+
+  @@index([jti])
+  @@index([expiresAt])
+}
+
+// === File Blob Storage (⚠️ NOT recommended for production) ===
+// This stores files directly in PostgreSQL using BYTEA
+// Consider using S3, GCS, or MinIO for production systems
+model FileBlob {
+  id         String   @id @default(cuid())
+  fileName   String
+  mimeType   String?
+  sizeBytes  Int
+  data       Bytes    // Binary data stored in BYTEA (PostgreSQL limit: 1GB)
+  checksum   String?  // SHA256 or other hash for integrity verification
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Back-relations to entities using this blob
+  lectureNotesAsSource  LectureNote[] @relation("LectureNoteSourceBlob")
+  lectureNotesAsAudio   LectureNote[] @relation("LectureNoteAudioBlob")
+  audioRecordings       AudioRecording[] @relation("AudioRecordingBlob")
+  materialPages         MaterialPage[] @relation("MaterialPageBlob")
+  
+  @@index([fileName])
+  @@index([mimeType])
+  @@index([createdAt])
 }

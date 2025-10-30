@@ -1,5 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { UsersService } from '../../users/users.service';
+import { OAuthStateService } from './oauth-state.service';
 
 type ProviderConfig = {
   authUrl: string;
@@ -9,14 +10,17 @@ type ProviderConfig = {
   clientSecret?: string | undefined;
   callbackUrl: string | undefined;
   defaultScopes: string[];
-  mapUser: (raw: any) => { email: string; displayName: string; providerUserId: string };
+  mapUser: (raw: { sub?: string; email?: string; name?: string }) => { email: string; displayName: string; providerUserId: string };
 };
 
 @Injectable()
 export class OAuthService {
   private readonly logger = new Logger(OAuthService.name);
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly oauthStateService: OAuthStateService,
+  ) {}
 
   private providers(): Record<string, ProviderConfig> {
     return {
@@ -28,18 +32,28 @@ export class OAuthService {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackUrl: process.env.GOOGLE_CALLBACK_URL,
         defaultScopes: ['openid', 'profile', 'email'],
-        mapUser: (raw: any) => ({
-          email: raw.email,
-          displayName: raw.name ?? raw.email?.split('@')[0] ?? 'user',
-          providerUserId: raw.sub,
-        }),
+        mapUser: (raw: { sub?: string; email?: string; name?: string }) => {
+          // Ensure required fields are present from OAuth provider
+          if (!raw.email || !raw.sub) {
+            throw new UnauthorizedException('OAuth provider did not return required user information (email, sub)');
+          }
+          return {
+            email: raw.email,
+            displayName: raw.name ?? raw.email.split('@')[0] ?? 'user',
+            providerUserId: raw.sub,
+          };
+        },
       },
     };
   }
 
-  buildAuthUrl(provider: string, opts?: { scope?: string[]; state?: string }) {
+  async buildAuthUrl(provider: string, opts?: { scope?: string[]; redirectUrl?: string }) {
     const cfg = this.providers()[provider];
     if (!cfg?.clientId || !cfg?.callbackUrl) throw new UnauthorizedException('OAuth provider not configured');
+    
+    // Create state for CSRF protection
+    const state = await this.oauthStateService.createState(provider, opts?.redirectUrl);
+    
     const params = new URLSearchParams({
       client_id: cfg.clientId,
       redirect_uri: cfg.callbackUrl,
@@ -47,10 +61,11 @@ export class OAuthService {
       scope: (opts?.scope ?? cfg.defaultScopes).join(' '),
       include_granted_scopes: 'true',
       access_type: 'offline',
+      state, // CSRF protection
     });
-    if (opts?.state) params.set('state', opts.state);
+    
     const url = `${cfg.authUrl}?${params.toString()}`;
-    this.logger.debug(`buildAuthUrl provider=${provider}`);
+    this.logger.debug(`buildAuthUrl provider=${provider} state=${state.substring(0, 8)}...`);
     return url;
   }
 
@@ -91,7 +106,10 @@ export class OAuthService {
     return raw;
   }
 
-  async handleCallback(provider: string, code: string) {
+  async handleCallback(provider: string, code: string, state: string) {
+    // Validate state for CSRF protection
+    await this.oauthStateService.validateState(state, provider);
+    
     const tokens = await this.exchangeCode(provider, code);
     const raw = await this.fetchUserInfo(provider, tokens.access_token);
     const cfg = this.providers()[provider];

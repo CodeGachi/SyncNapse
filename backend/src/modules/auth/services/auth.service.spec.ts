@@ -1,7 +1,7 @@
-import { AuthService } from './services/auth.service';
-import { UsersService } from '../users/users.service';
+import { AuthService } from './auth.service';
+import { UsersService } from '../../users/users.service';
 import { JwtService } from '@nestjs/jwt';
-import { OAuthService } from './services/oauth.service';
+import { OAuthService } from './oauth.service';
 import { UnauthorizedException } from '@nestjs/common';
 
 describe('AuthService', () => {
@@ -37,7 +37,6 @@ describe('AuthService', () => {
         process.env.JWT_SECRET = 'test-secret';
         process.env.JWT_ACCESS_EXPIRATION = '15m';
         
-        // Reset mock implementations after resetAllMocks
         mockRefreshTokenService.createRefreshToken.mockResolvedValue({ token: 'refresh-token' });
         mockJwtBlacklistService.isBlacklisted.mockResolvedValue(false);
         
@@ -45,10 +44,8 @@ describe('AuthService', () => {
           usersService, 
           jwtService, 
           oauthService,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          mockRefreshTokenService as any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          mockJwtBlacklistService as any,
+          mockRefreshTokenService as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+          mockJwtBlacklistService as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         );
     });
 

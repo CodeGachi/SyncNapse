@@ -5,7 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { LoggingModule } from './logging/logging.module';
 import { HypermediaModule } from './hypermedia/hypermedia.module';
 import { RootController } from './root.controller';
-import { SessionsModule } from './sessions/sessions.module';
+import { ExportsModule } from './exports/exports.module';
 
 @Module({
   imports: [
@@ -14,7 +14,7 @@ import { SessionsModule } from './sessions/sessions.module';
     AuthModule,
     LoggingModule,
     HypermediaModule,
-    SessionsModule,
+    ExportsModule,
   ],
   controllers: [RootController],
 })
