@@ -42,22 +42,20 @@ jobs:
       - name: Setup environment files
         env:
           GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
+          ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
         run: |
-          # Configure git to use PAT for private repo (scoped to this repository only)
-          git config --local url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
-          
-          # Fetch environment from private repo (suppress output to avoid leaking env vars)
-          npm run env:sync > /tmp/env-sync.log 2>&1 || {
+          # Fetch environment from private repo using HTTPS + PAT
+          npm run env:sync || {
             echo "❌ Environment sync failed"
+            echo "📋 Check if ENV_REPO_PAT secret has correct permissions:"
+            echo "   - repo (Full control of private repositories)"
+            echo "   - CodeGachi/.env repository must exist with dev branch"
             exit 1
           }
           echo "✅ Environment files synced"
           
           # Also copy to .env for Docker Compose
           cp .env.dev .env
-          
-          # Clean up git config to avoid token exposure in logs
-          git config --local --unset url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf || true
       - name: Test
         run: |
           npm -w frontend run test:ci
