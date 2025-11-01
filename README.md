@@ -6,7 +6,21 @@ AI 기반 실시간 강의 노트 생성 및 협업 플랫폼
 
 ## 🚀 빠른 시작
 
-### 1️⃣ 전체 개발 환경 실행
+### 1️⃣ 환경 변수 설정
+
+```bash
+# Private repository에서 개발 환경 변수 가져오기
+npm run env:sync
+
+# 또는 전체 설정 (환경 변수 + 의존성 설치 + DB 설정)
+npm run setup
+```
+
+**참고:** 환경 변수는 CodeGachi Organization의 private repository에서 관리됩니다.
+- 상세 가이드: [docs/ENV_MANAGEMENT.md](./docs/ENV_MANAGEMENT.md)
+- 빠른 시작: [docs/QUICK_START.md](./docs/QUICK_START.md)
+
+### 2️⃣ 개발 환경 실행
 
 ```bash
 # 모든 서비스 시작 (Frontend, Backend, DB, n8n, Monitoring)
@@ -16,7 +30,7 @@ npm run dev:all
 npm run dev:minio
 ```
 
-### 2️⃣ 접속
+### 3️⃣ 서비스 접속
 
 ```
 Frontend:  http://localhost:3000
@@ -25,6 +39,31 @@ Grafana:   http://localhost:3001
 n8n:       http://localhost:5678
 MinIO:     http://localhost:9001 (dev:minio 사용 시)
 ```
+
+---
+
+## 🧪 GitHub Actions 로컬 테스트
+
+```bash
+# act 설치
+brew install act
+brew install actionlint
+
+# Secrets 설정
+npm run act:setup
+vi .github/workflows/.secrets  # PAT 입력
+
+# 문법 검사
+npm run act:lint
+
+# CI 워크플로우 테스트
+npm run act:ci
+
+# 자세한 로그로 실행
+npm run act:ci:verbose
+```
+
+**자세한 내용:** [GitHub Actions 테스트 가이드](docs/GUIDELINES.md#github-actions-local-testing)
 
 ---
 
@@ -97,6 +136,14 @@ STORAGE_SECRET_ACCESS_KEY=wJal...
 
 ## 📚 문서
 
+### 시작하기
+- **빠른 시작**: `docs/QUICK_START.md`
+- **환경 변수 관리**: `docs/ENV_MANAGEMENT.md`
+- **환경 변수 Push/Sync**: `docs/ENV_PUSH_PULL_GUIDE.md`
+- **Dev/Prod 환경 분리**: `docs/ENV_SEPARATION_COMPLETE.md`
+- **개발 가이드라인**: `docs/GUIDELINES.md`
+
+### 스토리지
 - **스토리지 설정**: `docs/STORAGE.md`
 - **S3 대안**: `docs/STORAGE_ALTERNATIVES.md`
 - **아키텍처 비교**: `docs/ARCHITECTURE_COMPARISON.md`
@@ -123,6 +170,13 @@ npm run ci:test:frontend
 ## 🔧 개발 명령어
 
 ```bash
+# 환경 변수
+npm run env:sync         # 개발 환경 변수 가져오기 (dev branch)
+npm run env:sync:prod    # 프로덕션 환경 변수 가져오기 (main branch)
+npm run env:push         # 개발 환경 변수 업로드 (dev branch)
+npm run env:push:prod    # 프로덕션 환경 변수 업로드 (main branch)
+npm run setup            # 전체 프로젝트 설정 (환경 변수 + 의존성 + DB)
+
 # 개발 서버 시작
 npm run dev:all          # 전체 (Docker)
 npm run dev:minio        # MinIO 포함
@@ -185,15 +239,25 @@ PW: admin (변경하세요!)
 
 ## 🔐 보안
 
+### 환경 변수 관리
+
+**중요:** 환경 변수는 별도의 private repository에서 관리됩니다.
+- Repository: `github.com/CodeGachi/.env` (Private)
+- Dev 환경: `dev` branch → `.env.dev`
+- Production 환경: `main` branch → `.env.prod`
+
+자세한 내용: [docs/ENV_MANAGEMENT.md](./docs/ENV_MANAGEMENT.md)
+
 ### 프로덕션 체크리스트
 
-- [ ] `.env` 파일을 Git에 커밋하지 않음
+- [ ] `.env`, `.env.dev`, `.env.prod` 파일을 Git에 커밋하지 않음
 - [ ] `JWT_SECRET` 강력한 값으로 변경
 - [ ] Grafana 기본 비밀번호 변경
 - [ ] MinIO 기본 비밀번호 변경
 - [ ] PostgreSQL 비밀번호 변경
 - [ ] HTTPS 설정
 - [ ] 방화벽 설정
+- [ ] Private env repository 접근 권한 확인
 
 ---
 
@@ -215,9 +279,28 @@ PW: admin (변경하세요!)
 
 ## 💡 문제 해결
 
+### 환경 변수가 없다는 오류
+```bash
+# 환경 변수 동기화
+npm run env:sync
+
+# .env-repo 디렉토리 삭제 후 재시도
+rm -rf .env-repo
+npm run env:sync
+```
+
+### SSH 키 인증 실패
+```bash
+# SSH 연결 테스트
+ssh -T git@github.com
+
+# Private repository 접근 권한 요청
+# CodeGachi Organization 관리자에게 문의
+```
+
 ### 파일 업로드가 안 돼요
 - MinIO 실행 확인: `docker ps | grep minio`
-- 환경 변수 확인: `.env` 파일
+- 환경 변수 확인: `.env.dev` 파일
 - 가이드: `backend/var/storage/MINIO_SETUP.md`
 
 ### 데이터베이스 연결 실패
