@@ -26,7 +26,9 @@ const SAMPLES_DIR = join(__dirname, '../backend/var/samples');
 
 console.log('🚀 MinIO Sample Files Seeding Script');
 console.log('=====================================');
-console.log(`Endpoint: ${MINIO_ENDPOINT}`);
+// Mask endpoint URL to avoid exposing internal server addresses
+const maskedEndpoint = MINIO_ENDPOINT.replace(/(https?:\/\/)([^:]+)(:\d+)?/, '$1***$3');
+console.log(`Endpoint: ${maskedEndpoint}`);
 console.log(`Bucket: ${MINIO_BUCKET}`);
 console.log(`Samples Directory: ${SAMPLES_DIR}\n`);
 

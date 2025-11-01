@@ -1,0 +1,5 @@
+# act configuration
+# Use medium size runner for better compatibility
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+# Set container architecture for Apple M-series chip
+--container-architecture linux/amd64

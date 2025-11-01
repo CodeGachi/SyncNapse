@@ -4,71 +4,146 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  workflow_dispatch:  # Manual trigger
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  build-and-deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    
+    env:
+      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+      ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
+      ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
+      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+      ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
+      ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
+      ECS_TASK_DEFINITION_FRONTEND: ${{ secrets.ECS_TASK_DEFINITION_FRONTEND }}
+      ECS_TASK_DEFINITION_BACKEND: ${{ secrets.ECS_TASK_DEFINITION_BACKEND }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
+          aws-region: ${{ env.AWS_REGION }}
+      
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Extract metadata (tags)
-        id: meta
+      
+      - name: Build and push images
+        id: build
         run: |
-          echo "sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-      - name: Build images
-        env:
-          ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
-          ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
+          TAG="sha-${GITHUB_SHA::7}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          
+          # Build images
+          docker build -t $ECR_REGISTRY/$ECR_REPO_FRONTEND:$TAG -f frontend/Dockerfile ./frontend
+          docker build -t $ECR_REGISTRY/$ECR_REPO_BACKEND:$TAG -f backend/Dockerfile ./backend
+          
+          # Tag as latest
+          docker tag $ECR_REGISTRY/$ECR_REPO_FRONTEND:$TAG $ECR_REGISTRY/$ECR_REPO_FRONTEND:latest
+          docker tag $ECR_REGISTRY/$ECR_REPO_BACKEND:$TAG $ECR_REGISTRY/$ECR_REPO_BACKEND:latest
+          
+          # Push all tags
+          docker push $ECR_REGISTRY/$ECR_REPO_FRONTEND:$TAG
+          docker push $ECR_REGISTRY/$ECR_REPO_FRONTEND:latest
+          docker push $ECR_REGISTRY/$ECR_REPO_BACKEND:$TAG
+          docker push $ECR_REGISTRY/$ECR_REPO_BACKEND:latest
+          
+          echo "✅ Images pushed:"
+          echo "  Frontend: $ECR_REGISTRY/$ECR_REPO_FRONTEND:$TAG"
+          echo "  Backend:  $ECR_REGISTRY/$ECR_REPO_BACKEND:$TAG"
+      
+      - name: Update ECS Task Definition (Frontend)
+        id: task-def-frontend
         run: |
-          docker build -t $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }} -f frontend/Dockerfile ./frontend
-          docker build -t $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }} -f backend/Dockerfile ./backend
-
-      - name: Tag latest
-        env:
-          ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
-          ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
+          # Get current task definition (redirect to file to avoid logging sensitive data)
+          aws ecs describe-task-definition \
+            --task-definition $ECS_TASK_DEFINITION_FRONTEND \
+            --query 'taskDefinition' \
+            --output json > /tmp/task-def-frontend.json 2>&1
+          
+          # Update image URI in task definition
+          jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPO_FRONTEND:${{ steps.build.outputs.tag }}" \
+            '.containerDefinitions[0].image = $IMAGE | 
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            /tmp/task-def-frontend.json > /tmp/new-task-def-frontend.json
+          
+          # Register new task definition (suppress detailed output)
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/new-task-def-frontend.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text 2>&1 | grep -v 'environment\|secret')
+          
+          # Clean up temp files
+          rm -f /tmp/task-def-frontend.json /tmp/new-task-def-frontend.json
+          
+          echo "task_arn=$NEW_TASK_ARN" >> $GITHUB_OUTPUT
+          echo "✅ Frontend Task Definition updated"
+      
+      - name: Update ECS Task Definition (Backend)
+        id: task-def-backend
         run: |
-          docker tag $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }} $ECR_REPO_FRONTEND:latest
-          docker tag $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }} $ECR_REPO_BACKEND:latest
-
-      - name: Push images
-        env:
-          ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
-          ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
+          # Get current task definition (redirect to file to avoid logging sensitive data)
+          aws ecs describe-task-definition \
+            --task-definition $ECS_TASK_DEFINITION_BACKEND \
+            --query 'taskDefinition' \
+            --output json > /tmp/task-def-backend.json 2>&1
+          
+          # Update image URI in task definition
+          jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPO_BACKEND:${{ steps.build.outputs.tag }}" \
+            '.containerDefinitions[0].image = $IMAGE | 
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            /tmp/task-def-backend.json > /tmp/new-task-def-backend.json
+          
+          # Register new task definition (suppress detailed output)
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/new-task-def-backend.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text 2>&1 | grep -v 'environment\|secret')
+          
+          # Clean up temp files
+          rm -f /tmp/task-def-backend.json /tmp/new-task-def-backend.json
+          
+          echo "task_arn=$NEW_TASK_ARN" >> $GITHUB_OUTPUT
+          echo "✅ Backend Task Definition updated"
+      
+      - name: Deploy to ECS
         run: |
-          docker push $ECR_REPO_FRONTEND:sha-${{ steps.meta.outputs.short }}
-          docker push $ECR_REPO_FRONTEND:latest
-          docker push $ECR_REPO_BACKEND:sha-${{ steps.meta.outputs.short }}
-          docker push $ECR_REPO_BACKEND:latest
-
-      - name: Update ECS service (frontend)
-        env:
-          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-          ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
-        run: |
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_FRONTEND" --force-new-deployment > /dev/null
-
-      - name: Update ECS service (backend)
-        env:
-          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-          ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
-        run: |
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_BACKEND" --force-new-deployment > /dev/null
+          echo "🚀 Deploying to ECS..."
+          
+          # Update frontend service (suppress detailed output)
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE_FRONTEND" \
+            --task-definition "${{ steps.task-def-frontend.outputs.task_arn }}" \
+            --force-new-deployment \
+            --no-cli-pager \
+            --output text > /dev/null 2>&1
+          
+          echo "✅ Frontend service updated"
+          
+          # Update backend service (suppress detailed output)
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE_BACKEND" \
+            --task-definition "${{ steps.task-def-backend.outputs.task_arn }}" \
+            --force-new-deployment \
+            --no-cli-pager \
+            --output text > /dev/null 2>&1
+          
+          echo "✅ Backend service updated"
+          echo ""
+          echo "📦 Deployment Summary:"
+          echo "  Cluster: $ECS_CLUSTER"
+          echo "  Frontend: $ECS_SERVICE_FRONTEND"
+          echo "  Backend:  $ECS_SERVICE_BACKEND"
+          echo "  Image Tag: ${{ steps.build.outputs.tag }}"

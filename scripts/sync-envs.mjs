@@ -26,13 +26,19 @@ function writeEnvFile(targetPath, kv) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
-const rootEnvPath = path.join(repoRoot, '.env');
+
+// Determine environment (dev by default)
+// Use ENV_TARGET to avoid conflicts with NODE_ENV used by build tools
+const environment = process.env.ENV_TARGET || process.env.NODE_ENV || 'dev';
+const rootEnvPath = path.join(repoRoot, `.env.${environment}`);
 const rootEnv = readDotenv(rootEnvPath);
 
 if (Object.keys(rootEnv).length === 0) {
-  console.error(`[env] root .env not found or empty at: ${rootEnvPath}`);
+  console.error(`[env] root .env.${environment} not found or empty at: ${rootEnvPath}`);
   process.exit(1);
 }
+
+console.log(`[env] Using environment: ${environment}`);
 
 const backendEnvPath = path.join(repoRoot, 'backend', '.env');
 const backendEnv = {
@@ -67,4 +73,4 @@ const backendEnv = {
 fs.mkdirSync(path.dirname(backendEnvPath), { recursive: true });
 writeEnvFile(backendEnvPath, backendEnv);
 
-console.log(`[env] backend/.env generated from root .env (${rootEnvPath})`);
+console.log(`[env] backend/.env generated from root .env.${environment} (${rootEnvPath})`);

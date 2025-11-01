@@ -5,8 +5,17 @@ frontend/node_modules/
 
 # Environment
 .env
+.env.dev
+.env.prod
+.env.local
 !.env.example
 .test-token
+
+# Environment repository (nested git - DO NOT COMMIT)
+.env-repo/
+
+# GitHub Actions local testing (act)
+.github/workflows/.secrets
 
 # Build outputs
 backend/dist/
