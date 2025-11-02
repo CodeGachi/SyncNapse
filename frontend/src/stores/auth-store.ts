@@ -1,14 +1,7 @@
 /**
- * 인증 UI 상태 관리 Zustand Store
+ * Authentication UI Status Management Zustand Store
  *
- * NOTE: 서버 상태(user, loading, isAuthenticated)는 TanStack Query로 이동
- * 이 스토어는 오직 UI 관련 상태만 관리합니다.
- *
- * 사용자 정보는 useAuth() 훅을 통해 접근하세요:
- * import { useAuth } from "@/features/auth/use-auth";
- * const { user, loading, isAuthenticated } = useAuth();
- */
-
+* NOTE: Server Status(user, load, isAuthenticated) TanStack Querywith * Store Only UI Related Statusonly Management합다. * * User Information useAuth() Hook through 근하요: * import { useAuth } from "@/features/auth/use-auth"; * const { user, loading, isAuthenticated } = useAuth(); */
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 

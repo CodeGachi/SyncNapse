@@ -19,8 +19,8 @@ export interface LoginResponse {
 }
 
 /**
- * Google OAuth 로그인 시작
- * 백엔드 Google OAuth 엔드포인트로 리다이렉트하기 위한 URL 반환
+ * Start Google OAuth login
+ * Returns the URL to redirect to the backend Google OAuth endpoint
  */
 export function getGoogleLoginUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -28,8 +28,8 @@ export function getGoogleLoginUrl(): string {
 }
 
 /**
- * OAuth 콜백 후 토큰 교환
- * 백엔드에서 받은 인증 코드를 JWT 토큰으로 교환
+ * Token exchange after OAuth callback
+ * Exchanges the authorization code received from the backend for a JWT token
  */
 export async function exchangeCodeForToken(code: string): Promise<LoginResponse> {
   return apiClient<LoginResponse>("/api/auth/google/callback", {
@@ -39,27 +39,20 @@ export async function exchangeCodeForToken(code: string): Promise<LoginResponse>
 }
 
 /**
- * 토큰 검증
- * URL에 포함된 token을 검증하고 사용자 정보 반환
- */
-export async function verifyToken(token: string): Promise<LoginResponse> {
-  return apiClient<LoginResponse>("/api/auth/verify", {
-    method: "POST",
+* token Validation * URL Include token Validationand User Information Return */ export async function verifyToken(token: string): Promise<LoginResponse> { return apiClient<LoginResponse>("/api/auth/verify", {    method: "POST",
     body: JSON.stringify({ token }),
   });
 }
 
 /**
- * 현재 로그인된 사용자 정보 조회
- */
-export async function getCurrentUser(): Promise<User> {
+ * Current Login User Information Query */ export async function getCurrentUser(): Promise<User> {
   return apiClient<User>("/api/auth/me", {
     headers: getAuthHeaders(),
   });
 }
 
 /**
- * 로그아웃
+ * Logout
  */
 export async function logout(): Promise<void> {
   return apiClient<void>("/api/auth/logout", {

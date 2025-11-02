@@ -9,7 +9,7 @@
 import type { ExtractedFile, ZipProcessOptions } from "../types";
 
 /**
- * ZIP 파일인지 확인
+ * Check if the file is a ZIP file
  */
 export function isZipFile(file: File): boolean {
   return (

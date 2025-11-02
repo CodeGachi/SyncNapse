@@ -18,7 +18,7 @@ const MOCK_USER: User = {
  * Performs immediate login instead of opening a popup window
  */
 export async function mockGoogleLogin(): Promise<LoginResponse> {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const token = `mock-jwt-token-${Date.now()}`;
 

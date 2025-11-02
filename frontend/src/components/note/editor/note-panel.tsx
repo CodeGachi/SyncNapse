@@ -1,6 +1,6 @@
 /**
- * 노트 패널 컴포넌트 (블록 기반 에디터)
- * PDF 페이지별 노트 기능
+ * Note panel component (block-based editor)
+ * Per-page note functionality for PDF
  */
 
 "use client";
@@ -30,11 +30,11 @@ export function NotePanel({ isOpen }: NotePanelProps) {
 
   return (
     <div className="w-full h-full bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-3 flex flex-col">
-      {/* 페이지 정보 헤더 */}
+      {/* Page info header */}
       <div className="flex-shrink-0 mb-2 pb-1 border-b border-[#444444] flex items-center gap-2">
         <h3 className="text-white text-xs">P{currentPage}</h3>
 
-        {/* 도움말 아이콘 */}
+        {/* Help icon */}
         <div className="relative group">
           <button className="w-4 h-4 rounded-full bg-[#444444] hover:bg-[#555555] flex items-center justify-center transition-colors">
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
@@ -43,7 +43,7 @@ export function NotePanel({ isOpen }: NotePanelProps) {
             </svg>
           </button>
 
-          {/* 호버 시 표시되는 툴팁 */}
+          {/* Tooltip displayed on hover */}
           <div className="absolute left-0 top-6 hidden group-hover:block z-10 w-[420px] bg-[#2a2a2a] border border-[#444444] rounded-lg p-3 shadow-xl">
             <p className="text-[#b9b9b9] text-xs leading-relaxed mb-2">
               <span className="font-bold text-[#888888]">단축키:</span> Enter 새 블록 | Backspace 빈 블록 삭제 | Tab 들여쓰기 | Shift+Tab 내어쓰기 | Cmd/Ctrl+Shift+S 취소선

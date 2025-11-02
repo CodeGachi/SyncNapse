@@ -1,7 +1,5 @@
 /**
- * 휴지통 DB 작업
- */
-
+ * Trash DB Operation */ 
 import { initDB } from "./index";
 import type { DBTrashItem, DBFolder, DBNote } from "./index";
 
@@ -10,8 +8,7 @@ export type { DBTrashItem };
 const DAYS_UNTIL_PERMANENT_DELETE = 15;
 
 /**
- * 폴더를 휴지통으로 이동
- */
+ * Folder Trash with */
 export async function moveFolderToTrash(folder: DBFolder): Promise<void> {
   const db = await initDB();
   const now = Date.now();
@@ -29,14 +26,14 @@ export async function moveFolderToTrash(folder: DBFolder): Promise<void> {
   const trashStore = transaction.objectStore("trash");
   const folderStore = transaction.objectStore("folders");
 
-  // 휴지통에 추가
+  // Trash Add
   await new Promise<void>((resolve, reject) => {
     const request = trashStore.add(trashItem);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 
-  // 원래 폴더 삭제
+  // Original Delete folder
   await new Promise<void>((resolve, reject) => {
     const request = folderStore.delete(folder.id);
     request.onsuccess = () => resolve();
@@ -45,8 +42,7 @@ export async function moveFolderToTrash(folder: DBFolder): Promise<void> {
 }
 
 /**
- * 노트를 휴지통으로 이동
- */
+ * Note Trash with */
 export async function moveNoteToTrash(note: DBNote): Promise<void> {
   const db = await initDB();
   const now = Date.now();
@@ -64,14 +60,14 @@ export async function moveNoteToTrash(note: DBNote): Promise<void> {
   const trashStore = transaction.objectStore("trash");
   const noteStore = transaction.objectStore("notes");
 
-  // 휴지통에 추가
+  // Trash Add
   await new Promise<void>((resolve, reject) => {
     const request = trashStore.add(trashItem);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 
-  // 원래 노트 삭제
+  // Original Delete note
   await new Promise<void>((resolve, reject) => {
     const request = noteStore.delete(note.id);
     request.onsuccess = () => resolve();
@@ -80,8 +76,7 @@ export async function moveNoteToTrash(note: DBNote): Promise<void> {
 }
 
 /**
- * 휴지통의 모든 아이템 가져오기
- */
+ * Trash all Item Import */
 export async function getAllTrashItems(): Promise<DBTrashItem[]> {
   const db = await initDB();
   const transaction = db.transaction("trash", "readonly");
@@ -95,14 +90,13 @@ export async function getAllTrashItems(): Promise<DBTrashItem[]> {
 }
 
 /**
- * 휴지통 아이템 복구
- */
+ * Trash Item Restore */
 export async function restoreFromTrash(itemId: string): Promise<void> {
   const db = await initDB();
   const transaction = db.transaction(["trash", "folders", "notes"], "readwrite");
   const trashStore = transaction.objectStore("trash");
 
-  // 휴지통에서 아이템 가져오기
+  // Trash Item Import
   const item = await new Promise<DBTrashItem>((resolve, reject) => {
     const request = trashStore.get(itemId);
     request.onsuccess = () => {
@@ -115,7 +109,7 @@ export async function restoreFromTrash(itemId: string): Promise<void> {
     request.onerror = () => reject(request.error);
   });
 
-  // 원래 위치로 복구
+  // Original Positionwith Restore
   if (item.type === "folder") {
     const folderStore = transaction.objectStore("folders");
     await new Promise<void>((resolve, reject) => {
@@ -132,7 +126,7 @@ export async function restoreFromTrash(itemId: string): Promise<void> {
     });
   }
 
-  // 휴지통에서 삭제
+  // Trash Delete
   await new Promise<void>((resolve, reject) => {
     const request = trashStore.delete(itemId);
     request.onsuccess = () => resolve();
@@ -141,8 +135,7 @@ export async function restoreFromTrash(itemId: string): Promise<void> {
 }
 
 /**
- * 휴지통에서 영구 삭제
- */
+ * Trash Permanent Delete */
 export async function permanentlyDeleteFromTrash(itemId: string): Promise<void> {
   const db = await initDB();
   const transaction = db.transaction("trash", "readwrite");
@@ -156,8 +149,7 @@ export async function permanentlyDeleteFromTrash(itemId: string): Promise<void> 
 }
 
 /**
- * 만료된 아이템 자동 삭제
- */
+ * onlylete Item Auto Delete */
 export async function cleanupExpiredItems(): Promise<number> {
   const db = await initDB();
   const transaction = db.transaction("trash", "readwrite");
@@ -165,9 +157,8 @@ export async function cleanupExpiredItems(): Promise<number> {
   const index = store.index("expiresAt");
   const now = Date.now();
 
-  // expiresAt이 현재 시간보다 작은 아이템들 찾기
+  // expiresAt Current Timethan 작 Items find
   const range = IDBKeyRange.upperBound(now);
-
   return new Promise((resolve, reject) => {
     const request = index.openCursor(range);
     let deletedCount = 0;
@@ -188,8 +179,7 @@ export async function cleanupExpiredItems(): Promise<number> {
 }
 
 /**
- * 휴지통 비우기 (모든 아이템 영구 삭제)
- */
+ * Trash Empty (all Item Permanent Delete) */
 export async function emptyTrash(): Promise<void> {
   const db = await initDB();
   const transaction = db.transaction("trash", "readwrite");

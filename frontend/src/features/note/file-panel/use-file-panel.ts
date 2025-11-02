@@ -1,7 +1,6 @@
 /**
- * 파일 패널 비즈니스 로직 훅
- */
-
+* File Panel bizs with Hook 
+*/
 import { useState, useRef, useEffect } from "react";
 import type { FileItem } from "@/features/note";
 
@@ -38,7 +37,7 @@ export function useFilePanel({
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  // 파일 추가 핸들러
+  // File Add Handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
@@ -52,7 +51,7 @@ export function useFilePanel({
     }
   };
 
-  // 컨텍스트 메뉴 열기
+  // Text Menu Open
   const handleContextMenu = (e: React.MouseEvent, fileId: string) => {
     e.preventDefault();
     setContextMenu({
@@ -63,13 +62,13 @@ export function useFilePanel({
     });
   };
 
-  // 파일 삭제
+  // File Delete
   const handleDelete = (fileId: string) => {
     onRemoveFile(fileId);
     setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
   };
 
-  // 파일 이름 변경 시작
+  // File Name Change Start
   const handleRename = (fileId: string) => {
     const file = files.find((f) => f.id === fileId);
     if (file) {
@@ -79,7 +78,7 @@ export function useFilePanel({
     }
   };
 
-  // 파일 이름 변경 완료
+  // File Name Change Complete
   const handleRenameSubmit = (fileId: string) => {
     if (renameValue.trim() && onRenameFile) {
       onRenameFile(fileId, renameValue.trim());
@@ -88,13 +87,13 @@ export function useFilePanel({
     setRenameValue("");
   };
 
-  // 파일 이름 변경 취소
+  // File Name Change Cancel
   const handleRenameCancel = () => {
     setRenamingFileId(null);
     setRenameValue("");
   };
 
-  // 파일 복사
+  // File Copy
   const handleCopy = (fileId: string) => {
     if (onCopyFile) {
       onCopyFile(fileId);
@@ -102,7 +101,7 @@ export function useFilePanel({
     setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
   };
 
-  // 키보드 단축키 핸들러
+  // Keyboard key handler
   const handleKeyDown = (e: React.KeyboardEvent, fileId: string) => {
     if (e.key === "Delete") {
       e.preventDefault();
@@ -114,7 +113,7 @@ export function useFilePanel({
     }
   };
 
-  // 컨텍스트 메뉴 닫기
+  // Text Menu Close
   useEffect(() => {
     const handleClick = () => {
       setContextMenu({ visible: false, x: 0, y: 0, fileId: null });

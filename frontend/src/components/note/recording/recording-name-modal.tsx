@@ -1,7 +1,6 @@
 /**
- * 녹음 이름 설정 모달
- * 녹음 종료 시 사용자가 녹음 제목을 입력할 수 있음
- */
+ * Recording Name Setting Modal
+ * Recording End When User Recording Title Input can Exists  */
 
 "use client";
 

@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from "react";
 import { useUploadFilesParallel } from "@/lib/api/mutations/files.mutations";
-import type { UploadResult, FileUploadResult } from "@/lib/api/files.api";
+import type { UploadResult } from "@/lib/api/files.api";
 
 export interface FileUploadItem {
   id: string;
@@ -24,7 +24,7 @@ export interface UseFileUploadOptions {
 }
 
 /**
- * 파일 업로드 훅
+ * File upload hook
  *
  * @example
  * const {
@@ -56,11 +56,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     onSuccess: (results) => {
       setFiles((prev) =>
         prev.map((file) => {
-          // 파일 객체를 기준으로 결과를 찾음
+          // Find result based on file object
           const uploadResult = results.find((r) => r.file === file.file);
 
           if (!uploadResult) {
-            // 업로드 결과를 찾지 못한 경우 (업로드되지 않음)
+            // If no upload result is found (not uploaded)
             return file;
           }
 
@@ -96,7 +96,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         })
       );
 
-      // 모든 파일의 결과 반환 (성공/실패 모두 포함)
+      // Return results for all files (including both success and failure)
       if (onAllComplete) {
         const successfulResults = results
           .filter((r) => r.success && r.result)
@@ -127,7 +127,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   });
 
   /**
-   * 파일 추가
+   * Add files
    */
   const addFiles = useCallback((newFiles: File[]) => {
     const uploadItems: FileUploadItem[] = newFiles.map((file) => ({
@@ -142,14 +142,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, []);
 
   /**
-   * 파일 제거
+   * Remove file
    */
   const removeFile = useCallback((fileId: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
   }, []);
 
   /**
-   * 업로드 시작
+   * Start upload
    */
   const startUpload = useCallback(() => {
     const filesToUpload = files
@@ -160,7 +160,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       return;
     }
 
-    // 업로드 시작 시 상태를 uploading으로 변경
+    // Start upload
     setFiles((prev) =>
       prev.map((file) =>
         file.status === "pending" || file.status === "error"
@@ -173,7 +173,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, [files, uploadMutation]);
 
   /**
-   * 모든 업로드 취소
+   * Cancel all uploads
    */
   const cancelAll = useCallback(() => {
     uploadMutation.reset();
@@ -181,7 +181,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, [uploadMutation]);
 
   /**
-   * 완료된 파일 제거
+   * Remove completed files
    */
   const clearCompleted = useCallback(() => {
     setFiles((prev) =>
@@ -195,7 +195,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, []);
 
   /**
-   * 실패한 파일 재시도
+   * Retry failed files
    */
   const retryFailed = useCallback(() => {
     setFiles((prev) =>
@@ -208,11 +208,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, []);
 
   return {
-    // 상태
     files,
     isUploading: uploadMutation.isPending,
 
-    // 액션
     addFiles,
     removeFile,
     startUpload,

@@ -1,23 +1,29 @@
 /**
- * 파일 업로드/삭제 작업을 위한 useMutation 훅들
+ * useMutation hooks for file upload/delete operations
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   uploadFile,
   uploadFilesParallel,
-  deleteFile,
+  deleteFile as deleteFileGeneric,
   type UploadResult,
   type FileUploadResult,
 } from "../files.api";
+import {
+  saveFile as saveFileApi,
+  saveMultipleFiles as saveMultipleFilesApi,
+  deleteFile as deleteNoteFileApi,
+} from "../services/files.api";
+import type { DBFile } from "@/lib/db/files";
 
 /**
- * 단일 파일 업로드 뮤테이션
+ * Single file upload mutation
  *
  * @example
  * const uploadSingleFile = useUploadFile({
  *   onSuccess: (result) => {
- *     console.log("업로드 완료:", result);
+ *     console.log("Upload complete:", result);
  *   },
  * });
  *
@@ -52,7 +58,7 @@ export function useUploadFile(options?: {
 }
 
 /**
- * 여러 파일 업로드 뮤테이션 (병렬)
+ * Multiple file upload mutations (parallel)
  *
  * @example
  * const uploadFilesParallel = useUploadFilesParallel({
@@ -60,7 +66,7 @@ export function useUploadFile(options?: {
  *   onSuccess: (results) => {
  *     const successful = results.filter(r => r.success);
  *     const failed = results.filter(r => !r.success);
- *     console.log(`완료: ${successful.length}, 실패: ${failed.length}`);
+ *     console.log(`Complete: ${successful.length}, Failure: ${failed.length}`);
  *   },
  * });
  *
@@ -90,12 +96,12 @@ export function useUploadFilesParallel(options?: {
 }
 
 /**
- * 파일 삭제 뮤테이션
+ * Delete file mutation
  *
  * @example
  * const deleteFileMutation = useDeleteFile({
  *   onSuccess: () => {
- *     console.log("파일 삭제 완료");
+ *     console.log("File Delete Complete");
  *   },
  * });
  *
@@ -108,9 +114,9 @@ export function useDeleteFile(options?: {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: deleteFile,
+    mutationFn: deleteFileGeneric,
 
-    // 낙관적 삭제
+    // Optimistic deletion
     onMutate: async (fileId) => {
       await queryClient.cancelQueries({ queryKey: ["files"] });
 
@@ -126,7 +132,7 @@ export function useDeleteFile(options?: {
       return { previousFiles };
     },
 
-    // 에러 시 롤백
+    // Error handling
     onError: (error: Error, fileId, context: any) => {
       if (context?.previousFiles) {
         queryClient.setQueryData(["files"], context.previousFiles);
@@ -135,11 +141,95 @@ export function useDeleteFile(options?: {
       options?.onError?.(error);
     },
 
-    // 성공 시 재검증
+    // Success handling
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
 
       options?.onSuccess?.();
+    },
+  });
+}
+
+// ============================================================================
+// Note-specific file operations (services/files.api.ts)
+// ============================================================================
+
+/**
+ * Note File Save Muta tion * * @example  * const saveFile = useSaveNoteFile({
+ *   onSuccess: () => {
+ * notify.success("Save Complete", "File Savecompleted."); * }, * });  * saveFile.mutate({ noteId: "note-123", file });
+ */
+export function useSaveNoteFile(
+  options?: {
+    onSuccess?: (data: DBFile) => void;
+    onError?: (error: Error) => void;
+  }
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, file }: { noteId: string; file: File }) =>
+      saveFileApi(noteId, file),
+
+    onSuccess: (data, variables) => {
+      // Relevant Note File List Invalidate queryClient.invalidateQueries({ queryKey: ["files", "note", variables.noteId] });       options?.onSuccess?.(data);
+    },
+
+    onError: (error) => {
+      options?.onError?.(error);
+    },
+  });
+}
+
+/**
+* Note Multiple File Save Muta tion * * @example * const saveFiles = useSaveMultipleNoteFiles({ *   onSuccess: (files) => {
+ * notify.success("Save Complete", `${files.length} File Savecompleted.`); * }, * });  * saveFiles.mutate({ noteId: "note-123", files: [file1, file2] });
+ */
+export function useSaveMultipleNoteFiles(
+  options?: {
+    onSuccess?: (data: DBFile[]) => void;
+    onError?: (error: Error) => void;
+  }
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, files }: { noteId: string; files: File[] }) =>
+      saveMultipleFilesApi(noteId, files),
+
+    onSuccess: (data, variables) => {
+      // Relevant Note File List Invalidate queryClient.invalidateQueries({ queryKey: ["files", "note", variables.noteId] });       options?.onSuccess?.(data);
+    },
+
+    onError: (error) => {
+      options?.onError?.(error);
+    },
+  });
+}
+
+/**
+ * Note File Delete Muta tion * * @example  * const deleteFile = useDeleteNoteFile({
+ *   onSuccess: () => {
+ * notify.success("Delete Complete", "File Deletecompleted."); * }, * });  * deleteFile.mutate({ fileId: "file-123", noteId: "note-123" });
+ */
+export function useDeleteNoteFile(
+  options?: {
+    onSuccess?: () => void;
+    onError?: (error: Error) => void;
+  }
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ fileId }: { fileId: string; noteId: string }) =>
+      deleteNoteFileApi(fileId),
+
+    onSuccess: (_, variables) => {
+      // Relevant Note File List Invalidate queryClient.invalidateQueries({ queryKey: ["files", "note", variables.noteId] });       options?.onSuccess?.();
+    },
+
+    onError: (error) => {
+      options?.onError?.(error);
     },
   });
 }

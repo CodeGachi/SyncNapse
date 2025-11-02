@@ -1,7 +1,6 @@
 /**
- * 질문 리스트 뷰 컴포넌트
- */
-
+* Question List View Component 
+*/ 
 "use client";
 
 import type { Question } from "@/lib/types";

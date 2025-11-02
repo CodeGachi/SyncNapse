@@ -1,8 +1,8 @@
 /**
- * 파일 업로드 API 엔드포인트
+ * File upload API endpoint
  *
- * NOTE: 현재는 Mock API를 사용합니다.
- * 백엔드 API가 준비되면 실제 API 호출로 대체할 수 있습니다.
+ * NOTE: Currently uses a mock API.
+ * When the backend API is ready, it can be replaced with real API calls.
  */
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_FILES !== "false";
@@ -28,22 +28,22 @@ export async function uploadFile(
   signal?: AbortSignal
 ): Promise<UploadResult> {
   if (USE_MOCK) {
-    // Mock 업로드
+    // Mock upload
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        // AbortSignal 체크
+        // Check AbortSignal
         if (signal?.aborted) {
           reject(new Error("Upload cancelled"));
           return;
         }
 
-        // 10% 확률로 에러 시뮬레이션
+        // Simulate error with 10% probability
         if (Math.random() < 0.1) {
           reject(new Error("네트워크 오류: 업로드 실패"));
           return;
         }
 
-        // Mock 업로드 결과
+        // Mock upload result
         const url = URL.createObjectURL(file);
         const result: UploadResult = {
           id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -55,9 +55,9 @@ export async function uploadFile(
         };
 
         resolve(result);
-      }, 1000 + Math.random() * 1000); // 1-2초 지연
+      }, 1000 + Math.random() * 1000);
 
-      // AbortSignal 처리
+      // Handle AbortSignal
       if (signal) {
         signal.addEventListener("abort", () => {
           clearTimeout(timeout);
@@ -67,14 +67,13 @@ export async function uploadFile(
     });
   }
 
-  // Real API 호출
   const formData = new FormData();
   formData.append("file", file);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    // AbortSignal 처리
+    // AbortSignal handling
     if (signal) {
       signal.addEventListener("abort", () => {
         xhr.abort();
@@ -82,7 +81,7 @@ export async function uploadFile(
       });
     }
 
-    // 완료
+    // Done
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
@@ -96,12 +95,12 @@ export async function uploadFile(
       }
     });
 
-    // 에러
+    // Error
     xhr.addEventListener("error", () => {
       reject(new Error("Network error"));
     });
 
-    // 요청 전송
+    // Request send
     xhr.open("POST", "/api/files/upload");
     xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("authToken")}`);
     xhr.send(formData);
@@ -109,9 +108,9 @@ export async function uploadFile(
 }
 
 /**
- * 여러 파일 업로드 (병렬)
+ * Upload multiple files (in parallel)
  *
- * @returns 각 파일의 업로드 결과 (성공/실패 정보 포함)
+ * @returns Upload results for each file (including success/failure information)
  */
 export async function uploadFilesParallel(
   files: File[],
@@ -141,14 +140,14 @@ export async function uploadFilesParallel(
         success: false,
       };
     } finally {
-      // 다음 파일 업로드
+      // Upload next file
       if (currentIndex < files.length) {
         await uploadNext();
       }
     }
   };
 
-  // 동시 업로드 시작
+  // Start concurrent uploads
   for (let i = 0; i < Math.min(maxConcurrent, files.length); i++) {
     uploadPromises.push(uploadNext());
   }
@@ -159,7 +158,7 @@ export async function uploadFilesParallel(
 }
 
 /**
- * 파일 삭제
+ * Delete file
  */
 export async function deleteFile(fileId: string): Promise<void> {
   if (USE_MOCK) {

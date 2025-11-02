@@ -1,8 +1,6 @@
 /**
- * 스크립트 번역 상태 관리 Store
- * 녹음 스크립트의 번역 기능 관리
- */
-
+ * script Translation Status Management Store * Record script Translation feature Management
+*/ 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { SupportedLanguage, ScriptSegment } from "@/lib/types";

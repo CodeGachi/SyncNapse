@@ -3,7 +3,6 @@
  */
 
 export { useNotePanel } from "./use-note-panel";
-export { useScriptPanel } from "./use-script-panel";
 export type { NoteBlock } from "./use-note-panel";
 
 // 노트 에디터 유틸리티 함수들

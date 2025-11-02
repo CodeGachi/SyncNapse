@@ -13,8 +13,8 @@ import {
   createNote as createNoteApi,
   updateNote as updateNoteApi,
   deleteNote as deleteNoteApi,
-} from "../client/notes.api";
-import type { DBNote } from "@/lib/db/notes";
+} from "../services/notes.api";
+import type { Note } from "@/lib/types";
 
 /**
  * 노트 생성 뮤테이션
@@ -30,7 +30,7 @@ import type { DBNote } from "@/lib/db/notes";
  */
 export function useCreateNote(
   options?: {
-    onSuccess?: (data: DBNote) => void;
+    onSuccess?: (data: Note) => void;
     onError?: (error: Error) => void;
   }
 ) {
@@ -74,7 +74,7 @@ export function useUpdateNote(
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ noteId, updates }: { noteId: string; updates: Partial<Omit<DBNote, "id" | "createdAt">> }) =>
+    mutationFn: ({ noteId, updates }: { noteId: string; updates: Partial<Omit<Note, "id" | "createdAt">> }) =>
       updateNoteApi(noteId, updates),
 
     // 낙관적 업데이트: 서버 응답 전에 UI 즉시 업데이트
@@ -83,11 +83,11 @@ export function useUpdateNote(
       await queryClient.cancelQueries({ queryKey: ["notes", noteId] });
 
       // 이전 값 백업 (롤백용)
-      const previousNote = queryClient.getQueryData<DBNote>(["notes", noteId]);
+      const previousNote = queryClient.getQueryData<Note>(["notes", noteId]);
 
       // 낙관적 업데이트 적용
       if (previousNote) {
-        queryClient.setQueryData<DBNote>(["notes", noteId], {
+        queryClient.setQueryData<Note>(["notes", noteId], {
           ...previousNote,
           ...updates,
           updatedAt: Date.now(),
@@ -95,9 +95,9 @@ export function useUpdateNote(
       }
 
       // 노트 목록도 낙관적 업데이트
-      const previousNotes = queryClient.getQueryData<DBNote[]>(["notes"]);
+      const previousNotes = queryClient.getQueryData<Note[]>(["notes"]);
       if (previousNotes) {
-        queryClient.setQueryData<DBNote[]>(
+        queryClient.setQueryData<Note[]>(
           ["notes"],
           previousNotes.map((note) =>
             note.id === noteId
@@ -139,7 +139,7 @@ export function useUpdateNote(
  * @example
  * const deleteNote = useDeleteNote({
  *   onSuccess: () => {
- *     router.push("/dashboard");
+ *     router.push("/dashboard/main");
  *   },
  * });
  * deleteNote.mutate("note-123");
@@ -161,11 +161,11 @@ export function useDeleteNote(
       await queryClient.cancelQueries({ queryKey: ["notes"] });
 
       // 이전 값 백업
-      const previousNotes = queryClient.getQueryData<DBNote[]>(["notes"]);
+      const previousNotes = queryClient.getQueryData<Note[]>(["notes"]);
 
       // 낙관적 업데이트: 노트 목록에서 제거
       if (previousNotes) {
-        queryClient.setQueryData<DBNote[]>(
+        queryClient.setQueryData<Note[]>(
           ["notes"],
           previousNotes.filter((note) => note.id !== noteId)
         );
@@ -220,10 +220,10 @@ export function useDeleteManyNotes(
     onMutate: async (noteIds) => {
       await queryClient.cancelQueries({ queryKey: ["notes"] });
 
-      const previousNotes = queryClient.getQueryData<DBNote[]>(["notes"]);
+      const previousNotes = queryClient.getQueryData<Note[]>(["notes"]);
 
       if (previousNotes) {
-        queryClient.setQueryData<DBNote[]>(
+        queryClient.setQueryData<Note[]>(
           ["notes"],
           previousNotes.filter((note) => !noteIds.includes(note.id))
         );

@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { NoteSettingsModal } from "@/components/dashboard/create-note-modal";
+import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { useNoteSettingsStore } from "@/stores";
 
 // 테스트용 QueryClient 생성 함수

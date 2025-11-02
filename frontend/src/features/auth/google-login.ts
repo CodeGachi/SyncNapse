@@ -18,7 +18,7 @@ export function useGoogleLogin() {
 
   const loginMutation = useLogin({
     onSuccess: () => {
-      router.push("/dashboard");
+      router.push("/dashboard/main");
     },
     onError: (error) => {
       alert("로그인에 실패했습니다.");
@@ -36,7 +36,7 @@ export function useGoogleLogin() {
     try {
       if (USE_MOCK) {
         const { user, token } = await mockGoogleLogin();
-        window.location.href = "/dashboard";
+        window.location.href = "/dashboard/main";
       } else {
         sessionStorage.setItem("auth_redirect", window.location.pathname);
 
@@ -66,7 +66,7 @@ export function useGoogleLogin() {
         logoutMutation.mutate();
       }
     } catch (err: any) {
-      // 로그아웃 실패 처리
+      alert(err.message || "로그아웃에 실패했습니다. 다시 시도해주세요.");
     }
   };
 

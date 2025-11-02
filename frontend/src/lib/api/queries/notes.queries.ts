@@ -9,8 +9,8 @@ import {
   fetchAllNotes,
   fetchNote,
   fetchNotesByFolder,
-} from "../client/notes.api";
-import type { DBNote } from "@/lib/db/notes";
+} from "../services/notes.api";
+import type { Note } from "@/lib/types";
 
 /**
  * 모든 노트 조회 (또는 폴더별 노트 조회)
@@ -23,7 +23,7 @@ export function useNotes(
   params?: {
     folderId?: string;
   },
-  options?: Omit<UseQueryOptions<DBNote[], Error>, "queryKey" | "queryFn">
+  options?: Omit<UseQueryOptions<Note[], Error>, "queryKey" | "queryFn">
 ) {
   return useQuery({
     queryKey: params?.folderId ? ["notes", "folder", params.folderId] : ["notes"],
@@ -43,7 +43,7 @@ export function useNotes(
  */
 export function useNote(
   noteId: string | null,
-  options?: Omit<UseQueryOptions<DBNote | null, Error>, "queryKey" | "queryFn">
+  options?: Omit<UseQueryOptions<Note | null, Error>, "queryKey" | "queryFn">
 ) {
   return useQuery({
     queryKey: ["notes", noteId],
@@ -67,7 +67,7 @@ export function useNote(
  */
 export function useNotesByFolder(
   folderId: string,
-  options?: Omit<UseQueryOptions<DBNote[], Error>, "queryKey" | "queryFn">
+  options?: Omit<UseQueryOptions<Note[], Error>, "queryKey" | "queryFn">
 ) {
   return useQuery({
     queryKey: ["notes", "folder", folderId],

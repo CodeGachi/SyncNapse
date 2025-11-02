@@ -1,7 +1,7 @@
 /**
- * 패널 상태 관리 Store
- * 파일, etc, tags, note, script 패널의 열림/닫힘 상태 관리
- */
+ * Panel Status Management Store
+ * File, etc, tags, note, script Panel Open/Closed Status Management  
+*/
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
@@ -38,11 +38,7 @@ export const usePanelsStore = create<PanelsState>()(
     (set) => ({
       ...initialState,
 
-      // 패널 토글 - files, etc, tags는 상호 배타적
-      toggleNotePanel: () =>
-        set((state) => ({ isNotePanelOpen: !state.isNotePanelOpen })),
-
-      toggleFilePanel: () =>
+      toggleNotePanel: () => set((state) => ({ isNotePanelOpen: !state.isNotePanelOpen })),      toggleFilePanel: () =>
         set((state) => ({
           isFilePanelOpen: !state.isFilePanelOpen,
           isEtcPanelOpen: false,

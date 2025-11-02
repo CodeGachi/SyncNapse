@@ -1,5 +1,5 @@
 /**
- * etc 패널 메뉴 버튼 컴포넌트
+ * etc Panel Menu Button Component
  */
 
 "use client";

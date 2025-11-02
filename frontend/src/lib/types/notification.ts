@@ -1,9 +1,16 @@
 /**
- * 알림(Notification) 타입 정의
+ * Notification Types
+ * Notification (알림) type
  */
 
+/**
+ * Notification type
+ */
 export type NotificationType = "info" | "success" | "warning" | "error";
 
+/**
+ * Notification information
+ */
 export interface Notification {
   id: string;
   type: NotificationType;
@@ -17,9 +24,12 @@ export interface Notification {
   };
 }
 
+/**
+ * Notification options
+ */
 export interface NotificationOptions {
   type?: NotificationType;
-  duration?: number; // 자동 사라지는 시간 (ms), 0이면 수동으로만 닫음
+  duration?: number; // Auto-close time (ms), 0 = manual close only
   action?: {
     label: string;
     onClick: () => void;

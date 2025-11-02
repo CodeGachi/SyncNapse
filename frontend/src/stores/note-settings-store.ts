@@ -1,6 +1,7 @@
 /**
- * 노트 생성 모달의 상태 관리 (제목, 위치, 파일 등)
+ * State management for the note creation modal (title, location, files, etc.)
  */
+
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";

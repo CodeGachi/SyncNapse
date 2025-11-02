@@ -1,8 +1,6 @@
 /**
- * tags 패널 컴포넌트
- * 노트 태그 관리 기능
- */
-
+ * tags Panel Component
+ * Note Tag Management feature */ 
 "use client";
 
 interface TagsPanelProps {
@@ -28,12 +26,12 @@ export function TagsPanel({
       }}
     >
       <div className="p-4 space-y-4">
-        {/* 헤더 */}
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-white font-bold text-sm">Tags</h3>
         </div>
 
-        {/* 태그 목록 */}
+        {/* Tag List */}
         <div className="space-y-2 max-h-[200px] overflow-y-auto">
           {tags.length === 0 ? (
             <p className="text-center text-gray-500 text-sm py-4">

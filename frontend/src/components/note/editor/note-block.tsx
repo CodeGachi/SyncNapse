@@ -1,6 +1,5 @@
 /**
- * 개별 노트 블록 컴포넌트
- */
+ * by Note Block Component  */
 
 "use client";
 
@@ -33,12 +32,12 @@ export function NoteBlockComponent({
       className="flex items-start gap-2 group hover:bg-[#363636] rounded-lg px-2 py-0.5 transition-colors"
       style={indentStyle}
     >
-      {/* 라인 넘버 */}
+      {/* Line Number */}
       <div className="flex-shrink-0 w-8 pt-0.5 text-[#666666] text-xs font-mono text-right select-none">
         {blockIndex + 1}
       </div>
 
-      {/* 블록 타입 인디케이터 */}
+      {/* Block Type indicator */}
       <div className="flex-shrink-0 w-6 pt-0.5 text-[#666666] transition-opacity">
         {block.type === "bullet" && <span className="text-sm">•</span>}
         {block.type === "numbered" && <span className="text-sm">{visibleIndex + 1}.</span>}
@@ -67,7 +66,7 @@ export function NoteBlockComponent({
         {block.type === "text" && <span className="text-xs">+</span>}
       </div>
 
-      {/* 입력 영역 */}
+      {/* Input Area */}
       {block.type === "divider" ? (
         <div className="flex-1 flex items-center py-2">
           <hr className="flex-1 border-t-2 border-[#666666]" />

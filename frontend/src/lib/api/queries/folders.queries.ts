@@ -1,24 +1,24 @@
 /**
- * 폴더 관련 TanStack Query Queries
+ * Folder-related TanStack Query queries
  */
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchAllFolders } from "../client/folders.api";
-import type { DBFolder } from "@/lib/db/folders";
+import { fetchAllFolders } from "../services/folders.api";
+import type { Folder } from "@/lib/types";
 
 /**
- * 모든 폴더 조회 (IndexedDB 또는 Backend)
+ * Fetch all folders
  */
 export function useFoldersQuery(
-  options?: Omit<UseQueryOptions<DBFolder[], Error>, "queryKey" | "queryFn">
+  options?: Omit<UseQueryOptions<Folder[], Error>, "queryKey" | "queryFn">
 ) {
   return useQuery({
     queryKey: ["folders"],
     queryFn: fetchAllFolders,
-    staleTime: 0, // 항상 최신 상태 유지
-    gcTime: 1000 * 60 * 10, // 10분
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10, 
     retry: 2,
-    refetchOnWindowFocus: true, // 윈도우 포커스 시 재조회
+    refetchOnWindowFocus: true,
     ...options,
   });
 }

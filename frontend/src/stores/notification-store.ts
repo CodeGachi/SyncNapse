@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { Notification, NotificationOptions, NotificationType } from "@/lib/types";
+import type { Notification, NotificationOptions } from "@/lib/types";
 
 interface NotificationState {
   // State

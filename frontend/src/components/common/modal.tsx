@@ -8,7 +8,7 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   title?: string;
-  // 커스텀 스타일 옵션
+  // Custom style options
   overlayClassName?: string;
   containerClassName?: string;
   contentClassName?: string;
@@ -29,7 +29,7 @@ export function Modal({
   overlayStyle,
   contentStyle,
 }: ModalProps) {
-  // ESC 키로 닫기
+  // Close on ESC key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -37,7 +37,7 @@ export function Modal({
 
     if (isOpen) {
       document.addEventListener("keydown", handleEscape);
-      // 스크롤 방지
+      // Prevent scrolling
       document.body.style.overflow = "hidden";
     }
 
@@ -51,13 +51,13 @@ export function Modal({
 
   return (
     <>
-      {/* 배경 오버레이 */}
+      {/* Background overlay */}
       <div className={overlayClassName} style={overlayStyle} onClick={onClose} />
 
-      {/* 모달 콘텐츠 */}
+      {/* Modal content */}
       <div className={containerClassName}>
         <div className={cn(contentClassName)} style={contentStyle} onClick={(e) => e.stopPropagation()}>
-          {/* 헤더 */}
+          {/* Header */}
           {title && (
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">{title}</h2>
@@ -84,7 +84,7 @@ export function Modal({
             </div>
           )}
 
-          {/* 본문 */}
+          {/* Body */}
           <div className="p-6">{children}</div>
         </div>
       </div>

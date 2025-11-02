@@ -1,7 +1,6 @@
 /**
- * 질문 입력 폼 컴포넌트
- */
-
+* Question Input Form Component 
+*/
 "use client";
 
 import { useState } from "react";

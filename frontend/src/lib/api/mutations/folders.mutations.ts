@@ -1,20 +1,19 @@
 /**
- * 폴더 관련 TanStack Query Mutations
- */
-
+ * Folder Related TanStack Query Mutations 
+*/ 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createFolder as createFolderApi,
   renameFolder as renameFolderApi,
   deleteFolder as deleteFolderApi,
-} from "../client/folders.api";
-import type { DBFolder } from "@/lib/db/folders";
+} from "../services/folders.api";
+import type { Folder } from "@/lib/types";
 
 /**
- * 폴더 생성 뮤테이션
+ * Create folder Mutation
  */
 export function useCreateFolder(options?: {
-  onSuccess?: (data: DBFolder) => void;
+  onSuccess?: (data: Folder) => void;
   onError?: (error: Error) => void;
 }) {
   const queryClient = useQueryClient();
@@ -35,7 +34,7 @@ export function useCreateFolder(options?: {
 }
 
 /**
- * 폴더 수정 뮤테이션 (이름 변경)
+ * Folder Edit Mutation (Name Change)
  */
 export function useUpdateFolder(options?: {
   onSuccess?: () => void;
@@ -55,19 +54,19 @@ export function useUpdateFolder(options?: {
     onMutate: async ({ folderId, newName }) => {
       await queryClient.cancelQueries({ queryKey: ["folders", folderId] });
 
-      const previousFolder = queryClient.getQueryData<DBFolder>(["folders", folderId]);
+      const previousFolder = queryClient.getQueryData<Folder>(["folders", folderId]);
 
       if (previousFolder) {
-        queryClient.setQueryData<DBFolder>(["folders", folderId], {
+        queryClient.setQueryData<Folder>(["folders", folderId], {
           ...previousFolder,
           name: newName,
           updatedAt: Date.now(),
         });
       }
 
-      const previousFolders = queryClient.getQueryData<DBFolder[]>(["folders"]);
+      const previousFolders = queryClient.getQueryData<Folder[]>(["folders"]);
       if (previousFolders) {
-        queryClient.setQueryData<DBFolder[]>(
+        queryClient.setQueryData<Folder[]>(
           ["folders"],
           previousFolders.map((folder) =>
             folder.id === folderId
@@ -100,7 +99,7 @@ export function useUpdateFolder(options?: {
 }
 
 /**
- * 폴더 삭제 뮤테이션 (휴지통으로 이동)
+ * Delete folder Mutation (Trash with) 
  */
 export function useDeleteFolder(options?: {
   onSuccess?: () => void;
@@ -114,10 +113,10 @@ export function useDeleteFolder(options?: {
     onMutate: async (folderId) => {
       await queryClient.cancelQueries({ queryKey: ["folders"] });
 
-      const previousFolders = queryClient.getQueryData<DBFolder[]>(["folders"]);
+      const previousFolders = queryClient.getQueryData<Folder[]>(["folders"]);
 
       if (previousFolders) {
-        queryClient.setQueryData<DBFolder[]>(
+        queryClient.setQueryData<Folder[]>(
           ["folders"],
           previousFolders.filter((folder) => folder.id !== folderId)
         );
@@ -138,8 +137,7 @@ export function useDeleteFolder(options?: {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
-      queryClient.invalidateQueries({ queryKey: ["notes"] }); // 폴더에 속한 노트도 갱신
-
+      queryClient.invalidateQueries({ queryKey: ["notes"] }); // Folder Note 갱신
       options?.onSuccess?.();
     },
   });

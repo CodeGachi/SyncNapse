@@ -1,70 +1,33 @@
 /**
- * NotificationCenter Component
+ * NotificationCenter Component (UI Only)
  * 종 모양 아이콘을 클릭하면 알림 목록을 보여주는 드롭다운
+ *
+ * Refactored: Business logic moved to features/notification/use-notification-center
  */
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { useNotificationStore } from "@/stores";
-import type { Notification } from "@/lib/types";
+import { useNotificationCenter } from "@/features/notification/use-notification-center";
 
 export function NotificationCenter() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll } =
-    useNotificationStore();
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    clearAll,
+  } = useNotificationStore();
 
-  // 외부 클릭 감지
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
-
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "방금 전";
-    if (diffMins < 60) return `${diffMins}분 전`;
-    if (diffHours < 24) return `${diffHours}시간 전`;
-    if (diffDays < 7) return `${diffDays}일 전`;
-    return date.toLocaleDateString("ko-KR");
-  };
-
-  const getTypeColor = (type: Notification["type"]) => {
-    switch (type) {
-      case "success":
-        return "text-green-500";
-      case "error":
-        return "text-red-500";
-      case "warning":
-        return "text-yellow-500";
-      case "info":
-      default:
-        return "text-blue-500";
-    }
-  };
+  const { isOpen, dropdownRef, toggleOpen, close, formatTime, getTypeColor } =
+    useNotificationCenter();
 
   return (
     <div className="relative" ref={dropdownRef}>
       {/* 종 모양 아이콘 버튼 */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className="relative p-2 hover:bg-[#2F2F2F] rounded-lg transition-colors"
         aria-label="알림"
       >
@@ -151,7 +114,11 @@ export function NotificationCenter() {
                 >
                   <div className="flex items-start gap-3">
                     {/* 타입 표시 점 */}
-                    <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${getTypeColor(notification.type)}`} />
+                    <div
+                      className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${getTypeColor(
+                        notification.type
+                      )}`}
+                    />
 
                     {/* 내용 */}
                     <div className="flex-1 min-w-0">
@@ -182,7 +149,9 @@ export function NotificationCenter() {
                           </svg>
                         </button>
                       </div>
-                      <p className="text-gray-300 text-sm mt-1">{notification.message}</p>
+                      <p className="text-gray-300 text-sm mt-1">
+                        {notification.message}
+                      </p>
                       <p className="text-gray-500 text-xs mt-1">
                         {formatTime(notification.timestamp)}
                       </p>
@@ -194,7 +163,7 @@ export function NotificationCenter() {
                             e.stopPropagation();
                             notification.action?.onClick();
                             removeNotification(notification.id);
-                            setIsOpen(false);
+                            close();
                           }}
                           className="mt-2 text-sm text-blue-400 hover:text-blue-300 underline"
                         >

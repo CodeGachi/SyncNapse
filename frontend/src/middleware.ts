@@ -8,7 +8,7 @@ export function middleware(request: NextRequest) {
 
   if (pathname === "/") {
     if (authToken) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(new URL("/dashboard/main", request.url));
     }
     return NextResponse.next();
   }
