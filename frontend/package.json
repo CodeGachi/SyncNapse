@@ -13,21 +13,36 @@
     "test:ci": "node --experimental-vm-modules ../node_modules/vitest/vitest.mjs run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-query-devtools": "^5.90.2",
+    "clsx": "^2.1.1",
+    "firebase": "^12.4.0",
     "next": "^14.2.33",
+    "pdfjs-dist": "^3.11.174",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "tailwind-merge": "^3.3.1",
+    "uuid": "^13.0.0",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.14.11",
     "@types/react": "^18.3.7",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react-swc": "^4.1.0",
+    "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.7",
+    "fake-indexeddb": "^6.2.4",
     "jsdom": "^25.0.0",
+    "postcss": "^8.5.6",
     "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.18",
     "typescript": "^5.5.4",
     "vite": "^5.4.20",
     "vitest": "^3.2.4"

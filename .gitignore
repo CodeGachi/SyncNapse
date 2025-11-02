@@ -44,6 +44,7 @@ backend/var/*
 *.swp
 *.swo
 *~
+.claude/
 
 # OS
 .DS_Store

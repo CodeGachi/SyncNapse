@@ -1,0 +1,32 @@
+/**
+ * 파일 관련 TanStack Query Queries
+ *
+ * 노트의 파일 조회(GET) 작업을 위한 useQuery 훅들
+ */
+
+import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
+import { fetchFilesByNote } from "../services/files.api";
+
+/**
+ * 노트의 파일 목록 조회
+ *
+ * @example
+ * const { data: files, isLoading } = useFilesByNote("note-123");
+ */
+export function useFilesByNote(
+  noteId: string | null,
+  options?: Omit<UseQueryOptions<File[], Error>, "queryKey" | "queryFn">
+) {
+  return useQuery({
+    queryKey: ["files", "note", noteId],
+    queryFn: () => {
+      if (!noteId) return [];
+      return fetchFilesByNote(noteId);
+    },
+    enabled: !!noteId, // noteId가 있을 때만 쿼리 실행
+    staleTime: 1000 * 60 * 5, // 5분간 fresh
+    gcTime: 1000 * 60 * 10, // 10분간 캐시 유지
+    retry: 2,
+    ...options,
+  });
+}
