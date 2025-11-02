@@ -7,6 +7,30 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { vi } from "vitest";
 import type { ReactNode } from "react";
+import * as filesApi from "@/lib/api/files.api";
+
+// Mock the uploadFilesParallel function
+vi.mock("@/lib/api/files.api", async () => {
+  const actual = await vi.importActual("@/lib/api/files.api");
+  return {
+    ...actual,
+    uploadFilesParallel: vi.fn(async (files: File[]) => {
+      // Simulate successful upload for all files
+      return files.map((file) => ({
+        file,
+        success: true,
+        result: {
+          id: `file-${Date.now()}-${Math.random()}`,
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          url: `https://example.com/files/${file.name}`,
+        },
+      }));
+    }),
+  };
+});
 
 const createWrapper = () => {
   const queryClient = new QueryClient({

@@ -2,7 +2,7 @@
  * File upload hook
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useUploadFilesParallel } from "@/lib/api/mutations/files.mutations";
 import type { UploadResult } from "@/lib/api/files.api";
 
@@ -50,14 +50,22 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   } = options;
 
   const [files, setFiles] = useState<FileUploadItem[]>([]);
+  const filesRef = useRef<FileUploadItem[]>([]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
 
   const uploadMutation = useUploadFilesParallel({
     maxConcurrent,
     onSuccess: (results) => {
       setFiles((prev) =>
         prev.map((file) => {
-          // Find result based on file object
-          const uploadResult = results.find((r) => r.file === file.file);
+          // Find result based on file name and size (more reliable than reference equality)
+          const uploadResult = results.find(
+            (r) => r.file.name === file.file.name && r.file.size === file.file.size
+          );
 
           if (!uploadResult) {
             // If no upload result is found (not uploaded)
@@ -152,26 +160,26 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
    * Start upload
    */
   const startUpload = useCallback(() => {
-    // Use functional update to get latest files state
-    setFiles((prev) => {
-      const filesToUpload = prev
-        .filter((f) => f.status === "pending" || f.status === "error")
-        .map((f) => f.file);
+    // Get files to upload from ref (always has latest state)
+    const filesToUpload = filesRef.current
+      .filter((f) => f.status === "pending" || f.status === "error")
+      .map((f) => f.file);
 
-      if (filesToUpload.length === 0) {
-        return prev;
-      }
+    if (filesToUpload.length === 0) {
+      return;
+    }
 
-      // Start upload mutation
-      uploadMutation.mutate(filesToUpload);
-
-      // Update status to uploading
-      return prev.map((file) =>
+    // Update status to uploading
+    setFiles((prev) =>
+      prev.map((file) =>
         file.status === "pending" || file.status === "error"
           ? { ...file, status: "uploading" as const, error: undefined }
           : file
-      );
-    });
+      )
+    );
+
+    // Start upload mutation (outside of setState)
+    uploadMutation.mutate(filesToUpload);
   }, [uploadMutation]);
 
   /**
