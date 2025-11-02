@@ -152,25 +152,27 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
    * Start upload
    */
   const startUpload = useCallback(() => {
-    const filesToUpload = files
-      .filter((f) => f.status === "pending" || f.status === "error")
-      .map((f) => f.file);
+    // Use functional update to get latest files state
+    setFiles((prev) => {
+      const filesToUpload = prev
+        .filter((f) => f.status === "pending" || f.status === "error")
+        .map((f) => f.file);
 
-    if (filesToUpload.length === 0) {
-      return;
-    }
+      if (filesToUpload.length === 0) {
+        return prev;
+      }
 
-    // Start upload
-    setFiles((prev) =>
-      prev.map((file) =>
+      // Start upload mutation
+      uploadMutation.mutate(filesToUpload);
+
+      // Update status to uploading
+      return prev.map((file) =>
         file.status === "pending" || file.status === "error"
           ? { ...file, status: "uploading" as const, error: undefined }
           : file
-      )
-    );
-
-    uploadMutation.mutate(filesToUpload);
-  }, [files, uploadMutation]);
+      );
+    });
+  }, [uploadMutation]);
 
   /**
    * Cancel all uploads
