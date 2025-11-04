@@ -106,6 +106,14 @@ export function FolderStructureSection({
                 <div className="w-10 h-10 bg-[#3C3C3C] group-hover:bg-[#4A4A4A] rounded-lg flex items-center justify-center text-xl transition-colors">
                   📄
                 </div>
+                {/* 노트 타입 배지 */}
+                <span className={`text-xs font-bold px-2 py-1 rounded ${
+                  note.type === "educator"
+                    ? "bg-[#AFC02B] text-[#1E1E1E]"
+                    : "bg-[#4C4C4C] text-gray-300"
+                }`}>
+                  {note.type === "educator" ? "강의" : "개인"}
+                </span>
               </div>
               <div>
                 <h3 className="text-white font-bold text-lg mb-1 line-clamp-1">

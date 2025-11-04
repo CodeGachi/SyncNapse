@@ -49,8 +49,18 @@ export function RecentUsedSection() {
             className="bg-[#2F2F2F] hover:bg-[#3C3C3C] rounded-xl p-6 h-[180px] min-w-[280px] transition-colors text-left flex flex-col justify-between group flex-shrink-0"
           >
             <div>
-              <div className="w-10 h-10 bg-[#3C3C3C] group-hover:bg-[#4A4A4A] rounded-lg flex items-center justify-center text-xl mb-4 transition-colors">
-                📄
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 bg-[#3C3C3C] group-hover:bg-[#4A4A4A] rounded-lg flex items-center justify-center text-xl transition-colors">
+                  📄
+                </div>
+                {/* 노트 타입 배지 */}
+                <span className={`text-xs font-bold px-2 py-1 rounded ${
+                  note.type === "educator"
+                    ? "bg-[#AFC02B] text-[#1E1E1E]"
+                    : "bg-[#4C4C4C] text-gray-300"
+                }`}>
+                  {note.type === "educator" ? "강의" : "개인"}
+                </span>
               </div>
               <h3 className="text-white font-bold text-lg mb-2 line-clamp-2">
                 {note.title}

@@ -13,7 +13,7 @@ import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/editor/note-panel";
 import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
-import { SharingSettingsPopover } from "@/components/note/sharing/sharing-settings-popover";
+import { SharingSettingsModal } from "@/components/note/sharing/sharing-settings-modal";
 
 interface NoteContentAreaProps {
   noteId: string | null;
@@ -150,32 +150,36 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
             {actualTitle}
           </h1>
 
-          {/* 강의 노트 공유 설정 버튼 */}
+          {/* 자동저장 배지 */}
+          <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
+
+          {/* 강의 노트 공유 설정 버튼 (아이콘만) */}
           {isEducatorNote && (
-            <div className="relative">
+            <>
               <button
                 onClick={() => setIsSharingOpen(!isSharingOpen)}
-                className="px-3 py-1.5 bg-[#AFC02B] text-white rounded-lg text-sm font-medium hover:bg-[#9DB025] transition-colors flex items-center gap-2"
+                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
+                title="공유 설정"
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="20"
+                  height="20"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                공유
               </button>
 
-              {/* 공유 설정 팝오버 */}
-              <SharingSettingsPopover
+              {/* 공유 설정 모달 */}
+              <SharingSettingsModal
                 isOpen={isSharingOpen}
                 onClose={() => setIsSharingOpen(false)}
                 settings={sharingSettings}
-                onSettingsChange={() => {}}
                 newUserEmail={newUserEmail}
                 onNewUserEmailChange={setNewUserEmail}
                 onAddUser={addUser}
@@ -186,11 +190,8 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
                 onCopyShareLink={copyShareLink}
                 shareLink={sharingSettings.shareLink}
               />
-            </div>
+            </>
           )}
-
-          {/* 자동저장 배지 */}
-          <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
         </div>
 
         {/* 사이드바 확장 버튼 (화면이 충분히 클 때만 표시) */}

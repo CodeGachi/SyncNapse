@@ -22,6 +22,7 @@ export function useDashboard() {
           title: noteData.title,
           folderId: noteData.location || "root",
           files: noteData.files || [],
+          type: noteData.type || "student",
         },
         {
           onSuccess: (newNote) => {
