@@ -22,6 +22,9 @@ export function dbToNote(dbNote: DBNote): Note {
     createdAt: dbNote.createdAt,
     updatedAt: dbNote.updatedAt,
     thumbnail: dbNote.thumbnail,
+    type: dbNote.type || "student", // 기본값: student
+    createdBy: dbNote.createdBy,
+    accessControl: dbNote.accessControl,
   };
 }
 
@@ -47,6 +50,7 @@ export function apiToNote(apiNote: ApiNoteResponse): Note {
     createdAt: new Date(apiNote.created_at).getTime(),
     updatedAt: new Date(apiNote.updated_at).getTime(),
     thumbnail: apiNote.thumbnail,
+    type: "student", // 백엔드가 type을 제공할 때까지는 기본값 사용
   };
 }
 

@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SyncNapseDB";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 // DB 스키마
 export interface DBFolder {
@@ -15,6 +15,23 @@ export interface DBFolder {
   updatedAt: number;
 }
 
+/**
+ * 공유 및 접근 제어 설정 (Educator 노트 전용)
+ */
+export interface DBNoteAccessControl {
+  isPublic: boolean; // true: 누구나 링크로 접근 가능, false: 초대된 사용자만
+  allowedUsers?: string[]; // 초대된 사용자 ID 목록
+  shareLink?: string; // 공유 링크 토큰 (랜덤 생성)
+  expiresAt?: number; // 링크 만료 시간
+  allowComments: boolean; // 학생들의 댓글/질문 허용 여부
+  realTimeInteraction: boolean; // 실시간 상호작용(손들기, 투표 등) 활성화
+}
+
+/**
+ * 노트 데이터 모델
+ * Student 노트: 개인 필기용
+ * Educator 노트: 강의 공유용 (추가 기능 포함)
+ */
 export interface DBNote {
   id: string;
   title: string;
@@ -22,6 +39,15 @@ export interface DBNote {
   createdAt: number;
   updatedAt: number;
   thumbnail?: string; // 썸네일 이미지 (옵션)
+
+  // 새로 추가: 노트 타입
+  type: "student" | "educator"; // student: 개인 노트, educator: 강의 공유 노트
+
+  // 새로 추가: 생성자 정보 (로그인 구현 시 사용)
+  createdBy?: string; // 생성자 사용자 ID
+
+  // 새로 추가: Educator 노트 전용 설정
+  accessControl?: DBNoteAccessControl; // 공유 및 접근 제어 설정
 }
 
 export interface DBFile {

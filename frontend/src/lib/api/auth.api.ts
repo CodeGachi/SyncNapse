@@ -65,6 +65,10 @@ export async function getCurrentUser(): Promise<User | null> {
       id: decoded.sub || decoded.id,
       email: decoded.email || "",
       name: decoded.name || "User",
+      picture: decoded.picture,
+      createdAt: decoded.iat
+        ? new Date(decoded.iat * 1000).toISOString()
+        : new Date().toISOString(),
     };
   } catch (error) {
     localStorage.removeItem("authToken");

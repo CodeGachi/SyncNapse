@@ -54,10 +54,14 @@ export async function getNotesByFolder(folderId: string): Promise<DBNote[]> {
 
 /**
  * 노트 생성
+ * @param title - 노트 제목
+ * @param folderId - 폴더 ID
+ * @param type - 노트 타입 ("student" | "educator")
  */
 export async function createNote(
   title: string,
-  folderId: string = "root"
+  folderId: string = "root",
+  type: "student" | "educator" = "student"
 ): Promise<DBNote> {
   const db = await initDB();
 
@@ -65,8 +69,18 @@ export async function createNote(
     id: uuidv4(),
     title,
     folderId,
+    type,
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    // Educator 노트의 기본 공유 설정
+    ...(type === "educator" && {
+      accessControl: {
+        isPublic: false,
+        allowedUsers: [],
+        allowComments: true,
+        realTimeInteraction: true,
+      },
+    }),
   };
 
   return new Promise((resolve, reject) => {

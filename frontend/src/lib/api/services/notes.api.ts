@@ -83,19 +83,24 @@ export async function fetchNote(noteId: string): Promise<Note | null> {
 
 /**
  * 노트 생성
+ * @param title - 노트 제목
+ * @param folderId - 폴더 ID
+ * @param files - 첨부 파일 목록
+ * @param type - 노트 타입 ("student" | "educator")
  * @returns 생성된 도메인 Note
  */
 export async function createNote(
   title: string,
   folderId: string,
-  files: File[]
+  files: File[],
+  type: "student" | "educator" = "student"
 ): Promise<Note> {
   if (USE_LOCAL) {
     // IndexedDB에 노트 생성
     const { createNote: createNoteInDB } = await import("@/lib/db/notes");
     const { saveMultipleFiles } = await import("@/lib/db/files");
 
-    const dbNote = await createNoteInDB(title, folderId);
+    const dbNote = await createNoteInDB(title, folderId, type);
 
     // 파일 저장
     if (files.length > 0) {
@@ -108,6 +113,7 @@ export async function createNote(
     const formData = new FormData();
     formData.append("title", title);
     formData.append("folder_id", folderId);  // snake_case
+    formData.append("type", type);  // 노트 타입
     files.forEach((file) => formData.append("files", file));
 
     const res = await fetch("/api/notes", {
