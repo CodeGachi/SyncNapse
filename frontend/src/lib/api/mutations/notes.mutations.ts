@@ -37,8 +37,8 @@ export function useCreateNote(
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ title, folderId, files }: { title: string; folderId: string; files: File[] }) =>
-      createNoteApi(title, folderId, files),
+    mutationFn: ({ title, folderId, files, type }: { title: string; folderId: string; files: File[]; type?: "student" | "educator" }) =>
+      createNoteApi(title, folderId, files, type),
     onSuccess: (newNote) => {
       // 노트 목록 캐시 무효화 (자동 재조회)
       queryClient.invalidateQueries({ queryKey: ["notes"] });
