@@ -34,6 +34,7 @@ export function NoteSettingsModal({
     isDragActive,
     validationErrors,
     autoExtractZip,
+    noteType,
     isFolderSelectorOpen,
     isCreating,
     storageUsage,
@@ -42,6 +43,7 @@ export function NoteSettingsModal({
     setSelectedLocation,
     setValidationErrors,
     setAutoExtractZip,
+    setNoteType,
     setIsFolderSelectorOpen,
     handleDragOver,
     handleDragLeave,
@@ -193,6 +195,40 @@ export function NoteSettingsModal({
               />
             </svg>
           </button>
+        </div>
+      </div>
+
+      {/* Note Type Toggle */}
+      <div className="flex items-center gap-4 p-4 bg-[#4C4C4C] rounded-lg">
+        <span className="text-sm font-medium text-gray-300">노트 타입:</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setNoteType("student")}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              noteType === "student"
+                ? "bg-[#AFC02B] text-white"
+                : "bg-[#575757] text-gray-300 hover:text-white"
+            }`}
+          >
+            개인 노트
+          </button>
+          <button
+            type="button"
+            onClick={() => setNoteType("educator")}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              noteType === "educator"
+                ? "bg-[#AFC02B] text-white"
+                : "bg-[#575757] text-gray-300 hover:text-white"
+            }`}
+          >
+            강의 노트
+          </button>
+        </div>
+        <div className="ml-auto text-xs text-gray-400">
+          {noteType === "student"
+            ? "개인용 개인 노트입니다"
+            : "학생과 공유 가능한 강의 노트입니다"}
         </div>
       </div>
 

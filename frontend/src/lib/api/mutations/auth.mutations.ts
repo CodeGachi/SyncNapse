@@ -3,7 +3,7 @@ import {
   useQueryClient,
   UseMutationOptions,
 } from "@tanstack/react-query";
-import { exchangeCodeForToken, logout as logoutApi } from "../auth.api";
+import { logout as logoutApi } from "../auth.api";
 
 export function useLogin(
   options?: UseMutationOptions<

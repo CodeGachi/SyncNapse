@@ -29,6 +29,7 @@ export function useCreateNoteModal(
     isDragActive,
     validationErrors,
     autoExtractZip,
+    noteType,
     setTitle,
     setSelectedLocation,
     setValidationErrors,
@@ -37,6 +38,7 @@ export function useCreateNoteModal(
     addUploadedFiles,
     removeUploadedFile,
     updateUploadedFile,
+    setNoteType,
     reset,
   } = useNoteSettingsStore();
 
@@ -188,6 +190,7 @@ export function useCreateNoteModal(
       title: title || "제목 없음",
       location: selectedLocation,
       files: uploadedFiles.map((uf) => uf.file),
+      type: noteType,
     };
 
     try {
@@ -216,6 +219,7 @@ export function useCreateNoteModal(
     isDragActive,
     validationErrors,
     autoExtractZip,
+    noteType,
     isFolderSelectorOpen,
     isCreating,
     storageUsage,
@@ -226,6 +230,8 @@ export function useCreateNoteModal(
     setSelectedLocation,
     setValidationErrors,
     setAutoExtractZip,
+    setIsDragActive,
+    setNoteType,
     setIsFolderSelectorOpen,
 
     // Handlers

@@ -5,6 +5,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
@@ -12,6 +13,7 @@ import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/editor/note-panel";
 import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
+import { SharingSettingsPopover } from "@/components/note/sharing/sharing-settings-popover";
 
 interface NoteContentAreaProps {
   noteId: string | null;
@@ -22,6 +24,80 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
   // 실제 노트 데이터로부터 제목 가져오기
   const { data: note } = useNote(noteId);
   const actualTitle = note?.title || noteTitle;
+  const isEducatorNote = note?.type === "educator";
+
+  // 공유 설정 관리
+  const [isSharingOpen, setIsSharingOpen] = useState(false);
+  const [sharingSettings, setSharingSettings] = useState(
+    note?.accessControl || {
+      isPublic: false,
+      allowedUsers: [],
+      allowComments: true,
+      realTimeInteraction: true,
+    }
+  );
+  const [newUserEmail, setNewUserEmail] = useState("");
+
+  const togglePublic = () => {
+    setSharingSettings((prev) => ({
+      ...prev,
+      isPublic: !prev.isPublic,
+    }));
+  };
+
+  const addUser = (email: string) => {
+    if (!email || !email.includes("@")) return;
+    const updatedUsers = [...(sharingSettings.allowedUsers || [])];
+    if (!updatedUsers.includes(email)) {
+      updatedUsers.push(email);
+      setSharingSettings((prev) => ({
+        ...prev,
+        allowedUsers: updatedUsers,
+      }));
+      setNewUserEmail("");
+    }
+  };
+
+  const removeUser = (email: string) => {
+    setSharingSettings((prev) => ({
+      ...prev,
+      allowedUsers: (prev.allowedUsers || []).filter((u) => u !== email),
+    }));
+  };
+
+  const toggleComments = () => {
+    setSharingSettings((prev) => ({
+      ...prev,
+      allowComments: !prev.allowComments,
+    }));
+  };
+
+  const toggleRealTimeInteraction = () => {
+    setSharingSettings((prev) => ({
+      ...prev,
+      realTimeInteraction: !prev.realTimeInteraction,
+    }));
+  };
+
+  const copyShareLink = async () => {
+    if (!sharingSettings.shareLink) {
+      const token = Math.random().toString(36).substring(2, 15);
+      const shareLink = `${window.location.origin}/shared/${token}`;
+      setSharingSettings((prev) => ({
+        ...prev,
+        shareLink,
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      }));
+    }
+    if (sharingSettings.shareLink) {
+      try {
+        await navigator.clipboard.writeText(sharingSettings.shareLink);
+      } catch (error) {
+        console.error("링크 복사 실패:", error);
+      }
+    }
+  };
+
   const {
     files: uploadedFiles,
     openedTabs,
@@ -73,6 +149,46 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
           <h1 className="text-[32px] font-bold text-white leading-[39px]">
             {actualTitle}
           </h1>
+
+          {/* 강의 노트 공유 설정 버튼 */}
+          {isEducatorNote && (
+            <div className="relative">
+              <button
+                onClick={() => setIsSharingOpen(!isSharingOpen)}
+                className="px-3 py-1.5 bg-[#AFC02B] text-white rounded-lg text-sm font-medium hover:bg-[#9DB025] transition-colors flex items-center gap-2"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                공유
+              </button>
+
+              {/* 공유 설정 팝오버 */}
+              <SharingSettingsPopover
+                isOpen={isSharingOpen}
+                onClose={() => setIsSharingOpen(false)}
+                settings={sharingSettings}
+                onSettingsChange={() => {}}
+                newUserEmail={newUserEmail}
+                onNewUserEmailChange={setNewUserEmail}
+                onAddUser={addUser}
+                onRemoveUser={removeUser}
+                onTogglePublic={togglePublic}
+                onToggleComments={toggleComments}
+                onToggleRealTimeInteraction={toggleRealTimeInteraction}
+                onCopyShareLink={copyShareLink}
+                shareLink={sharingSettings.shareLink}
+              />
+            </div>
+          )}
+
           {/* 자동저장 배지 */}
           <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
         </div>
