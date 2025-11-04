@@ -38,9 +38,7 @@ export function useGoogleLogin() {
         const { user, token } = await mockGoogleLogin();
         window.location.href = "/dashboard/main";
       } else {
-        sessionStorage.setItem("auth_redirect", window.location.pathname);
-
-        // Redirect to the backend Google OAuth URL
+        // 백엔드 Google OAuth로 리다이렉트
         const loginUrl = getGoogleLoginUrl();
         window.location.href = loginUrl;
       }
@@ -50,10 +48,11 @@ export function useGoogleLogin() {
   };
 
   /**
-   * Authorization code exchange (used in the OAuth callback page)
+   * Handle OAuth callback with tokens from backend
+   * Called from /auth/callback page after OAuth completes
    */
-  const handleCodeExchange = (code: string) => {
-    loginMutation.mutate({ code });
+  const handleOAuthCallback = (accessToken: string, refreshToken: string) => {
+    loginMutation.mutate({ accessToken, refreshToken });
   };
 
   const handleLogout = async () => {
@@ -72,7 +71,7 @@ export function useGoogleLogin() {
 
   return {
     handleGoogleLogin,
-    handleCodeExchange,
+    handleOAuthCallback,
     handleLogout,
     loading: loginMutation.isPending || logoutMutation.isPending,
     error: loginMutation.error?.message || logoutMutation.error?.message || null,

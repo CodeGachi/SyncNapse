@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SyncNapseDB";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // DB 스키마
 export interface DBFolder {

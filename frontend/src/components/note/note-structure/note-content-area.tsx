@@ -6,6 +6,7 @@
 "use client";
 
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
+import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
@@ -13,10 +14,14 @@ import { NotePanel } from "@/components/note/editor/note-panel";
 import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
 
 interface NoteContentAreaProps {
+  noteId: string | null;
   noteTitle: string;
 }
 
-export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
+export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
+  // 실제 노트 데이터로부터 제목 가져오기
+  const { data: note } = useNote(noteId);
+  const actualTitle = note?.title || noteTitle;
   const {
     files: uploadedFiles,
     openedTabs,
@@ -66,7 +71,7 @@ export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
       <div className="flex justify-between items-center px-2.5 min-h-[39px]">
         <div className="flex items-center gap-4">
           <h1 className="text-[32px] font-bold text-white leading-[39px]">
-            {noteTitle}
+            {actualTitle}
           </h1>
           {/* 자동저장 배지 */}
           <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />

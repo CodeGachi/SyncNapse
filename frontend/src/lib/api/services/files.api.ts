@@ -13,12 +13,35 @@ import {
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
 
 /**
- * Fetch all files for a note
+ * File with DB ID information (for loading from storage)
+ */
+export interface FileWithId {
+  id: string;
+  file: File;
+  createdAt: number;
+}
+
+/**
+ * Fetch all files for a note (returns File[])
+ * DEPRECATED: Use fetchFilesWithIdByNote instead for proper ID tracking
  */
 export async function fetchFilesByNote(noteId: string): Promise<File[]> {
+  const filesWithId = await fetchFilesWithIdByNote(noteId);
+  return filesWithId.map((fwId) => fwId.file);
+}
+
+/**
+ * Fetch all files for a note with ID information
+ * Important: Returns FileWithId[] to maintain DBFile ID for consistency
+ */
+export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId[]> {
   if (USE_LOCAL) {
     const dbFiles = await getFilesByNoteFromDB(noteId);
-    return dbFiles.map(dbFileToFile);
+    return dbFiles.map((dbFile) => ({
+      id: dbFile.id,
+      file: dbFileToFile(dbFile),
+      createdAt: dbFile.createdAt,
+    }));
   } else {
     // Backend API call
     const res = await fetch(`/api/notes/${noteId}/files`);
@@ -30,7 +53,12 @@ export async function fetchFilesByNote(noteId: string): Promise<File[]> {
       filesData.map(async (fileData: any) => {
         const response = await fetch(fileData.url);
         const blob = await response.blob();
-        return new File([blob], fileData.fileName, { type: fileData.fileType });
+        const file = new File([blob], fileData.fileName, { type: fileData.fileType });
+        return {
+          id: fileData.id,
+          file,
+          createdAt: fileData.createdAt || Date.now(),
+        };
       })
     );
 
