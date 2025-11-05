@@ -21,12 +21,14 @@ interface CustomPdfViewerProps {
   fileUrl?: string | null;
   fileName?: string | null;
   fileType?: string | null;
+  onPageChange?: (pageNum: number) => void;
 }
 
 export function CustomPdfViewer({
   fileUrl,
   fileName,
   fileType,
+  onPageChange,
 }: CustomPdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +133,13 @@ export function CustomPdfViewer({
 
     renderPage();
   }, [pdfDoc, currentPage, scale, rotation, numPages]);
+
+  // 페이지 변경 시 콜백 호출
+  useEffect(() => {
+    if (onPageChange && isPdf) {
+      onPageChange(currentPage);
+    }
+  }, [currentPage, isPdf, onPageChange]);
 
   return (
     <div className="w-full h-full bg-[#2f2f2f] border-x border-b border-[#3c3c3c] rounded-bl-[15px] rounded-br-[15px] flex flex-col overflow-hidden">

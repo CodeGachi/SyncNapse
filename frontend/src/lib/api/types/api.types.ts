@@ -13,9 +13,9 @@
 export interface ApiFolderResponse {
   id: string;
   name: string;
-  parent_id: string | null;  
-  created_at: string;         
-  updated_at: string;         
+  parent_id: string | null;
+  created_at: string;
+  updated_at: string;
   // color?: string;
   // icon?: string;
   // is_shared?: boolean;
@@ -23,7 +23,7 @@ export interface ApiFolderResponse {
 }
 
 /**
- * Æú´õ »ı¼º ¿äÃ» Å¸ÀÔ
+ * í´ë” ìƒì„± ìš”ì²­ íƒ€ì…
  */
 export interface ApiFolderCreateRequest {
   name: string;
@@ -31,7 +31,7 @@ export interface ApiFolderCreateRequest {
 }
 
 /**
- * Æú´õ ¾÷µ¥ÀÌÆ® ¿äÃ» Å¸ÀÔ
+ * í´ë” ì—…ë°ì´íŠ¸ ìš”ì²­ íƒ€ì…
  */
 export interface ApiFolderUpdateRequest {
   name?: string;
@@ -43,7 +43,7 @@ export interface ApiFolderUpdateRequest {
 // ============================================================================
 
 /**
- * ¹é¿£µå API ³ëÆ® ÀÀ´ä Å¸ÀÔ
+ * ë…¸íŠ¸ì˜ API ì‘ë‹µ íƒ€ì…
  */
 export interface ApiNoteResponse {
   id: string;
@@ -52,23 +52,24 @@ export interface ApiNoteResponse {
   created_at: string;
   updated_at: string;
   thumbnail?: string;
-  // ¹é¿£µå¿¡¼­ Ãß°¡µÉ ¼ö ÀÖ´Â ÇÊµåµé
+  type?: "student" | "educator"; // ë…¸íŠ¸ íƒ€ì… (student: ê°œì¸ ë…¸íŠ¸, educator: ê°•ì˜ ê³µìœ  ë…¸íŠ¸)
+  // ë…¸íŠ¸ì˜ ì˜µì…˜ ì¶”ê°€í•  ìˆ˜ ìˆëŠ” í•„ë“œë“¤
   // tags?: string[];
   // is_favorite?: boolean;
   // last_viewed_at?: string;
 }
 
 /**
- * ³ëÆ® »ı¼º ¿äÃ» Å¸ÀÔ (FormData·Î Àü¼Û ½Ã)
+ * ë…¸íŠ¸ ìƒì„± ìš”ì²­ íƒ€ì… (FormDataë¥¼ ì‚¬ìš©í•  ë•Œ)
  */
 export interface ApiNoteCreateRequest {
   title: string;
   folder_id: string;
-  // files´Â FormData·Î º°µµ Àü¼Û
+  // filesëŠ” FormDataì— ì§ì ‘ ì¶”ê°€
 }
 
 /**
- * ³ëÆ® ¾÷µ¥ÀÌÆ® ¿äÃ» Å¸ÀÔ
+ * ë…¸íŠ¸ ì—…ë°ì´íŠ¸ ìš”ì²­ íƒ€ì…
  */
 export interface ApiNoteUpdateRequest {
   title?: string;
@@ -87,7 +88,7 @@ export interface ApiFileResponse {
   file_type: string;
   file_size: number;
   created_at: string;
-  url?: string;  // ´Ù¿î·Îµå URL
+  url?: string;  // ë‹¤ìš´ë¡œë“œ URL
 }
 
 // ============================================================================
@@ -107,7 +108,7 @@ export interface ApiTrashItemResponse {
 // ============================================================================
 
 /**
- * API ¿¡·¯ ÀÀ´ä
+ * API ì—ëŸ¬ ì‘ë‹µ
  */
 export interface ApiErrorResponse {
   error: {
@@ -118,7 +119,7 @@ export interface ApiErrorResponse {
 }
 
 /**
- * ÆäÀÌÁö³×ÀÌ¼Ç ÀÀ´ä
+ * í˜ì´ì§€ë„¤ì´ì…˜ ì‘ë‹µ
  */
 export interface ApiPaginatedResponse<T> {
   data: T[];

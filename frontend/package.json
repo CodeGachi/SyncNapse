@@ -15,7 +15,9 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-query-devtools": "^5.90.2",
+    "@types/fabric": "^5.3.10",
     "clsx": "^2.1.1",
+    "fabric": "^6.7.1",
     "firebase": "^12.4.0",
     "next": "^14.2.33",
     "pdfjs-dist": "^3.11.174",

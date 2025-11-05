@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
@@ -14,6 +14,9 @@ import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/editor/note-panel";
 import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
 import { SharingSettingsModal } from "@/components/note/sharing/sharing-settings-modal";
+import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/editor/pdf-drawing-overlay";
+import { DrawingSidebar } from "@/components/note/editor/drawing-sidebar";
+import { saveDrawing } from "@/lib/db/drawings";
 
 interface NoteContentAreaProps {
   noteId: string | null;
@@ -37,6 +40,51 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
     }
   );
   const [newUserEmail, setNewUserEmail] = useState("");
+
+  // PDF 컨테이너 크기 추적
+  const [pdfContainerSize, setPdfContainerSize] = useState({ width: 0, height: 0 });
+  const pdfViewerContainerRef = useRef<HTMLDivElement>(null);
+
+  // 필기 오버레이 ref (undo/redo/clear 함수 호출용)
+  const drawingOverlayRef = useRef<PDFDrawingOverlayHandle>(null);
+
+  // PDF 현재 페이지 추적
+  const [currentPdfPage, setCurrentPdfPage] = useState(1);
+
+  // 필기 모드 상태 (필기/뷰어)
+  const [isDrawingMode, setIsDrawingMode] = useState(true);
+
+  // 필기 도구 상태
+  const [currentTool, setCurrentTool] = useState<"pen" | "highlighter" | "eraser">("pen");
+  const [penColor, setPenColor] = useState("#000000");
+  const [penSize, setPenSize] = useState(3);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  // PDF 컨테이너 크기 변화 감지
+  useEffect(() => {
+    const container = pdfViewerContainerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      setPdfContainerSize({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+    });
+
+    resizeObserver.observe(container);
+
+    // 초기 크기 설정
+    setPdfContainerSize({
+      width: container.clientWidth,
+      height: container.clientHeight,
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   const togglePublic = () => {
     setSharingSettings((prev) => ({
@@ -153,9 +201,10 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
           {/* 자동저장 배지 */}
           <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
 
-          {/* 강의 노트 공유 설정 버튼 (아이콘만) */}
+          {/* 강의 노트 버튼들 (Educator만) */}
           {isEducatorNote && (
-            <>
+            <div className="flex items-center gap-2">
+              {/* 공유 설정 버튼 (아이콘만) */}
               <button
                 onClick={() => setIsSharingOpen(!isSharingOpen)}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
@@ -190,7 +239,7 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
                 onCopyShareLink={copyShareLink}
                 shareLink={sharingSettings.shareLink}
               />
-            </>
+            </div>
           )}
         </div>
 
@@ -238,16 +287,74 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
 
         {/* PDF 뷰어와 노트 패널을 세로로 나란히 배치 */}
         <div ref={containerRef} className="flex-1 flex flex-col gap-0 overflow-hidden min-h-0">
-          {/* PDF 뷰어 - 상단 */}
+          {/* PDF 뷰어와 필기 사이드바를 가로로 배치 */}
           <div
-            className="overflow-hidden"
-            style={{ height: isNotePanelOpen ? `${viewerHeight}%` : '100%' }}
+            ref={pdfViewerContainerRef}
+            className="flex-1 flex flex-row overflow-hidden"
+            style={{ height: isNotePanelOpen ? `${viewerHeight}%` : 'auto' }}
           >
-            <CustomPdfViewer
-              fileUrl={selectedFile?.url}
-              fileName={selectedFile?.name}
-              fileType={selectedFile?.type}
-            />
+            {/* PDF 뷰어 - 왼쪽 (필기 오버레이 포함) */}
+            <div className="relative flex-1 overflow-hidden">
+              {/* PDF 뷰어 */}
+              <div className="absolute inset-0 overflow-auto">
+                <CustomPdfViewer
+                  fileUrl={selectedFile?.url}
+                  fileName={selectedFile?.name}
+                  fileType={selectedFile?.type}
+                  onPageChange={setCurrentPdfPage}
+                />
+              </div>
+
+              {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
+              {isEducatorNote && selectedFile && (
+                <PDFDrawingOverlay
+                  ref={drawingOverlayRef}
+                  isEnabled={true}
+                  isDrawingMode={isDrawingMode}
+                  noteId={noteId || ""}
+                  fileId={selectedFile.id.toString()}
+                  pageNum={currentPdfPage}
+                  containerWidth={Math.max((pdfContainerSize.width || 800) - 80, 100)}
+                  containerHeight={pdfContainerSize.height || 600}
+                  currentTool={currentTool}
+                  penColor={penColor}
+                  penSize={penSize}
+                  onSave={async (data) => {
+                    try {
+                      await saveDrawing(data);
+                      console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
+                    } catch (error) {
+                      console.error("Failed to save drawing:", error);
+                    }
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 필기 도구 사이드바 - 우측 */}
+            {isEducatorNote && (
+              <DrawingSidebar
+                isEnabled={true}
+                isDrawingMode={isDrawingMode}
+                currentTool={{
+                  type: currentTool,
+                  color: penColor,
+                  strokeWidth: penSize,
+                  opacity: currentTool === "highlighter" ? 0.3 : 1,
+                }}
+                penColor={penColor}
+                penSize={penSize}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onDrawingModeChange={setIsDrawingMode}
+                onToolChange={(tool) => setCurrentTool(tool)}
+                onColorChange={setPenColor}
+                onSizeChange={setPenSize}
+                onUndo={() => drawingOverlayRef.current?.handleUndo()}
+                onRedo={() => drawingOverlayRef.current?.handleRedo()}
+                onClear={() => drawingOverlayRef.current?.handleClear()}
+              />
+            )}
           </div>
 
           {/* 드래그 가능한 디바이더 */}
