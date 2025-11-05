@@ -29,10 +29,10 @@ export default function NotePage({ searchParams }: NotePageProps) {
           <NoteContentArea noteId={noteId} noteTitle={noteTitle} />
 
           {/* Right Side Panel - Client Component */}
-          <RightSidePanel />
+          <RightSidePanel noteId={noteId} />
 
           {/* Right Sidebar Icon (When closed When) - Client Component */}
-          <SidebarIcons />
+          <SidebarIcons noteId={noteId} />
         </NoteLayoutWrapper>
       </NoteDataLoader>
     </div>

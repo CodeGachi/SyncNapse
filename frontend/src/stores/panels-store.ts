@@ -13,6 +13,7 @@ interface PanelsState {
   isEtcPanelOpen: boolean;
   isTagsPanelOpen: boolean;
   isScriptOpen: boolean;
+  isCollaborationPanelOpen: boolean;
 
   // Panel Actions
   toggleNotePanel: () => void;
@@ -20,6 +21,7 @@ interface PanelsState {
   toggleEtcPanel: () => void;
   toggleTagsPanel: () => void;
   toggleScript: () => void;
+  toggleCollaborationPanel: () => void;
 
   // Reset
   reset: () => void;
@@ -31,6 +33,7 @@ const initialState = {
   isEtcPanelOpen: false,
   isTagsPanelOpen: false,
   isScriptOpen: false,
+  isCollaborationPanelOpen: false,
 };
 
 export const usePanelsStore = create<PanelsState>()(
@@ -60,6 +63,14 @@ export const usePanelsStore = create<PanelsState>()(
         })),
 
       toggleScript: () => set((state) => ({ isScriptOpen: !state.isScriptOpen })),
+
+      toggleCollaborationPanel: () =>
+        set((state) => ({
+          isCollaborationPanelOpen: !state.isCollaborationPanelOpen,
+          isFilePanelOpen: false,
+          isEtcPanelOpen: false,
+          isTagsPanelOpen: false,
+        })),
 
       reset: () => set(initialState),
     }),
