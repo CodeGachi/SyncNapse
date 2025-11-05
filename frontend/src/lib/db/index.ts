@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SyncNapseDB";
-const DB_VERSION = 4;
+const DB_VERSION = 5; // v5: 필기 데이터 스토어 추가
 
 // DB 스키마
 export interface DBFolder {
@@ -151,6 +151,13 @@ export async function initDB(): Promise<IDBDatabase> {
         trashStore.createIndex("type", "type", { unique: false });
         trashStore.createIndex("deletedAt", "deletedAt", { unique: false });
         trashStore.createIndex("expiresAt", "expiresAt", { unique: false });
+      }
+
+      // 필기 데이터 스토어
+      if (!db.objectStoreNames.contains("drawings")) {
+        const drawingStore = db.createObjectStore("drawings", { keyPath: "id" });
+        drawingStore.createIndex("noteId", "noteId", { unique: false });
+        drawingStore.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
   });

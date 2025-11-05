@@ -50,7 +50,7 @@ export function apiToNote(apiNote: ApiNoteResponse): Note {
     createdAt: new Date(apiNote.created_at).getTime(),
     updatedAt: new Date(apiNote.updated_at).getTime(),
     thumbnail: apiNote.thumbnail,
-    type: "student", // 백엔드가 type을 제공할 때까지는 기본값 사용
+    type: apiNote.type || "student", // 백엔드가 제공하는 type 사용, 기본값은 student
   };
 }
 
