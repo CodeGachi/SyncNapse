@@ -10,6 +10,67 @@ import * as fabric from "fabric";
 import { DRAWING_TOOL_DEFAULTS, type DrawingTool } from "@/lib/types/drawing";
 import { getDrawing } from "@/lib/db/drawings";
 
+/**
+ * 커스텀 지우개 브러시
+ * 1. 드래그 중: 형광펜처럼 반투명으로 시각화
+ * 2. 마우스 업: 그려진 영역 모두 투명화
+ */
+class EraserBrush extends fabric.BaseBrush {
+  declare canvas: any;
+  declare width: number;
+  lastPointer: any = null;
+  pathPoints: Array<{ x: number; y: number }> = [];
+
+  onMouseDown(pointer: any) {
+    this.lastPointer = pointer;
+    this.pathPoints = [{ x: pointer.x, y: pointer.y }];
+  }
+
+  onMouseMove(pointer: any) {
+    if (!this.canvas.contextTop) return;
+
+    const ctx = this.canvas.contextTop;
+
+    // 경로 저장
+    this.pathPoints.push({ x: pointer.x, y: pointer.y });
+
+    // 형광펜 스타일로 시각화 (반투명 노란색)
+    ctx.strokeStyle = "rgba(255, 255, 0, 0.4)";
+    ctx.lineWidth = this.width;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (this.lastPointer) {
+      ctx.beginPath();
+      ctx.moveTo(this.lastPointer.x, this.lastPointer.y);
+      ctx.lineTo(pointer.x, pointer.y);
+      ctx.stroke();
+    }
+
+    this.lastPointer = pointer;
+  }
+
+  onMouseUp() {
+    if (!this.canvas.contextTop) return;
+
+    const ctx = this.canvas.contextTop;
+    const radius = this.width / 2;
+
+    // 저장된 모든 포인트에 대해 clearRect 호출 - 투명화
+    for (const point of this.pathPoints) {
+      ctx.clearRect(point.x - radius, point.y - radius, this.width, this.width);
+    }
+
+    this.pathPoints = [];
+    this.lastPointer = null;
+  }
+
+  // BaseBrush의 추상 메서드 - 지우개는 렌더링하지 않음
+  _render() {
+    // 아무것도 하지 않음
+  }
+}
+
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;
   handleRedo: () => void;
@@ -267,11 +328,9 @@ export const PDFDrawingOverlay = forwardRef<PDFDrawingOverlayHandle, PDFDrawingO
     if (isDrawingMode && canvas.freeDrawingBrush) {
       // Brush width와 color가 올바르게 설정되었는지 확인
       if (currentTool === "eraser") {
-        canvas.freeDrawingBrush.color = "#FFFFFF";
+        // 커스텀 EraserBrush 사용 - Canvas clearRect로 투명하게 지우기
+        canvas.freeDrawingBrush = new EraserBrush(canvas);
         canvas.freeDrawingBrush.width = Math.max(penSize * 1.5, 6);
-        if (canvas.contextTop) {
-          canvas.contextTop.globalCompositeOperation = "destination-out";
-        }
       } else {
         const toolDefaults = DRAWING_TOOL_DEFAULTS[currentTool];
         const opacity = toolDefaults?.opacity || 1;
@@ -296,12 +355,9 @@ export const PDFDrawingOverlay = forwardRef<PDFDrawingOverlayHandle, PDFDrawingO
 
     try {
       if (currentTool === "eraser") {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        // 커스텀 EraserBrush 사용 - Canvas clearRect로 투명하게 지우기
+        canvas.freeDrawingBrush = new EraserBrush(canvas);
         canvas.freeDrawingBrush.width = Math.max(penSize * 1.5, 6);
-        canvas.freeDrawingBrush.color = "#FFFFFF";
-        if (canvas.contextTop) {
-          canvas.contextTop.globalCompositeOperation = "destination-out";
-        }
       } else {
         canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
         canvas.freeDrawingBrush.width = penSize;

@@ -8,12 +8,12 @@
 "use client";
 
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
+import { useNote } from "@/lib/api/queries/notes.queries";
 import { useRecordingList } from "@/features/note/player";
 import {
   useRecordingControl,
   useAudioPlayer,
   useFileManagement,
-  useQuestionManagement,
 } from "@/features/note/right-panel";
 
 // UI Components
@@ -24,8 +24,17 @@ import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
 import { TagsPanel } from "@/components/note/panels/tags-panel";
+import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
-export function RightSidePanel() {
+interface RightSidePanelProps {
+  noteId: string | null;
+}
+
+export function RightSidePanel({ noteId }: RightSidePanelProps) {
+  // Get note data to determine if it's an educator note
+  const { data: note } = useNote(noteId);
+  const isEducatorNote = note?.type === "educator";
+
   // Store states
   const {
     files: uploadedFiles,
@@ -38,7 +47,6 @@ export function RightSidePanel() {
     activeCategories,
     toggleCategory,
     isExpanded,
-    questions,
     currentTime,
   } = useNoteEditorStore();
 
@@ -53,6 +61,8 @@ export function RightSidePanel() {
     toggleEtcPanel,
     isTagsPanelOpen,
     toggleTagsPanel,
+    isCollaborationPanelOpen,
+    toggleCollaborationPanel,
   } = usePanelsStore();
 
   // Recording list
@@ -84,11 +94,6 @@ export function RightSidePanel() {
   } = useAudioPlayer();
 
   const { handleAddFile } = useFileManagement();
-
-  const { handleAddQuestion, deleteQuestion } = useQuestionManagement();
-
-  // User info (for question authorship)
-  const currentUser = { name: "사용자", email: "user@example.com" };
 
   // Combined play/pause handler
   const onPlayToggle = () => {
@@ -162,16 +167,20 @@ export function RightSidePanel() {
           />
 
           {/* etc 패널 */}
-          <EtcPanel
-            isOpen={isEtcPanelOpen}
-            questions={questions}
-            onAddQuestion={handleAddQuestion}
-            onDeleteQuestion={deleteQuestion}
-            currentUser={currentUser}
-          />
+          <EtcPanel isOpen={isEtcPanelOpen} />
 
           {/* tags 패널 */}
           <TagsPanel isOpen={isTagsPanelOpen} />
+
+          {/* 협업 패널 (교육자 노트만) */}
+          {isCollaborationPanelOpen && isEducatorNote && (
+            <CollaborationPanel
+              userId="user-123" // TODO: Connect to actual user context
+              userName="사용자" // TODO: Connect to actual user context
+              noteId={noteId || ""} // Connected to current note ID
+              isEducator={isEducatorNote}
+            />
+          )}
 
           {/* 카테고리 버튼 */}
           <CategoryButtons
@@ -185,6 +194,9 @@ export function RightSidePanel() {
             isEtcOpen={isEtcPanelOpen}
             onTagsToggle={toggleTagsPanel}
             isTagsOpen={isTagsPanelOpen}
+            onCollaborationToggle={toggleCollaborationPanel}
+            isCollaborationOpen={isCollaborationPanelOpen}
+            isEducator={isEducatorNote}
           />
         </>
       )}
