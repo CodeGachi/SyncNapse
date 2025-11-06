@@ -30,6 +30,10 @@ export function useRecordingWithTranscription() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [segments, setSegments] = useState<TranscriptionSegment[]>([]);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Store final segments separately to send to backend on stop
+  const finalSegmentsRef = useRef<TranscriptionSegment[]>([]);
 
   const speechRecognitionRef = useRef<SpeechRecognitionService | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -143,6 +147,8 @@ export function useRecordingWithTranscription() {
   const startRecording = useCallback(
     async (title?: string, options?: { language?: string; autoDetectLanguage?: boolean }) => {
       try {
+        setError(null); // Clear any previous errors
+        
         const language = options?.language || 'ko-KR';
         const autoDetect = options?.autoDetectLanguage || false;
         
@@ -158,6 +164,7 @@ export function useRecordingWithTranscription() {
         startTimeRef.current = Date.now();
         chunkIndexRef.current = 0;
         audioChunksRef.current = [];
+        finalSegmentsRef.current = []; // Reset final segments for new recording
 
         // Get microphone access
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -200,38 +207,27 @@ export function useRecordingWithTranscription() {
                 return [...withoutPartials, segment];
               });
 
-              // Only save FINAL segments to backend (문장 단위로만 저장)
+              // Store FINAL segments to send to backend when recording stops
               if (!segment.isPartial) {
-                try {
-                // Extract language code (e.g., 'ko-KR' -> 'ko', 'en-US' -> 'en')
-                const langCode = segment.language ? segment.language.split('-')[0] : language.split('-')[0];
-                
-                const payload = {
-                  sessionId: session.id,
-                  text: segment.text,
-                  startTime: segment.startTime,
-                  endTime: segment.endTime,
-                  confidence: segment.confidence ?? 1.0, // Default to 1.0 if undefined
-                  isPartial: false,
-                  language: langCode,
-                };
-                  
-                  console.log('[RecordingWithTranscription] 📤 Sending FINAL segment to backend:', payload);
-                  
-                  await saveTranscriptMutation.mutateAsync(payload);
-                  console.log(`[RecordingWithTranscription] ✅ Final segment saved to backend`);
-              } catch (error) {
-                console.error('[RecordingWithTranscription] ❌ Failed to save segment:', error);
-                }
+                console.log('[RecordingWithTranscription] ✅ Final segment stored (will send to backend on stop)');
+                finalSegmentsRef.current.push(segment);
               } else {
-                console.log('[RecordingWithTranscription] 💭 Partial segment (local only, not saved to backend)');
+                console.log('[RecordingWithTranscription] 💭 Partial segment (UI only)');
               }
             },
             onError: (error) => {
               console.error('[RecordingWithTranscription] Speech recognition error:', error);
+              
+              // Show error to user (network errors are critical)
+              if (error.message.includes('network')) {
+                setError('네트워크 오류: Google 음성 인식 서비스에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.');
+              } else {
+                setError(`음성 인식 오류: ${error.message}`);
+              }
             },
             onStart: () => {
               console.log('[RecordingWithTranscription] Speech recognition started');
+              setError(null); // Clear any previous errors
             },
           },
         );
@@ -300,7 +296,7 @@ export function useRecordingWithTranscription() {
         throw error;
       }
     },
-    [createSessionMutation, saveTranscriptMutation],
+    [createSessionMutation],
   );
 
   /**
@@ -417,6 +413,36 @@ export function useRecordingWithTranscription() {
         mediaStreamRef.current = null;
       }
 
+      // Send all final segments to backend at once
+      if (sessionId && finalSegmentsRef.current.length > 0) {
+        console.log(`[RecordingWithTranscription] 📤 Sending ${finalSegmentsRef.current.length} final segments to backend...`);
+        
+        // Send all segments sequentially (can be optimized to batch API if needed)
+        for (const segment of finalSegmentsRef.current) {
+          try {
+            // Extract language code (e.g., 'ko-KR' -> 'ko', 'en-US' -> 'en')
+            const langCode = segment.language ? segment.language.split('-')[0] : 'ko';
+            
+            const payload = {
+              sessionId: sessionId,
+              text: segment.text,
+              startTime: segment.startTime,
+              endTime: segment.endTime,
+              confidence: segment.confidence ?? 1.0, // Default to 1.0 if undefined
+              isPartial: false,
+              language: langCode,
+            };
+            
+            await saveTranscriptMutation.mutateAsync(payload);
+            console.log(`[RecordingWithTranscription] ✅ Segment saved: "${segment.text}"`);
+          } catch (error) {
+            console.error('[RecordingWithTranscription] ❌ Failed to save segment:', error);
+          }
+        }
+        
+        console.log('[RecordingWithTranscription] ✅ All segments sent to backend');
+      }
+
       // End session
       if (sessionId) {
         const duration = (Date.now() - startTimeRef.current) / 1000;
@@ -438,7 +464,7 @@ export function useRecordingWithTranscription() {
     } catch (error) {
       console.error('[RecordingWithTranscription] Stop failed:', error);
     }
-  }, [sessionId, saveAudioChunkMutation, endSessionMutation]);
+  }, [sessionId, saveAudioChunkMutation, saveTranscriptMutation, endSessionMutation]);
 
   /**
    * Clear current recording
@@ -446,8 +472,10 @@ export function useRecordingWithTranscription() {
   const clear = useCallback(() => {
     setSegments([]);
     setSessionId(null);
+    setError(null);
     audioChunksRef.current = [];
     chunkIndexRef.current = 0;
+    finalSegmentsRef.current = []; // Clear stored final segments
   }, []);
 
   // Cleanup on unmount
@@ -480,6 +508,7 @@ export function useRecordingWithTranscription() {
     sessionId,
     segments,
     audioLevel,
+    error,
     startRecording,
     stopRecording,
     clear,
