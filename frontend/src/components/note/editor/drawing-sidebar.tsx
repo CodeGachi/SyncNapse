@@ -16,7 +16,7 @@ interface DrawingSidebarProps {
   canUndo: boolean;
   canRedo: boolean;
   onDrawingModeChange: (enabled: boolean) => void;
-  onToolChange: (toolType: "pen" | "highlighter" | "eraser") => void;
+  onToolChange: (toolType: string) => void;
   onColorChange: (color: string) => void;
   onSizeChange: (size: number) => void;
   onUndo: () => void;
@@ -43,12 +43,24 @@ export function DrawingSidebar({
   onClear,
 }: DrawingSidebarProps) {
   const tools = [
-    { type: "pen", label: "✏️ 펜", key: "pen" },
-    { type: "highlighter", label: "🖍️ 형광펜", key: "highlighter" },
-    { type: "eraser", label: "🧹 지우개", key: "eraser" },
+    // 선택 도구
+    { type: "hand", label: "👆\n선택", key: "hand", category: "select" },
+
+    // 기본 그리기 도구
+    { type: "pen", label: "✏️\n펜", key: "pen", category: "draw" },
+    { type: "highlighter", label: "🖍️\n형광펜", key: "highlighter", category: "draw" },
+    { type: "eraser", label: "🧹\n지우개", key: "eraser", category: "draw" },
+
+    // 도형 도구
+    { type: "solidLine", label: "📏\n직선", key: "solidLine", category: "shape" },
+    { type: "dashedLine", label: "⋯\n점선", key: "dashedLine", category: "shape" },
+    { type: "arrowLine", label: "➜\n화살표", key: "arrowLine", category: "shape" },
+    { type: "rect", label: "▭\n사각형", key: "rect", category: "shape" },
+    { type: "circle", label: "●\n원", key: "circle", category: "shape" },
+    { type: "triangle", label: "▲\n삼각형", key: "triangle", category: "shape" },
   ] as const;
 
-  const handleToolClick = (toolType: "pen" | "highlighter" | "eraser") => {
+  const handleToolClick = (toolType: string) => {
     onToolChange(toolType);
   };
 
@@ -79,21 +91,63 @@ export function DrawingSidebar({
       {/* 구분선 */}
       <div className="w-full h-px bg-white/20" />
 
-      {/* 도구 선택 - 항상 표시 */}
-      <div className="flex flex-col gap-1">
-        {tools.map((tool) => (
+      {/* 도구 선택 - 스크롤 가능 */}
+      <div className="flex flex-col gap-1 overflow-y-auto flex-1">
+        {/* 선택 도구 섹션 */}
+        <div className="text-xs text-gray-400 px-1 py-1">선택</div>
+        {tools.filter((t: any) => t.category === "select").map((tool) => (
           <button
             key={tool.key}
-            onClick={() => handleToolClick(tool.type as "pen" | "highlighter" | "eraser")}
+            onClick={() => handleToolClick(tool.type)}
             disabled={!isDrawingMode}
             className={`px-1 py-1 rounded-md text-xs font-medium transition-all text-center ${
               currentTool.type === tool.type && isDrawingMode
                 ? "bg-[#AFC02B] text-black shadow-lg"
                 : "bg-white/15 text-white hover:bg-white/25 disabled:opacity-50 disabled:cursor-not-allowed"
             }`}
-            title={tool.label}
+            title={tool.label.replace(/\n/g, " ")}
           >
-            {tool.label.split(" ").map((word, i) => (
+            {tool.label.split("\n").map((word: string, i: number) => (
+              <div key={i}>{word}</div>
+            ))}
+          </button>
+        ))}
+
+        {/* 그리기 도구 섹션 */}
+        <div className="text-xs text-gray-400 px-1 py-1 pt-2">그리기</div>
+        {tools.filter((t: any) => t.category === "draw").map((tool) => (
+          <button
+            key={tool.key}
+            onClick={() => handleToolClick(tool.type)}
+            disabled={!isDrawingMode}
+            className={`px-1 py-1 rounded-md text-xs font-medium transition-all text-center ${
+              currentTool.type === tool.type && isDrawingMode
+                ? "bg-[#AFC02B] text-black shadow-lg"
+                : "bg-white/15 text-white hover:bg-white/25 disabled:opacity-50 disabled:cursor-not-allowed"
+            }`}
+            title={tool.label.replace(/\n/g, " ")}
+          >
+            {tool.label.split("\n").map((word: string, i: number) => (
+              <div key={i}>{word}</div>
+            ))}
+          </button>
+        ))}
+
+        {/* 도형 도구 섹션 */}
+        <div className="text-xs text-gray-400 px-1 py-1 pt-2">도형</div>
+        {tools.filter((t: any) => t.category === "shape").map((tool) => (
+          <button
+            key={tool.key}
+            onClick={() => handleToolClick(tool.type)}
+            disabled={!isDrawingMode}
+            className={`px-1 py-1 rounded-md text-xs font-medium transition-all text-center ${
+              currentTool.type === tool.type && isDrawingMode
+                ? "bg-[#AFC02B] text-black shadow-lg"
+                : "bg-white/15 text-white hover:bg-white/25 disabled:opacity-50 disabled:cursor-not-allowed"
+            }`}
+            title={tool.label.replace(/\n/g, " ")}
+          >
+            {tool.label.split("\n").map((word: string, i: number) => (
               <div key={i}>{word}</div>
             ))}
           </button>

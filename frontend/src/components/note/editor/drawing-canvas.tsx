@@ -117,7 +117,7 @@ export function DrawingCanvas({
 
       // 도구별 처리
       switch (currentTool.type) {
-        case "rectangle": {
+        case "rect": {
           tempObj = new fabric.Rect({
             left: Math.min(startX, currentX),
             top: Math.min(startY, currentY),
@@ -150,7 +150,7 @@ export function DrawingCanvas({
           break;
         }
 
-        case "line": {
+        case "solidLine": {
           if (tempObj) {
             canvas.remove(tempObj);
           }
@@ -163,7 +163,7 @@ export function DrawingCanvas({
           break;
         }
 
-        case "arrow": {
+        case "arrowLine": {
           if (tempObj) {
             canvas.remove(tempObj);
           }
@@ -196,7 +196,7 @@ export function DrawingCanvas({
 
       // 도구별 최종 처리
       switch (currentTool.type) {
-        case "rectangle":
+        case "rect":
           addRectangle(
             Math.min(startX, endX),
             Math.min(startY, endY),
@@ -214,11 +214,11 @@ export function DrawingCanvas({
           break;
         }
 
-        case "line":
+        case "solidLine":
           addLine(startX, startY, endX, endY);
           break;
 
-        case "arrow":
+        case "arrowLine":
           addArrow(startX, startY, endX, endY);
           break;
 

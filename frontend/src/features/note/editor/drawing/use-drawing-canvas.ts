@@ -120,10 +120,10 @@ export function useDrawingTool(
         break;
       }
 
-      case "rectangle":
+      case "rect":
       case "circle":
-      case "line":
-      case "arrow":
+      case "solidLine":
+      case "arrowLine":
       case "text":
       case "sticky-note": {
         // 도형 모드: 드로잉 모드 비활성화

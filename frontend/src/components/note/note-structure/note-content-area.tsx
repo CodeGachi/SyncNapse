@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useNoteEditorStore, usePanelsStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore, useDrawStore, useToolsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
@@ -54,12 +54,23 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
   // 필기 모드 상태 (필기/뷰어)
   const [isDrawingMode, setIsDrawingMode] = useState(true);
 
-  // 필기 도구 상태
-  const [currentTool, setCurrentTool] = useState<"pen" | "highlighter" | "eraser">("pen");
-  const [penColor, setPenColor] = useState("#000000");
-  const [penSize, setPenSize] = useState(3);
+  // Zustand 스토어에서 필기 도구 상태 가져오기
+  const drawStore = useDrawStore();
+  const toolsStore = useToolsStore();
+
+  // 현재 도구 타입
+  const currentTool = drawStore.type;
+  const penColor = drawStore.lineColor;
+  const penSize = drawStore.lineWidth;
+
+  // Undo/Redo 상태 업데이트 - useEffect로 처리
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+
+  useEffect(() => {
+    setCanUndo(toolsStore.getCanUndo());
+    setCanRedo(toolsStore.getCanRedo());
+  }, [toolsStore]);
 
   // PDF 컨테이너 크기 변화 감지
   useEffect(() => {
@@ -290,11 +301,18 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
           {/* PDF 뷰어와 필기 사이드바를 가로로 배치 */}
           <div
             ref={pdfViewerContainerRef}
-            className="flex-1 flex flex-row overflow-hidden"
-            style={{ height: isNotePanelOpen ? `${viewerHeight}%` : 'auto' }}
+            className="flex-1 flex flex-row overflow-hidden transition-all duration-300"
+            style={{
+              height: isNotePanelOpen ? `${viewerHeight}%` : 'auto',
+            }}
           >
             {/* PDF 뷰어 - 왼쪽 (필기 오버레이 포함) */}
-            <div className="relative flex-1 overflow-hidden">
+            <div
+              className="relative overflow-hidden"
+              style={{
+                flex: 1,
+              }}
+            >
               {/* PDF 뷰어 */}
               <div className="absolute inset-0 overflow-auto">
                 <CustomPdfViewer
@@ -314,11 +332,12 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
                   noteId={noteId || ""}
                   fileId={selectedFile.id.toString()}
                   pageNum={currentPdfPage}
-                  containerWidth={Math.max((pdfContainerSize.width || 800) - 80, 100)}
+                  containerWidth={Math.max((pdfContainerSize.width || 800) - (isExpanded ? 500 : 0) - 80, 100)}
                   containerHeight={pdfContainerSize.height || 600}
                   currentTool={currentTool}
                   penColor={penColor}
                   penSize={penSize}
+                  isPdf={selectedFile.type?.includes("pdf")}
                   onSave={async (data) => {
                     try {
                       await saveDrawing(data);
@@ -332,9 +351,9 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
             </div>
 
             {/* 필기 도구 사이드바 - 우측 */}
-            {isEducatorNote && (
+            {isEducatorNote && selectedFile && (
               <DrawingSidebar
-                isEnabled={true}
+                isEnabled={selectedFile.type?.includes("pdf") || false}
                 isDrawingMode={isDrawingMode}
                 currentTool={{
                   type: currentTool,
@@ -347,9 +366,9 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
                 canUndo={canUndo}
                 canRedo={canRedo}
                 onDrawingModeChange={setIsDrawingMode}
-                onToolChange={(tool) => setCurrentTool(tool)}
-                onColorChange={setPenColor}
-                onSizeChange={setPenSize}
+                onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
+                onColorChange={(color) => drawStore.setLineColor(color)}
+                onSizeChange={(size) => drawStore.setLineWidth(size)}
                 onUndo={() => drawingOverlayRef.current?.handleUndo()}
                 onRedo={() => drawingOverlayRef.current?.handleRedo()}
                 onClear={() => drawingOverlayRef.current?.handleClear()}
@@ -375,7 +394,7 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
               className="overflow-y-auto bg-[#1e1e1e]"
               style={{ height: `${100 - viewerHeight}%` }}
             >
-              <NotePanel isOpen={isNotePanelOpen} />
+              <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />
             </div>
           )}
         </div>

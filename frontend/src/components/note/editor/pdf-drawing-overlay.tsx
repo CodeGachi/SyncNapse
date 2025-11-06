@@ -1,75 +1,23 @@
 /**
- * PDF 뷰어 위의 필기 오버레이 컴포넌트
- * 마우스와 터치펜 입력 모두 지원, 하단 네비게이션 바 형태
+ * PDF Drawing Overlay - 마이그레이션: drawing-board의 PicBoard 로직을 React로 포팅
+ * Canvas overlay on PDF viewer with drawing capabilities (펜 + 도형)
  */
 
 "use client";
 
-import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import * as fabric from "fabric";
-import { DRAWING_TOOL_DEFAULTS, type DrawingTool } from "@/lib/types/drawing";
-import { getDrawing } from "@/lib/db/drawings";
-
-/**
- * 커스텀 지우개 브러시
- * 1. 드래그 중: 형광펜처럼 반투명으로 시각화
- * 2. 마우스 업: 그려진 영역 모두 투명화
- */
-class EraserBrush extends fabric.BaseBrush {
-  declare canvas: any;
-  declare width: number;
-  lastPointer: any = null;
-  pathPoints: Array<{ x: number; y: number }> = [];
-
-  onMouseDown(pointer: any) {
-    this.lastPointer = pointer;
-    this.pathPoints = [{ x: pointer.x, y: pointer.y }];
-  }
-
-  onMouseMove(pointer: any) {
-    if (!this.canvas.contextTop) return;
-
-    const ctx = this.canvas.contextTop;
-
-    // 경로 저장
-    this.pathPoints.push({ x: pointer.x, y: pointer.y });
-
-    // 형광펜 스타일로 시각화 (반투명 노란색)
-    ctx.strokeStyle = "rgba(255, 255, 0, 0.4)";
-    ctx.lineWidth = this.width;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    if (this.lastPointer) {
-      ctx.beginPath();
-      ctx.moveTo(this.lastPointer.x, this.lastPointer.y);
-      ctx.lineTo(pointer.x, pointer.y);
-      ctx.stroke();
-    }
-
-    this.lastPointer = pointer;
-  }
-
-  onMouseUp() {
-    if (!this.canvas.contextTop) return;
-
-    const ctx = this.canvas.contextTop;
-    const radius = this.width / 2;
-
-    // 저장된 모든 포인트에 대해 clearRect 호출 - 투명화
-    for (const point of this.pathPoints) {
-      ctx.clearRect(point.x - radius, point.y - radius, this.width, this.width);
-    }
-
-    this.pathPoints = [];
-    this.lastPointer = null;
-  }
-
-  // BaseBrush의 추상 메서드 - 지우개는 렌더링하지 않음
-  _render() {
-    // 아무것도 하지 않음
-  }
-}
+import { useDrawStore } from "@/stores/draw-store";
+import { useToolsStore } from "@/stores/tools-store";
+import type { DrawingData } from "@/lib/types/drawing";
+import { drawShape, type DrawInfo } from "@/utils/drawing/shapes";
 
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;
@@ -85,16 +33,18 @@ interface PDFDrawingOverlayProps {
   pageNum: number;
   containerWidth: number;
   containerHeight: number;
-  currentTool?: "pen" | "highlighter" | "eraser";
-  penColor?: string;
-  penSize?: number;
-  onSave?: (data: any) => Promise<void>;
+  currentTool: string;
+  penColor: string;
+  penSize: number;
+  isPdf?: boolean;
+  onSave?: (data: DrawingData) => Promise<void>;
 }
 
-const PDF_CONTROL_BAR_HEIGHT = 56; // PDF 컨트롤 바 높이 (h-14)
-
-export const PDFDrawingOverlay = forwardRef<PDFDrawingOverlayHandle, PDFDrawingOverlayProps>(
-  function PDFDrawingOverlayComponent(
+export const PDFDrawingOverlay = forwardRef<
+  PDFDrawingOverlayHandle,
+  PDFDrawingOverlayProps
+>(
+  (
     {
       isEnabled,
       isDrawingMode,
@@ -103,505 +53,521 @@ export const PDFDrawingOverlay = forwardRef<PDFDrawingOverlayHandle, PDFDrawingO
       pageNum,
       containerWidth,
       containerHeight,
-      currentTool: propCurrentTool = "pen",
-      penColor: propPenColor = "#000000",
-      penSize: propPenSize = 3,
+      currentTool,
+      penColor,
+      penSize,
+      isPdf,
       onSave,
-    }: PDFDrawingOverlayProps,
+    },
     ref
-  ) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const savedImageCanvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
-  const [currentTool, setCurrentTool] = useState<"pen" | "highlighter" | "eraser">(propCurrentTool);
-  const [penColor, setPenColor] = useState(propPenColor);
-  const [penSize, setPenSize] = useState(propPenSize);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const historyRef = useRef<any[]>([]);
-  const historyIndexRef = useRef<number>(-1);
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  ) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+    const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Canvas 초기화 및 데이터 로드
-  useEffect(() => {
-    if (!canvasRef.current || !isEnabled) return;
+    const drawStore = useDrawStore();
+    const toolsStore = useToolsStore();
 
-    let isComponentMounted = true;
-    let fabricCanvas: fabric.Canvas | null = null;
+    // Canvas 초기화 (펜과 도형 모두 지원)
+    useEffect(() => {
+      if (!canvasRef.current || !isEnabled) return;
 
-    const initializeCanvas = async () => {
-      try {
-        // Canvas 높이 - PDF 컨트롤 바 공간 확보
-        const canvasHeight = Math.max(containerHeight - PDF_CONTROL_BAR_HEIGHT, 100);
-        // Canvas 너비 - containerWidth를 전체로 사용 (sidebar는 별도 컴포넌트)
-        const canvasWidth = Math.max(containerWidth, 100);
-
-        // Canvas 엘리먼트 설정
-        if (!canvasRef.current) return;
-
-        // 기존 캔버스 정리 (clear 전에 반드시 isDrawingMode를 false로 설정)
-        if (fabricCanvasRef.current) {
-          try {
-            // isDrawingMode를 false로 설정하여 drawing context 정리
-            fabricCanvasRef.current.isDrawingMode = false;
-            // 마우스 이벤트 리스너 제거
-            fabricCanvasRef.current.off("mouse:up");
-            // dispose - clear는 호출하지 않음 (context 문제 발생)
-            fabricCanvasRef.current.dispose();
-          } catch (e) {
-            console.warn("Error disposing previous canvas:", e);
-          }
-          fabricCanvasRef.current = null;
-        }
-
-        // Canvas 엘리먼트 초기화 (새로 설정)
-        canvasRef.current.width = canvasWidth;
-        canvasRef.current.height = canvasHeight;
-
-        // 저장된 필기 이미지 Canvas 초기화
-        if (savedImageCanvasRef.current) {
-          savedImageCanvasRef.current.width = canvasWidth;
-          savedImageCanvasRef.current.height = canvasHeight;
-        }
-
-        // Fabric Canvas 생성
-        fabricCanvas = new fabric.Canvas(canvasRef.current, {
-          width: canvasWidth,
-          height: canvasHeight,
-          backgroundColor: "", // 빈 문자열로 설정하여 완전 투명성 보장
-          enableRetinaScaling: true,
-          renderOnAddRemove: false,
-        });
-
-        if (!isComponentMounted) return;
-
-        fabricCanvasRef.current = fabricCanvas;
-
-        // 자유 드로잉 모드 설정
-        fabricCanvas.isDrawingMode = true;
-        fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas);
-        fabricCanvas.freeDrawingBrush.width = penSize;
-
-        // 색상을 rgba로 변환하여 투명도 적용
-        const hex = penColor.replace("#", "");
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        fabricCanvas.freeDrawingBrush.color = `rgba(${r}, ${g}, ${b}, 1)`;
-
-        // 캔버스 컨텍스트 초기화를 위해 한 번 렌더링
-        fabricCanvas.renderAll();
-
-        // 저장된 필기 데이터 로드
-        try {
-          const savedDrawing = await getDrawing(noteId, fileId, pageNum);
-          if (savedDrawing && savedDrawing.canvas) {
-            // 저장된 데이터가 있으면 로드 (완벽한 정리 후)
-            const wasDrawingMode = fabricCanvas.isDrawingMode;
-            try {
-              // 1. 드로잉 모드 종료
-              fabricCanvas.isDrawingMode = false;
-
-              // 2. 선택된 객체 해제
-              fabricCanvas.discardActiveObject();
-
-              // 3. 모든 객체 제거 (clearRect 에러 방지를 위해 clear() 대신 객체 제거)
-              const objects = fabricCanvas.getObjects();
-              objects.forEach((obj) => fabricCanvas!.remove(obj));
-
-              // 4. 렌더링 (clean state)
-              fabricCanvas.renderAll();
-
-              // 5. contextTop 강제 초기화 (clearRect 에러 방지)
-              // 드로잉 모드를 재활성화하여 contextTop 재생성
-              fabricCanvas.isDrawingMode = true;
-
-              // 6. loadFromJSON 호출
-              await new Promise<void>((resolve) => {
-                try {
-                  fabricCanvas!.loadFromJSON(savedDrawing.canvas, () => {
-                    // 로드 완료 후 드로잉 모드 복원
-                    fabricCanvas!.isDrawingMode = wasDrawingMode;
-                    fabricCanvas!.renderAll();
-                    // 히스토리 초기화
-                    historyRef.current = [JSON.stringify(fabricCanvas!.toJSON())];
-                    historyIndexRef.current = 0;
-                    setCanUndo(false);
-                    setCanRedo(false);
-                    resolve();
-                  });
-                } catch (error) {
-                  console.warn("Error during loadFromJSON, recovering:", error);
-                  fabricCanvas!.isDrawingMode = wasDrawingMode;
-                  resolve();
-                }
-              });
-              console.log(`Drawing data loaded for file ${fileId} page ${pageNum}`);
-
-              // 저장된 필기 이미지를 savedImageCanvas에 렌더링
-              if (savedImageCanvasRef.current && savedDrawing.image) {
-                const ctx = savedImageCanvasRef.current.getContext("2d");
-                if (ctx) {
-                  const img = new Image();
-                  img.onload = () => {
-                    ctx.clearRect(
-                      0,
-                      0,
-                      savedImageCanvasRef.current!.width,
-                      savedImageCanvasRef.current!.height
-                    );
-                    ctx.drawImage(
-                      img,
-                      0,
-                      0,
-                      canvasWidth,
-                      canvasHeight
-                    );
-                  };
-                  img.src = savedDrawing.image;
-                }
-              }
-            } catch (error) {
-              console.warn("Error preparing canvas for load:", error);
-              // 복구: 드로잉 모드 복원
-              fabricCanvas.isDrawingMode = wasDrawingMode;
-              saveHistory();
-            }
-          } else {
-            // 새 캔버스 - 초기 상태 저장
-            saveHistory();
-          }
-        } catch (loadError) {
-          console.warn("Failed to load drawing data, starting fresh:", loadError);
-          saveHistory();
-        }
-
-        // 마우스 업 이벤트 - 드로잉 완료 후 저장
-        const handleMouseUp = () => {
-          saveHistory();
-          debouncedAutoSave();
-        };
-
-        fabricCanvas.on("mouse:up", handleMouseUp);
-
-        console.log("Canvas initialized for page", pageNum, ":", containerWidth, "x", canvasHeight);
-      } catch (error) {
-        console.error("Failed to initialize canvas:", error);
-      }
-    };
-
-    initializeCanvas();
-
-    return () => {
-      isComponentMounted = false;
+      // 기존 canvas 정리
       if (fabricCanvasRef.current) {
         try {
-          fabricCanvasRef.current.off("mouse:up");
           fabricCanvasRef.current.dispose();
-        } catch (e) {
-          console.warn("Error during cleanup:", e);
+        } catch (error) {
+          console.error("Failed to dispose previous canvas:", error);
         }
         fabricCanvasRef.current = null;
       }
+
+      // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
+      const adjustedHeight = Math.max(containerHeight, 100);
+
+      // Fabric Canvas 생성
+      const canvas = new fabric.Canvas(canvasRef.current, {
+        width: containerWidth,
+        height: adjustedHeight,
+        isDrawingMode: false,
+        backgroundColor: 'transparent',
+      });
+
+      fabricCanvasRef.current = canvas;
+
+      // 초기 히스토리 저장
+      useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
+
+      return () => {
+        try {
+          if (fabricCanvasRef.current) {
+            // Fabric canvas를 안전하게 정리
+            fabricCanvasRef.current.dispose();
+            fabricCanvasRef.current = null;
+          }
+        } catch (error) {
+          console.error("Canvas cleanup error:", error);
+          fabricCanvasRef.current = null;
+        }
+      };
+    }, [canvasRef, isEnabled, isPdf]);
+
+    // Canvas 리사이징 (사이드 패널 확장/축소 시)
+    useEffect(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
+      const adjustedHeight = Math.max(containerHeight, 100);
+
+      // 캔버스 크기 조정 (재생성 아님)
+      canvas.setWidth(containerWidth);
+      canvas.setHeight(adjustedHeight);
+      canvas.renderAll();
+    }, [containerWidth, containerHeight]);
+
+    // 펜 모드 설정 (펜/형광펜 자유 그리기)
+    useEffect(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
+      const isSelectionMode = drawStore.type === 'hand';
+      const isEraserMode = drawStore.type === 'eraser';
+
+      // 자유 그리기 모드 설정
+      canvas.isDrawingMode = isFreeDrawingMode && isDrawingMode;
+
+      // 펜 모드일 때 PencilBrush 초기화 (중요!)
+      if (isFreeDrawingMode && isDrawingMode) {
+        // Fabric.js 브러시 생성 및 설정
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        canvas.freeDrawingBrush.color = drawStore.lineColor;
+        canvas.freeDrawingBrush.width = drawStore.lineWidth;
+
+        // 형광펜은 투명도 설정
+        if (drawStore.type === 'highlighter') {
+          (canvas.freeDrawingBrush as any).globalAlpha = 0.3;
+        } else {
+          (canvas.freeDrawingBrush as any).globalAlpha = 1;
+        }
+      } else {
+        // 펜 모드 비활성화 시 - 브러시 정리
+        canvas.isDrawingMode = false;
+      }
+
+      // 선택 가능 여부 설정
+      canvas.forEachObject((obj) => {
+        if (isEraserMode) {
+          // 지우개 모드: 모든 객체 선택 불가능
+          obj.selectable = false;
+          obj.evented = false;
+        } else if (isSelectionMode) {
+          // 손 아이콘 모드: 모든 객체 선택 가능
+          obj.selectable = true;
+          obj.evented = true;
+        }
+      });
+    }, [drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode]);
+
+    // 미리보기 선 렌더링
+    const renderPreviewLine = useCallback(
+      (start: { x: number; y: number }, end: { x: number; y: number }) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        // 기존 미리보기 제거
+        canvas.forEachObject((obj: any) => {
+          if (obj.isPreview) {
+            canvas.remove(obj);
+          }
+        });
+
+        // 새 미리보기 선 추가
+        const line = new fabric.Line(
+          [start.x, start.y, end.x, end.y],
+          {
+            stroke: drawStore.lineColor,
+            strokeWidth: drawStore.lineWidth,
+            selectable: false,
+            evented: false,
+          }
+        );
+        (line as any).isPreview = true;
+        canvas.add(line);
+        canvas.renderAll();
+      },
+      [drawStore.lineColor, drawStore.lineWidth]
+    );
+
+    // 미리보기 사각형 렌더링
+    const renderPreviewRect = useCallback(
+      (start: { x: number; y: number }, end: { x: number; y: number }) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        // 기존 미리보기 제거
+        canvas.forEachObject((obj: any) => {
+          if (obj.isPreview) {
+            canvas.remove(obj);
+          }
+        });
+
+        // 새 미리보기 사각형 추가
+        const rect = new fabric.Rect({
+          left: Math.min(start.x, end.x),
+          top: Math.min(start.y, end.y),
+          width: Math.abs(end.x - start.x),
+          height: Math.abs(end.y - start.y),
+          fill: 'rgba(255, 255, 255, 0)',
+          stroke: drawStore.lineColor,
+          strokeWidth: drawStore.lineWidth,
+          selectable: false,
+          evented: false,
+        });
+        (rect as any).isPreview = true;
+        canvas.add(rect);
+        canvas.renderAll();
+      },
+      [drawStore.lineColor, drawStore.lineWidth]
+    );
+
+    // 미리보기 원 렌더링
+    const renderPreviewCircle = useCallback(
+      (start: { x: number; y: number }, end: { x: number; y: number }) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        // 기존 미리보기 제거
+        canvas.forEachObject((obj: any) => {
+          if (obj.isPreview) {
+            canvas.remove(obj);
+          }
+        });
+
+        // 새 미리보기 원 추가
+        const radius = Math.sqrt(
+          (end.x - start.x) ** 2 + (end.y - start.y) ** 2
+        ) / 2;
+        const circle = new fabric.Circle({
+          left: start.x,
+          top: start.y,
+          radius,
+          fill: 'rgba(255, 255, 255, 0)',
+          stroke: drawStore.lineColor,
+          strokeWidth: drawStore.lineWidth,
+          selectable: false,
+          evented: false,
+        });
+        (circle as any).isPreview = true;
+        canvas.add(circle);
+        canvas.renderAll();
+      },
+      [drawStore.lineColor, drawStore.lineWidth]
+    );
+
+    // Auto-save drawing data to database (debounced) - 반드시 먼저 정의
+    const triggerAutoSave = useCallback(() => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
-    };
-  }, [containerWidth, containerHeight, isEnabled, noteId, fileId, pageNum]);
+      autoSaveTimeoutRef.current = setTimeout(async () => {
+        const canvas = fabricCanvasRef.current;
+        if (!onSave || !canvas) return;
 
-  // Props로부터 tool/color/size 변경 감지 및 동기화
-  useEffect(() => {
-    setCurrentTool(propCurrentTool);
-    setPenColor(propPenColor);
-    setPenSize(propPenSize);
-  }, [propCurrentTool, propPenColor, propPenSize]);
+        try {
+          const canvasJSON = canvas.toJSON();
+          const imageData = canvas.toDataURL({ format: "png", multiplier: 1 });
 
-  // isDrawingMode 변경시 canvas drawing mode 동기화
-  useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
+          const data: DrawingData = {
+            id: `${noteId}-${fileId}-${pageNum}`,
+            noteId,
+            fileId,
+            pageNum,
+            canvas: canvasJSON,
+            image: imageData,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
 
-    // isDrawingMode에 따라 canvas drawing mode 업데이트
-    canvas.isDrawingMode = isDrawingMode;
-
-    // drawing mode 진입시 brush 재설정
-    if (isDrawingMode && canvas.freeDrawingBrush) {
-      // Brush width와 color가 올바르게 설정되었는지 확인
-      if (currentTool === "eraser") {
-        // 커스텀 EraserBrush 사용 - Canvas clearRect로 투명하게 지우기
-        canvas.freeDrawingBrush = new EraserBrush(canvas);
-        canvas.freeDrawingBrush.width = Math.max(penSize * 1.5, 6);
-      } else {
-        const toolDefaults = DRAWING_TOOL_DEFAULTS[currentTool];
-        const opacity = toolDefaults?.opacity || 1;
-        const hex = penColor.replace("#", "");
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        canvas.freeDrawingBrush.color = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-        canvas.freeDrawingBrush.width = penSize;
-        if (canvas.contextTop) {
-          canvas.contextTop.globalCompositeOperation = "source-over";
+          await onSave(data);
+        } catch (error) {
+          console.error("Failed to auto-save drawing:", error);
         }
-      }
-      canvas.renderAll();
-    }
-  }, [isDrawingMode, currentTool, penColor, penSize]);
+      }, 1000);
+    }, [onSave, noteId, fileId, pageNum]);
 
-  // 도구 및 색상/크기 변경 (drawing mode가 아닐 때는 실행 안 함)
-  useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !canvas.freeDrawingBrush || !isDrawingMode) return;
+    // 마우스 다운 이벤트
+    const handleMouseDown = useCallback(
+      (event: any) => {
+        if (!isEnabled || !isDrawingMode || !fabricCanvasRef.current) return;
 
-    try {
-      if (currentTool === "eraser") {
-        // 커스텀 EraserBrush 사용 - Canvas clearRect로 투명하게 지우기
-        canvas.freeDrawingBrush = new EraserBrush(canvas);
-        canvas.freeDrawingBrush.width = Math.max(penSize * 1.5, 6);
-      } else {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        canvas.freeDrawingBrush.width = penSize;
+        // 펜/형광펜 모드는 자동으로 처리되므로 이벤트 핸들러 제외
+        const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
+        if (isFreeDrawingMode) return;
 
-        const toolDefaults = DRAWING_TOOL_DEFAULTS[currentTool];
-        const opacity = toolDefaults?.opacity || 1;
-        const hex = penColor.replace("#", "");
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        canvas.freeDrawingBrush.color = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        setIsDrawing(true);
+        const pos = fabricCanvasRef.current.getPointer(event.e as MouseEvent);
+        setStartPos(pos);
 
-        if (canvas.contextTop) {
-          canvas.contextTop.globalCompositeOperation = "source-over";
-        }
-      }
-
-      canvas.renderAll();
-    } catch (error) {
-      console.error("Failed to update tool:", error);
-    }
-  }, [isDrawingMode, currentTool, penColor, penSize]);
-
-  // 히스토리 저장
-  const saveHistory = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const state = JSON.stringify(canvas.toJSON());
-    historyRef.current = historyRef.current.slice(
-      0,
-      historyIndexRef.current + 1
+        // 히스토리 저장
+        useToolsStore.getState().saveSnapshot(
+          JSON.stringify(fabricCanvasRef.current.toJSON())
+        );
+      },
+      [isEnabled, isDrawingMode, drawStore.type]
     );
-    historyRef.current.push(state);
-    historyIndexRef.current++;
 
-    setCanUndo(true);
-    setCanRedo(false);
-  };
+    // 마우스 이동 이벤트
+    const handleMouseMove = useCallback(
+      (event: any) => {
+        if (
+          !isDrawing ||
+          !isEnabled ||
+          !fabricCanvasRef.current ||
+          !startPos
+        ) return;
 
-  // 실행취소
-  const handleUndo = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || historyIndexRef.current <= 0) return;
+        const canvas = fabricCanvasRef.current;
+        const pos = canvas.getPointer(event.e as MouseEvent);
 
-    historyIndexRef.current--;
-    const state = historyRef.current[historyIndexRef.current];
+        // 도구별 미리보기 렌더링
+        const toolType = drawStore.type;
 
-    try {
-      const wasDrawingMode = canvas.isDrawingMode;
-      canvas.isDrawingMode = false;
+        if (toolType === 'eraser') {
+          // 지우개 미리보기: 지울 영역을 사각형으로 표시
+          renderPreviewRect(startPos, pos);
+        } else if (
+          toolType === 'free' ||
+          toolType === 'solidLine' ||
+          toolType === 'dashedLine'
+        ) {
+          renderPreviewLine(startPos, pos);
+        } else if (toolType === 'rect') {
+          renderPreviewRect(startPos, pos);
+        } else if (toolType === 'circle') {
+          renderPreviewCircle(startPos, pos);
+        }
+      },
+      [
+        isDrawing,
+        isEnabled,
+        startPos,
+        drawStore.type,
+        renderPreviewLine,
+        renderPreviewRect,
+        renderPreviewCircle,
+      ]
+    );
 
-      // Canvas 정리
-      canvas.discardActiveObject();
-      const objects = canvas.getObjects();
-      objects.forEach((obj) => canvas!.remove(obj));
-      canvas.renderAll();
+    // 마우스 업 이벤트
+    const handleMouseUp = useCallback(
+      (event: any) => {
+        if (!isDrawing || !fabricCanvasRef.current || !startPos) return;
 
-      // contextTop 강제 초기화 (clearRect 에러 방지)
-      canvas.isDrawingMode = true;
+        const canvas = fabricCanvasRef.current;
+        const pos = canvas.getPointer(event.e as MouseEvent);
 
-      // loadFromJSON 호출
-      canvas.loadFromJSON(state, () => {
-        canvas!.isDrawingMode = wasDrawingMode;
-        canvas!.renderAll();
-        setCanUndo(historyIndexRef.current > 0);
-        setCanRedo(true);
-        debouncedAutoSave();
-      });
-    } catch (error) {
-      console.warn("Error during undo:", error);
-      historyIndexRef.current++;
-    }
-  };
+        // 미리보기 제거
+        canvas.forEachObject((obj: any) => {
+          if (obj.isPreview) {
+            canvas.remove(obj);
+          }
+        });
 
-  // 다시실행
-  const handleRedo = () => {
-    const canvas = fabricCanvasRef.current;
-    if (
-      !canvas ||
-      historyIndexRef.current >= historyRef.current.length - 1
-    )
-      return;
+        const toolType = drawStore.type;
 
-    historyIndexRef.current++;
-    const state = historyRef.current[historyIndexRef.current];
+        // 지우개 처리: 지우개 영역에 겹치는 모든 객체 삭제
+        if (toolType === 'eraser') {
+          const objectsToRemove: fabric.Object[] = [];
 
-    try {
-      const wasDrawingMode = canvas.isDrawingMode;
-      canvas.isDrawingMode = false;
+          canvas.forEachObject((obj) => {
+            // 지우개 영역과 객체의 충돌 감지
+            const objBounds = obj.getBoundingRect();
+            const eraserX = Math.min(startPos.x, pos.x);
+            const eraserY = Math.min(startPos.y, pos.y);
+            const eraserWidth = Math.abs(pos.x - startPos.x) || drawStore.lineWidth;
+            const eraserHeight = Math.abs(pos.y - startPos.y) || drawStore.lineWidth;
 
-      // Canvas 정리
-      canvas.discardActiveObject();
-      const objects = canvas.getObjects();
-      objects.forEach((obj) => canvas!.remove(obj));
-      canvas.renderAll();
+            // 간단한 충돌 감지: 지우개 영역과 객체 바운딩박스가 겹치는지 확인
+            if (
+              objBounds.left < eraserX + eraserWidth &&
+              objBounds.left + objBounds.width > eraserX &&
+              objBounds.top < eraserY + eraserHeight &&
+              objBounds.top + objBounds.height > eraserY
+            ) {
+              objectsToRemove.push(obj);
+            }
+          });
 
-      // contextTop 강제 초기화 (clearRect 에러 방지)
-      canvas.isDrawingMode = true;
+          // 겹친 객체 모두 삭제
+          objectsToRemove.forEach((obj) => canvas.remove(obj));
+          canvas.renderAll();
 
-      // loadFromJSON 호출
-      canvas.loadFromJSON(state, () => {
-        canvas!.isDrawingMode = wasDrawingMode;
-        canvas!.renderAll();
-        setCanUndo(true);
-        setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-        debouncedAutoSave();
-      });
-    } catch (error) {
-      console.warn("Error during redo:", error);
-      historyIndexRef.current--;
-    }
-  };
+          // 히스토리 업데이트
+          useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
-  // 전체 지우기
-  const handleClear = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
+          // 자동 저장 트리거
+          triggerAutoSave();
+        } else {
+          // 도형 생성
+          const drawInfo: DrawInfo = {
+            lineColor: drawStore.lineColor,
+            lineWidth: drawStore.lineWidth,
+            mouseFrom: startPos,
+            mouseTo: pos,
+          };
 
-    try {
-      // canvas.clear() 대신 모든 객체 제거 (clearRect 에러 방지)
-      const objects = canvas.getObjects();
-      canvas.discardActiveObject();
-      objects.forEach((obj) => canvas.remove(obj));
-      canvas.renderAll();
-    } catch (e) {
-      console.warn("Error during clear:", e);
-    }
+          const shape = drawShape(drawInfo, toolType as any);
 
-    historyRef.current = [];
-    historyIndexRef.current = -1;
-    saveHistory();
-    debouncedAutoSave();
-  };
+          if (shape) {
+            canvas.add(shape);
+            canvas.renderAll();
 
-  // 자동저장
-  const handleAutoSave = async () => {
-    const canvas = fabricCanvasRef.current;
-    if (!onSave || !canvas) return;
+            // 히스토리 업데이트
+            useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
-    try {
-      // 캔버스 배경을 명시적으로 투명하게 설정
-      const originalBg = canvas.backgroundColor;
-      canvas.backgroundColor = "";
+            // 자동 저장 트리거
+            triggerAutoSave();
+          }
+        }
 
-      const canvasJSON = JSON.stringify(canvas.toJSON());
-      // PNG 형식으로 내보낼 때 투명도 보존
-      const imageData = canvas.toDataURL({ format: "png", multiplier: 1 });
+        setIsDrawing(false);
+        setStartPos(null);
+      },
+      [isDrawing, startPos, drawStore.type, drawStore.lineColor, drawStore.lineWidth, triggerAutoSave]
+    );
 
-      // 원래 배경색 복원
-      canvas.backgroundColor = originalBg;
+    // Canvas 이벤트 핸들러 바인딩 (도형/지우개용, 펜 제외)
+    useEffect(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas || !isDrawingMode) return;
 
-      const data = {
-        id: `${noteId}-${fileId}-${pageNum}`,
-        noteId,
-        fileId,
-        pageNum,
-        canvas: canvasJSON,
-        image: imageData,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
+      // 펜/형광펜은 Fabric의 자동 처리를 사용하므로 이벤트 핸들러 등록 안 함
+      const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
 
-      await onSave(data);
-      console.log("Drawing auto-saved successfully");
-    } catch (error) {
-      console.error("Failed to auto-save drawing:", error);
-    }
-  };
-
-  // 디바운스된 자동저장 (마우스 업 후 1초 후 저장)
-  const debouncedAutoSave = () => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      handleAutoSave();
-    }, 1000);
-  };
-
-  // 키보드 단축키
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-      } else if (
-        ((e.ctrlKey || e.metaKey) && e.key === "y") ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z")
-      ) {
-        e.preventDefault();
-        handleRedo();
+      if (isFreeDrawingMode) {
+        // 펜 모드로 전환 시 기존 이벤트 핸들러 제거
+        canvas.off('mouse:down', handleMouseDown);
+        canvas.off('mouse:move', handleMouseMove);
+        canvas.off('mouse:up', handleMouseUp);
+        return;
       }
-    };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+      // 도형 모드: 이벤트 핸들러 등록
+      canvas.on('mouse:down', handleMouseDown);
+      canvas.on('mouse:move', handleMouseMove);
+      canvas.on('mouse:up', handleMouseUp);
 
-  // 외부에 undo/redo/clear 함수 노출
-  useImperativeHandle(ref, () => ({
-    handleUndo,
-    handleRedo,
-    handleClear,
-  }), []);
+      return () => {
+        canvas.off('mouse:down', handleMouseDown);
+        canvas.off('mouse:move', handleMouseMove);
+        canvas.off('mouse:up', handleMouseUp);
+      };
+    }, [handleMouseDown, handleMouseMove, handleMouseUp, drawStore.type, isDrawingMode]);
 
-  return (
-    <div
-      className="absolute inset-0 z-40 bg-transparent"
-      style={{
-        height: containerHeight,
-        width: containerWidth,
-        pointerEvents: isDrawingMode ? "auto" : "none", // 뷰어 모드에서 pointer events 차단
-      }}
-    >
-      {/* 3-레이어 캔버스 스택: PDF(아래) → 저장된 필기 이미지 → 현재 필기(위) */}
-      <div className="relative h-full w-full">
-        {/* 레이어 2: 저장된 필기 이미지 (투명 PNG) - PDF와 현재 캔버스 사이 */}
-        <canvas
-          ref={savedImageCanvasRef}
-          className="absolute inset-0"
-          style={{
-            pointerEvents: "none", // 이 레이어는 클릭 이벤트 차단
-            zIndex: 1,
-          }}
-        />
+    // Update canvas dimensions on container size change
+    useEffect(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
 
-        {/* 레이어 3: 현재 필기 Canvas (Fabric.js) - 맨 위 레이어 */}
-        <canvas
-          ref={canvasRef}
-          className="block absolute inset-0"
-          style={{
-            display: "block",
-            touchAction: "none",
-            cursor: isDrawingMode ? "crosshair" : "pointer",
-            backgroundColor: "transparent",
-            width: "100%",
-            height: "100%",
-            pointerEvents: isDrawingMode ? "auto" : "none",
-            zIndex: 2,
-          }}
-        />
-      </div>
-    </div>
-  );
+      // PDF 컨트롤 바 높이를 고려하여 조정
+      const controlBarHeight = isPdf ? 56 : 0;
+      const adjustedHeight = Math.max(containerHeight - controlBarHeight, 100);
+
+      canvas.setWidth(containerWidth);
+      canvas.setHeight(adjustedHeight);
+      canvas.renderAll();
+    }, [containerWidth, containerHeight, isPdf]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        if (autoSaveTimeoutRef.current) {
+          clearTimeout(autoSaveTimeoutRef.current);
+        }
+      };
+    }, []);
+
+    // Undo 구현
+    const handleUndo = useCallback(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      const snapshot = useToolsStore.getState().undo();
+      if (snapshot) {
+        canvas.loadFromJSON(snapshot, () => {
+          canvas.renderAll();
+        });
+      }
+    }, []);
+
+    // Redo 구현
+    const handleRedo = useCallback(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      const snapshot = useToolsStore.getState().redo();
+      if (snapshot) {
+        canvas.loadFromJSON(snapshot, () => {
+          canvas.renderAll();
+        });
+      }
+    }, []);
+
+    // Clear 구현
+    const handleClear = useCallback(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      canvas.clear();
+      useToolsStore.getState().clearUndo();
+      useToolsStore.getState().clearRedo();
+      useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
+    }, []);
+
+    // Expose methods via ref
+    useImperativeHandle(
+      ref,
+      () => ({
+        handleUndo,
+        handleRedo,
+        handleClear,
+      }),
+      [handleUndo, handleRedo, handleClear]
+    );
+
+    // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
+    const canvasHeight = Math.max(containerHeight, 100);
+
+    return (
+      <canvas
+        ref={canvasRef}
+        width={containerWidth}
+        height={canvasHeight}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: `${containerWidth}px`,
+          height: `${canvasHeight}px`,
+          cursor: isEnabled && isDrawingMode ? "crosshair" : "default",
+          // 뷰어 모드에서도 필기가 보이도록 항상 표시
+          opacity: isEnabled ? 1 : 0,
+          // 뷰어 모드: 필기 보기만 가능 (상호작용 불가)
+          // 필기 모드일 때만 마우스 이벤트 수신
+          pointerEvents: isEnabled && isDrawingMode ? "auto" : "none",
+          // z-index를 낮춰서 우측 사이드 패널이 위에 있도록 함
+          // (사이드 패널의 버튼 클릭이 가능해야 함)
+          zIndex: isDrawingMode ? 5 : -1,
+          // 항상 표시 (뷰어 모드에서도 필기 기록이 보임)
+          display: isEnabled ? "block" : "none",
+        }}
+      />
+    );
   }
 );
+
+PDFDrawingOverlay.displayName = "PDFDrawingOverlay";

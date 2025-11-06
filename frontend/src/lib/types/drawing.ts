@@ -7,15 +7,20 @@
  * 필기 도구 타입
  */
 export type DrawingToolType =
-  | "pen"           // 펜 (검은색 선)
+  | "hand"          // 선택 도구 (객체 선택)
+  | "pen"           // 펜 (자유 그리기)
   | "highlighter"   // 형광펜 (투명 색상)
   | "eraser"        // 지우개
-  | "laser"         // 레이저 포인터 (임시, 저장 안 함)
-  | "rectangle"     // 사각형
+  | "free"          // 자유 그리기
+  | "solidLine"     // 실선
+  | "dashedLine"    // 점선
+  | "arrowLine"     // 화살표
+  | "rect"          // 사각형
   | "circle"        // 원
-  | "line"          // 직선
-  | "arrow"         // 화살표
+  | "triangle"      // 삼각형
+  | "rightTriangle" // 직각삼각형
   | "text"          // 텍스트 상자
+  | "laser"         // 레이저 포인터 (임시, 저장 안 함)
   | "sticky-note";  // 포스트잇
 
 /**
@@ -97,6 +102,12 @@ export interface HistoryEntry {
  * 도구별 기본 설정
  */
 export const DRAWING_TOOL_DEFAULTS: Record<DrawingToolType, DrawingTool> = {
+  hand: {
+    type: "hand",
+    color: "#000000",
+    strokeWidth: 1,
+    opacity: 1,
+  },
   pen: {
     type: "pen",
     color: "#000000",
@@ -115,14 +126,20 @@ export const DRAWING_TOOL_DEFAULTS: Record<DrawingToolType, DrawingTool> = {
     strokeWidth: 10,
     opacity: 1,
   },
+  free: {
+    type: "free",
+    color: "#000000",
+    strokeWidth: 2,
+    opacity: 1,
+  },
   laser: {
     type: "laser",
     color: "#FF0000",
     strokeWidth: 3,
     opacity: 0.7,
   },
-  rectangle: {
-    type: "rectangle",
+  rect: {
+    type: "rect",
     color: "#000000",
     strokeWidth: 2,
     opacity: 1,
@@ -133,14 +150,32 @@ export const DRAWING_TOOL_DEFAULTS: Record<DrawingToolType, DrawingTool> = {
     strokeWidth: 2,
     opacity: 1,
   },
-  line: {
-    type: "line",
+  solidLine: {
+    type: "solidLine",
     color: "#000000",
     strokeWidth: 2,
     opacity: 1,
   },
-  arrow: {
-    type: "arrow",
+  arrowLine: {
+    type: "arrowLine",
+    color: "#000000",
+    strokeWidth: 2,
+    opacity: 1,
+  },
+  dashedLine: {
+    type: "dashedLine",
+    color: "#000000",
+    strokeWidth: 2,
+    opacity: 1,
+  },
+  triangle: {
+    type: "triangle",
+    color: "#000000",
+    strokeWidth: 2,
+    opacity: 1,
+  },
+  rightTriangle: {
+    type: "rightTriangle",
     color: "#000000",
     strokeWidth: 2,
     opacity: 1,

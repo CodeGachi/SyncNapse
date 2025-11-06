@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useNoteEditorStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useSidebarIcons } from "@/features/note/note-structure/use-sidebar-icons";
 
@@ -16,6 +16,7 @@ interface SidebarIconsProps {
 export function SidebarIcons({ noteId }: SidebarIconsProps) {
   const { isExpanded, toggleExpand } = useNoteEditorStore();
   const { isVisible } = useSidebarIcons();
+  const { toggleNotePanel, toggleFilePanel, toggleScript, toggleCollaborationPanel } = usePanelsStore();
 
   // Get note data to determine if it's an educator note
   const { data: note } = useNote(noteId || null);
@@ -40,7 +41,10 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
 
       {/* 클립보드 아이콘 (Notes) */}
       <button
-        onClick={toggleExpand}
+        onClick={() => {
+          toggleExpand();
+          toggleNotePanel();
+        }}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="Notes"
       >
@@ -52,7 +56,10 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
 
       {/* 파일 아이콘 (Files) */}
       <button
-        onClick={toggleExpand}
+        onClick={() => {
+          toggleExpand();
+          toggleFilePanel();
+        }}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="Files"
       >
@@ -62,11 +69,14 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
         </svg>
       </button>
 
-      {/* 눈 아이콘 (View) */}
+      {/* 눈 아이콘 (Script) */}
       <button
-        onClick={toggleExpand}
+        onClick={() => {
+          toggleExpand();
+          toggleScript();
+        }}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="View"
+        title="Script"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M1 10s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -77,7 +87,10 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
       {/* 협업 아이콘 (Collaboration) - 교육자 노트만 */}
       {isEducatorNote && (
         <button
-          onClick={toggleExpand}
+          onClick={() => {
+            toggleExpand();
+            toggleCollaborationPanel();
+          }}
           className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
           title="협업"
         >
@@ -95,7 +108,7 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
       <button
         onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="More"
+        title="Close Panel"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <circle cx="10" cy="4" r="1.5" fill="white" />
