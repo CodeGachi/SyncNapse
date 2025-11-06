@@ -96,10 +96,14 @@ export function FolderStructureSection({
           ))}
 
           {/* 노트들 */}
-          {notes.map((note) => (
+          {notes.map((note) => {
+            const noteType = note.type || "student";
+            const notePath = noteType === "educator" ? `/note/educator/${note.id}` : `/note/student/${note.id}`;
+
+            return (
             <button
               key={note.id}
-              onClick={() => router.push(`/note?id=${note.id}`)}
+              onClick={() => router.push(notePath)}
               className="bg-[#2F2F2F] hover:bg-[#3C3C3C] rounded-xl p-6 h-[140px] transition-colors text-left flex flex-col justify-between group"
             >
               <div className="flex items-start justify-between">
@@ -124,7 +128,8 @@ export function FolderStructureSection({
                 </p>
               </div>
             </button>
-          ))}
+          );
+          })}
         </div>
       )}
     </section>

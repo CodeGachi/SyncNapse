@@ -42,10 +42,14 @@ export function RecentUsedSection() {
     <section className="mb-12">
       <h2 className="text-3xl font-bold text-white mb-6">Recent</h2>
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-        {recentNotes.map((note) => (
+        {recentNotes.map((note) => {
+          const noteType = note.type || "student";
+          const notePath = noteType === "educator" ? `/note/educator/${note.id}` : `/note/student/${note.id}`;
+
+          return (
           <button
             key={note.id}
-            onClick={() => router.push(`/note?id=${note.id}`)}
+            onClick={() => router.push(notePath)}
             className="bg-[#2F2F2F] hover:bg-[#3C3C3C] rounded-xl p-6 h-[180px] min-w-[280px] transition-colors text-left flex flex-col justify-between group flex-shrink-0"
           >
             <div>
@@ -72,7 +76,8 @@ export function RecentUsedSection() {
               </p>
             </div>
           </button>
-        ))}
+        );
+        })}
       </div>
     </section>
   );
