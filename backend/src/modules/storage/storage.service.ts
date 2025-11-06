@@ -32,7 +32,7 @@ export class StorageService {
   }
 
   async uploadFile(
-    file: any,
+    file: Express.Multer.File,
     userId: string,
     noteId: string,
     fileType: 'notes' | 'typing' | 'audio' | 'pdf' = 'notes',

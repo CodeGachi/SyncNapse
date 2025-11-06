@@ -82,7 +82,7 @@ export class TranscriptionService {
     }
 
     const chunksWithUrls = await Promise.all(
-      session.audioChunks.map(async (chunk: any) => {
+      session.audioChunks.map(async (chunk) => {
         try {
           const signedUrl = await this.storageService.getSignedUrl(chunk.storageKey);
           return {

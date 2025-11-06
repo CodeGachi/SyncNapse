@@ -57,7 +57,7 @@ export class NotesController {
   async createNote(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateNoteDto,
-    @UploadedFiles() files: any[],
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
     this.logger.debug(
       `[createNote] userId=${userId} title=${dto.title} folderId=${dto.folder_id} filesCount=${files?.length || 0}`,

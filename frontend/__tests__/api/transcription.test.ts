@@ -16,25 +16,22 @@ describe('Transcription API', () => {
       const mockSession = {
         id: 'session1',
         userId: 'user1',
-        senderDeviceId: 'device1',
-        receiverDeviceId: 'device2',
         title: 'Test Recording',
-        isActive: true,
-        startedAt: '2025-01-01T00:00:00Z',
+        noteId: undefined,
+        duration: 0,
+        status: 'active',
+        createdAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
       };
 
       const { apiClient } = await import('@/lib/api/client');
       (apiClient as any).mockResolvedValue(mockSession);
 
-      const result = await transcriptionApi.createSession({
-        senderDeviceId: 'device1',
-        receiverDeviceId: 'device2',
-        title: 'Test Recording',
-      });
+      const result = await transcriptionApi.createSession('Test Recording');
 
       expect(result).toEqual(mockSession);
       expect(apiClient).toHaveBeenCalledWith(
-        '/transcription/sessions',
+        '/api/transcription/sessions',
         expect.objectContaining({
           method: 'POST',
         }),
@@ -69,7 +66,7 @@ describe('Transcription API', () => {
 
       expect(result).toEqual(mockSegment);
       expect(apiClient).toHaveBeenCalledWith(
-        '/transcription/transcripts',
+        '/api/transcription/segments',
         expect.objectContaining({
           method: 'POST',
         }),
@@ -99,7 +96,7 @@ describe('Transcription API', () => {
 
       expect(result).toEqual(mockSessionData);
       expect(apiClient).toHaveBeenCalledWith(
-        '/transcription/sessions/session1',
+        '/api/transcription/sessions/session1',
       );
     });
   });

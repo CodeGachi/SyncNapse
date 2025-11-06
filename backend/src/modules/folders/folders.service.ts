@@ -6,7 +6,6 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
@@ -238,11 +237,25 @@ export class FoldersService {
   async getFolderPath(userId: string, folderId: string) {
     this.logger.debug(`[getFolderPath] Getting path for folder: ${folderId}`);
 
-    const path: any[] = [];
+    const path: Array<{
+      id: string;
+      user_id: string;
+      name: string;
+      parent_id: string | null;
+      created_at: string;
+      updated_at: string;
+    }> = [];
     let currentFolderId: string | null = folderId;
 
     while (currentFolderId) {
-      const folder: any = await this.prisma.folder.findFirst({
+      const folder: {
+        id: string;
+        userId: string;
+        name: string;
+        parentId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      } | null = await this.prisma.folder.findFirst({
         where: {
           id: currentFolderId,
           userId,
@@ -282,7 +295,7 @@ export class FoldersService {
         return true;
       }
 
-      const folder: any = await this.prisma.folder.findUnique({
+      const folder: { parentId: string | null } | null = await this.prisma.folder.findUnique({
         where: { id: currentId },
         select: { parentId: true },
       });

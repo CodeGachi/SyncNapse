@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
@@ -130,7 +129,7 @@ export class NotesService {
   async createNote(
     userId: string,
     dto: CreateNoteDto,
-    files: any[],
+    files: Express.Multer.File[],
   ) {
     this.logger.debug(
       `[createNote] Creating note: ${dto.title} for userId=${userId} folderId=${dto.folder_id}`,
@@ -332,7 +331,10 @@ export class NotesService {
       });
     }
 
-    const updateData: any = {
+    const updateData: {
+      updatedAt: Date;
+      title?: string;
+    } = {
       updatedAt: new Date(),
     };
 
