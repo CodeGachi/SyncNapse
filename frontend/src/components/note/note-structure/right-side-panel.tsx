@@ -124,6 +124,7 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
       className={`fixed right-0 top-0 h-full flex flex-col gap-2 pt-6 px-4 bg-[#1e1e1e] transition-all duration-300 ${
         isExpanded ? "translate-x-0 w-[500px]" : "translate-x-full w-0"
       }`}
+      style={{ zIndex: 20 }}
     >
       {isExpanded && (
         <>

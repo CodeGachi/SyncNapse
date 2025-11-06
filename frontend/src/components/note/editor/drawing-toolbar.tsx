@@ -45,10 +45,10 @@ export function DrawingToolbar({
     { type: "highlighter", label: "형광펜", icon: "🖍️" },
     { type: "eraser", label: "지우개", icon: "🧹" },
     { type: "laser", label: "포인터", icon: "🔴" },
-    { type: "rectangle", label: "사각형", icon: "⬜" },
+    { type: "rect", label: "사각형", icon: "⬜" },
     { type: "circle", label: "원", icon: "⭕" },
-    { type: "line", label: "직선", icon: "📏" },
-    { type: "arrow", label: "화살표", icon: "➡️" },
+    { type: "solidLine", label: "직선", icon: "📏" },
+    { type: "arrowLine", label: "화살표", icon: "➡️" },
     { type: "text", label: "텍스트", icon: "📝" },
     { type: "sticky-note", label: "포스트잇", icon: "📌" },
   ];
@@ -110,7 +110,7 @@ export function DrawingToolbar({
       {(currentTool.type === "pen" ||
         currentTool.type === "highlighter" ||
         currentTool.type === "eraser" ||
-        ["rectangle", "circle", "line", "arrow"].includes(currentTool.type)) && (
+        ["rect", "circle", "solidLine", "arrowLine"].includes(currentTool.type)) && (
         <div>
           <div className="text-xs font-semibold text-gray-400 mb-2">
             선 굵기
