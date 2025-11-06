@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const portFromEnv = process.env.PORT;
@@ -18,8 +19,8 @@ async function bootstrap() {
   });
 
   // Increase body size limit for audio chunks (50MB)
-  app.use(require('express').json({ limit: '50mb' }));
-  app.use(require('express').urlencoded({ limit: '50mb', extended: true }));
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
 
   app.setGlobalPrefix('api');
 

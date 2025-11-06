@@ -95,36 +95,53 @@ describe('AuthController', () => {
   });
 
   describe('googleCallback', () => {
-    it('should return JWT token and links on successful OAuth callback', async () => {
+    it('should redirect to frontend with tokens on successful OAuth callback', async () => {
       // Arrange
       const mockCode = 'auth-code-xyz';
       const mockState = 'state-abc';
       const mockToken = 'jwt-token-abc';
+      const mockRefreshToken = 'refresh-token';
+      const mockExpiresIn = 900;
       const mockReq = { query: { code: mockCode, state: mockState }, ip: '127.0.0.1', headers: { 'user-agent': 'test' } };
+      const mockRes = { redirect: jest.fn() };
+      
       mockAuthService.authenticateWithOAuth.mockResolvedValue({ 
         accessToken: mockToken,
-        refreshToken: 'refresh-token',
-        expiresIn: 900
+        refreshToken: mockRefreshToken,
+        expiresIn: mockExpiresIn
       });
 
       // Act
-      const result = await controller.googleCallback(mockReq as { query: { code: string; state: string }; ip: string; headers: { 'user-agent': string } });
+      await controller.googleCallback(
+        mockReq as { query: { code: string; state: string }; ip: string; headers: { 'user-agent': string } },
+        mockRes as { redirect: (url: string) => void }
+      );
 
       // Assert
       expect(mockAuthService.authenticateWithOAuth).toHaveBeenCalledWith('google', mockCode, mockState, expect.any(Object));
-      expect(result).toHaveProperty('accessToken', mockToken);
-      expect(result._links).toHaveProperty('self');
-      expect(result._links).toHaveProperty('me');
-      expect(mockLinkBuilder.self).toHaveBeenCalledWith('/auth/google/callback');
-      expect(mockLinkBuilder.action).toHaveBeenCalledWith('/users/me', 'GET');
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining(`accessToken=${mockToken}`)
+      );
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining(`refreshToken=${mockRefreshToken}`)
+      );
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining(`expiresIn=${mockExpiresIn}`)
+      );
     });
 
     it('should throw HttpException when code is missing', async () => {
       // Arrange
       const mockReq = { query: { state: 'state-123' } };
+      const mockRes = { redirect: jest.fn() };
 
       // Act & Assert
-      await expect(controller.googleCallback(mockReq as { query: { state: string } })).rejects.toThrow(
+      await expect(
+        controller.googleCallback(
+          mockReq as { query: { state: string } },
+          mockRes as { redirect: (url: string) => void }
+        )
+      ).rejects.toThrow(
         new HttpException('Missing code', HttpStatus.BAD_REQUEST),
       );
       expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
@@ -133,9 +150,15 @@ describe('AuthController', () => {
     it('should throw HttpException when query is undefined', async () => {
       // Arrange
       const mockReq = {};
+      const mockRes = { redirect: jest.fn() };
 
       // Act & Assert
-      await expect(controller.googleCallback(mockReq as Record<string, never>)).rejects.toThrow(
+      await expect(
+        controller.googleCallback(
+          mockReq as Record<string, never>,
+          mockRes as { redirect: (url: string) => void }
+        )
+      ).rejects.toThrow(
         new HttpException('Missing code', HttpStatus.BAD_REQUEST),
       );
       expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
@@ -144,9 +167,15 @@ describe('AuthController', () => {
     it('should throw HttpException when code is empty string', async () => {
       // Arrange
       const mockReq = { query: { code: '', state: 'state-123' } };
+      const mockRes = { redirect: jest.fn() };
 
       // Act & Assert
-      await expect(controller.googleCallback(mockReq as { query: { code: string; state: string } })).rejects.toThrow(
+      await expect(
+        controller.googleCallback(
+          mockReq as { query: { code: string; state: string } },
+          mockRes as { redirect: (url: string) => void }
+        )
+      ).rejects.toThrow(
         new HttpException('Missing code', HttpStatus.BAD_REQUEST),
       );
       expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
@@ -155,9 +184,15 @@ describe('AuthController', () => {
     it('should throw HttpException when state is missing', async () => {
       // Arrange
       const mockReq = { query: { code: 'code-123' } };
+      const mockRes = { redirect: jest.fn() };
 
       // Act & Assert
-      await expect(controller.googleCallback(mockReq as { query: { code: string } })).rejects.toThrow(
+      await expect(
+        controller.googleCallback(
+          mockReq as { query: { code: string } },
+          mockRes as { redirect: (url: string) => void }
+        )
+      ).rejects.toThrow(
         new HttpException('Missing state', HttpStatus.BAD_REQUEST),
       );
       expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();

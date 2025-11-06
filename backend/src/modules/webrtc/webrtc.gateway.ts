@@ -8,7 +8,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { WebrtcService } from './webrtc.service';
 
 @WebSocketGateway({
@@ -106,7 +106,7 @@ export class WebrtcGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('webrtc-offer')
   async handleOffer(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetSocketId: string; offer: any },
+    @MessageBody() data: { targetSocketId: string; offer: RTCSessionDescriptionInit },
   ) {
     this.logger.log(`Forwarding WebRTC offer to ${data.targetSocketId}`);
     
@@ -119,7 +119,7 @@ export class WebrtcGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('webrtc-answer')
   async handleAnswer(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetSocketId: string; answer: any },
+    @MessageBody() data: { targetSocketId: string; answer: RTCSessionDescriptionInit },
   ) {
     this.logger.log(`Forwarding WebRTC answer to ${data.targetSocketId}`);
     
@@ -132,7 +132,7 @@ export class WebrtcGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('ice-candidate')
   async handleIceCandidate(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetSocketId: string; candidate: any },
+    @MessageBody() data: { targetSocketId: string; candidate: RTCIceCandidateInit },
   ) {
     this.logger.debug(`Forwarding ICE candidate to ${data.targetSocketId}`);
     
