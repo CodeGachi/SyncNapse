@@ -13,6 +13,9 @@
     "test:ci": "node --experimental-vm-modules ../node_modules/vitest/vitest.mjs run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
+    "@liveblocks/client": "^3.10.0",
+    "@liveblocks/react": "^3.10.0",
+    "@liveblocks/yjs": "^3.10.0",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-query-devtools": "^5.90.2",
     "@types/fabric": "^5.3.10",
@@ -25,6 +28,7 @@
     "react-dom": "18.3.1",
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",
+    "yjs": "^13.6.27",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
