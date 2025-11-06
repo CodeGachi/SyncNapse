@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNoteEditorStore } from "@/stores";
 import { useRecording, type RecordingData } from "@/features/note/player";
 
@@ -17,16 +17,34 @@ export function useRecordingControl() {
     isPaused,
     formattedTime: recordingTime,
     error: recordingError,
-    startRecording,
+    startRecording: startBasicRecording,
     pauseRecording,
     resumeRecording,
-    stopRecording,
+    stopRecording: stopBasicRecording,
     cancelRecording,
   } = useRecording();
 
-  // 녹음 이름 모달 상태
+  // Recording name modal state
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [pendingRecordingData, setPendingRecordingData] = useState<RecordingData | null>(null);
+
+  /**
+   * Start recording
+   */
+  const startRecording = useCallback(async () => {
+    try {
+      await startBasicRecording();
+    } catch (error) {
+      console.error('[RecordingControl] Failed to start recording:', error);
+    }
+  }, [startBasicRecording]);
+
+  /**
+   * Stop recording
+   */
+  const stopRecording = useCallback(async () => {
+    return await stopBasicRecording();
+  }, [stopBasicRecording]);
 
   // 녹음 재생/일시정지 토글
   const handlePlayPause = (isPlaying: boolean, audioRef: HTMLAudioElement | null) => {

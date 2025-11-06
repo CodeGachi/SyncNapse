@@ -19,8 +19,11 @@ import {
   getNoteContent as getNoteContentFromDB,
 } from "@/lib/db/notes";
 import { dbToNote, dbToNotes, apiToNote, apiToNotes } from "../adapters/note.adapter";
+import { getAuthHeaders } from "../client";
+import { getSyncQueue } from "../sync-queue";
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 /**
  * 모든 노트 가져오기
@@ -32,7 +35,12 @@ export async function fetchAllNotes(): Promise<Note[]> {
     return dbToNotes(dbNotes);  // 🔄 IndexedDB → 도메인 타입 변환
   } else {
     // 백엔드 API 호출
-    const res = await fetch("/api/notes");
+    const res = await fetch(`${API_BASE_URL}/api/notes`, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) throw new Error("Failed to fetch notes");
     const apiNotes: ApiNoteResponse[] = await res.json();
     return apiToNotes(apiNotes);  // 🔄 Backend API → 도메인 타입 변환
@@ -53,8 +61,13 @@ export async function fetchNotesByFolder(
     return dbToNotes(dbNotes);
   } else {
     // 백엔드 API 호출
-    const url = folderId ? `/api/notes?folderId=${folderId}` : "/api/notes";
-    const res = await fetch(url);
+    const url = folderId ? `${API_BASE_URL}/api/notes?folderId=${folderId}` : `${API_BASE_URL}/api/notes`;
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) throw new Error("Failed to fetch notes");
     const apiNotes: ApiNoteResponse[] = await res.json();
     return apiToNotes(apiNotes);
@@ -71,7 +84,12 @@ export async function fetchNote(noteId: string): Promise<Note | null> {
     return dbNote ? dbToNote(dbNote) : null;
   } else {
     // 백엔드 API 호출
-    const res = await fetch(`/api/notes/${noteId}`);
+    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) {
       if (res.status === 404) return null;
       throw new Error("Failed to fetch note");
@@ -83,6 +101,7 @@ export async function fetchNote(noteId: string): Promise<Note | null> {
 
 /**
  * 노트 생성
+ * IndexedDB에 즉시 저장, 백엔드로 동시 동기화
  * @returns 생성된 도메인 Note
  */
 export async function createNote(
@@ -90,49 +109,101 @@ export async function createNote(
   folderId: string,
   files: File[]
 ): Promise<Note> {
-  if (USE_LOCAL) {
-    // IndexedDB에 노트 생성
+  let localResult: Note | null = null;
+
+  // 1. IndexedDB에 즉시 저장
+  try {
     const { createNote: createNoteInDB } = await import("@/lib/db/notes");
     const { saveMultipleFiles } = await import("@/lib/db/files");
 
     const dbNote = await createNoteInDB(title, folderId);
 
-    // 파일 저장
+    // 파일도 IndexedDB에 저장
     if (files.length > 0) {
       await saveMultipleFiles(dbNote.id, files);
     }
 
-    return dbToNote(dbNote);
-  } else {
-    // 백엔드 API 호출 (FormData로 파일 전송)
-    const formData = new FormData();
-    formData.append("title", title);
-    formData.append("folder_id", folderId);  // snake_case
-    files.forEach((file) => formData.append("files", file));
-
-    const res = await fetch("/api/notes", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) throw new Error("Failed to create note");
-    const apiNote: ApiNoteResponse = await res.json();
-    return apiToNote(apiNote);
+    localResult = dbToNote(dbNote);
+    console.log(`[notes.api] Note saved to IndexedDB:`, title);
+  } catch (error) {
+    console.error("[notes.api] Failed to save to IndexedDB:", error);
   }
+
+  // 2. 백엔드로 동기화 (파일 포함)
+  const syncToBackend = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("folder_id", folderId);
+      files.forEach((file) => formData.append("files", file));
+
+      const res = await fetch(`${API_BASE_URL}/api/notes`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          ...getAuthHeaders(),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to create note on backend");
+      console.log(`[notes.api] Note synced to backend:`, title);
+      return await res.json();
+    } catch (error) {
+      console.error("[notes.api] Failed to sync to backend:", error);
+      // 재시도 큐에 추가 (파일 포함)
+      getSyncQueue().addTask('note-create', { title, folderId, files });
+      return null;
+    }
+  };
+
+  // 백그라운드 동기화 시작
+  syncToBackend();
+
+  // 로컬 결과 즉시 반환
+  if (localResult) {
+    return localResult;
+  }
+
+  // IndexedDB 실패 시 API 직접 호출
+  const formData = new FormData();
+  formData.append("title", title);
+  formData.append("folder_id", folderId);
+  files.forEach((file) => formData.append("files", file));
+
+  const res = await fetch(`${API_BASE_URL}/api/notes`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      ...getAuthHeaders(),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error("Failed to create note");
+  const apiNote: ApiNoteResponse = await res.json();
+  return apiToNote(apiNote);
 }
 
 /**
  * 노트 업데이트
+ * IndexedDB에 즉시 저장, 백엔드로 동시 동기화
  */
 export async function updateNote(
   noteId: string,
   updates: Partial<Omit<Note, "id" | "createdAt">>
 ): Promise<void> {
-  if (USE_LOCAL) {
-    // 도메인 타입을 IndexedDB 타입으로 변환 (필요시)
+  // 1. IndexedDB에 즉시 업데이트
+  try {
     await updateNoteInDB(noteId, updates as any);
-  } else {
-    // 백엔드 API 호출 (snake_case 변환 필요)
+    console.log(`[notes.api] Note updated in IndexedDB:`, noteId);
+  } catch (error) {
+    console.error("[notes.api] Failed to update in IndexedDB:", error);
+  }
+
+  // 2. 백엔드로 동기화
+  const syncToBackend = async () => {
+    // API 형식으로 변환 (try 블록 밖에서 정의)
     const apiUpdates: any = {};
     if (updates.title !== undefined) apiUpdates.title = updates.title;
     if (updates.folderId !== undefined) apiUpdates.folder_id = updates.folderId;
@@ -141,30 +212,65 @@ export async function updateNote(
       apiUpdates.updated_at = new Date(updates.updatedAt).toISOString();
     }
 
-    const res = await fetch(`/api/notes/${noteId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(apiUpdates),
-    });
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
+        body: JSON.stringify(apiUpdates),
+      });
 
-    if (!res.ok) throw new Error("Failed to update note");
-  }
+      if (!res.ok) throw new Error("Failed to update note on backend");
+      console.log(`[notes.api] Note update synced to backend:`, noteId);
+    } catch (error) {
+      console.error("[notes.api] Failed to sync update to backend:", error);
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('note-update', { id: noteId, updates: apiUpdates });
+    }
+  };
+
+  // 백그라운드 동기화 시작
+  syncToBackend();
 }
 
 /**
  * 노트 삭제
+ * IndexedDB에서 즉시 삭제, 백엔드로 동시 동기화
  */
 export async function deleteNote(noteId: string): Promise<void> {
-  if (USE_LOCAL) {
+  // 1. IndexedDB에서 즉시 삭제
+  try {
     await deleteNoteInDB(noteId);
-  } else {
-    // 백엔드 API 호출
-    const res = await fetch(`/api/notes/${noteId}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) throw new Error("Failed to delete note");
+    console.log(`[notes.api] Note deleted from IndexedDB:`, noteId);
+  } catch (error) {
+    console.error("[notes.api] Failed to delete from IndexedDB:", error);
   }
+
+  // 2. 백엔드로 동기화
+  const syncToBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to delete note on backend");
+      console.log(`[notes.api] Note deletion synced to backend:`, noteId);
+    } catch (error) {
+      console.error("[notes.api] Failed to sync deletion to backend:", error);
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('note-delete', { id: noteId });
+    }
+  };
+
+  // 백그라운드 동기화 시작
+  syncToBackend();
 }
 
 /**
@@ -179,9 +285,13 @@ export async function saveNoteContent(
     await saveNoteContentInDB(noteId, pageId, blocks);
   } else {
     // 백엔드 API 호출
-    const res = await fetch(`/api/notes/${noteId}/content`, {
+    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/content`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+      credentials: "include",
       body: JSON.stringify({ pageId, blocks }),
     });
 
@@ -201,7 +311,12 @@ export async function fetchNoteContent(
     return content?.blocks || null;
   } else {
     // 백엔드 API 호출
-    const res = await fetch(`/api/notes/${noteId}/content/${pageId}`);
+    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/content/${pageId}`, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) {
       if (res.status === 404) return null;
       throw new Error("Failed to fetch note content");

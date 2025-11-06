@@ -85,7 +85,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push && npm run start:dev"
+    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push --accept-data-loss && npm run start:dev"
     depends_on:
       postgres:
         condition: service_healthy

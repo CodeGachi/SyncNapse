@@ -9,6 +9,10 @@ import type { SupportedLanguage, LanguageOption } from "@/lib/types";
 interface ScriptPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  audioRef?: React.RefObject<HTMLAudioElement>;
+  activeSegmentId?: string | null;
+  isTranslating?: boolean;
+  translationSupported?: boolean | null;
 }
 
 const LANGUAGE_OPTIONS: LanguageOption[] = [
@@ -24,7 +28,7 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "pt", name: "Portuguese", nativeName: "Português" },
 ];
 
-export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
+export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTranslating, translationSupported }: ScriptPanelProps) {
   const {
     scriptSegments,
     isTranslationEnabled,
@@ -46,6 +50,18 @@ export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
     return LANGUAGE_OPTIONS.find((opt) => opt.code === code)?.nativeName || code;
   };
 
+  /**
+   * Handle transcript segment click - seek to that time in audio
+   */
+  const handleSegmentClick = (timestamp: number) => {
+    if (audioRef?.current) {
+      audioRef.current.currentTime = timestamp;
+      audioRef.current.play().catch((err) => {
+        console.error('[ScriptPanel] Failed to play audio:', err);
+      });
+    }
+  };
+
   return (
     <div className="mt-3 bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-6 w-full">
       {/* Header */}
@@ -54,16 +70,25 @@ export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
           <h3 className="text-white text-lg font-bold">Script</h3>
 
           {/* Translation Toggle */}
-          <label className="flex items-center gap-2 cursor-pointer"> <div className="relative">
-            <input
-              type="checkbox"
-              checked={isTranslationEnabled}
-              onChange={toggleTranslation}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={isTranslationEnabled}
+                onChange={toggleTranslation}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </div>
             <span className="text-white text-sm">번역</span>
+            {isTranslating && (
+              <span className="text-blue-400 text-xs ml-1">(번역 중...)</span>
+            )}
+            {translationSupported === false && isTranslationEnabled && (
+              <span className="text-yellow-400 text-xs ml-1" title="브라우저가 Translation API를 지원하지 않습니다">
+                ⚠️
+              </span>
+            )}
           </label>
 
           {/* Language Select */}
@@ -124,35 +149,43 @@ export function ScriptPanel({ isOpen, onClose }: ScriptPanelProps) {
         </p>
         ) : (
           <div className="space-y-4">
-            {scriptSegments.map((segment) => (
-              <div
-                key={segment.id}
-                className="border-l-2 border-blue-500 pl-3 py-1"
-              >
-                {/* stamp and */}
-                <div className="flex items-center gap-2 mb-1"> <span className="text-blue-400 text-xs font-mono">
-                  {formatTime(segment.timestamp)}
-                </span>
-                  {segment.speaker && (
-                    <span className="text-gray-400 text-xs">
-                      • {segment.speaker}
+            {scriptSegments.map((segment) => {
+              const isActive = activeSegmentId === segment.id;
+              return (
+                <div
+                  key={segment.id}
+                  onClick={() => handleSegmentClick(segment.timestamp)}
+                  className={`border-l-2 pl-3 py-1 cursor-pointer transition-all ${
+                    isActive
+                      ? 'border-blue-400 bg-blue-900/30'
+                      : 'border-blue-500 hover:border-blue-400 hover:bg-blue-900/10'
+                  }`}
+                >
+                  {/* Timestamp and Speaker */}
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs font-mono ${isActive ? 'text-blue-300' : 'text-blue-400'}`}>
+                      {formatTime(segment.timestamp)}
                     </span>
+                    {segment.speaker && (
+                      <span className="text-gray-400 text-xs">
+                        • {segment.speaker}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Text */}
+                  <p className={`text-sm lead-relaxed mb-2 ${isActive ? 'text-blue-100 font-medium' : 'text-white'}`}>
+                    {segment.originalText}
+                  </p>
+                  {/* Translation Text */}
+                  {isTranslationEnabled && segment.translatedText && (
+                    <p className="text-gray-300 text-sm leading-relaxed italic border-t border-gray-700 pt-2">
+                      {segment.translatedText}
+                    </p>
                   )}
                 </div>
-
-                {/* Text */}
-                <p className="text-white text-sm lead-relaxed mb-2">
-                  {segment.originalText}
-                </p>
-                {/* Translation Text */}
-                {isTranslationEnabled
-                  && segment.translatedText &&
-                  (<p className="text-gray-300 text-sm leading-relaxed italic border-t border-gray-700 pt-2">
-                    {segment.translatedText}
-                  </p>
-                  )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

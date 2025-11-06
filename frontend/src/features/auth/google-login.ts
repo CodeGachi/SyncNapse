@@ -38,7 +38,12 @@ export function useGoogleLogin() {
         const { user, token } = await mockGoogleLogin();
         window.location.href = "/dashboard/main";
       } else {
-        sessionStorage.setItem("auth_redirect", window.location.pathname);
+        // Save current URL to redirect back after login
+        const currentPath = window.location.pathname;
+        if (currentPath !== "/" && currentPath !== "/auth/callback") {
+          localStorage.setItem("redirectAfterLogin", currentPath);
+          console.log("[GoogleLogin] 💾 Saved redirect URL:", currentPath);
+        }
 
         // Redirect to the backend Google OAuth URL
         const loginUrl = getGoogleLoginUrl();
@@ -52,8 +57,8 @@ export function useGoogleLogin() {
   /**
    * Authorization code exchange (used in the OAuth callback page)
    */
-  const handleCodeExchange = (code: string) => {
-    loginMutation.mutate({ code });
+  const handleCodeExchange = (code: string, state: string) => {
+    loginMutation.mutate({ code, state });
   };
 
   const handleLogout = async () => {
