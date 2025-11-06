@@ -31,6 +31,10 @@ export class AuthService {
     return user;
   }
 
+  async getUserById(userId: string) {
+    return this.usersService.findById(userId);
+  }
+
   // Sign access token with JTI (JWT ID) for blacklisting support
   async signAccessToken(userId: string): Promise<string> {
     const jti = crypto.randomUUID();

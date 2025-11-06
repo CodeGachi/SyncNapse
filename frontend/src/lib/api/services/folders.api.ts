@@ -17,8 +17,11 @@ import {
   getFolderPath as getFolderPathFromDB,
 } from "@/lib/db/folders";
 import { dbToFolder, dbToFolders, apiToFolder, apiToFolders } from "../adapters/folder.adapter";
+import { getAuthHeaders } from "../client";
+import { getSyncQueue } from "../sync-queue";
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 /**
  * Get all folders
@@ -29,7 +32,12 @@ export async function fetchAllFolders(): Promise<Folder[]> {
     const dbFolders = await getAllFoldersFromDB();
     return dbToFolders(dbFolders); // 🔄 IndexedDB → Main Type Conversion
   } else {
-    const res = await fetch("/api/folders");
+    const res = await fetch(`${API_BASE_URL}/api/folders`, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) throw new Error("Failed to fetch folders");
     const apiFolders: ApiFolderResponse[] = await res.json();
     return apiToFolders(apiFolders); // 🔄 Backend API → Main Type Conversion
@@ -48,9 +56,14 @@ export async function fetchFoldersByParent(
     return dbToFolders(dbFolders);
   } else {
     const url = parentId
-      ? `/api/folders?parentId=${parentId}`
-      : "/api/folders?parentId=null";
-    const res = await fetch(url);
+      ? `${API_BASE_URL}/api/folders?parentId=${parentId}`
+      : `${API_BASE_URL}/api/folders?parentId=null`;
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) throw new Error("Failed to fetch folders");
     const apiFolders: ApiFolderResponse[] = await res.json();
     return apiToFolders(apiFolders);
@@ -59,81 +72,191 @@ export async function fetchFoldersByParent(
 
 /**
  * Create folder
+ * Saves to IndexedDB immediately, then syncs to backend in parallel
  * @returns Created domain Folder
  */
 export async function createFolder(
   name: string,
   parentId: string | null = null
 ): Promise<Folder> {
-  if (USE_LOCAL) {
-    const dbFolder = await createFolderInDB(name, parentId);
-    return dbToFolder(dbFolder);
-  } else {
-    const res = await fetch("/api/folders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, parent_id: parentId }), 
-    });
+  let localResult: Folder | null = null;
 
-    if (!res.ok) throw new Error("Failed to create folder");
-    const apiFolder: ApiFolderResponse = await res.json();
-    return apiToFolder(apiFolder);
+  // 1. Save to IndexedDB immediately (fast local storage)
+  try {
+    const dbFolder = await createFolderInDB(name, parentId);
+    localResult = dbToFolder(dbFolder);
+    console.log(`[folders.api] Folder saved to IndexedDB:`, name);
+  } catch (error) {
+    console.error("[folders.api] Failed to save to IndexedDB:", error);
   }
+
+  // 2. Sync to backend in parallel (don't wait for it)
+  const syncToBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/folders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
+        body: JSON.stringify({ name, parent_id: parentId }), 
+      });
+
+      if (!res.ok) throw new Error("Failed to create folder on backend");
+      console.log(`[folders.api] Folder synced to backend:`, name);
+      return await res.json();
+    } catch (error) {
+      console.error("[folders.api] Failed to sync to backend:", error);
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('folder-create', { name, parent_id: parentId });
+      return null;
+    }
+  };
+
+  // Start background sync (non-blocking)
+  syncToBackend();
+
+  // Return local result immediately
+  if (localResult) {
+    return localResult;
+  }
+
+  // If IndexedDB failed, try API as last resort
+  const res = await fetch(`${API_BASE_URL}/api/folders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    credentials: "include",
+    body: JSON.stringify({ name, parent_id: parentId }), 
+  });
+
+  if (!res.ok) throw new Error("Failed to create folder");
+  const apiFolder: ApiFolderResponse = await res.json();
+  return apiToFolder(apiFolder);
 }
 
 /**
  * Rename folder
+ * Renames in IndexedDB immediately, then syncs to backend
  */
 export async function renameFolder(
   folderId: string,
   newName: string
 ): Promise<void> {
-  if (USE_LOCAL) {
+  // 1. Rename in IndexedDB immediately
+  try {
     await renameFolderInDB(folderId, newName);
-  } else {
-    const res = await fetch(`/api/folders/${folderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName }),
-    });
-
-    if (!res.ok) throw new Error("Failed to rename folder");
+    console.log(`[folders.api] Folder renamed in IndexedDB:`, newName);
+  } catch (error) {
+    console.error("[folders.api] Failed to rename in IndexedDB:", error);
   }
+
+  // 2. Sync to backend in parallel
+  const syncToBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (!res.ok) throw new Error("Failed to rename folder on backend");
+      console.log(`[folders.api] Folder rename synced to backend:`, newName);
+    } catch (error) {
+      console.error("[folders.api] Failed to sync rename to backend:", error);
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('folder-update', { id: folderId, updates: { name: newName } });
+    }
+  };
+
+  // Start background sync
+  syncToBackend();
 }
 
 /**
  * Delete folder
+ * Deletes from IndexedDB immediately, then syncs to backend
  */
 export async function deleteFolder(folderId: string): Promise<void> {
-  if (USE_LOCAL) {
+  // 1. Delete from IndexedDB immediately
+  try {
     await deleteFolderInDB(folderId);
-  } else {
-    const res = await fetch(`/api/folders/${folderId}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) throw new Error("Failed to delete folder");
+    console.log(`[folders.api] Folder deleted from IndexedDB:`, folderId);
+  } catch (error) {
+    console.error("[folders.api] Failed to delete from IndexedDB:", error);
   }
+
+  // 2. Sync to backend in parallel
+  const syncToBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to delete folder on backend");
+      console.log(`[folders.api] Folder deletion synced to backend:`, folderId);
+    } catch (error) {
+      console.error("[folders.api] Failed to sync deletion to backend:", error);
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('folder-delete', { id: folderId });
+    }
+  };
+
+  // Start background sync
+  syncToBackend();
 }
 
 /**
  * Move folder
+ * Moves in IndexedDB immediately, then syncs to backend
  */
 export async function moveFolder(
   folderId: string,
   newParentId: string | null
 ): Promise<void> {
-  if (USE_LOCAL) {
+  // 1. Move in IndexedDB immediately
+  try {
     await moveFolderInDB(folderId, newParentId);
-  } else {
-    const res = await fetch(`/api/folders/${folderId}/move`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parentId: newParentId }),
-    });
-
-    if (!res.ok) throw new Error("Failed to move folder");
+    console.log(`[folders.api] Folder moved in IndexedDB:`, folderId);
+  } catch (error) {
+    console.error("[folders.api] Failed to move in IndexedDB:", error);
   }
+
+  // 2. Sync to backend in parallel
+  const syncToBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}/move`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
+        body: JSON.stringify({ parentId: newParentId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to move folder on backend");
+      console.log(`[folders.api] Folder move synced to backend:`, folderId);
+    } catch (error) {
+      console.error("[folders.api] Failed to sync move to backend:", error);
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('folder-move', { id: folderId, newParentId });
+    }
+  };
+
+  // Start background sync
+  syncToBackend();
 }
 
 /**
@@ -145,7 +268,12 @@ export async function fetchFolderPath(folderId: string): Promise<Folder[]> {
     const dbFolders = await getFolderPathFromDB(folderId);
     return dbToFolders(dbFolders);
   } else {
-    const res = await fetch(`/api/folders/${folderId}/path`);
+    const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}/path`, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(), // Add JWT token for authentication
+      },
+    });
     if (!res.ok) throw new Error("Failed to fetch folder path");
     const apiFolders: ApiFolderResponse[] = await res.json();
     return apiToFolders(apiFolders);

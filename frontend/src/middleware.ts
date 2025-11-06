@@ -1,21 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Middleware disabled - authentication is handled client-side
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  const authToken = request.cookies.get("authToken")?.value;
-
-  if (pathname === "/") {
-    if (authToken) {
-      return NextResponse.redirect(new URL("/dashboard/main", request.url));
-    }
-    return NextResponse.next();
-  }
-
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/"],
+  matcher: [],
 };

@@ -14,6 +14,7 @@ interface NoteBlockProps {
   indent: number;
   onUpdate: (blockId: string, updates: Partial<NoteBlock>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>, blockId: string, content: string) => void;
+  onTranscriptLinkClick?: (segmentId: string, timestamp: number) => void;
 }
 
 export function NoteBlockComponent({
@@ -23,8 +24,16 @@ export function NoteBlockComponent({
   indent,
   onUpdate,
   onKeyDown,
+  onTranscriptLinkClick,
 }: NoteBlockProps) {
   const indentStyle = { marginLeft: `${indent * 24}px` };
+
+  // Format timestamp for display
+  const formatTimestamp = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   return (
     <div
@@ -36,6 +45,17 @@ export function NoteBlockComponent({
       <div className="flex-shrink-0 w-8 pt-0.5 text-[#666666] text-xs font-mono text-right select-none">
         {blockIndex + 1}
       </div>
+
+      {/* Transcript Link Indicator */}
+      {block.linkedTranscriptSegmentId && block.linkedTimestamp !== undefined && (
+        <button
+          onClick={() => onTranscriptLinkClick?.(block.linkedTranscriptSegmentId!, block.linkedTimestamp!)}
+          className="flex-shrink-0 pt-0.5 text-blue-400 hover:text-blue-300 transition-colors text-xs"
+          title={`자막 링크: ${formatTimestamp(block.linkedTimestamp)}`}
+        >
+          🎵
+        </button>
+      )}
 
       {/* Block Type indicator */}
       <div className="flex-shrink-0 w-6 pt-0.5 text-[#666666] transition-opacity">
