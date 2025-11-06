@@ -132,17 +132,24 @@ export function LinkedTranscriptPlayer({
     };
 
     const handleEnded = () => {
-      console.log('[LinkedTranscriptPlayer] ⏹ Playback ended');
+      console.log('[LinkedTranscriptPlayer] ⏹ Playback ended (reached end of audio)');
+      console.log('[LinkedTranscriptPlayer] 📊 Final state:', {
+        currentTime: audio.currentTime,
+        duration: audio.duration,
+      });
       setIsPlaying(false);
       setCurrentTime(0);
       audio.currentTime = 0;
     };
 
     const handlePlay = () => {
+      console.log('[LinkedTranscriptPlayer] ▶️ Play event triggered');
       setIsPlaying(true);
     };
 
     const handlePause = () => {
+      console.log('[LinkedTranscriptPlayer] ⏸️ Pause event triggered (stack trace below)');
+      console.trace();
       setIsPlaying(false);
     };
 
@@ -259,28 +266,32 @@ export function LinkedTranscriptPlayer({
       return;
     }
 
-    console.log('[LinkedTranscriptPlayer] 🎯 Seeking to time:', time);
+    console.log('[LinkedTranscriptPlayer] 🎯 Seeking to time:', time, 'and playing to end');
+    console.log('[LinkedTranscriptPlayer] 📊 Audio state:', {
+      readyState: audio.readyState,
+      currentTime: audio.currentTime,
+      duration: audio.duration,
+      paused: audio.paused,
+    });
 
-    if (audio.readyState >= 1) {
-      audio.currentTime = time;
-      
-      audio.play().catch((err) => {
-        if (err.name !== 'AbortError') {
-          console.error('[LinkedTranscriptPlayer] ❌ Play after seek failed:', err);
-        }
-      });
-    } else {
-      console.log('[LinkedTranscriptPlayer] ⏳ Waiting for metadata before seeking...');
-      const handleLoadedMetadata = () => {
-        audio.currentTime = time;
-        audio.play().catch((err) => {
+    // Set the current time
+    audio.currentTime = time;
+    
+    // Start playing from this point to the end
+    const playPromise = audio.play();
+    
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log('[LinkedTranscriptPlayer] ✅ Playing from', time, 'to end');
+          setIsPlaying(true);
+        })
+        .catch((err) => {
           if (err.name !== 'AbortError') {
             console.error('[LinkedTranscriptPlayer] ❌ Play after seek failed:', err);
+            setAudioError('재생에 실패했습니다. 다시 시도해주세요.');
           }
         });
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      };
-      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     }
   }, [isLoading]);
 
@@ -367,7 +378,7 @@ export function LinkedTranscriptPlayer({
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           📝 자막 ({finalTranscripts.length}개 문장, {allWords.length}개 단어)
           <span className="text-sm font-normal text-gray-500">
-            단어를 클릭하여 해당 위치로 이동
+            단어 클릭 시 해당 위치부터 끝까지 재생
           </span>
         </h3>
 

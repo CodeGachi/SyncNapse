@@ -163,8 +163,24 @@ export class TranscriptionService {
       throw new NotFoundException('Session not found');
     }
 
+    // Debug: Check audioUrl format
+    this.logger.debug(`[saveAudioChunk] audioUrl prefix: ${dto.audioUrl.substring(0, 50)}...`);
+    
+    if (!dto.audioUrl.includes('base64,')) {
+      this.logger.error(`[saveAudioChunk] ❌ Invalid audioUrl format: ${dto.audioUrl.substring(0, 100)}`);
+      throw new Error('Invalid audio URL format. Expected data URL with base64 encoding.');
+    }
+
     const base64Data = dto.audioUrl.split(',')[1];
+    
+    if (!base64Data) {
+      this.logger.error(`[saveAudioChunk] ❌ No base64 data found after splitting`);
+      throw new Error('No base64 data found in audio URL');
+    }
+    
+    this.logger.debug(`[saveAudioChunk] Base64 data length: ${base64Data.length}`);
     const buffer = Buffer.from(base64Data, 'base64');
+    this.logger.debug(`[saveAudioChunk] Buffer size: ${buffer.length} bytes`);
 
     const fileExtension = 'webm';
     const { url, key } = await this.storageService.uploadAudioChunk(

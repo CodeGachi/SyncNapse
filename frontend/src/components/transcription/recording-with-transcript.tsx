@@ -278,7 +278,7 @@ export function RecordingWithTranscript() {
                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                   🎵 녹음 재생
                   <span className="text-sm font-normal text-gray-500">
-                    (자막 클릭 시 해당 위치부터 재생)
+                    (자막 단어 클릭 시 해당 위치부터 끝까지 재생)
                   </span>
                 </h2>
               </div>
