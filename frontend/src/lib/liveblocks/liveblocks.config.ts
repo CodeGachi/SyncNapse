@@ -2,6 +2,9 @@
  * Liveblocks 설정
  *
  * 실시간 협업 기능을 위한 Liveblocks 클라이언트 설정
+ * - PDF 페이지 동기화
+ * - Fabric.js Canvas 필기 동기화
+ * - 협업 기능 (손들기, 투표, 이모지, Q&A)
  */
 
 import { createClient } from "@liveblocks/client";
@@ -18,26 +21,83 @@ const client = createClient({
   throttle: 16, // 16ms마다 업데이트 (60fps)
 });
 
-// Room 타입 정의
+// Presence 타입: 실시간 사용자 상태
 type Presence = {
+  // 커서 위치
   cursor: { x: number; y: number } | null;
+
+  // 현재 선택 중인 오브젝트
   selection: string | null;
+
+  // 사용자 정보
   userName: string;
   userId: string;
   color: string; // 사용자 고유 색상
+
+  // 현재 보고 있는 페이지
+  currentPage: number;
+
+  // 현재 선택된 파일 ID
+  currentFileId: string | null;
 };
 
+// Storage 타입: 영구 저장 상태
 type Storage = {
-  // Canvas 상태 (Fabric.js 오브젝트)
-  canvas: any; // Yjs Document로 대체 가능
+  // === PDF 뷰어 상태 ===
+  currentPage: number;          // 현재 페이지 번호 (Educator가 제어)
+  currentFileId: string | null; // 현재 열린 파일 ID
 
-  // 협업 상태
-  handRaises: any; // 손들기
-  polls: any; // 투표
-  emojiReactions: any; // 이모지
-  questions: any; // 질문/답변
+  // === Fabric.js Canvas 상태 ===
+  // 페이지별 Canvas 오브젝트 저장
+  // Key: "fileId-pageNum", Value: Fabric.js JSON
+  canvasData: Record<string, {
+    version: string;
+    objects: any[];
+    background: string;
+  }>;
+
+  // === 협업 상태 ===
+  handRaises: Array<{
+    id: string;
+    userId: string;
+    userName: string;
+    timestamp: number;
+    isActive: boolean;
+  }>;
+
+  polls: Array<{
+    id: string;
+    question: string;
+    options: Array<{
+      text: string;
+      votes: string[]; // userId[]
+    }>;
+    createdBy: string;
+    createdAt: number;
+    isActive: boolean;
+  }>;
+
+  questions: Array<{
+    id: string;
+    content: string;
+    authorId: string;
+    authorName: string;
+    createdAt: number;
+    answers: Array<{
+      id: string;
+      content: string;
+      authorId: string;
+      authorName: string;
+      createdAt: number;
+      isBest: boolean;
+    }>;
+    upvotes: string[]; // userId[]
+    isPinned: boolean;
+    isSharedToAll: boolean;
+  }>;
 };
 
+// UserMeta 타입: 사용자 메타데이터
 type UserMeta = {
   id: string;
   info: {
@@ -48,35 +108,41 @@ type UserMeta = {
   };
 };
 
-type RoomEvent = {
-  type: "EMOJI_REACTION" | "HAND_RAISE" | "POLL_VOTE" | "QUESTION_ADDED";
-  userId: string;
-  data: any;
-};
+// RoomEvent 타입: 브로드캐스트 이벤트
+type RoomEvent =
+  | { type: "EMOJI_REACTION"; userId: string; userName: string; emoji: string; timestamp: number }
+  | { type: "HAND_RAISE"; userId: string; userName: string }
+  | { type: "HAND_LOWER"; userId: string }
+  | { type: "POLL_VOTE"; pollId: string; optionIndex: number; userId: string }
+  | { type: "QUESTION_ADDED"; questionId: string }
+  | { type: "PAGE_CHANGE"; page: number; fileId: string }
+  | { type: "CANVAS_UPDATE"; fileId: string; pageNum: number };
 
 // Room Context 생성
 export const {
-  RoomProvider,
-  useRoom,
-  useMyPresence,
-  useUpdateMyPresence,
-  useOthers,
-  useSelf,
-  useOthersMapped,
-  useOthersConnectionIds,
-  useOther,
-  useBroadcastEvent,
-  useEventListener,
-  useErrorListener,
-  useStorage,
-  useMutation,
-  useHistory,
-  useUndo,
-  useRedo,
-  useCanUndo,
-  useCanRedo,
-  useBatch,
-  useStatus,
+  suspense: {
+    RoomProvider,
+    useRoom,
+    useMyPresence,
+    useUpdateMyPresence,
+    useOthers,
+    useSelf,
+    useOthersMapped,
+    useOthersConnectionIds,
+    useOther,
+    useBroadcastEvent,
+    useEventListener,
+    useErrorListener,
+    useStorage,
+    useMutation,
+    useHistory,
+    useUndo,
+    useRedo,
+    useCanUndo,
+    useCanRedo,
+    useBatch,
+    useStatus,
+  },
 } = createRoomContext<Presence, Storage, UserMeta, RoomEvent>(client);
 
 // 사용자 색상 생성 (userId 기반)
@@ -111,4 +177,9 @@ export function getUserColor(userId: string): string {
 // Room ID 생성 헬퍼
 export function getNoteRoomId(noteId: string): string {
   return `note-${noteId}`;
+}
+
+// Canvas Data Key 생성 헬퍼
+export function getCanvasKey(fileId: string, pageNum: number): string {
+  return `${fileId}-${pageNum}`;
 }

@@ -1,6 +1,8 @@
 import "./globals.css";
 import { QueryProvider } from "@/providers/query-client-provider";
+import { SyncProvider } from "@/providers/sync-provider";
 import { NotificationContainer } from "@/components/notification/notification-container";
+import { SyncStatusBar } from "@/components/sync/sync-status-bar";
 
 export const metadata = {
   title: "SyncNapse",
@@ -16,8 +18,11 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <QueryProvider>
-          {children}
-          <NotificationContainer />
+          <SyncProvider interval={5000} autoSync={true}>
+            <SyncStatusBar />
+            {children}
+            <NotificationContainer />
+          </SyncProvider>
         </QueryProvider>
       </body>
     </html>

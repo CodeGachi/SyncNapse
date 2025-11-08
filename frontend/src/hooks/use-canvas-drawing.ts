@@ -7,7 +7,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import * as fabric from 'fabric';
 import { useDrawStore } from '@/stores/draw-store';
 import { useToolsStore } from '@/stores/tools-store';
-import { drawShape, getShapeDimensions, type DrawInfo } from '@/utils/drawing/shapes';
+import { drawShape, getShapeDimensions, type DrawInfo } from '@/lib/utils/shapes';
 
 export interface UseCanvasDrawingReturn {
   fabricCanvasRef: React.MutableRefObject<fabric.Canvas | null>;
