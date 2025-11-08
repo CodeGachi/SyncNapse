@@ -5,7 +5,7 @@
  */
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchFilesByNote, fetchFilesWithIdByNote, type FileWithId } from "../services/files.api";
+import { fetchFilesByNote, fetchFilesWithIdByNote, type FileWithId } from "../services/files.api.v2"; // ✅ V2 API로 변경
 
 /**
  * 노트의 파일 목록 조회 (ID 정보 포함)

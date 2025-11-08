@@ -6,7 +6,7 @@ import {
   createFolder as createFolderApi,
   renameFolder as renameFolderApi,
   deleteFolder as deleteFolderApi,
-} from "../services/folders.api";
+} from "../services/folders.api.v2"; // ✅ V2 API로 변경
 import type { Folder } from "@/lib/types";
 
 /**

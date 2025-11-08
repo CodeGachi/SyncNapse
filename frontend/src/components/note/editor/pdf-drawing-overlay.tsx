@@ -17,7 +17,7 @@ import * as fabric from "fabric";
 import { useDrawStore } from "@/stores/draw-store";
 import { useToolsStore } from "@/stores/tools-store";
 import type { DrawingData } from "@/lib/types/drawing";
-import { drawShape, type DrawInfo } from "@/utils/drawing/shapes";
+import { drawShape, type DrawInfo } from "@/lib/utils/shapes";
 
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;

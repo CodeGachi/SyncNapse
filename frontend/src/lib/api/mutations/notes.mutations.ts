@@ -13,7 +13,7 @@ import {
   createNote as createNoteApi,
   updateNote as updateNoteApi,
   deleteNote as deleteNoteApi,
-} from "../services/notes.api";
+} from "../services/notes.api.v2"; // ✅ V2 API로 변경
 import type { Note } from "@/lib/types";
 
 /**
