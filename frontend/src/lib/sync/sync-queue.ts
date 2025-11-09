@@ -5,14 +5,21 @@
  * 변경사항을 큐에 추가하고, 백그라운드에서 순차적으로 동기화
  */
 
-export type SyncOperation = "create" | "update" | "delete";
+export type SyncOperation =
+  | "create"
+  | "update"
+  | "delete"
+  | "restore" // 휴지통 복원
+  | "cleanup" // 만료된 항목 삭제
+  | "empty"; // 휴지통 비우기
 
 export type SyncEntity =
   | "note"
   | "folder"
   | "file"
   | "recording"
-  | "noteContent";
+  | "noteContent"
+  | "trash"; // 휴지통 관련 작업
 
 export interface SyncQueueItem {
   id: string; // 큐 아이템 ID (unique)

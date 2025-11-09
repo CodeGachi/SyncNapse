@@ -5,8 +5,8 @@
 
 "use client";
 
-import { RecentUsedSection } from "@/components/dashboard/main-view/recent-used-section";
-import { FolderStructureSection } from "@/components/dashboard/main-view/folder-structure-section";
+import { RecentUsedSection } from "@/components/dashboard/pages/main/recent-used-section";
+import { FolderStructureSection } from "@/components/dashboard/pages/main/folder-structure-section";
 import { useDashboardContext } from "@/providers/dashboard-context";
 
 export function DashboardMainContent() {

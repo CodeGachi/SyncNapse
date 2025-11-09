@@ -1,6 +1,6 @@
 /**
  * DashboardSidebar Hook
- * 모든 모달 상태 관리 및 폴더 CRUD 핸들러
+ * 폴더 CRUD 비즈니스 로직 및 상태 관리
  */
 
 import { useState } from "react";
@@ -12,15 +12,17 @@ interface UseDashboardSidebarProps {
   onSelectFolder: (folderId: string | null) => void;
 }
 
-export function useDashboardSidebar({ selectedFolderId, onSelectFolder }: UseDashboardSidebarProps) {
+export function useDashboardSidebar({
+  selectedFolderId,
+  onSelectFolder,
+}: UseDashboardSidebarProps) {
   const { folders, createFolder, renameFolder, deleteFolder } = useFolders();
-
-  // 노트 설정 모달 상태
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // 폴더 모달 상태
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
-  const [createSubfolderParentId, setCreateSubfolderParentId] = useState<string | null>(null);
+  const [createSubfolderParentId, setCreateSubfolderParentId] = useState<
+    string | null
+  >(null);
   const [renamingFolder, setRenamingFolder] = useState<DBFolder | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<DBFolder | null>(null);
 
@@ -88,10 +90,6 @@ export function useDashboardSidebar({ selectedFolderId, onSelectFolder }: UseDas
   };
 
   return {
-    // Note Settings Modal
-    isSettingsModalOpen,
-    setIsSettingsModalOpen,
-
     // Folder Modal states
     isCreateFolderModalOpen,
     setIsCreateFolderModalOpen,

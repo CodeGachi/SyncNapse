@@ -75,7 +75,7 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
           <NoteContentArea noteId={noteId} noteTitle={noteTitle} />
 
           {/* Right Side Panel - Client Component */}
-          <RightSidePanel noteId={noteId} isCollaborating={isCollaborating} />
+          <RightSidePanel noteId={noteId} />
 
           {/* Right Sidebar Icon (When closed) - Client Component */}
           <SidebarIcons noteId={noteId} />

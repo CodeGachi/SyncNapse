@@ -140,7 +140,6 @@ export const {
     useRedo,
     useCanUndo,
     useCanRedo,
-    useBatch,
     useStatus,
   },
 } = createRoomContext<Presence, Storage, UserMeta, RoomEvent>(client);

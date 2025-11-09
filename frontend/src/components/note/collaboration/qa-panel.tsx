@@ -1,12 +1,36 @@
 /**
- * Q&A 패널 및 답변 작성 UI
- * 학생들이 질문을 하고 다른 학생들이 답변하는 인터페이스
+ * Q&A 패널 (Liveblocks 실시간 버전)
+ *
+ * Liveblocks Storage를 사용하여 실시간 질문/답변 기능
+ * - 모든 참여자가 질문 가능
+ * - 추천 기능
+ * - Educator는 핀 고정/공유 가능
  */
 
 "use client";
 
-import { useCollaborationStore } from "@/stores/collaboration-store";
-import { useCallback, useState } from "react";
+import { useState } from "react";
+import {
+  useStorage,
+  useMutation,
+} from "@/lib/liveblocks/liveblocks.config";
+import { ThumbsUp, Pin, Share2, Trash2, MessageCircle } from "lucide-react";
+
+/**
+ * Liveblocks Storage에서 사용하는 Question 인터페이스
+ */
+interface StorageQuestion {
+  id: string;
+  noteId?: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  createdAt: number;
+  answers: unknown[];
+  upvotes: string[];
+  isPinned: boolean;
+  isSharedToAll: boolean;
+}
 
 interface QAPanelProps {
   userId: string;
@@ -21,29 +45,89 @@ export function QAPanel({
   noteId,
   isEducator = false,
 }: QAPanelProps) {
-  const {
-    questions,
-    addQuestion,
-    upvoteQuestion,
-    toggleShareQuestion,
-    togglePinQuestion,
-    deleteQuestion,
-  } = useCollaborationStore();
-
   const [newQuestionText, setNewQuestionText] = useState("");
 
-  const handleAddQuestion = useCallback(() => {
+  // Liveblocks Storage에서 질문 목록 가져오기
+  const questions = useStorage((root) => root.questions) || [];
+
+  // 질문 추가 Mutation
+  const addQuestion = useMutation(({ storage }, content: string) => {
+    const questions = storage.get("questions");
+    const newQuestion = {
+      id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      noteId,
+      content,
+      authorId: userId,
+      authorName: userName,
+      createdAt: Date.now(),
+      answers: [],
+      upvotes: [],
+      isPinned: false,
+      isSharedToAll: false,
+    };
+    questions.push(newQuestion);
+  }, [noteId, userId, userName]);
+
+  // 추천 Mutation
+  const upvoteQuestion = useMutation(
+    ({ storage }, questionId: string) => {
+      const questions = storage.get("questions");
+      const question = questions.find((q) => q.id === questionId);
+      if (!question) return;
+
+      const upvoteIndex = question.upvotes.indexOf(userId);
+      if (upvoteIndex === -1) {
+        // 추천
+        question.upvotes.push(userId);
+      } else {
+        // 추천 취소
+        question.upvotes.splice(upvoteIndex, 1);
+      }
+    },
+    [userId]
+  );
+
+  // 핀 고정 Mutation (Educator만)
+  const togglePin = useMutation(({ storage }, questionId: string) => {
+    const questions = storage.get("questions");
+    const question = questions.find((q) => q.id === questionId);
+    if (!question) return;
+    question.isPinned = !question.isPinned;
+  }, []);
+
+  // 공유 Mutation (Educator만)
+  const toggleShare = useMutation(({ storage }, questionId: string) => {
+    const questions = storage.get("questions");
+    const question = questions.find((q) => q.id === questionId);
+    if (!question) return;
+    question.isSharedToAll = !question.isSharedToAll;
+  }, []);
+
+  // 삭제 Mutation
+  const deleteQuestion = useMutation(
+    ({ storage }, questionId: string) => {
+      const questions = storage.get("questions");
+      const index = questions.findIndex((q) => q.id === questionId);
+      if (index !== -1) {
+        questions.splice(index, 1);
+      }
+    },
+    []
+  );
+
+  const handleAddQuestion = () => {
     if (newQuestionText.trim()) {
-      addQuestion(noteId, newQuestionText, userId, userName);
+      addQuestion(newQuestionText);
       setNewQuestionText("");
     }
-  }, [newQuestionText, noteId, userId, userName, addQuestion]);
+  };
 
-  // 핀 고정된 질문 먼저, 그 다음 최신 질문
+  // 정렬: 핀 고정 → 추천 많은 순
   const sortedQuestions = [...questions].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) {
-      return a.isPinned ? -1 : 1;
-    }
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+    const aUpvotes = (a.upvotes?.length || 0);
+    const bUpvotes = (b.upvotes?.length || 0);
+    if (bUpvotes !== aUpvotes) return bUpvotes - aUpvotes;
     return b.createdAt - a.createdAt;
   });
 
@@ -73,8 +157,10 @@ export function QAPanel({
       {/* 질문 목록 */}
       <div className="flex-1 overflow-y-auto space-y-2">
         {sortedQuestions.length === 0 ? (
-          <div className="text-center py-8 text-white/40 text-sm">
-            아직 질문이 없습니다
+          <div className="text-center py-8 text-white/40 text-sm flex flex-col items-center gap-2">
+            <MessageCircle size={32} />
+            <p>아직 질문이 없습니다</p>
+            <p className="text-xs">첫 질문을 작성해보세요!</p>
           </div>
         ) : (
           sortedQuestions.map((question) => (
@@ -83,9 +169,9 @@ export function QAPanel({
               question={question}
               currentUserId={userId}
               isEducator={isEducator}
-              onUpvote={() => upvoteQuestion(question.id, userId)}
-              onToggleShare={() => toggleShareQuestion(question.id)}
-              onTogglePin={() => togglePinQuestion(question.id)}
+              onUpvote={() => upvoteQuestion(question.id)}
+              onTogglePin={() => togglePin(question.id)}
+              onToggleShare={() => toggleShare(question.id)}
               onDelete={() => deleteQuestion(question.id)}
             />
           ))
@@ -98,245 +184,127 @@ export function QAPanel({
 /**
  * 개별 질문 카드
  */
+interface QuestionCardProps {
+  question: StorageQuestion;
+  currentUserId: string;
+  isEducator: boolean;
+  onUpvote: () => void;
+  onTogglePin: () => void;
+  onToggleShare: () => void;
+  onDelete: () => void;
+}
+
 function QuestionCard({
   question,
   currentUserId,
   isEducator,
   onUpvote,
-  onToggleShare,
   onTogglePin,
+  onToggleShare,
   onDelete,
-}: {
-  question: any;
-  currentUserId: string;
-  isEducator: boolean;
-  onUpvote: () => void;
-  onToggleShare: () => void;
-  onTogglePin: () => void;
-  onDelete: () => void;
-}) {
-  const [showAnswers, setShowAnswers] = useState(false);
-  const hasUpvoted = question.voters.includes(currentUserId);
-  const isAuthor = question.authorId === currentUserId;
+}: QuestionCardProps) {
+  const isUpvoted = question.upvotes?.includes(currentUserId) || false;
+  const isMyQuestion = question.authorId === currentUserId;
 
   return (
-    <div className="bg-white/5 rounded-lg p-3 space-y-2">
-      {/* 질문 헤더 */}
-      <div className="flex items-start justify-between gap-2">
+    <div
+      className={`bg-white/5 rounded-lg p-3 border transition-colors ${
+        question.isPinned
+          ? "border-yellow-400/50 bg-yellow-400/5"
+          : question.isSharedToAll
+          ? "border-green-400/50 bg-green-400/5"
+          : "border-white/10 hover:border-white/20"
+      }`}
+    >
+      {/* 헤더 */}
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          {question.isPinned && (
-            <div className="text-xs text-[#AFC02B] font-medium mb-1">
-              📌 고정됨
-            </div>
-          )}
-          <p className="text-white text-sm font-medium break-words">
-            {question.content}
-          </p>
-          <div className="text-xs text-white/50 mt-1">
-            {question.authorName} • {formatTime(Date.now() - question.createdAt)}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-white text-xs font-medium">
+              {question.authorName}
+              {isMyQuestion && (
+                <span className="text-[#AFC02B] ml-1">(나)</span>
+              )}
+            </span>
+            <span className="text-white/40 text-xs">
+              {new Date(question.createdAt).toLocaleTimeString("ko-KR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
           </div>
+          <p className="text-white text-sm break-words">{question.content}</p>
         </div>
 
-        {/* 액션 버튼 */}
+        {/* 배지 */}
         <div className="flex gap-1 flex-shrink-0">
-          {isEducator && (
-            <>
-              {question.isSharedToAll && (
-                <div className="text-xs px-2 py-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded">
-                  전체 공유
-                </div>
-              )}
-            </>
+          {question.isPinned && (
+            <div className="bg-yellow-400/20 text-yellow-400 rounded px-1.5 py-0.5 text-xs font-medium">
+              고정
+            </div>
+          )}
+          {question.isSharedToAll && (
+            <div className="bg-green-400/20 text-green-400 rounded px-1.5 py-0.5 text-xs font-medium">
+              공유
+            </div>
           )}
         </div>
       </div>
 
-      {/* 질문 액션 바 */}
-      <div className="flex items-center gap-2 text-xs">
-        {/* 추천 버튼 */}
+      {/* 액션 버튼 */}
+      <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+        {/* 추천 */}
         <button
           onClick={onUpvote}
-          className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
-            hasUpvoted
-              ? "bg-[#AFC02B]/20 text-[#AFC02B]"
-              : "bg-white/10 text-white/60 hover:bg-white/20"
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+            isUpvoted
+              ? "bg-blue-500/20 text-blue-400"
+              : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
           }`}
         >
-          <span>👍</span>
-          <span>{question.upvotes}</span>
+          <ThumbsUp size={12} className={isUpvoted ? "fill-blue-400" : ""} />
+          <span>{question.upvotes?.length || 0}</span>
         </button>
 
-        {/* 답변 표시 버튼 */}
-        <button
-          onClick={() => setShowAnswers(!showAnswers)}
-          className="flex items-center gap-1 px-2 py-1 bg-white/10 text-white/60 rounded hover:bg-white/20 transition-colors"
-        >
-          <span>💬</span>
-          <span>{question.answers.length}</span>
-        </button>
-
-        {/* 강사용: 전체 공유 토글 */}
+        {/* Educator 전용 버튼 */}
         {isEducator && (
-          <button
-            onClick={onToggleShare}
-            className={`px-2 py-1 rounded transition-colors text-xs ${
-              question.isSharedToAll
-                ? "bg-[#AFC02B]/20 text-[#AFC02B]"
-                : "bg-white/10 text-white/60 hover:bg-white/20"
-            }`}
-          >
-            {question.isSharedToAll ? "✓ 공유" : "공유"}
-          </button>
+          <>
+            <button
+              onClick={onTogglePin}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                question.isPinned
+                  ? "bg-yellow-400/20 text-yellow-400"
+                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+              }`}
+              title="고정"
+            >
+              <Pin size={12} />
+            </button>
+            <button
+              onClick={onToggleShare}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                question.isSharedToAll
+                  ? "bg-green-400/20 text-green-400"
+                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+              }`}
+              title="공유"
+            >
+              <Share2 size={12} />
+            </button>
+          </>
         )}
 
-        {/* 강사용: 고정 토글 */}
-        {isEducator && (
-          <button
-            onClick={onTogglePin}
-            className={`px-2 py-1 rounded transition-colors ${
-              question.isPinned
-                ? "bg-white/10 text-[#AFC02B]"
-                : "bg-white/10 text-white/60 hover:bg-white/20"
-            }`}
-          >
-            📌
-          </button>
-        )}
-
-        {/* 삭제 버튼 (작성자 또는 강사) */}
-        {(isAuthor || isEducator) && (
+        {/* 삭제 (본인 또는 Educator) */}
+        {(isMyQuestion || isEducator) && (
           <button
             onClick={onDelete}
-            className="ml-auto px-2 py-1 rounded bg-white/10 text-white/60 hover:bg-red-600/30 hover:text-red-400 transition-colors"
+            className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-white/5 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+            title="삭제"
           >
-            ✕
+            <Trash2 size={12} />
           </button>
         )}
       </div>
-
-      {/* 답변 표시 */}
-      {showAnswers && question.answers.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-white/10 space-y-2">
-          {question.answers.map((answer: any) => (
-            <div
-              key={answer.id}
-              className="bg-white/5 rounded p-2"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  {answer.isSelected && (
-                    <div className="text-xs text-[#AFC02B] font-medium mb-1">
-                      ✓ 최고의 답변
-                    </div>
-                  )}
-                  <p className="text-white/80 text-xs break-words">
-                    {answer.content}
-                  </p>
-                  <div className="text-xs text-white/40 mt-1">
-                    {answer.authorName}
-                  </div>
-                </div>
-
-                {isEducator && !answer.isSelected && (
-                  <button
-                    onClick={() => {
-                      // selectBestAnswer 호출
-                    }}
-                    className="px-2 py-1 bg-white/10 text-white/60 rounded hover:bg-white/20 transition-colors text-xs"
-                  >
-                    선택
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
-}
-
-/**
- * 답변 작성 모달 (질문 클릭 시)
- */
-export function AnswerModal({
-  question,
-  userId,
-  userName,
-  isOpen,
-  onClose,
-  onSubmit,
-}: {
-  question: any;
-  userId: string;
-  userName: string;
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (content: string) => void;
-}) {
-  const [answerText, setAnswerText] = useState("");
-
-  const handleSubmit = () => {
-    if (answerText.trim()) {
-      onSubmit(answerText);
-      setAnswerText("");
-      onClose();
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#3C3C3C] rounded-lg p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
-        <h2 className="text-white font-bold mb-4">질문에 답변하기</h2>
-
-        {/* 원본 질문 표시 */}
-        <div className="bg-white/5 rounded p-3 mb-4">
-          <div className="text-white/60 text-xs mb-1">질문</div>
-          <p className="text-white text-sm">{question.content}</p>
-          <div className="text-white/40 text-xs mt-2">{question.authorName}</div>
-        </div>
-
-        {/* 답변 입력 */}
-        <textarea
-          value={answerText}
-          onChange={(e) => setAnswerText(e.target.value)}
-          placeholder="답변을 입력하세요..."
-          className="w-full h-32 bg-white/10 border border-white/20 rounded px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-[#AFC02B] resize-none"
-        />
-
-        {/* 버튼 */}
-        <div className="flex gap-2 mt-4">
-          <button
-            onClick={handleSubmit}
-            disabled={!answerText.trim()}
-            className="flex-1 py-2 px-4 bg-[#AFC02B] text-black rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B]/90 transition-colors"
-          >
-            답변 제출
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 px-4 bg-white/10 text-white rounded font-medium hover:bg-white/20 transition-colors"
-          >
-            취소
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatTime(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}초 전`;
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}분 전`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
-
-  const days = Math.floor(hours / 24);
-  return `${days}일 전`;
 }

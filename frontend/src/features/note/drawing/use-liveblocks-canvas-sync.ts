@@ -38,9 +38,10 @@ export function useLivebloksCanvasSync({
   const updateCanvas = useMutation(({ storage }, canvasJSON: any) => {
     const canvasDataMap = storage.get("canvasData");
     if (!canvasDataMap) {
-      storage.set("canvasData", {});
+      storage.set("canvasData", { [canvasKey]: canvasJSON });
+    } else {
+      canvasDataMap[canvasKey] = canvasJSON;
     }
-    storage.get("canvasData").set(canvasKey, canvasJSON);
   }, [canvasKey]);
 
   // 1. Liveblocks Storage → Fabric.js Canvas (원격 업데이트 수신)
@@ -88,12 +89,12 @@ export function useLivebloksCanvasSync({
     ];
 
     events.forEach((event) => {
-      canvas.on(event, syncToLiveblocks);
+      canvas.on(event as any, syncToLiveblocks);
     });
 
     return () => {
       events.forEach((event) => {
-        canvas.off(event, syncToLiveblocks);
+        canvas.off(event as any, syncToLiveblocks);
       });
     };
   }, [canvas, isEducator, syncToLiveblocks]);
