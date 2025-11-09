@@ -6,10 +6,10 @@
 "use client";
 
 import { useNoteEditorStore } from "@/stores";
-import { getVisibleBlocks } from "@/features/note/editor/use-toggle-visibility";
-import { createKeyboardHandler } from "@/features/note/editor/use-note-keyboard";
+import { getVisibleBlocks } from "@/features/note/text-notes/use-toggle-visibility"; // ✅ text-notes
+import { createKeyboardHandler } from "@/features/note/text-notes/use-note-keyboard"; // ✅ text-notes
 import { NoteBlockComponent } from "./note-block";
-import { DrawingBlockDisplay } from "./drawing-block-display";
+import { DrawingBlockDisplay } from "../drawing/drawing-block-display"; // ✅ drawing
 
 interface NotePanelProps {
   isOpen: boolean;

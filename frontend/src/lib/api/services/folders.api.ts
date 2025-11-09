@@ -3,6 +3,9 @@
  * - Returns domain type (Folder)
  * - Abstracts IndexedDB and Backend API
  * - Converts types through adapter
+ *
+ * @deprecated Use folders.api.v2.ts instead (sync-based architecture)
+ * This V1 file will be removed in a future version
  */
 
 import type { Folder } from "@/lib/types";

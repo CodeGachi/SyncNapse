@@ -3,6 +3,9 @@
  * - 도메인 타입(Note)을 반환
  * - IndexedDB와 Backend API를 추상화
  * - 어댑터를 통해 타입 변환
+ *
+ * @deprecated Use notes.api.v2.ts instead (sync-based architecture)
+ * This V1 file will be removed in a future version
  */
 
 import type { Note } from "@/lib/types";

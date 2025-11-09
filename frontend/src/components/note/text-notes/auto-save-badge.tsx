@@ -3,7 +3,7 @@
 "use client";
 
 import type { AutoSaveStatus } from "@/lib/types";
-import { useAutoSaveBadge } from "@/features/note/editor/use-auto-save-badge";
+import { useAutoSaveBadge } from "@/features/note/text-notes/use-auto-save-badge"; // ✅ text-notes
 
 interface AutoSaveBadgeProps {
   status: AutoSaveStatus;

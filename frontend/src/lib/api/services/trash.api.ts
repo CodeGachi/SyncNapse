@@ -1,5 +1,8 @@
 /**
- * Trash API Client 
+ * Trash API Client
+ *
+ * @deprecated This V1 file uses legacy architecture
+ * Consider migrating to sync-based architecture in the future
  */ 
 import {
   getAllTrashItems as getAllTrashItemsFromDB,

@@ -66,7 +66,7 @@ export async function saveFile(noteId: string, file: File): Promise<DBFile> {
       note_id: noteId,
       file_name: dbFile.fileName,
       file_type: dbFile.fileType,
-      file_size: dbFile.fileSize,
+      file_size: dbFile.size, // ✅ Fixed: DBFile uses 'size' not 'fileSize'
       created_at: new Date(dbFile.createdAt).toISOString(),
     },
   });
@@ -119,7 +119,7 @@ export async function saveMultipleFiles(
         note_id: noteId,
         file_name: dbFile.fileName,
         file_type: dbFile.fileType,
-        file_size: dbFile.fileSize,
+        file_size: dbFile.size, // ✅ Fixed: DBFile uses 'size' not 'fileSize'
         created_at: new Date(dbFile.createdAt).toISOString(),
       },
     });

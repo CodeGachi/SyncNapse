@@ -13,7 +13,7 @@ import {
   useDrawingHistory,
   useDrawingTools,
   useDrawingExport,
-} from "@/features/note/editor/drawing";
+} from "@/features/note/drawing"; // ✅ drawing 독립
 import { DrawingToolbar } from "./drawing-toolbar";
 import {
   DRAWING_TOOL_DEFAULTS,
