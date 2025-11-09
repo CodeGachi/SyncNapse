@@ -406,6 +406,9 @@ CREATE TABLE "TranscriptionSession" (
     "endTime" DECIMAL(10,3),
     "duration" DECIMAL(10,3) NOT NULL DEFAULT 0,
     "status" TEXT NOT NULL DEFAULT 'recording',
+    "fullAudioUrl" TEXT,
+    "fullAudioKey" TEXT,
+    "fullAudioSize" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -444,6 +447,19 @@ CREATE TABLE "TranscriptionSegment" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "TranscriptionSegment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TranscriptionWord" (
+    "id" TEXT NOT NULL,
+    "segmentId" TEXT NOT NULL,
+    "word" TEXT NOT NULL,
+    "startTime" DECIMAL(10,3) NOT NULL,
+    "confidence" DECIMAL(5,4) NOT NULL DEFAULT 0,
+    "wordIndex" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TranscriptionWord_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -632,6 +648,12 @@ CREATE INDEX "TranscriptionSegment_sessionId_startTime_idx" ON "TranscriptionSeg
 -- CreateIndex
 CREATE INDEX "TranscriptionSegment_sessionId_isPartial_idx" ON "TranscriptionSegment"("sessionId", "isPartial");
 
+-- CreateIndex
+CREATE INDEX "TranscriptionWord_segmentId_wordIndex_idx" ON "TranscriptionWord"("segmentId", "wordIndex");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionWord_segmentId_startTime_idx" ON "TranscriptionWord"("segmentId", "startTime");
+
 -- AddForeignKey
 ALTER TABLE "Folder" ADD CONSTRAINT "Folder_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -778,3 +800,6 @@ ALTER TABLE "AudioChunk" ADD CONSTRAINT "AudioChunk_sessionId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "TranscriptionSegment" ADD CONSTRAINT "TranscriptionSegment_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "TranscriptionSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TranscriptionWord" ADD CONSTRAINT "TranscriptionWord_segmentId_fkey" FOREIGN KEY ("segmentId") REFERENCES "TranscriptionSegment"("id") ON DELETE CASCADE ON UPDATE CASCADE;

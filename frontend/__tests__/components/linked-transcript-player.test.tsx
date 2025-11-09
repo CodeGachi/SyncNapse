@@ -36,6 +36,10 @@ describe('LinkedTranscriptPlayer', () => {
       endTime: 2,
       isPartial: false,
       language: 'ko',
+      words: [
+        { word: 'Hello', startTime: 0, confidence: 1.0, wordIndex: 0 },
+        { word: 'world', startTime: 0.5, confidence: 1.0, wordIndex: 1 },
+      ],
     },
     {
       id: 'seg2',
@@ -45,6 +49,12 @@ describe('LinkedTranscriptPlayer', () => {
       confidence: 0.95,
       isPartial: false,
       language: 'ko',
+      words: [
+        { word: 'This', startTime: 2.0, confidence: 0.95, wordIndex: 0 },
+        { word: 'is', startTime: 2.5, confidence: 0.95, wordIndex: 1 },
+        { word: 'a', startTime: 3.0, confidence: 0.95, wordIndex: 2 },
+        { word: 'test', startTime: 3.5, confidence: 0.95, wordIndex: 3 },
+      ],
     },
   ];
 
@@ -106,7 +116,7 @@ describe('LinkedTranscriptPlayer', () => {
     expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalled();
   });
 
-  it('renders transcript segments as clickable buttons', async () => {
+  it('renders transcript segments as clickable buttons with words', async () => {
     render(
       <LinkedTranscriptPlayer
         audioUrl={mockAudioUrl}
@@ -119,18 +129,23 @@ describe('LinkedTranscriptPlayer', () => {
       expect(screen.queryByText('자막이 없습니다.')).not.toBeInTheDocument();
     });
 
-    // Check if individual words are rendered as clickable buttons
-    const helloButton = screen.getByText('Hello').closest('button');
-    const worldButton = screen.getByText('world').closest('button');
-    const thisButton = screen.getByText('This').closest('button');
+    // Check if individual words are rendered as clickable spans
+    const helloSpan = screen.getByText('Hello');
+    const worldSpan = screen.getByText('world');
+    const thisSpan = screen.getByText('This');
     
-    expect(helloButton).toBeInTheDocument();
-    expect(worldButton).toBeInTheDocument();
-    expect(thisButton).toBeInTheDocument();
+    expect(helloSpan).toBeInTheDocument();
+    expect(worldSpan).toBeInTheDocument();
+    expect(thisSpan).toBeInTheDocument();
     
-    // Check if buttons are clickable by verifying they have onClick handlers
-    expect(helloButton).toHaveAttribute('title');
-    expect(worldButton).toHaveAttribute('title');
+    // Words should have title attributes with timestamp info
+    expect(helloSpan).toHaveAttribute('title');
+    expect(worldSpan).toHaveAttribute('title');
+    expect(thisSpan).toHaveAttribute('title');
+    
+    // Words should be clickable (have cursor-pointer class)
+    expect(helloSpan).toHaveClass('cursor-pointer');
+    expect(worldSpan).toHaveClass('cursor-pointer');
   });
 
   it('shows low confidence warning when confidence < 0.8', () => {
@@ -143,6 +158,10 @@ describe('LinkedTranscriptPlayer', () => {
         confidence: 0.5,
         isPartial: false,
         language: 'ko',
+        words: [
+          { word: 'Uncertain', startTime: 0, confidence: 0.5, wordIndex: 0 },
+          { word: 'text', startTime: 0.5, confidence: 0.5, wordIndex: 1 },
+        ],
       },
     ];
 

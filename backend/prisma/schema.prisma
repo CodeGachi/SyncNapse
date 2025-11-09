@@ -584,6 +584,9 @@ model TranscriptionSession {
   endTime         Decimal? @db.Decimal(10, 3) // Session end timestamp (relative to recording start, in seconds)
   duration        Decimal  @default(0) @db.Decimal(10, 3) // Total duration in seconds
   status          String   @default("recording") // recording, completed, processing
+  fullAudioUrl    String?  // Full audio file URL (MinIO)
+  fullAudioKey    String?  // Full audio file storage key (MinIO)
+  fullAudioSize   Int?     // Full audio file size in bytes
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime?
@@ -620,7 +623,7 @@ model AudioChunk {
 }
 
 // === Transcription Segments ===
-// 자막 세그먼트 (Whisper 실시간 출력)
+// 자막 세그먼트 (문장 단위)
 model TranscriptionSegment {
   id              String   @id @default(cuid())
   sessionId       String
@@ -634,7 +637,25 @@ model TranscriptionSegment {
   updatedAt       DateTime @updatedAt
 
   session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  words           TranscriptionWord[]
 
   @@index([sessionId, startTime])
   @@index([sessionId, isPartial])
+}
+
+// === Transcription Words ===
+// 단어 레벨 타임스탬프 (자막 내부의 각 단어)
+model TranscriptionWord {
+  id              String   @id @default(cuid())
+  segmentId       String
+  word            String   // 단어 텍스트
+  startTime       Decimal  @db.Decimal(10, 3) // Word start time in seconds
+  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
+  wordIndex       Int      // 문장 내 단어 순서 (0부터 시작)
+  createdAt       DateTime @default(now())
+
+  segment         TranscriptionSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@index([segmentId, wordIndex])
+  @@index([segmentId, startTime])
 }

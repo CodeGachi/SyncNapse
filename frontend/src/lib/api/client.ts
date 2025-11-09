@@ -1,8 +1,3 @@
-/**
- * SyncNapse HTTP API 클라이언트
- * 백엔드 API와 통신하기 위한 fetch 래퍼
- */
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -15,24 +10,18 @@ export interface ApiError {
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
 
-/**
- * Subscribe to token refresh
- */
+// Subscribe to token refresh
 function subscribeTokenRefresh(callback: (token: string) => void) {
   refreshSubscribers.push(callback);
 }
 
-/**
- * Notify all subscribers when token is refreshed
- */
+// Notify all subscribers when token is refreshed
 function onTokenRefreshed(token: string) {
   refreshSubscribers.forEach((callback) => callback(token));
   refreshSubscribers = [];
 }
 
-/**
- * Refresh access token using refresh token
- */
+// Refresh access token using refresh token
 async function refreshToken(): Promise<string> {
   const refreshToken = localStorage.getItem("refreshToken");
   
@@ -69,9 +58,7 @@ async function refreshToken(): Promise<string> {
   return data.accessToken;
 }
 
-/**
- * API 요청 헬퍼 with automatic token refresh
- */
+// API 요청 헬퍼 with automatic token refresh
 export async function apiClient<T>(
   endpoint: string,
   options?: RequestInit,
@@ -133,10 +120,17 @@ export async function apiClient<T>(
       console.error("[ApiClient] ❌ Token refresh failed, redirecting to login");
       isRefreshing = false;
       
-      // Save current URL before redirecting to login
+      // Save current URL (with query params) before redirecting to login
       if (typeof window !== "undefined") {
-        localStorage.setItem("redirectAfterLogin", window.location.pathname);
-        window.location.href = "/";
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        if (currentPath !== "/" && !currentPath.startsWith("/auth")) {
+          localStorage.setItem("redirectAfterLogin", currentPath);
+          console.log("[ApiClient] 💾 Saved redirect URL before login:", currentPath);
+          // Also pass as query parameter for better UX
+          window.location.href = `/?callbackUrl=${encodeURIComponent(currentPath)}`;
+        } else {
+          window.location.href = "/";
+        }
       }
       
       throw refreshError;
@@ -163,9 +157,7 @@ export async function apiClient<T>(
   return response.json();
 }
 
-/**
- * Authorization 헤더에 토큰 추가
- */
+// Authorization 헤더에 토큰 추가
 export function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem("authToken");
   return token ? { Authorization: `Bearer ${token}` } : {};

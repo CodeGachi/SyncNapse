@@ -1,8 +1,3 @@
-/**
- * Recording with Transcription Hook
- * Integrates audio recording, real-time transcription, and automatic saving
- */
-
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -11,16 +6,66 @@ import { SpeechRecognitionService, SpeechSegment } from '@/lib/speech/speech-rec
 
 // Type compatibility with existing TranscriptionSegment
 type TranscriptionSegment = SpeechSegment;
+
+// STT (Speech-to-Text) timing calibration offset
+// Web Speech API detects speech slightly AFTER it actually starts
+// This offset compensates for that delay when saving to database
+// Typical delay: 0.2-0.3 seconds
+const STT_TIMING_OFFSET = 0.25; // 250ms offset for better accuracy
+
+// Estimate word-level timestamps from a segment
+// NOTE: Web Speech API doesn't provide word-level timestamps,
+// so we estimate them based on word length and average speaking rate
+// Each word only has startTime (endTime not needed for DB)
+function estimateWordTimestamps(
+  text: string,
+  startTime: number,
+  confidence: number = 1.0
+): Array<{ word: string; startTime: number; confidence: number; wordIndex: number }> {
+  // Split text into words (handle multiple languages)
+  const words = text.trim().split(/\s+/);
+  
+  if (words.length === 0) return [];
+  
+  // Estimate duration based on average speaking rate
+  // Average speaking rate: ~2.5 words per second (Korean), ~2 words per second (English)
+  const estimatedDuration = words.length / 2.5;
+  
+  // Calculate average time per character for better estimation
+  const totalChars = words.reduce((sum, word) => sum + word.length, 0);
+  const timePerChar = estimatedDuration / totalChars;
+  
+  const wordTimestamps = [];
+  let currentTime = startTime;
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const wordDuration = word.length * timePerChar;
+    
+    wordTimestamps.push({
+      word,
+      startTime: currentTime,
+      confidence,
+      wordIndex: i,
+    });
+    
+    currentTime += wordDuration;
+  }
+  
+  return wordTimestamps;
+}
 import {
   createSession,
   endSession,
   saveAudioChunk,
   saveTranscript,
+  saveFullAudio,
 } from '@/lib/api/transcription.api';
 import {
   saveSession,
   saveSegment,
   saveAudioChunkLocal,
+  saveWords,
   updateSession,
 } from '@/lib/storage/transcription-storage';
 
@@ -108,6 +153,18 @@ export function useRecordingWithTranscription() {
     },
   });
 
+  // Save full audio mutation (for complete audio file)
+  const saveFullAudioMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const result = await saveFullAudio(data);
+      console.log('[RecordingWithTranscription] ✅ Full audio saved to MinIO + PostgreSQL');
+      return result;
+    },
+    onError: (error) => {
+      console.error('[RecordingWithTranscription] ❌ Failed to save full audio to backend:', error);
+    },
+  });
+
   // Save transcript mutation (backend-first with local cache)
   const saveTranscriptMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -190,29 +247,112 @@ export function useRecordingWithTranscription() {
               console.log('[RecordingWithTranscription] 🎤 New segment:', {
                 text: segment.text,
                 startTime: segment.startTime,
-                endTime: segment.endTime,
                 confidence: segment.confidence,
                 isPartial: segment.isPartial,
               });
               
-              // Add to local state (show all segments including partial)
+              // Add to local state (accumulate segments from same startTime)
               setSegments((prev) => {
-                // If it's a final segment, remove all partial segments and add the final one
                 if (!segment.isPartial) {
-                  const filteredSegments = prev.filter(s => !s.isPartial);
+                  // Final segment: remove all partials with same startTime and add final one
+                  const filteredSegments = prev.filter(s => 
+                    !s.isPartial && Math.abs(s.startTime - segment.startTime) > 0.1 // Keep other final segments
+                  );
+                  console.log('[RecordingWithTranscription] ✅ Final segment - keeping accumulated text');
                   return [...filteredSegments, segment];
                 }
-                // If it's partial, replace previous partial with new one
-                const withoutPartials = prev.filter(s => !s.isPartial);
-                return [...withoutPartials, segment];
+                
+                // Partial segment: find previous partial with same startTime and accumulate text
+                const existingPartialIndex = prev.findIndex(s => 
+                  s.isPartial && Math.abs(s.startTime - segment.startTime) < 0.1 // Same startTime (within 0.1s tolerance)
+                );
+                
+                if (existingPartialIndex >= 0) {
+                  // Found existing partial with same startTime
+                  const existingPartial = prev[existingPartialIndex];
+                  
+                  // Smart text merging: prefer text that contains the other
+                  let bestText: string;
+                  let reason: string;
+                  
+                  // Check if new text contains existing text (new is more complete)
+                  if (segment.text.includes(existingPartial.text)) {
+                    bestText = segment.text;
+                    reason = 'new contains existing';
+                  }
+                  // Check if existing text contains new text (existing is more complete)
+                  else if (existingPartial.text.includes(segment.text)) {
+                    bestText = existingPartial.text;
+                    reason = 'existing contains new';
+                  }
+                  // Try to find overlapping text and merge intelligently
+                  else {
+                    // Find longest common substring at the end of existing and start of new
+                    let overlap = '';
+                    const minLen = Math.min(existingPartial.text.length, segment.text.length);
+                    
+                    for (let len = minLen; len > 0; len--) {
+                      const existingEnd = existingPartial.text.slice(-len);
+                      const newStart = segment.text.slice(0, len);
+                      
+                      if (existingEnd === newStart) {
+                        overlap = existingEnd;
+                        break;
+                      }
+                    }
+                    
+                    if (overlap.length > 0) {
+                      // Found overlap: merge by removing duplicate
+                      bestText = existingPartial.text + segment.text.slice(overlap.length);
+                      reason = `merged with overlap: "${overlap}"`;
+                    } else {
+                      // No overlap, use the longer one
+                      bestText = existingPartial.text.length > segment.text.length 
+                        ? existingPartial.text 
+                        : segment.text;
+                      reason = 'length comparison';
+                    }
+                  }
+                  
+                  console.log('[RecordingWithTranscription] 💭 Partial segment - accumulating text:', {
+                    existing: existingPartial.text,
+                    new: segment.text,
+                    kept: bestText,
+                    reason: reason,
+                    originalStartTime: existingPartial.startTime, // Keep original start time
+                    newStartTime: segment.startTime,
+                  });
+                  
+                  // Create updated segment with best text
+                  // IMPORTANT: Use existing partial's startTime (when sentence FIRST started)
+                  const updatedSegment = {
+                    ...existingPartial, // Keep original properties including startTime
+                    text: bestText, // Update text
+                    confidence: segment.confidence ?? existingPartial.confidence, // Update confidence if available
+                  };
+                  
+                  // Replace existing partial with updated one
+                  const newSegments = [...prev];
+                  newSegments[existingPartialIndex] = updatedSegment;
+                  return newSegments;
+                } else {
+                  // No existing partial with same startTime, add as new segment
+                  console.log('[RecordingWithTranscription] 💭 New partial segment:', segment.text);
+                  return [...prev, segment];
+                }
               });
 
               // Store FINAL segments to send to backend when recording stops
               if (!segment.isPartial) {
                 console.log('[RecordingWithTranscription] ✅ Final segment stored (will send to backend on stop)');
+                console.log('[RecordingWithTranscription] 🔍 DEBUG - Before push, finalSegmentsRef.current.length:', finalSegmentsRef.current.length);
                 finalSegmentsRef.current.push(segment);
-              } else {
-                console.log('[RecordingWithTranscription] 💭 Partial segment (UI only)');
+                console.log('[RecordingWithTranscription] 🔍 DEBUG - After push, finalSegmentsRef.current.length:', finalSegmentsRef.current.length);
+                console.log('[RecordingWithTranscription] 🔍 DEBUG - Pushed segment:', {
+                  text: segment.text,
+                  startTime: segment.startTime,
+                  isPartial: segment.isPartial
+                });
               }
             },
             onError: (error) => {
@@ -299,12 +439,23 @@ export function useRecordingWithTranscription() {
     [createSessionMutation],
   );
 
-  /**
-   * Stop recording and transcription
-   */
+  // Stop recording and transcription
   const stopRecording = useCallback(async () => {
     try {
       console.log('[RecordingWithTranscription] Stopping recording...');
+      console.log('[RecordingWithTranscription] 🔍 DEBUG - At stop start, finalSegmentsRef.current.length:', finalSegmentsRef.current.length);
+
+      // Stop speech recognition FIRST and wait for final results
+      if (speechRecognitionRef.current) {
+        console.log('[RecordingWithTranscription] 🔍 DEBUG - Stopping speech recognition...');
+        speechRecognitionRef.current.stop();
+        
+        // IMPORTANT: Wait for speech recognition to process final results
+        // Web Speech API sends final results AFTER stop() is called
+        console.log('[RecordingWithTranscription] 🔍 DEBUG - Waiting 1000ms for final speech results...');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        console.log('[RecordingWithTranscription] 🔍 DEBUG - After waiting, finalSegmentsRef.current.length:', finalSegmentsRef.current.length);
+      }
 
       // Stop media recorder
       if (mediaRecorderRef.current) {
@@ -352,7 +503,14 @@ export function useRecordingWithTranscription() {
           });
           testAudio.load();
           
-          // Cache locally first for immediate access
+          // Cache full audio locally first for immediate access
+          await updateSession(sessionId, {
+            fullAudioBlob: audioBlob,
+            duration: elapsedTime,
+          });
+          console.log('[RecordingWithTranscription] ✅ Full audio cached locally in session');
+          
+          // Also save as chunk for backward compatibility with older sessions
           await saveAudioChunkLocal({
             id: `chunk-${sessionId}-${chunkIndexRef.current}`,
             sessionId: sessionId,
@@ -363,25 +521,21 @@ export function useRecordingWithTranscription() {
             duration: elapsedTime,
             createdAt: new Date().toISOString(),
           });
-          console.log('[RecordingWithTranscription] ✅ Audio cached locally');
+          console.log('[RecordingWithTranscription] ✅ Audio also cached as chunk (backward compatibility)');
           
-          // Save to backend (MinIO storage + PostgreSQL linking)
+          // Save full audio to backend (MinIO storage + PostgreSQL linking)
+          // Convert Blob to data URL for upload
           const reader = new FileReader();
           reader.onloadend = async () => {
             const audioUrl = reader.result as string;
-            await saveAudioChunkMutation.mutateAsync({
+            await saveFullAudioMutation.mutateAsync({
               sessionId: sessionId!,
-              chunkIndex: chunkIndexRef.current,
-              startTime: 0,
-              endTime: elapsedTime,
-              duration: elapsedTime,
-              sampleRate: 16000,
               audioUrl,
+              duration: elapsedTime,
             });
+            console.log('[RecordingWithTranscription] ✅ Full audio file uploaded to MinIO');
           };
           reader.readAsDataURL(audioBlob);
-          
-          chunkIndexRef.current++;
         }
 
         mediaRecorderRef.current = null;
@@ -394,9 +548,8 @@ export function useRecordingWithTranscription() {
         console.log('[RecordingWithTranscription] Audio level visualization stopped');
       }
 
-      // Stop speech recognition
+      // Dispose speech recognition (already stopped above)
       if (speechRecognitionRef.current) {
-        speechRecognitionRef.current.stop();
         speechRecognitionRef.current.dispose();
         speechRecognitionRef.current = null;
       }
@@ -413,6 +566,16 @@ export function useRecordingWithTranscription() {
         mediaStreamRef.current = null;
       }
 
+      // DEBUG: Check finalSegmentsRef state before sending to backend
+      console.log('[RecordingWithTranscription] 🔍 DEBUG - finalSegmentsRef.current:', {
+        count: finalSegmentsRef.current.length,
+        segments: finalSegmentsRef.current.map(s => ({
+          text: s.text,
+          startTime: s.startTime,
+          isPartial: s.isPartial
+        }))
+      });
+      
       // Send all final segments to backend at once
       if (sessionId && finalSegmentsRef.current.length > 0) {
         console.log(`[RecordingWithTranscription] 📤 Sending ${finalSegmentsRef.current.length} final segments to backend...`);
@@ -423,24 +586,64 @@ export function useRecordingWithTranscription() {
             // Extract language code (e.g., 'ko-KR' -> 'ko', 'en-US' -> 'en')
             const langCode = segment.language ? segment.language.split('-')[0] : 'ko';
             
+            // Apply STT timing calibration offset
+            // Web Speech API detects speech ~250ms after it actually starts
+            // Subtract offset, but ensure it doesn't go below 0
+            const calibratedStartTime = Math.max(0, segment.startTime - STT_TIMING_OFFSET);
+            
+            console.log(`[RecordingWithTranscription] ⏰ Timing calibration: ${segment.startTime.toFixed(3)}s → ${calibratedStartTime.toFixed(3)}s (offset: -${STT_TIMING_OFFSET}s)`);
+            
+            // Estimate word-level timestamps for this segment (using calibrated time)
+            const words = estimateWordTimestamps(
+              segment.text,
+              calibratedStartTime,
+              segment.confidence ?? 1.0
+            );
+            
+            console.log(`[RecordingWithTranscription] Estimated ${words.length} word timestamps for segment`);
+            
             const payload = {
               sessionId: sessionId,
               text: segment.text,
-              startTime: segment.startTime,
-              endTime: segment.endTime,
-              confidence: segment.confidence ?? 1.0, // Default to 1.0 if undefined
+              startTime: calibratedStartTime, // Use calibrated time
+              // endTime removed - not needed for playback (plays from startTime to end)
+              confidence: segment.confidence ?? 1.0,
               isPartial: false,
               language: langCode,
+              words: words.map(w => ({
+                word: w.word,
+                startTime: w.startTime,
+                confidence: w.confidence,
+                wordIndex: w.wordIndex,
+              })),
             };
             
-            await saveTranscriptMutation.mutateAsync(payload);
-            console.log(`[RecordingWithTranscription] ✅ Segment saved: "${segment.text}"`);
+            const savedSegment = await saveTranscriptMutation.mutateAsync(payload);
+            console.log(`[RecordingWithTranscription] ✅ Segment saved with ${words.length} words: "${segment.text}"`);
+            
+            // Save words to local cache if segment has an ID
+            if (savedSegment.id && words.length > 0) {
+              await saveWords(words.map(w => ({
+                id: `word-${savedSegment.id}-${w.wordIndex}`,
+                segmentId: savedSegment.id,
+                word: w.word,
+                startTime: w.startTime,
+                confidence: w.confidence,
+                wordIndex: w.wordIndex,
+                createdAt: new Date().toISOString(),
+              })));
+              console.log(`[RecordingWithTranscription] ✅ ${words.length} words cached locally`);
+            }
           } catch (error) {
             console.error('[RecordingWithTranscription] ❌ Failed to save segment:', error);
           }
         }
         
         console.log('[RecordingWithTranscription] ✅ All segments sent to backend');
+      } else {
+        console.warn('[RecordingWithTranscription] ⚠️ WARNING: No final segments to send to backend!');
+        console.warn('[RecordingWithTranscription] 🔍 DEBUG - sessionId:', sessionId);
+        console.warn('[RecordingWithTranscription] 🔍 DEBUG - finalSegmentsRef.current.length:', finalSegmentsRef.current.length);
       }
 
       // End session
@@ -466,9 +669,7 @@ export function useRecordingWithTranscription() {
     }
   }, [sessionId, saveAudioChunkMutation, saveTranscriptMutation, endSessionMutation]);
 
-  /**
-   * Clear current recording
-   */
+  // Clear current recording
   const clear = useCallback(() => {
     setSegments([]);
     setSessionId(null);
