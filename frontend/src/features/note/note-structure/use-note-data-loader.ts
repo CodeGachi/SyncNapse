@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { useNoteEditorStore } from "@/stores";
 import { useFilesWithIdByNote } from "@/lib/api/queries/files.queries";
 import { useRecordingsByNote } from "@/lib/api/queries/recordings.queries";
-import { saveNoteContent } from "@/lib/api/services/notes.api";
+import { saveNoteContent } from "@/lib/api/services/notes.api.v2"; // ✅ V2 API로 변경
 
 interface UseNoteDataLoaderProps {
   noteId: string | null;

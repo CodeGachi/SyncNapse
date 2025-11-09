@@ -3,6 +3,9 @@
  *
  * NOTE: Currently uses a mock API.
  * When the backend API is ready, it can be replaced with real API calls.
+ *
+ * @deprecated This standalone file upload API is no longer used
+ * Files are now managed through services/files.api.v2.ts
  */
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_FILES !== "false";

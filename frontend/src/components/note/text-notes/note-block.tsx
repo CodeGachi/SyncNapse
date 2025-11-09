@@ -5,7 +5,7 @@
 
 import { KeyboardEvent } from "react";
 import type { NoteBlock } from "@/features/note";
-import { getBlockStyle, getPlaceholder } from "@/features/note/editor/note-block-styles";
+import { getBlockStyle, getPlaceholder } from "@/features/note/text-notes/note-block-styles"; // ✅ text-notes
 
 interface NoteBlockProps {
   block: NoteBlock;

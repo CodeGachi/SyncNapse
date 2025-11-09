@@ -9,12 +9,12 @@ import {
   deleteFile as deleteFileGeneric,
   type UploadResult,
   type FileUploadResult,
-} from "../files.api";
+} from "../files.api"; // ⚠️ Deprecated standalone upload API (consider removing)
 import {
   saveFile as saveFileApi,
   saveMultipleFiles as saveMultipleFilesApi,
   deleteFile as deleteNoteFileApi,
-} from "../services/files.api";
+} from "../services/files.api.v2"; // ✅ V2 API로 변경
 import type { DBFile } from "@/lib/db/files";
 
 /**

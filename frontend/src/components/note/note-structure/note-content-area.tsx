@@ -11,11 +11,11 @@ import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
-import { NotePanel } from "@/components/note/editor/note-panel";
-import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
+import { NotePanel } from "@/components/note/text-notes/note-panel"; // ✅ text-notes (텍스트 필기)
+import { AutoSaveBadge } from "@/components/note/text-notes/auto-save-badge"; // ✅ text-notes
 import { SharingSettingsModal } from "@/components/note/sharing/sharing-settings-modal";
-import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/editor/pdf-drawing-overlay";
-import { DrawingSidebar } from "@/components/note/editor/drawing-sidebar";
+import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
+import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
 
 interface NoteContentAreaProps {

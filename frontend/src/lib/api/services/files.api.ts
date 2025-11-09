@@ -1,5 +1,8 @@
 /**
  * Files API - Backend and IndexedDB abstraction
+ *
+ * @deprecated Use files.api.v2.ts instead (sync-based architecture)
+ * This V1 file will be removed in a future version
  */
 import type { DBFile } from "@/lib/db/files";
 import {

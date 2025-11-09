@@ -1,5 +1,8 @@
 /**
  * Records API - Backend and IndexedDB abstraction
+ *
+ * @deprecated This V1 file uses legacy architecture
+ * Consider migrating to sync-based architecture in the future
  */
 
 import type { DBRecording } from "@/lib/db/recordings";

@@ -6,7 +6,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { NoteBlock } from "@/features/note/editor/use-note-panel";
+import type { NoteBlock } from "@/features/note/text-notes/use-note-panel"; // ✅ text-notes
 import type { FileItem } from "@/features/note/file/use-file-panel";
 import type { Question, AutoSaveStatus } from "@/lib/types";
 

@@ -7,7 +7,7 @@
 "use client";
 
 import { useNoteEditorStore } from "@/stores";
-import { saveFile } from "@/lib/api/services/files.api";
+import { saveFile } from "@/lib/api/services/files.api.v2"; // ✅ V2 API로 변경
 
 interface UseFileManagementOptions {
   noteId?: string | null;
