@@ -7,6 +7,9 @@ export interface TranscriptionSession {
   noteId?: string;
   duration: number;
   status: string;
+  fullAudioUrl?: string; // Full audio file URL (preferred)
+  fullAudioKey?: string; // Storage key for full audio
+  fullAudioSize?: number; // File size in bytes
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -28,6 +31,16 @@ export interface AudioChunk {
   blob?: Blob;
 }
 
+export interface TranscriptWord {
+  id: string;
+  segmentId: string;
+  word: string;
+  startTime: number;
+  confidence: number;
+  wordIndex: number;
+  createdAt: string;
+}
+
 export interface TranscriptSegment {
   id: string;
   sessionId: string;
@@ -37,6 +50,7 @@ export interface TranscriptSegment {
   confidence?: number;
   isPartial: boolean;
   language?: string;
+  words?: TranscriptWord[];
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +69,13 @@ export interface SaveAudioChunkDto {
   audioUrl: string;
 }
 
+export interface TranscriptWordDto {
+  word: string;
+  startTime: number;
+  confidence?: number;
+  wordIndex: number;
+}
+
 export interface SaveTranscriptDto {
   sessionId: string;
   text: string;
@@ -63,6 +84,13 @@ export interface SaveTranscriptDto {
   confidence?: number;
   isPartial?: boolean;
   language?: string;
+  words?: TranscriptWordDto[];
+}
+
+export interface SaveFullAudioDto {
+  sessionId: string;
+  audioUrl: string; // Base64 encoded audio data URL
+  duration: number;
 }
 
 export async function createSession(
@@ -141,4 +169,15 @@ export async function getTranscriptsByTimeRange(
   return apiClient<TranscriptSegment[]>(
     `/api/transcription/sessions/${sessionId}/transcripts/range?startTime=${startTime}&endTime=${endTime}`,
   );
+}
+
+// Save full audio file for transcription session
+// Replaces chunk-based approach with single file
+export async function saveFullAudio(
+  dto: SaveFullAudioDto,
+): Promise<TranscriptionSession> {
+  return apiClient<TranscriptionSession>('/api/transcription/full-audio', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
 }

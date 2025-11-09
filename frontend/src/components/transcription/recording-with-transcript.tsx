@@ -45,12 +45,16 @@ export function RecordingWithTranscript() {
           audioChunks: localData.audioChunks.length,
           segments: localData.segments.length,
           hasBlob: localData.audioChunks[0]?.blob ? 'YES!' : 'NO',
+          hasFullAudioBlob: localData.fullAudioBlob ? 'YES!' : 'NO',
+          hasFullAudioUrl: localData.fullAudioUrl ? 'YES!' : 'NO',
         });
         
         return {
           ...localData.session,
           audioChunks: localData.audioChunks,
           segments: localData.segments,
+          fullAudioBlob: localData.fullAudioBlob,
+          fullAudioUrl: localData.fullAudioUrl,
         };
       } catch (localError) {
         console.warn('[RecordingWithTranscript] Local IndexedDB failed, trying backend API:', localError);
@@ -272,7 +276,8 @@ export function RecordingWithTranscript() {
 
       {!isRecording && sessionId && sessionData && (
         <div className="max-w-6xl mx-auto space-y-6">
-          {sessionData.audioChunks && sessionData.audioChunks.length > 0 ? (
+          {/* Check for both full audio (new format) and audio chunks (legacy format) */}
+          {((sessionData as any).fullAudioBlob || (sessionData as any).fullAudioUrl || (sessionData.audioChunks && sessionData.audioChunks.length > 0)) ? (
             <>
               <div className="bg-white rounded-xl shadow-2xl p-6">
                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
@@ -284,8 +289,9 @@ export function RecordingWithTranscript() {
               </div>
 
               <LinkedTranscriptPlayer
-                audioBlob={(sessionData.audioChunks[0] as any)?.blob}
-                audioUrl={(sessionData.audioChunks[0] as any)?.audioUrl}
+                // Prefer full audio (new format) over chunks (legacy format)
+                audioBlob={(sessionData as any).fullAudioBlob || (sessionData.audioChunks?.[0] as any)?.blob}
+                audioUrl={(sessionData as any).fullAudioUrl || (sessionData.audioChunks?.[0] as any)?.audioUrl}
                 transcripts={(sessionData.segments || []).map((seg: any) => ({
                   id: seg.id,
                   text: seg.text,

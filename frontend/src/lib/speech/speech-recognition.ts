@@ -1,8 +1,8 @@
 export interface SpeechSegment {
   id: string;
   text: string;
-  startTime: number;
-  endTime: number;
+  startTime: number; // Actual time when speech was detected (in seconds)
+  endTime?: number; // Optional: not used for real-time segments
   isPartial: boolean;
   confidence?: number;
   language?: string;
@@ -40,9 +40,13 @@ export class SpeechRecognitionService {
   private lastFinalText = '';
   private detectedLanguage: string | null = null;
   private lastSegmentEndTime = 0;
+  private currentSegmentStartTime = 0; // Track current segment start for accumulation
+  private lastSpeechTime = 0; // Track last speech time for silence detection
+  private silenceThreshold = 2000; // 2 seconds of silence = new segment
   private retryCount = 0;
   private maxRetries = 5;
   private retryDelay = 1000; // Start with 1 second delay
+  private isFirstStart = true; // Track if this is the initial start or a restart
 
   constructor(
     config: SpeechRecognitionConfig = {},
@@ -78,11 +82,27 @@ export class SpeechRecognitionService {
     this.recognition.maxAlternatives = this.config.maxAlternatives;
 
     this.recognition.onstart = () => {
-      console.log('[SpeechRecognition] Started');
       this.isRunning = true;
-      this.startTimestamp = Date.now();
-      this.lastSegmentEndTime = 0;
-      this.callbacks.onStart?.();
+      
+      // IMPORTANT: Only reset timestamps on the FIRST start, not on auto-restarts
+      // This ensures timestamps are continuous across speech recognition restarts
+      if (this.isFirstStart) {
+        console.log('[SpeechRecognition] ✅ Initial start - recording from 0:00');
+        this.startTimestamp = Date.now();
+        this.lastSegmentEndTime = 0;
+        this.currentSegmentStartTime = 0;
+        this.lastSpeechTime = Date.now();
+        this.isFirstStart = false;
+        this.callbacks.onStart?.();
+      } else {
+        const elapsedTime = ((Date.now() - this.startTimestamp) / 1000).toFixed(2);
+        console.log('[SpeechRecognition] 🔄 Auto-restart - preserving timeline', {
+          elapsedTime: elapsedTime + 's',
+          lastSegmentEndTime: this.lastSegmentEndTime.toFixed(2) + 's',
+        });
+        // Update lastSpeechTime to avoid false silence detection after restart
+        this.lastSpeechTime = Date.now();
+      }
     };
 
     this.recognition.onresult = (event: any) => {
@@ -103,16 +123,27 @@ export class SpeechRecognitionService {
       }
 
       const now = Date.now();
-      const relativeEndTime = (now - this.startTimestamp) / 1000;
-      const relativeStartTime = this.lastSegmentEndTime;
+      // Calculate actual time from recording start
+      const currentAudioTime = (now - this.startTimestamp) / 1000;
+      
+      // Set start time ONLY ONCE when segment begins (currentSegmentStartTime === 0)
+      // Do NOT update during interim results or after silence!
+      // The segment ends only when Web Speech API gives us a FINAL result
+      if (this.currentSegmentStartTime === 0) {
+        this.currentSegmentStartTime = currentAudioTime;
+        console.log(`[SpeechRecognition] 🎬 Segment starting at ${this.currentSegmentStartTime.toFixed(2)}s`);
+      }
+      
+      // Update last speech time for continuous recording
+      this.lastSpeechTime = now;
       
       const segment: SpeechSegment = {
         id: isFinal
           ? `final-${now}`
           : `interim-${now}`,
         text: transcript.trim(),
-        startTime: relativeStartTime,
-        endTime: relativeEndTime,
+        startTime: this.currentSegmentStartTime, // Actual time when speech started
+        // endTime removed - not needed for linking
         isPartial: !isFinal,
         confidence: confidence || undefined,
         language: this.detectedLanguage || detectedLang,
@@ -120,11 +151,13 @@ export class SpeechRecognitionService {
 
       if (isFinal && transcript.trim() !== this.lastFinalText) {
         this.lastFinalText = transcript.trim();
-        this.lastSegmentEndTime = relativeEndTime;
-        console.log(`[SpeechRecognition] Final: "${segment.text}" (${segment.language}) at ${relativeStartTime.toFixed(2)}s - ${relativeEndTime.toFixed(2)}s`);
+        this.lastSegmentEndTime = currentAudioTime;
+        // Reset for next segment (will be set to actual time when new speech detected)
+        this.currentSegmentStartTime = 0;
+        console.log(`[SpeechRecognition] Final: "${segment.text}" (${segment.language}) at ${segment.startTime.toFixed(2)}s`);
         this.callbacks.onSegment?.(segment);
       } else if (!isFinal) {
-        console.log(`[SpeechRecognition] Interim: "${segment.text}"`);
+        console.log(`[SpeechRecognition] Interim: "${segment.text}" at ${segment.startTime.toFixed(2)}s`);
         this.callbacks.onSegment?.(segment);
       }
     };
@@ -217,6 +250,8 @@ export class SpeechRecognitionService {
       this.lastFinalText = '';
       this.lastSegmentEndTime = 0;
       this.retryCount = 0; // Reset retry count on new start
+      this.isFirstStart = true; // Mark this as a fresh start (not an auto-restart)
+      console.log('[SpeechRecognition] 🎬 Starting fresh recording session');
       this.recognition.start();
     } catch (error) {
       console.error('[SpeechRecognition] Start failed:', error);

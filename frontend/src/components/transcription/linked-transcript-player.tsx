@@ -2,21 +2,21 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+interface WordWithTime {
+  word: string;
+  startTime: number;
+  confidence?: number;
+  wordIndex: number;
+}
+
 interface TranscriptSegment {
   id: string;
   text: string;
   startTime: number;
-  endTime: number;
   confidence?: number;
   isPartial: boolean;
   language?: string;
-}
-
-interface WordWithTime {
-  word: string;
-  startTime: number;
-  endTime: number;
-  segmentId: string;
+  words?: WordWithTime[];
 }
 
 interface LinkedTranscriptPlayerProps {
@@ -41,34 +41,21 @@ export function LinkedTranscriptPlayer({
   const audioRef = useRef<HTMLAudioElement>(null);
   const blobUrlRef = useRef<string | null>(null);
 
-  const wordsWithTime = useCallback((): WordWithTime[] => {
-    const result: WordWithTime[] = [];
-    
-    transcripts
-      .filter(seg => !seg.isPartial)
-      .forEach(segment => {
-        const words = segment.text.trim().split(/\s+/);
-        const duration = segment.endTime - segment.startTime;
-        const timePerWord = duration / words.length;
-        
-        words.forEach((word, index) => {
-          result.push({
-            word,
-            startTime: segment.startTime + (timePerWord * index),
-            endTime: segment.startTime + (timePerWord * (index + 1)),
-            segmentId: segment.id,
-          });
-        });
-      });
-    
-    return result;
-  }, [transcripts]);
+  // Find current segment and word based on startTime
+  const finalTranscripts = transcripts.filter(seg => !seg.isPartial);
+  
+  const currentSegment = finalTranscripts.find((segment, index, arr) => {
+    const nextSegment = arr[index + 1];
+    return currentTime >= segment.startTime && 
+           (!nextSegment || currentTime < nextSegment.startTime);
+  });
 
-  const allWords = wordsWithTime();
-
-  const currentWord = allWords.find(
-    (word) => currentTime >= word.startTime && currentTime < word.endTime
-  );
+  // Find current word within the current segment
+  const currentWord = currentSegment?.words?.find((word, index, arr) => {
+    const nextWord = arr[index + 1];
+    return currentTime >= word.startTime && 
+           (!nextWord || currentTime < nextWord.startTime);
+  });
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -88,10 +75,13 @@ export function LinkedTranscriptPlayer({
     if (audioBlob) {
       sourceUrl = URL.createObjectURL(audioBlob);
       blobUrlRef.current = sourceUrl;
-      console.log('[LinkedTranscriptPlayer] ✅ Using LOCAL BLOB');
+      console.log('[LinkedTranscriptPlayer] ✅ Using LOCAL BLOB:', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+      });
     } else if (audioUrl) {
       sourceUrl = audioUrl;
-      console.log('[LinkedTranscriptPlayer] ✅ Using REMOTE URL');
+      console.log('[LinkedTranscriptPlayer] ✅ Using REMOTE URL:', sourceUrl.substring(0, 100) + '...');
     } else {
       console.error('[LinkedTranscriptPlayer] ❌ No audio source available');
       setAudioError('오디오 소스가 없습니다.');
@@ -99,7 +89,11 @@ export function LinkedTranscriptPlayer({
       return;
     }
 
+    // Set audio type explicitly to help browser decode
     audio.src = sourceUrl;
+    audio.setAttribute('type', 'audio/webm');
+    
+    console.log('[LinkedTranscriptPlayer] 📥 Loading audio from:', sourceUrl.substring(0, 100) + '...');
     audio.load();
 
     return () => {
@@ -108,7 +102,9 @@ export function LinkedTranscriptPlayer({
         blobUrlRef.current = null;
       }
     };
-  }, [audioBlob, audioUrl, transcripts.length]);
+    // Only reload when audio source changes, not when transcripts change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioBlob, audioUrl]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -121,6 +117,12 @@ export function LinkedTranscriptPlayer({
 
     const handleLoadedData = () => {
       console.log('[LinkedTranscriptPlayer] ✅ Audio data loaded');
+      console.log('[LinkedTranscriptPlayer] 📊 Audio state:', {
+        readyState: audio.readyState,
+        paused: audio.paused,
+        currentTime: audio.currentTime,
+        duration: audio.duration,
+      });
       setIsLoading(false);
       setAudioError(null);
     };
@@ -138,8 +140,8 @@ export function LinkedTranscriptPlayer({
         duration: audio.duration,
       });
       setIsPlaying(false);
-      setCurrentTime(0);
-      audio.currentTime = 0;
+      // Don't reset currentTime automatically - let user decide to restart
+      console.log('[LinkedTranscriptPlayer] Audio playback completed');
     };
 
     const handlePlay = () => {
@@ -236,6 +238,12 @@ export function LinkedTranscriptPlayer({
     if (isPlaying) {
       audio.pause();
     } else {
+      // If at the end, restart from beginning
+      if (audio.currentTime >= audio.duration - 0.1) {
+        console.log('[LinkedTranscriptPlayer] 🔄 Restarting from beginning');
+        audio.currentTime = 0;
+      }
+      
       if (audio.readyState >= 2) {
         audio.play().catch((err) => {
           if (err.name !== 'AbortError') {
@@ -259,6 +267,20 @@ export function LinkedTranscriptPlayer({
     }
   }, [isPlaying, isLoading]);
 
+  const playFromStart = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || isLoading) return;
+
+    console.log('[LinkedTranscriptPlayer] 🔄 Playing from start (0:00)');
+    audio.currentTime = 0;
+    audio.play().catch((err) => {
+      if (err.name !== 'AbortError') {
+        console.error('[LinkedTranscriptPlayer] ❌ Play from start failed:', err);
+        setAudioError('재생에 실패했습니다. 다시 시도해주세요.');
+      }
+    });
+  }, [isLoading]);
+
   const seekToTime = useCallback((time: number) => {
     const audio = audioRef.current;
     if (!audio || isLoading) {
@@ -266,24 +288,33 @@ export function LinkedTranscriptPlayer({
       return;
     }
 
-    console.log('[LinkedTranscriptPlayer] 🎯 Seeking to time:', time, 'and playing to end');
-    console.log('[LinkedTranscriptPlayer] 📊 Audio state:', {
+    console.log('[LinkedTranscriptPlayer] 🎯 Seeking to time:', time, 'seconds');
+    console.log('[LinkedTranscriptPlayer] 📊 Audio state BEFORE seek:', {
       readyState: audio.readyState,
       currentTime: audio.currentTime,
       duration: audio.duration,
       paused: audio.paused,
     });
 
-    // Set the current time
+    // IMPORTANT: Only use startTime, NOT endTime
+    // This ensures audio plays from the clicked point to the END of the audio
     audio.currentTime = time;
     
-    // Start playing from this point to the end
+    console.log('[LinkedTranscriptPlayer] ✅ Audio currentTime set to:', time);
+    console.log('[LinkedTranscriptPlayer] 🎵 Will play from', time, 'to', audio.duration, '(end of audio)');
+    
+    // Start playing from this point to the END (no stop logic)
     const playPromise = audio.play();
     
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
-          console.log('[LinkedTranscriptPlayer] ✅ Playing from', time, 'to end');
+          console.log('[LinkedTranscriptPlayer] ✅ Successfully started playing from', time);
+          console.log('[LinkedTranscriptPlayer] 📊 Audio state AFTER play:', {
+            currentTime: audio.currentTime,
+            paused: audio.paused,
+            ended: audio.ended,
+          });
           setIsPlaying(true);
         })
         .catch((err) => {
@@ -314,11 +345,13 @@ export function LinkedTranscriptPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const finalTranscripts = transcripts.filter((seg) => !seg.isPartial);
-
   return (
     <div className={`bg-white rounded-xl shadow-lg ${className}`}>
-      <audio ref={audioRef} preload="auto" />
+      <audio ref={audioRef} preload="auto" crossOrigin="anonymous">
+        {/* Fallback source elements */}
+        <source type="audio/webm;codecs=opus" />
+        <source type="audio/webm" />
+      </audio>
 
       {audioError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -333,6 +366,7 @@ export function LinkedTranscriptPlayer({
             disabled={isLoading || !!audioError}
             className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white flex items-center justify-center transition-colors shadow-lg"
             aria-label={isPlaying ? 'Pause' : 'Play'}
+            title={isPlaying ? '일시정지' : '재생/계속'}
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -345,6 +379,19 @@ export function LinkedTranscriptPlayer({
                 <path d="M6 4l10 6-10 6V4z" />
               </svg>
             )}
+          </button>
+
+          <button
+            onClick={playFromStart}
+            disabled={isLoading || !!audioError}
+            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 text-gray-700 flex items-center gap-2 transition-colors"
+            title="처음부터 재생"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4 5a1 1 0 011-1h2a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm8 0a1 1 0 011-1h2a1 1 0 011 1v10a1 1 0 01-1 1h-2a1 1 0 01-1-1V5z" />
+              <path d="M2 10l4-3v6l-4-3z" />
+            </svg>
+            <span className="text-sm font-medium">처음부터</span>
           </button>
 
           <div className="flex-1">
@@ -364,23 +411,30 @@ export function LinkedTranscriptPlayer({
           </div>
         </div>
 
-        {currentWord && (
+        {currentSegment && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-blue-900 font-bold text-lg">&ldquo;{currentWord.word}&rdquo;</p>
+            <p className="text-blue-900 font-bold text-lg">&ldquo;{currentSegment.text}&rdquo;</p>
             <p className="text-blue-600 text-xs mt-1">
-              {formatTime(currentWord.startTime)} - {formatTime(currentWord.endTime)}
+              {formatTime(currentSegment.startTime)}
             </p>
           </div>
         )}
       </div>
 
       <div className="p-6 max-h-96 overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          📝 자막 ({finalTranscripts.length}개 문장, {allWords.length}개 단어)
-          <span className="text-sm font-normal text-gray-500">
-            단어 클릭 시 해당 위치부터 끝까지 재생
-          </span>
-        </h3>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            📝 자막 ({finalTranscripts.length}개 문장, {finalTranscripts.reduce((sum, t) => sum + (t.words?.length || 0), 0)}개 단어)
+          </h3>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-800">
+              💡 <strong>사용법:</strong> 
+              <span className="ml-1">
+                <strong>단어</strong>를 클릭하면 해당 단어부터 재생됩니다 (노란색 = 현재 재생 중)
+              </span>
+            </p>
+          </div>
+        </div>
 
         {finalTranscripts.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -389,15 +443,28 @@ export function LinkedTranscriptPlayer({
         ) : (
           <div className="space-y-4">
             {finalTranscripts.map((segment) => {
-              const segmentWords = allWords.filter(w => w.segmentId === segment.id);
+              const isCurrentSegment = currentSegment?.id === segment.id;
               
               return (
-                <div
+                <button
                   key={segment.id}
-                  className="p-4 rounded-lg bg-gray-50 border border-gray-200"
+                  onClick={() => seekToTime(segment.startTime)}
+                  className={`w-full text-left p-4 rounded-lg border transition-all group ${
+                    isCurrentSegment
+                      ? 'bg-blue-50 border-blue-400 shadow-lg'
+                      : 'bg-gray-50 border-gray-200 hover:border-blue-300 hover:bg-white'
+                  }`}
+                  title={`${formatTime(segment.startTime)}부터 끝까지 재생`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-xs text-gray-500 font-mono">
+                    <span className={`text-xs font-mono flex items-center gap-1 transition-colors ${
+                      isCurrentSegment ? 'text-blue-600 font-semibold' : 'text-gray-500 group-hover:text-blue-600'
+                    }`}>
+                      <svg className={`w-3 h-3 transition-opacity ${
+                        isCurrentSegment ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`} fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6 4l10 6-10 6V4z" />
+                      </svg>
                       {formatTime(segment.startTime)}
                     </span>
                     {segment.confidence !== undefined && segment.confidence < 0.8 && (
@@ -407,28 +474,45 @@ export function LinkedTranscriptPlayer({
                     )}
                   </div>
                   
-                  <div className="flex flex-wrap gap-1">
-                    {segmentWords.map((wordData, idx) => {
-                      const isActive = currentWord?.word === wordData.word && 
-                                      currentWord?.startTime === wordData.startTime;
-                      
-                      return (
-                        <button
-                          key={`${segment.id}-${idx}`}
-                          onClick={() => seekToTime(wordData.startTime)}
-                          className={`px-2 py-1 rounded transition-all ${
-                            isActive
-                              ? 'bg-blue-500 text-white font-bold shadow-lg scale-110'
-                              : 'bg-white hover:bg-blue-100 text-gray-700 hover:text-blue-900 border border-gray-300 hover:border-blue-400'
-                          }`}
-                          title={`${formatTime(wordData.startTime)} - ${formatTime(wordData.endTime)}`}
-                        >
-                          {wordData.word}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                  {/* Word-level rendering with click-to-play */}
+                  {segment.words && segment.words.length > 0 ? (
+                    <p className={`text-base leading-relaxed ${
+                      isCurrentSegment ? 'text-blue-900 font-medium' : 'text-gray-700'
+                    }`}>
+                      {segment.words.map((word, wordIndex) => {
+                        const isCurrentWord = isCurrentSegment && currentWord?.wordIndex === wordIndex;
+                        
+                        return (
+                          <span
+                            key={`${segment.id}-word-${wordIndex}`}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent segment click
+                              console.log('[LinkedTranscriptPlayer] 🎯 Word clicked:', word.word, 'startTime:', word.startTime);
+                              seekToTime(word.startTime);
+                            }}
+                            className={`inline-block px-1 py-0.5 rounded transition-all cursor-pointer hover:bg-blue-100 ${
+                              isCurrentWord 
+                                ? 'bg-yellow-200 text-blue-900 font-bold shadow-sm' 
+                                : ''
+                            }`}
+                            title={`${formatTime(word.startTime)}부터 재생 (신뢰도: ${Math.round((word.confidence ?? 1) * 100)}%)`}
+                          >
+                            {word.word}
+                          </span>
+                        );
+                      })}
+                    </p>
+                  ) : (
+                    <>
+                      {console.log('[LinkedTranscriptPlayer] ⚠️ No words for segment:', segment.id, 'text:', segment.text)}
+                      <p className={`text-base leading-relaxed ${
+                        isCurrentSegment ? 'text-blue-900 font-medium' : 'text-gray-700'
+                      }`}>
+                        {segment.text}
+                      </p>
+                    </>
+                  )}
+                </button>
               );
             })}
           </div>

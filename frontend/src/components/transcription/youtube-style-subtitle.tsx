@@ -6,7 +6,6 @@ interface TranscriptionSegment {
   id: string;
   text: string;
   startTime: number;
-  endTime: number;
   confidence?: number;
   isPartial: boolean;
 }
@@ -109,4 +108,3 @@ if (typeof document !== 'undefined') {
   `;
   document.head.appendChild(style);
 }
-

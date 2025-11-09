@@ -11,6 +11,15 @@ const nextConfig = {
       },
     ],
   },
+  // Proxy API requests to backend
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:4000/api/:path*',
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],

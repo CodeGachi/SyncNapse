@@ -7,13 +7,17 @@ import {
   Param,
   UseGuards,
   Logger,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { TranscriptionService } from './transcription.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { SaveTranscriptDto } from './dto/save-transcript.dto';
 import { SaveAudioChunkDto } from './dto/save-audio-chunk.dto';
+import { SaveFullAudioDto } from './dto/save-full-audio.dto';
 
 @Controller('transcription')
 @UseGuards(JwtAuthGuard)
@@ -89,5 +93,45 @@ export class TranscriptionController {
   ) {
     this.logger.debug(`[POST /transcription/audio-chunks] userId=${userId} sessionId=${dto.sessionId} chunk=${dto.chunkIndex}`);
     return this.transcriptionService.saveAudioChunk(userId, dto);
+  }
+
+  @Post('full-audio')
+  async saveFullAudio(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SaveFullAudioDto,
+  ) {
+    this.logger.debug(`[POST /transcription/full-audio] userId=${userId} sessionId=${dto.sessionId} duration=${dto.duration}`);
+    return this.transcriptionService.saveFullAudio(userId, dto.sessionId, dto.audioUrl, dto.duration);
+  }
+
+  @Get('sessions/:sessionId/audio')
+  async streamAudio(
+    @CurrentUser('id') userId: string,
+    @Param('sessionId') sessionId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    this.logger.debug(`[GET /transcription/sessions/${sessionId}/audio] userId=${userId}`);
+    
+    try {
+      const { stream, contentType, contentLength } = await this.transcriptionService.getAudioStream(userId, sessionId);
+      
+      this.logger.debug(`[GET /transcription/sessions/${sessionId}/audio] Streaming:`, {
+        contentType,
+        contentLength,
+      });
+      
+      // Set response headers
+      res.set({
+        'Content-Type': contentType,
+        'Content-Length': contentLength.toString(),
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'public, max-age=31536000',
+      });
+      
+      return new StreamableFile(stream);
+    } catch (error) {
+      this.logger.error(`[GET /transcription/sessions/${sessionId}/audio] ❌ Error:`, error);
+      throw error;
+    }
   }
 }

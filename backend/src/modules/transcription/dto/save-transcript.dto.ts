@@ -1,5 +1,24 @@
-import { IsString, IsNotEmpty, IsNumber, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsBoolean, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
+// Word-level timestamp information
+export class TranscriptWordDto {
+  @IsString()
+  @IsNotEmpty()
+  word!: string;
+
+  @IsNumber()
+  startTime!: number;
+
+  @IsNumber()
+  @IsOptional()
+  confidence?: number;
+
+  @IsNumber()
+  wordIndex!: number;
+}
+
+// Save transcript segment with optional word-level timestamps
 export class SaveTranscriptDto {
   @IsString()
   @IsNotEmpty()
@@ -13,9 +32,6 @@ export class SaveTranscriptDto {
   startTime!: number;
 
   @IsNumber()
-  endTime!: number;
-
-  @IsNumber()
   @IsOptional()
   confidence?: number;
 
@@ -26,4 +42,10 @@ export class SaveTranscriptDto {
   @IsString()
   @IsOptional()
   language?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TranscriptWordDto)
+  @IsOptional()
+  words?: TranscriptWordDto[];
 }
