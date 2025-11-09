@@ -6,8 +6,8 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import { useNoteEditorStore } from "@/stores";
-import { useNoteLayoutWrapper } from "@/features/note/note-structure/use-note-layout-wrapper";
 
 interface NoteLayoutWrapperProps {
   children: React.ReactNode;
@@ -15,7 +15,33 @@ interface NoteLayoutWrapperProps {
 
 export function NoteLayoutWrapper({ children }: NoteLayoutWrapperProps) {
   const { isExpanded, toggleExpand } = useNoteEditorStore();
-  const { marginClass } = useNoteLayoutWrapper({ isExpanded, toggleExpand });
+  const [isWideScreen, setIsWideScreen] = useState(true);
+
+  // Screen Size Detect + Auto Collapse
+  useEffect(() => {
+    const handleResize = () => {
+      const minWidth = 1200;
+      const isWide = window.innerWidth >= minWidth;
+      setIsWideScreen(isWide);
+
+      if (!isWide && isExpanded) {
+        toggleExpand();
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isExpanded, toggleExpand]);
+
+  // Margin calculation
+  const marginClass = isExpanded
+    ? "mr-[500px]"
+    : isWideScreen
+    ? "mr-[60px]"
+    : "mr-0";
 
   return (
     <main className={`flex-1 h-full flex gap-1 p-6 transition-all duration-300 ${marginClass}`}>

@@ -25,14 +25,12 @@ import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
 import { TagsPanel } from "@/components/note/panels/tags-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
-import { CollaborationPanelLive } from "@/components/note/collaboration/collaboration-panel-live";
 
 interface RightSidePanelProps {
   noteId: string | null;
-  isCollaborating?: boolean; // 협업 모드 여부
 }
 
-export function RightSidePanel({ noteId, isCollaborating = false }: RightSidePanelProps) {
+export function RightSidePanel({ noteId }: RightSidePanelProps) {
   // Get note data to determine if it's an educator note
   const { data: note } = useNote(noteId);
   const isEducatorNote = note?.type === "educator";
@@ -175,27 +173,14 @@ export function RightSidePanel({ noteId, isCollaborating = false }: RightSidePan
           {/* tags 패널 */}
           <TagsPanel isOpen={isTagsPanelOpen} />
 
-          {/* 협업 패널 (교육자 노트만) */}
+          {/* 협업 패널 (교육자 노트만, Liveblocks 실시간) */}
           {isCollaborationPanelOpen && isEducatorNote && (
-            <>
-              {isCollaborating ? (
-                // Liveblocks 실시간 협업 버전
-                <CollaborationPanelLive
-                  userId="user-123" // TODO: Connect to actual user context
-                  userName="사용자" // TODO: Connect to actual user context
-                  noteId={noteId || ""} // Connected to current note ID
-                  isEducator={isEducatorNote}
-                />
-              ) : (
-                // 기존 Zustand 버전 (오프라인)
-                <CollaborationPanel
-                  userId="user-123" // TODO: Connect to actual user context
-                  userName="사용자" // TODO: Connect to actual user context
-                  noteId={noteId || ""} // Connected to current note ID
-                  isEducator={isEducatorNote}
-                />
-              )}
-            </>
+            <CollaborationPanel
+              userId="user-123" // TODO: Connect to actual user context
+              userName="사용자" // TODO: Connect to actual user context
+              noteId={noteId || ""} // Connected to current note ID
+              isEducator={isEducatorNote}
+            />
           )}
 
           {/* 카테고리 버튼 */}

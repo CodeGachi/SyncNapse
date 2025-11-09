@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { MenuButton } from "@/components/note/panels/etc-panel/menu-button";
+import { Panel } from "./panel";
 
 interface EtcPanelProps {
   isOpen: boolean;
@@ -17,15 +18,9 @@ type MenuType = "exam" | "summary" | null;
 export function EtcPanel({ isOpen }: EtcPanelProps) {
   const [selectedMenu, setSelectedMenu] = useState<MenuType>(null);
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="flex flex-col items-center p-3 gap-2.5 w-full h-[380px] bg-[#2F2F2F] border-2 border-[#AFC02B] rounded-[10px] overflow-hidden transition-all duration-500 ease-out"
-      style={{
-        animation: isOpen ? "expandPanel 0.5s ease-out forwards" : "none",
-      }}
-    >
+    <Panel isOpen={isOpen} borderColor="green" height="h-[380px]">
+      <div className="flex flex-col items-center p-3 gap-2.5 w-full h-full">
       {/* 헤더 */}
       <div className="flex flex-row justify-center items-center w-full h-[15px] flex-shrink-0">
         <h3 className="font-bold text-xs leading-[15px] text-center text-white">
@@ -119,6 +114,7 @@ export function EtcPanel({ isOpen }: EtcPanelProps) {
           }
         }
       `}</style>
-    </div>
+      </div>
+    </Panel>
   );
 }

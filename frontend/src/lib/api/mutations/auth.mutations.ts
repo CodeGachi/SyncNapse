@@ -16,11 +16,9 @@ export function useLogin(
 
   return useMutation({
     mutationFn: async ({ accessToken, refreshToken }: { accessToken: string; refreshToken: string }) => {
-      // 백엔드에서 이미 토큰을 받았으므로, 로컬에 저장하기만 함
       localStorage.setItem("authToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
 
-      // JWT 토큰에서 사용자 정보 추출
       try {
         const parts = accessToken.split(".");
         const decoded = JSON.parse(
@@ -40,7 +38,6 @@ export function useLogin(
       }
     },
     onSuccess: (data) => {
-      // 사용자 정보를 캐시에 저장
       queryClient.setQueryData(["auth", "currentUser"], data.user);
     },
     ...options,

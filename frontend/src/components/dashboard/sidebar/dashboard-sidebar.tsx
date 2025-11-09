@@ -4,6 +4,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
@@ -34,9 +35,11 @@ export function DashboardSidebar({
   const { handleLogout } = useGoogleLogin();
   const { buildFolderTree } = useFolders();
 
+  // 간단한 UI 상태 - 컴포넌트에서 직접 관리
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // 폴더 관련 상태와 핸들러 - use-dashboard-sidebar에서 관리
   const {
-    isSettingsModalOpen,
-    setIsSettingsModalOpen,
     isCreateFolderModalOpen,
     setIsCreateFolderModalOpen,
     createSubfolderParentId,
@@ -51,7 +54,10 @@ export function DashboardSidebar({
     handleRenameSubmit,
     handleDeleteFolder,
     handleDeleteSubmit,
-  } = useDashboardSidebar({ selectedFolderId, onSelectFolder });
+  } = useDashboardSidebar({
+    selectedFolderId,
+    onSelectFolder,
+  });
 
   return (
     <>

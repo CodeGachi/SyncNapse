@@ -55,7 +55,7 @@ export function useLivebloksCollaboration() {
 
     const index = handRaises.findIndex((h: any) => h.id === handRaiseId);
     if (index !== -1) {
-      handRaises.delete(index);
+      handRaises.splice(index, 1);
     }
   }, []);
 

@@ -10,4 +10,3 @@ export type { NoteBlock } from "./use-note-panel";
 export { getBlockStyle, getPlaceholder } from "./note-block-styles";
 export { getVisibleBlocks } from "./use-toggle-visibility";
 export { createKeyboardHandler } from "./use-note-keyboard";
-export { useAutoSaveBadge } from "./use-auto-save-badge";

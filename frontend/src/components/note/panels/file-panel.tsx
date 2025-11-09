@@ -6,6 +6,7 @@
 
 import type { FileItem } from "@/features/note";
 import { useFilePanel } from "@/features/note/file-panel/use-file-panel";
+import { Panel } from "./panel";
 
 interface FilePanelProps {
   isOpen: boolean;
@@ -54,15 +55,8 @@ export function FilePanel({
     onCopyFile,
   });
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl overflow-hidden transition-all duration-500 ease-out"
-      style={{
-        animation: isOpen ? "expandPanel 0.5s ease-out forwards" : "none",
-      }}
-    >
+    <Panel isOpen={isOpen} borderColor="gray">
       {/* 헤더 */}
       <div className="px-4 py-3 border-b border-[#444444]">
         <h3 className="text-white text-sm font-bold">files</h3>
@@ -253,6 +247,6 @@ export function FilePanel({
           }
         }
       `}</style>
-    </div>
+    </Panel>
   );
 }

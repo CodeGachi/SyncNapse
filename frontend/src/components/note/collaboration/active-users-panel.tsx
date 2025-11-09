@@ -78,7 +78,7 @@ export function ActiveUsersPanel() {
                   />
                 </div>
                 <p className="text-gray-400 text-xs">
-                  ID: {user.connectionId.slice(0, 8)}...
+                  ID: {String(user.connectionId).slice(0, 8)}...
                 </p>
               </div>
             </div>

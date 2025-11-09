@@ -23,6 +23,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
   const { entityType, entityId, operation, data } = item;
 
+  // 지원하지 않는 작업 타입은 스킵
+  if (!["create", "update", "delete"].includes(operation)) {
+    console.log(`Skipping unsupported operation: ${operation}`);
+    return;
+  }
+
   // API 엔드포인트 생성
   let url = `${API_BASE_URL}/api/${entityType}s`;
   if (operation === "update" || operation === "delete") {
@@ -30,11 +36,12 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
   }
 
   // HTTP 메서드 결정
-  const method = {
+  const methods: Record<"create" | "update" | "delete", string> = {
     create: "POST",
     update: "PATCH",
     delete: "DELETE",
-  }[operation];
+  };
+  const method = methods[operation as "create" | "update" | "delete"];
 
   // 인증 헤더 가져오기
   const authHeaders = await getAuthHeaders();
