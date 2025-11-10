@@ -132,8 +132,6 @@ describe('BookmarksService', () => {
     it('should throw BadRequestException for negative startSec', async () => {
       const dto = {
         startSec: -5,
-        tag: null,
-        comment: null,
       };
 
       await expect(service.createForNote('note-1', 'user-1', dto)).rejects.toThrow(
