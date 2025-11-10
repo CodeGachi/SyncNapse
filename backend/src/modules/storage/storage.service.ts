@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { StreamingBlobPayloadOutputTypes } from '@smithy/types';
 
 @Injectable()
 export class StorageService {
@@ -154,7 +155,7 @@ export class StorageService {
   }
 
   async getFileStream(key: string): Promise<{ 
-    body: Buffer | Uint8Array | ReadableStream | Blob | string; 
+    body: StreamingBlobPayloadOutputTypes | Buffer; 
     contentType?: string; 
     contentLength?: number;
   }> {

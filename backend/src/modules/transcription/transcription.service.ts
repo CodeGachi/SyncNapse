@@ -450,21 +450,28 @@ export class TranscriptionService {
         this.logger.debug(`[getAudioStream] Body is already a Readable stream`);
         nodeStream = fileData.body;
       } 
-      // If it has transformToByteArray, use that to convert
-      else if (typeof fileData.body.transformToByteArray === 'function') {
-        this.logger.debug(`[getAudioStream] Converting Body using transformToByteArray`);
-        const byteArray = await fileData.body.transformToByteArray();
-        nodeStream = Readable.from(Buffer.from(byteArray));
-      }
-      // Fallback: try to convert to web stream then to node stream
-      else if (typeof fileData.body.transformToWebStream === 'function') {
-        this.logger.debug(`[getAudioStream] Converting Body using transformToWebStream`);
-        const webStream = fileData.body.transformToWebStream();
-        nodeStream = Readable.fromWeb(webStream as ReadableStream);
-      }
+      // StreamingBlobPayloadOutputTypes has transformToByteArray/transformToWebStream methods
       else {
-        this.logger.error(`[getAudioStream] ❌ Unknown Body type, cannot convert to stream`);
-        throw new Error('Cannot convert MinIO Body to readable stream');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sdkBody = fileData.body as any;
+        
+        // If it has transformToByteArray, use that to convert
+        if (typeof sdkBody.transformToByteArray === 'function') {
+          this.logger.debug(`[getAudioStream] Converting Body using transformToByteArray`);
+          const byteArray = await sdkBody.transformToByteArray();
+          nodeStream = Readable.from(Buffer.from(byteArray));
+        }
+        // Fallback: try to convert to web stream then to node stream
+        else if (typeof sdkBody.transformToWebStream === 'function') {
+          this.logger.debug(`[getAudioStream] Converting Body using transformToWebStream`);
+          const webStream = sdkBody.transformToWebStream();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          nodeStream = Readable.fromWeb(webStream as any);
+        }
+        else {
+          this.logger.error(`[getAudioStream] ❌ Unknown Body type, cannot convert to stream`);
+          throw new Error('Cannot convert MinIO Body to readable stream');
+        }
       }
 
       const contentLength = fileData.contentLength || expectedSize;
