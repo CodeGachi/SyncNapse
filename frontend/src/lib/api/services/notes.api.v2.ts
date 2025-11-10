@@ -20,7 +20,6 @@ import {
   saveNoteContent as saveNoteContentInDB,
   getNoteContent as getNoteContentFromDB,
 } from "@/lib/db/notes";
-import { dbToNote, dbToNotes } from "../adapters/note.adapter";
 import { useSyncStore } from "@/lib/sync/sync-store";
 
 /**
@@ -30,7 +29,7 @@ import { useSyncStore } from "@/lib/sync/sync-store";
  */
 export async function fetchAllNotes(): Promise<Note[]> {
   const dbNotes = await getNotesFromDB();
-  return dbToNotes(dbNotes);
+  return dbNotes as Note[];
 }
 
 /**
@@ -40,7 +39,7 @@ export async function fetchNotesByFolder(folderId?: string): Promise<Note[]> {
   const dbNotes = folderId
     ? await getNotesByFolderFromDB(folderId)
     : await getNotesFromDB();
-  return dbToNotes(dbNotes);
+  return dbNotes as Note[];
 }
 
 /**
@@ -48,7 +47,7 @@ export async function fetchNotesByFolder(folderId?: string): Promise<Note[]> {
  */
 export async function fetchNote(noteId: string): Promise<Note | null> {
   const dbNote = await getNoteFromDB(noteId);
-  return dbNote ? dbToNote(dbNote) : null;
+  return dbNote ? (dbNote as Note) : null;
 }
 
 /**
@@ -89,7 +88,7 @@ export async function createNote(
   });
 
   // 3. 즉시 반환 (백엔드 동기화는 백그라운드에서 처리)
-  return dbToNote(dbNote);
+  return dbNote as Note;
 }
 
 /**

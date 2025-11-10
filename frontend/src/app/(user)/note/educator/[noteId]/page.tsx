@@ -17,7 +17,6 @@ import { RightSidePanel } from "@/components/note/note-structure/right-side-pane
 import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
 import { NoteLayoutWrapper } from "@/components/note/note-structure/note-layout-wrapper";
-import { EducatorHeader } from "@/components/note/shared/educator-header";
 import { LiveblocksProvider } from "@/providers/liveblocks-provider";
 
 interface EducatorNotePageProps {
@@ -58,24 +57,21 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
       {/* Left Sidebar - Server Component */}
       <NoteSidebar />
 
-      {/* Educator Header - 공유 버튼 & 접속자 정보 */}
-      <EducatorHeader
-        noteId={noteId}
-        noteTitle={noteTitle}
-        isCollaborating={isCollaborating}
-        onStartCollaboration={handleStartCollaboration}
-        onStopCollaboration={handleStopCollaboration}
-      />
-
       {/* Data Loader - Client Component (TanStack Query + AutoSave) */}
       <NoteDataLoader noteId={noteId}>
         {/* Main Layout Wrapper - Client Component (isExpanded Status Management) */}
         <NoteLayoutWrapper>
-          {/* Main Content Area - Client Component */}
-          <NoteContentArea noteId={noteId} noteTitle={noteTitle} />
+          {/* Main Content Area - Client Component (includes sharing settings) */}
+          <NoteContentArea
+            noteId={noteId}
+            noteTitle={noteTitle}
+            isCollaborating={isCollaborating}
+            onStartCollaboration={handleStartCollaboration}
+            onStopCollaboration={handleStopCollaboration}
+          />
 
           {/* Right Side Panel - Client Component */}
-          <RightSidePanel noteId={noteId} />
+          <RightSidePanel noteId={noteId} isCollaborating={isCollaborating} />
 
           {/* Right Sidebar Icon (When closed) - Client Component */}
           <SidebarIcons noteId={noteId} />

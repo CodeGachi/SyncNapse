@@ -1,10 +1,11 @@
 /**
- * File upload hook
+ * File upload hook (V2 - IndexedDB + Sync Queue)
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useUploadFilesParallel } from "@/lib/api/mutations/files.mutations";
-import type { UploadResult } from "@/lib/api/files.api";
+import { saveMultipleFiles as saveMultipleFilesApi } from "@/lib/api/services/files.api.v2";
+import type { UploadResult } from "@/lib/api/services/files.api.v2";
+import type { DBFile } from "@/lib/db/files";
 
 export interface FileUploadItem {
   id: string;
@@ -17,6 +18,7 @@ export interface FileUploadItem {
 
 
 export interface UseFileUploadOptions {
+  noteId?: string; // V2: Required for saving to specific note
   maxConcurrent?: number;
   onFileComplete?: (file: FileUploadItem) => void;
   onFileError?: (file: FileUploadItem, error: Error) => void;
@@ -24,7 +26,7 @@ export interface UseFileUploadOptions {
 }
 
 /**
- * File upload hook
+ * File upload hook (V2 - IndexedDB + Sync Queue)
  *
  * @example
  * const {
@@ -35,6 +37,7 @@ export interface UseFileUploadOptions {
  *   cancelAll,
  *   isUploading,
  * } = useFileUpload({
+ *   noteId: "note-123",
  *   maxConcurrent: 3,
  *   onAllComplete: (results) => {
  *     console.log("모든 파일 업로드 완료:", results);
@@ -43,6 +46,7 @@ export interface UseFileUploadOptions {
  */
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const {
+    noteId,
     maxConcurrent = 3,
     onFileComplete,
     onFileError,
@@ -50,89 +54,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   } = options;
 
   const [files, setFiles] = useState<FileUploadItem[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const filesRef = useRef<FileUploadItem[]>([]);
 
   // Keep ref in sync with state
   useEffect(() => {
     filesRef.current = files;
   }, [files]);
-
-  const uploadMutation = useUploadFilesParallel({
-    maxConcurrent,
-    onSuccess: (results) => {
-      setFiles((prev) =>
-        prev.map((file) => {
-          // Find result based on file name and size (more reliable than reference equality)
-          const uploadResult = results.find(
-            (r) => r.file.name === file.file.name && r.file.size === file.file.size
-          );
-
-          if (!uploadResult) {
-            // If no upload result is found (not uploaded)
-            return file;
-          }
-
-          if (uploadResult.success && uploadResult.result) {
-            const updatedFile = {
-              ...file,
-              progress: 100,
-              status: "completed" as const,
-              result: uploadResult.result,
-            };
-
-            if (onFileComplete) {
-              onFileComplete(updatedFile);
-            }
-
-            return updatedFile;
-          } else if (!uploadResult.success) {
-            const error = uploadResult.error || new Error("Unknown error");
-            const updatedFile = {
-              ...file,
-              status: "error" as const,
-              error: error.message,
-            };
-
-            if (onFileError) {
-              onFileError(updatedFile, error);
-            }
-
-            return updatedFile;
-          }
-
-          return file;
-        })
-      );
-
-      // Return results for all files (including both success and failure)
-      if (onAllComplete) {
-        const successfulResults = results
-          .filter((r) => r.success && r.result)
-          .map((r) => r.result as UploadResult);
-        onAllComplete(successfulResults);
-      }
-    },
-    onError: (error) => {
-      setFiles((prev) =>
-        prev.map((file) => {
-          if (file.status === "uploading" || file.status === "pending") {
-            const updatedFile = {
-              ...file,
-              status: "error" as const,
-              error: error.message,
-            };
-
-            if (onFileError) {
-              onFileError(updatedFile, error);
-            }
-
-            return updatedFile;
-          }
-          return file;
-        })
-      );
-    },
-  });
 
   /**
    * Add files
@@ -157,9 +85,19 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, []);
 
   /**
-   * Start upload
+   * Start upload (V2 - Direct API call)
+   * When noteId is provided, uploads files to the note.
+   * When noteId is not provided, just stages files in the queue.
    */
-  const startUpload = useCallback(() => {
+  const startUpload = useCallback(async () => {
+    // If noteId is not provided, just stage files without uploading
+    if (!noteId) {
+      console.warn(
+        "useFileUpload: noteId not provided. Files are staged but not uploaded. Provide noteId to upload files."
+      );
+      return;
+    }
+
     // Get files to upload from ref (always has latest state)
     const filesToUpload = filesRef.current
       .filter((f) => f.status === "pending" || f.status === "error")
@@ -173,22 +111,91 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     setFiles((prev) =>
       prev.map((file) =>
         file.status === "pending" || file.status === "error"
-          ? { ...file, status: "uploading" as const, error: undefined }
+          ? { ...file, status: "uploading" as const, error: undefined, progress: 0 }
           : file
       )
     );
 
-    // Start upload mutation (outside of setState)
-    uploadMutation.mutate(filesToUpload);
-  }, [uploadMutation]);
+    setIsUploading(true);
+
+    try {
+      // Call V2 API directly to save files
+      const dbResults = await saveMultipleFilesApi(noteId, filesToUpload);
+
+      // Convert DBFile[] to UploadResult[] for hook API compatibility
+      const results: UploadResult[] = dbResults.map((dbFile: DBFile) => ({
+        id: dbFile.id,
+        name: dbFile.fileName,
+        url: "", // URL would be created by backend when syncing
+        size: dbFile.size,
+        type: dbFile.fileType,
+        uploadedAt: new Date(dbFile.createdAt).toISOString(),
+      }));
+
+      // Update files with results
+      setFiles((prev) =>
+        prev.map((file) => {
+          const result = results.find(
+            (r) => r.name === file.file.name && r.size === file.file.size
+          );
+
+          if (!result) {
+            return file;
+          }
+
+          const updatedFile = {
+            ...file,
+            progress: 100,
+            status: "completed" as const,
+            result,
+          };
+
+          if (onFileComplete) {
+            onFileComplete(updatedFile);
+          }
+
+          return updatedFile;
+        })
+      );
+
+      // Call onAllComplete with successful results
+      if (onAllComplete) {
+        onAllComplete(results);
+      }
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error("Unknown error");
+
+      // Update files with error status
+      setFiles((prev) =>
+        prev.map((file) => {
+          if (file.status === "uploading" || file.status === "pending") {
+            const updatedFile = {
+              ...file,
+              status: "error" as const,
+              error: err.message,
+            };
+
+            if (onFileError) {
+              onFileError(updatedFile, err);
+            }
+
+            return updatedFile;
+          }
+          return file;
+        })
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  }, [noteId, onFileComplete, onFileError, onAllComplete]);
 
   /**
    * Cancel all uploads
    */
   const cancelAll = useCallback(() => {
-    uploadMutation.reset();
+    setIsUploading(false);
     setFiles([]);
-  }, [uploadMutation]);
+  }, []);
 
   /**
    * Remove completed files
@@ -219,7 +226,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
   return {
     files,
-    isUploading: uploadMutation.isPending,
+    isUploading, // Now using local state instead of mutation state
 
     addFiles,
     removeFile,

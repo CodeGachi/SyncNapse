@@ -10,5 +10,5 @@ export { useNotePanel } from "./text-notes";
 export type { NoteBlock } from "./text-notes";
 
 // File Module
-export { useFilePanel } from "./file";
+export { useFilePanel, useFilePanelUI } from "./file";
 export type { FileItem } from "./file";

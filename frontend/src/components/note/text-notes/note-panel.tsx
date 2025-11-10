@@ -9,7 +9,6 @@ import { useNoteEditorStore } from "@/stores";
 import { getVisibleBlocks } from "@/features/note/text-notes/use-toggle-visibility"; // ✅ text-notes
 import { createKeyboardHandler } from "@/features/note/text-notes/use-note-keyboard"; // ✅ text-notes
 import { NoteBlockComponent } from "./note-block";
-import { DrawingBlockDisplay } from "../drawing/drawing-block-display"; // ✅ drawing
 
 interface NotePanelProps {
   isOpen: boolean;
@@ -65,17 +64,6 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
       </div>
 
       <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
-        {/* Drawing Block Display (필기 표시) */}
-        {noteId && selectedFileId && (
-          <div className="mb-2">
-            <DrawingBlockDisplay
-              noteId={noteId}
-              fileId={selectedFileId}
-              pageNum={currentPage}
-            />
-          </div>
-        )}
-
         {/* Text Blocks */}
         {visibleBlocks.map((block, index) => {
           const blockIndex = blocks.findIndex((b) => b.id === block.id);

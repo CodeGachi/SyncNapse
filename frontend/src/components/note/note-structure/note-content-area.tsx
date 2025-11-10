@@ -13,7 +13,7 @@ import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/text-notes/note-panel"; // ✅ text-notes (텍스트 필기)
 import { AutoSaveBadge } from "@/components/note/text-notes/auto-save-badge"; // ✅ text-notes
-import { SharingSettingsModal } from "@/components/note/sharing/sharing-settings-modal";
+import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
@@ -21,9 +21,18 @@ import { saveDrawing } from "@/lib/db/drawings";
 interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
+  isCollaborating?: boolean;
+  onStartCollaboration?: () => void;
+  onStopCollaboration?: () => void;
 }
 
-export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
+export function NoteContentArea({
+  noteId,
+  noteTitle,
+  isCollaborating,
+  onStartCollaboration,
+  onStopCollaboration,
+}: NoteContentAreaProps) {
   // 실제 노트 데이터로부터 제목 가져오기
   const { data: note } = useNote(noteId);
   const actualTitle = note?.title || noteTitle;
@@ -249,6 +258,11 @@ export function NoteContentArea({ noteId, noteTitle }: NoteContentAreaProps) {
                 onToggleRealTimeInteraction={toggleRealTimeInteraction}
                 onCopyShareLink={copyShareLink}
                 shareLink={sharingSettings.shareLink}
+                noteId={noteId || ""}
+                noteTitle={actualTitle}
+                isCollaborating={isCollaborating ?? false}
+                onStartCollaboration={onStartCollaboration ?? (() => {})}
+                onStopCollaboration={onStopCollaboration ?? (() => {})}
               />
             </div>
           )}

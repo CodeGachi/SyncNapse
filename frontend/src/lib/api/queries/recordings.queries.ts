@@ -4,7 +4,7 @@
  * Note recording query (GET) operations using useQuery hooks
  */
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchRecordingsByNote } from "../services/recordings.api";
+import { fetchRecordingsByNote } from "../services/recordings.api.v2"; // ✅ Updated to V2
 import type { DBRecording } from "@/lib/db/recordings";
 
 /**
