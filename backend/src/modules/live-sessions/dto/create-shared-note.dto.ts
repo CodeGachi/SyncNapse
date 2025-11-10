@@ -4,12 +4,12 @@ import { IsString, IsUUID, IsIn, IsNumber, IsOptional } from 'class-validator';
 export class CreateSharedNoteDto {
   @ApiProperty({ description: 'Note ID to share' })
   @IsUUID()
-  noteId: string;
+  noteId!: string;
 
   @ApiProperty({ description: 'Sync mode: LINK or COPY', enum: ['LINK', 'COPY'] })
   @IsString()
   @IsIn(['LINK', 'COPY'])
-  mode: 'LINK' | 'COPY';
+  mode!: 'LINK' | 'COPY';
 
   @ApiPropertyOptional({ description: 'Start time in seconds' })
   @IsNumber()

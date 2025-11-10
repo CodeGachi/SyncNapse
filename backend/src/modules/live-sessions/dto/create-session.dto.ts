@@ -4,7 +4,7 @@ import { IsString, IsOptional, IsUUID } from 'class-validator';
 export class CreateLiveSessionDto {
   @ApiProperty({ description: 'Note ID to share in the session' })
   @IsUUID()
-  noteId: string;
+  noteId!: string;
 
   @ApiPropertyOptional({ description: 'Session title' })
   @IsString()
