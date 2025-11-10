@@ -6,6 +6,7 @@ import { LoggingModule } from './logging/logging.module';
 import { HypermediaModule } from './hypermedia/hypermedia.module';
 import { RootController } from './root.controller';
 import { ExportsModule } from './exports/exports.module';
+import { BookmarksModule } from './bookmarks/bookmarks.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ExportsModule } from './exports/exports.module';
     LoggingModule,
     HypermediaModule,
     ExportsModule,
+    BookmarksModule,
   ],
   controllers: [RootController],
 })
