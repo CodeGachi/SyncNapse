@@ -6,19 +6,18 @@
  * 2. 변경사항을 동기화 큐에 추가
  * 3. 백그라운드에서 큐를 처리하여 Backend와 동기화
  * 4. 충돌 해결 전략: Last-Write-Wins (최신 timestamp 우선)
+ * 5. HTTP Client V2 사용 (retry, timeout, cache, interceptors 등)
  */
 
 import { useSyncStore } from "./sync-store";
 import type { SyncQueueItem } from "./sync-queue";
-import { getAuthHeaders } from "@/lib/auth/token-manager";
+import { apiClient } from "@/lib/api/client";
 
 /**
- * Backend API 엔드포인트
- */
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-/**
- * Backend에 단일 아이템 동기화
+ * Backend에 단일 아이템 동기화 (HTTP Client V2 사용)
+ * - Retry: 최대 3회 시도 (exponential backoff)
+ * - Timeout: 30초
+ * - Request interceptor에서 Authorization 헤더 자동 주입
  */
 async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
   const { entityType, entityId, operation, data } = item;
@@ -30,9 +29,9 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
   }
 
   // API 엔드포인트 생성
-  let url = `${API_BASE_URL}/api/${entityType}s`;
+  let endpoint = `/api/${entityType}s`;
   if (operation === "update" || operation === "delete") {
-    url += `/${entityId}`;
+    endpoint += `/${entityId}`;
   }
 
   // HTTP 메서드 결정
@@ -43,24 +42,20 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
   };
   const method = methods[operation as "create" | "update" | "delete"];
 
-  // 인증 헤더 가져오기
-  const authHeaders = await getAuthHeaders();
-
-  // API 호출
-  const response = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders,
-    },
-    ...(operation !== "delete" && { body: JSON.stringify(data) }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Backend sync failed: ${response.status} ${response.statusText} - ${errorText}`
-    );
+  try {
+    // HTTP Client V2 사용: retry, timeout, cache, interceptors 자동 지원
+    await apiClient<any>(endpoint, {
+      method,
+      ...(operation !== "delete" && { body: JSON.stringify(data) }),
+    }, {
+      retries: 3,
+      timeout: 30000,
+      cache: false, // 동기화 요청은 캐싱 금지
+      skipInterceptors: false, // Request interceptor로 Authorization 헤더 자동 주입
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Backend sync failed: ${errorMessage}`);
   }
 }
 

@@ -17,6 +17,18 @@ import {
 import { useSyncStore } from "@/lib/sync/sync-store";
 
 /**
+ * Upload result from file upload operation
+ */
+export interface UploadResult {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  uploadedAt: string;
+}
+
+/**
  * File with DB ID information (for loading from storage)
  */
 export interface FileWithId {

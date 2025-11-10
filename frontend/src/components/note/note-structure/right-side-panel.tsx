@@ -28,9 +28,10 @@ import { CollaborationPanel } from "@/components/note/collaboration/collaboratio
 
 interface RightSidePanelProps {
   noteId: string | null;
+  isCollaborating?: boolean;
 }
 
-export function RightSidePanel({ noteId }: RightSidePanelProps) {
+export function RightSidePanel({ noteId, isCollaborating = false }: RightSidePanelProps) {
   // Get note data to determine if it's an educator note
   const { data: note } = useNote(noteId);
   const isEducatorNote = note?.type === "educator";
@@ -173,8 +174,8 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
           {/* tags 패널 */}
           <TagsPanel isOpen={isTagsPanelOpen} />
 
-          {/* 협업 패널 (교육자 노트만, Liveblocks 실시간) */}
-          {isCollaborationPanelOpen && isEducatorNote && (
+          {/* 협업 패널 (교육자 노트 + 협업 모드 활성화 시, Liveblocks 실시간) */}
+          {isCollaborationPanelOpen && isEducatorNote && isCollaborating && (
             <CollaborationPanel
               userId="user-123" // TODO: Connect to actual user context
               userName="사용자" // TODO: Connect to actual user context

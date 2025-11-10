@@ -17,7 +17,6 @@ import {
   moveFolder as moveFolderInDB,
   getFolderPath as getFolderPathFromDB,
 } from "@/lib/db/folders";
-import { dbToFolder, dbToFolders } from "../adapters/folder.adapter";
 import { useSyncStore } from "@/lib/sync/sync-store";
 
 /**
@@ -26,7 +25,7 @@ import { useSyncStore } from "@/lib/sync/sync-store";
  */
 export async function fetchAllFolders(): Promise<Folder[]> {
   const dbFolders = await getAllFoldersFromDB();
-  return dbToFolders(dbFolders);
+  return dbFolders as Folder[];
 }
 
 /**
@@ -36,7 +35,7 @@ export async function fetchFoldersByParent(
   parentId: string | null
 ): Promise<Folder[]> {
   const dbFolders = await getFoldersByParentFromDB(parentId);
-  return dbToFolders(dbFolders);
+  return dbFolders as Folder[];
 }
 
 /**
@@ -66,7 +65,7 @@ export async function createFolder(
   });
 
   // 3. 즉시 반환
-  return dbToFolder(dbFolder);
+  return dbFolder as Folder;
 }
 
 /**
@@ -143,5 +142,5 @@ export async function moveFolder(
  */
 export async function fetchFolderPath(folderId: string): Promise<Folder[]> {
   const dbFolders = await getFolderPathFromDB(folderId);
-  return dbToFolders(dbFolders);
+  return dbFolders as Folder[];
 }

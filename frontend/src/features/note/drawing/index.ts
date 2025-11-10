@@ -1,8 +1,7 @@
 /**
  * Drawing Features - 필기 기능 전체 내보내기
+ *
+ * Note: Drawing functionality is implemented using:
+ * - Zustand stores (draw-store, tools-store) for state management
+ * - Fabric.js canvas directly in pdf-drawing-overlay component
  */
-
-export { useDrawingCanvas, useDrawingTool } from "./use-drawing-canvas";
-export { useDrawingHistory } from "./use-drawing-history";
-export { useDrawingTools } from "./use-drawing-tools";
-export { useDrawingExport } from "./use-drawing-export";

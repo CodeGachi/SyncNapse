@@ -5,7 +5,7 @@
 "use client";
 
 import type { FileItem } from "@/features/note";
-import { useFilePanel } from "@/features/note/file-panel/use-file-panel";
+import { useFilePanelUI } from "@/features/note";
 import { Panel } from "./panel";
 
 interface FilePanelProps {
@@ -47,7 +47,7 @@ export function FilePanel({
     handleRenameSubmit,
     handleCopy,
     handleKeyDown,
-  } = useFilePanel({
+  } = useFilePanelUI({
     files,
     onAddFile,
     onRemoveFile,

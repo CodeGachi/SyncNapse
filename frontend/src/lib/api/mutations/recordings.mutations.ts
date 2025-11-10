@@ -12,7 +12,7 @@ import {
   saveRecording as saveRecordingApi,
   deleteRecording as deleteRecordingApi,
   renameRecording as renameRecordingApi,
-} from "../services/recordings.api";
+} from "../services/recordings.api.v2"; // ✅ Updated to V2
 import type { DBRecording } from "@/lib/db/recordings";
 
 /**
