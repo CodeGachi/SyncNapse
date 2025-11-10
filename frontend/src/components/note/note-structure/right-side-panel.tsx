@@ -94,7 +94,8 @@ export function RightSidePanel({ noteId, isCollaborating = false }: RightSidePan
     handleStopPlayback,
   } = useAudioPlayer();
 
-  const { handleAddFile } = useFileManagement();
+  // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
+  const { handleAddFile } = useFileManagement({ noteId });
 
   // Combined play/pause handler
   const onPlayToggle = () => {

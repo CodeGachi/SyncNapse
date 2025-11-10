@@ -18,6 +18,7 @@ import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
 import { NoteLayoutWrapper } from "@/components/note/note-structure/note-layout-wrapper";
 import { LiveblocksProvider } from "@/providers/liveblocks-provider";
+import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
 
 interface EducatorNotePageProps {
   params: {
@@ -30,16 +31,28 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
   const searchParams = useSearchParams();
   const noteTitle = searchParams.get("title") || "제목 없음";
   const joinToken = searchParams.get("join"); // 참여자 접속 시 토큰
+  const viewMode = searchParams.get("view"); // 공유 링크 접속 모드 (shared)
+  const shareToken = searchParams.get("token"); // 공유 링크 토큰
 
-  // 협업 모드 state
-  const [isCollaborating, setIsCollaborating] = useState(false);
+  // 초기값 계산: URL 파라미터로부터 공유/협업 모드 확인
+  const isSharedViewInitial = viewMode === "shared" && !!shareToken;
+  const isCollaboratingInitial = isSharedViewInitial || !!joinToken;
+
+  // 협업 모드 state (초기값을 URL 파라미터로부터 설정)
+  const [isCollaborating, setIsCollaborating] = useState(isCollaboratingInitial);
+  // 공유 모드 state (초기값을 URL 파라미터로부터 설정)
+  const [isSharedView, setIsSharedView] = useState(isSharedViewInitial);
 
   useEffect(() => {
-    // 참여자가 join 토큰으로 접속한 경우 자동으로 협업 모드 활성화
-    if (joinToken) {
-      setIsCollaborating(true);
+    // 공유 링크로 접속한 경우 로그
+    if (isSharedViewInitial) {
+      console.log(`[공유 모드] 노트 ${noteId}에 공유 링크로 접속했습니다.`);
     }
-  }, [joinToken]);
+    // 참여자가 join 토큰으로 접속한 경우 로그
+    else if (joinToken) {
+      console.log(`[협업 모드] 노트 ${noteId}에 참여했습니다.`);
+    }
+  }, [isSharedViewInitial, joinToken, noteId]);
 
   // 협업 시작 핸들러
   const handleStartCollaboration = () => {
@@ -58,7 +71,7 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
       <NoteSidebar />
 
       {/* Data Loader - Client Component (TanStack Query + AutoSave) */}
-      <NoteDataLoader noteId={noteId}>
+      <NoteDataLoader noteId={noteId} isSharedView={isSharedView}>
         {/* Main Layout Wrapper - Client Component (isExpanded Status Management) */}
         <NoteLayoutWrapper>
           {/* Main Content Area - Client Component (includes sharing settings) */}
@@ -66,6 +79,7 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
             noteId={noteId}
             noteTitle={noteTitle}
             isCollaborating={isCollaborating}
+            isSharedView={isSharedView}
             onStartCollaboration={handleStartCollaboration}
             onStopCollaboration={handleStopCollaboration}
           />
@@ -83,7 +97,15 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
   // 조건부 Liveblocks Provider
   if (isCollaborating) {
     return (
-      <LiveblocksProvider noteId={noteId}>{noteContent}</LiveblocksProvider>
+      <LiveblocksProvider noteId={noteId}>
+        <CollaborationDataHandler
+          isSharedView={isSharedView}
+          isCollaborating={isCollaborating}
+          noteId={noteId}
+        >
+          {noteContent}
+        </CollaborationDataHandler>
+      </LiveblocksProvider>
     );
   }
 

@@ -63,16 +63,16 @@ export async function createNote(
 ): Promise<Note> {
   // 1. IndexedDB에 즉시 저장
   const { createNote: createNoteInDB } = await import("@/lib/db/notes");
-  const { saveMultipleFiles } = await import("@/lib/db/files");
 
   const dbNote = await createNoteInDB(title, folderId, type);
 
-  // 파일 저장
+  // 2. 파일 저장 (API 레이어 사용 → 백엔드 업로드 + 동기화 큐 추가 포함)
   if (files.length > 0) {
+    const { saveMultipleFiles } = await import("./files.api");
     await saveMultipleFiles(dbNote.id, files);
   }
 
-  // 2. 동기화 큐에 추가
+  // 3. 노트 자체를 동기화 큐에 추가
   const syncStore = useSyncStore.getState();
   syncStore.addToSyncQueue({
     entityType: "note",
@@ -87,7 +87,7 @@ export async function createNote(
     },
   });
 
-  // 3. 즉시 반환 (백엔드 동기화는 백그라운드에서 처리)
+  // 4. 즉시 반환 (백엔드 동기화는 백그라운드에서 처리)
   return dbNote as Note;
 }
 

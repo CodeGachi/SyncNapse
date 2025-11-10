@@ -34,7 +34,7 @@ export function OAuthCallback() {
     } else if (!accessToken && !refreshToken && !errorParam) {
       // 토큰도 에러도 없으면 리다이렉트 (백엔드가 쿠키에 저장한 경우)
       setTimeout(() => {
-        const token = localStorage.getItem("authToken");
+        const token = localStorage.getItem("syncnapse_access_token");
         if (token) {
           router.push("/dashboard/main");
         } else {

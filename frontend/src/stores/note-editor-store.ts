@@ -77,6 +77,7 @@ interface NoteEditorState {
   getPageKey: (fileId: string, page: number) => string;
   getCurrentPageBlocks: () => NoteBlock[];
   setCurrentPage: (page: number) => void;
+  setPageNotes: (pageNotes: PageNotes) => void; // 공유 모드용
   addPageBlock: (afterId: string, type?: NoteBlock["type"]) => string;
   updatePageBlock: (id: string, updates: Partial<NoteBlock>) => void;
   deletePageBlock: (id: string) => void;
@@ -86,7 +87,9 @@ interface NoteEditorState {
   addFile: (file: FileItem) => void;
   removeFile: (id: string) => void; // files 목록에서 완전히 삭제
   selectFile: (id: string) => void;
+  setSelectedFileId: (id: string | null) => void; // 공유 모드용
   loadFiles: (files: FileItem[]) => void;
+  setFiles: (files: FileItem[]) => void; // 공유 모드용
   renameFile: (id: string, newName: string) => void;
   copyFile: (id: string) => void;
 
@@ -223,6 +226,8 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       setCurrentPage: (page) => set({ currentPage: page }),
 
+      setPageNotes: (pageNotes) => set({ pageNotes }),
+
       addPageBlock: (afterId, type = "text") => {
         const state = get();
         if (!state.selectedFileId) return "";
@@ -336,6 +341,10 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         }),
 
       selectFile: (id) => set({ selectedFileId: id }),
+
+      setSelectedFileId: (id) => set({ selectedFileId: id }),
+
+      setFiles: (files) => set({ files }),
 
       loadFiles: (files) =>
         set((state) => ({

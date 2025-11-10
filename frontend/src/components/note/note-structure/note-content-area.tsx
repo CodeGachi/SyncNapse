@@ -22,6 +22,7 @@ interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
   isCollaborating?: boolean;
+  isSharedView?: boolean; // 공유 링크로 접속한 경우
   onStartCollaboration?: () => void;
   onStopCollaboration?: () => void;
 }
@@ -30,6 +31,7 @@ export function NoteContentArea({
   noteId,
   noteTitle,
   isCollaborating,
+  isSharedView = false,
   onStartCollaboration,
   onStopCollaboration,
 }: NoteContentAreaProps) {
@@ -149,17 +151,22 @@ export function NoteContentArea({
 
   const copyShareLink = async () => {
     if (!sharingSettings.shareLink) {
-      const token = Math.random().toString(36).substring(2, 15);
+      // 토큰 형식: {noteId}-{timestamp}-{randomString}
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
+      const token = `${noteId}-${timestamp}-${randomString}`;
       const shareLink = `${window.location.origin}/shared/${token}`;
+
       setSharingSettings((prev) => ({
         ...prev,
         shareLink,
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30일
       }));
     }
     if (sharingSettings.shareLink) {
       try {
         await navigator.clipboard.writeText(sharingSettings.shareLink);
+        console.log("공유 링크가 복사되었습니다:", sharingSettings.shareLink);
       } catch (error) {
         console.error("링크 복사 실패:", error);
       }
@@ -221,8 +228,8 @@ export function NoteContentArea({
           {/* 자동저장 배지 */}
           <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
 
-          {/* 강의 노트 버튼들 (Educator만) */}
-          {isEducatorNote && (
+          {/* 강의 노트 버튼들 (Educator만, 공유 모드 제외) */}
+          {isEducatorNote && !isSharedView && (
             <div className="flex items-center gap-2">
               {/* 공유 설정 버튼 (아이콘만) */}
               <button
@@ -264,6 +271,13 @@ export function NoteContentArea({
                 onStartCollaboration={onStartCollaboration ?? (() => {})}
                 onStopCollaboration={onStopCollaboration ?? (() => {})}
               />
+            </div>
+          )}
+
+          {/* 공유 모드 뱃지 표시 */}
+          {isSharedView && (
+            <div className="px-3 py-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded-full text-sm font-medium">
+              공유 노트 보기
             </div>
           )}
         </div>

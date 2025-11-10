@@ -7,7 +7,8 @@ export default function UserLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = cookies();
-  const authToken = cookieStore.get("authToken")?.value;
+  // 올바른 쿠키 키 사용
+  const authToken = cookieStore.get("syncnapse_access_token")?.value;
 
   if (!authToken) {
     redirect("/");

@@ -44,13 +44,29 @@ export async function checkAuthStatus(): Promise<{ ok: boolean }> {
 /**
  * Get current user info from JWT token
  * Decodes the JWT token stored in localStorage
- * (로컬 디코딩이므로 서버 요청 불필요)
+ * Mock 모드일 때는 localStorage의 user 직접 반환
  */
 export async function getCurrentUser(): Promise<User | null> {
-  const token = localStorage.getItem("authToken");
+  const token = localStorage.getItem("syncnapse_access_token");
   if (!token) return null;
 
   try {
+    // Mock 토큰인 경우 (JWT 형식이 아님)
+    if (token.startsWith("mock-jwt-token-")) {
+      const userStr = localStorage.getItem("user");
+      if (!userStr) return null;
+
+      const user = JSON.parse(userStr);
+
+      // 구버전 데이터 마이그레이션: via.placeholder.com URL 제거
+      if (user.picture?.includes("via.placeholder.com")) {
+        user.picture = undefined;
+        localStorage.setItem("user", JSON.stringify(user));
+      }
+
+      return user;
+    }
+
     // JWT 토큰 디코드 (간단한 방식: payload 부분만 추출)
     const parts = token.split(".");
     if (parts.length !== 3) throw new Error("Invalid token format");
@@ -61,7 +77,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
     // 토큰 만료 확인
     if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-      localStorage.removeItem("authToken");
+      localStorage.removeItem("syncnapse_access_token");
       return null;
     }
 
@@ -76,7 +92,8 @@ export async function getCurrentUser(): Promise<User | null> {
         : new Date().toISOString(),
     };
   } catch (error) {
-    localStorage.removeItem("authToken");
+    console.error("[Auth] getCurrentUser 실패:", error);
+    localStorage.removeItem("syncnapse_access_token");
     return null;
   }
 }
@@ -87,7 +104,7 @@ export async function getCurrentUser(): Promise<User | null> {
  * - 항상 로컬 토큰 제거
  */
 export async function logout(): Promise<void> {
-  const refreshToken = localStorage.getItem("refreshToken");
+  const refreshToken = localStorage.getItem("syncnapse_refresh_token");
 
   try {
     await apiClient<{ message: string }>("/api/auth/logout", {
@@ -96,11 +113,7 @@ export async function logout(): Promise<void> {
     });
   } finally {
     // 항상 로컬 토큰 제거
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("syncnapse_access_token");
+    localStorage.removeItem("syncnapse_refresh_token");
   }
 }
-
-/**
- * @deprecated auth.api.ts 사용 금지, auth.api.v2.ts 사용하세요
- */

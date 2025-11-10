@@ -375,12 +375,42 @@ async function retryRequest<T>(
 }
 
 /**
- * Authorization 헤더에 토큰 추가 (인터셉터로 이동됨)
- * @deprecated 대신 addRequestInterceptor를 사용하세요
+ * 인증 인터셉터 설정
+ * - 자동으로 Authorization 헤더 추가
+ * - 토큰 만료 시 자동 갱신
  */
-export function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem("authToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+export async function setupAuthInterceptor(): Promise<void> {
+  // Request 인터셉터: 자동으로 Authorization 헤더 추가
+  addRequestInterceptor(async (config) => {
+    // token-manager에서 유효한 토큰 가져오기 (자동 갱신 포함)
+    const { getValidAccessToken } = await import("../auth/token-manager");
+    const token = await getValidAccessToken();
+
+    if (token) {
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`,
+      };
+    }
+
+    return config;
+  });
+
+  // Error 인터셉터: 401 에러 시 토큰 갱신 및 로그아웃 처리
+  addErrorInterceptor(async (error) => {
+    if (error.status === 401) {
+      console.warn("[API] Unauthorized - clearing tokens");
+      const { clearTokens } = await import("../auth/token-manager");
+      clearTokens();
+
+      // 로그인 페이지로 리다이렉트 (클라이언트에서만)
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
+  });
+
+  console.debug("[API] Auth interceptors initialized");
 }
 
 /**

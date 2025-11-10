@@ -1,5 +1,5 @@
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
-import { getCurrentUser, type User } from "../auth.api";
+import { getCurrentUser, type User } from "../services/auth.api";
 
 /**
  * Get current user info from JWT token
@@ -14,8 +14,8 @@ export function useCurrentUser(
       try {
         return await getCurrentUser();
       } catch (error) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("syncnapse_access_token");
+        localStorage.removeItem("syncnapse_refresh_token");
         return null;
       }
     },

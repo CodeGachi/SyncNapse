@@ -3,7 +3,7 @@ import {
   useQueryClient,
   UseMutationOptions,
 } from "@tanstack/react-query";
-import { logout as logoutApi } from "../auth.api";
+import { logout as logoutApi } from "../services/auth.api";
 
 export function useLogin(
   options?: UseMutationOptions<
@@ -16,8 +16,8 @@ export function useLogin(
 
   return useMutation({
     mutationFn: async ({ accessToken, refreshToken }: { accessToken: string; refreshToken: string }) => {
-      localStorage.setItem("authToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("syncnapse_access_token", accessToken);
+      localStorage.setItem("syncnapse_refresh_token", refreshToken);
 
       try {
         const parts = accessToken.split(".");
