@@ -7,6 +7,7 @@ import { HypermediaModule } from './hypermedia/hypermedia.module';
 import { RootController } from './root.controller';
 import { ExportsModule } from './exports/exports.module';
 import { BookmarksModule } from './bookmarks/bookmarks.module';
+import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { BookmarksModule } from './bookmarks/bookmarks.module';
     HypermediaModule,
     ExportsModule,
     BookmarksModule,
+    LiveSessionsModule,
   ],
   controllers: [RootController],
 })
