@@ -1,31 +1,51 @@
 import { Controller, Get, Logger, Param, Post, Res, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiOkResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ExportsService } from './exports.service';
+import { ExportResultDto } from './dto';
 
 @ApiTags('exports')
+@ApiBearerAuth()
 @Controller('exports')
 export class ExportsController {
   private readonly logger = new Logger(ExportsController.name);
+  
   constructor(private readonly exportsService: ExportsService) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('notes/:noteId')
   @ApiOperation({ summary: 'Generate export bundle for a note' })
-  async generateNote(@Param('noteId') noteId: string) {
+  @ApiParam({ name: 'noteId', description: 'Note ID', example: 'note-123' })
+  @ApiOkResponse({ 
+    description: 'Export generated successfully', 
+    type: ExportResultDto 
+  })
+  async generateNote(@Param('noteId') noteId: string): Promise<ExportResultDto> {
+    this.logger.debug(`generateNote called for noteId=${noteId}`);
     return this.exportsService.createExportForNote(noteId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('download/:noteId')
-  @ApiOperation({ summary: 'Download previously generated export' })
-  async download(@Param('noteId') noteId: string, @Res() res: { setHeader: (k: string, v: string) => void; send: (b: unknown) => void }) {
+  @ApiOperation({ summary: 'Download export file for a note' })
+  @ApiParam({ name: 'noteId', description: 'Note ID', example: 'note-123' })
+  async download(
+    @Param('noteId') noteId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    this.logger.debug(`download called for noteId=${noteId}`);
+    
+    // Generate export if not exists or regenerate
     const { file } = await this.exportsService.createExportForNote(noteId);
     const { content } = await this.exportsService.readExport(file);
+
+    // Set response headers
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${noteId}.json"`);
-    return res.send(content);
+    res.setHeader('Content-Length', content.length);
+
+    // Send file
+    res.send(content);
   }
 }
-
-

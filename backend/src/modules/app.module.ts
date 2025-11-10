@@ -12,6 +12,7 @@ import { TranscriptionModule } from './transcription/transcription.module';
 import { FoldersModule } from './folders/folders.module';
 import { NotesModule } from './notes/notes.module';
 import { StorageModule } from './storage/storage.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { StorageModule } from './storage/storage.module';
     NotesModule,
     StorageModule,
     TranscriptionModule,
+    UploadsModule,
   ],
   controllers: [RootController],
 })

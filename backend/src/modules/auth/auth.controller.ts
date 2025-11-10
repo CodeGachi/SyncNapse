@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, HttpException, HttpStatus, Logger, Req, Res, UseGuards, Headers } from '@nestjs/common';
-import { ApiOkResponse, ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiOkResponse, ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LinkBuilderService } from '../hypermedia/link-builder.service';
 import { AuthService } from './services/auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -96,6 +96,7 @@ export class AuthController {
   
   @Post('logout')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout (revoke tokens)' })
   @ApiOkResponse({ 
     schema: { 
@@ -155,6 +156,7 @@ export class AuthController {
 
   @Get('check')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Check JWT authentication' })
   async check(@Req() req: { user?: { id?: string } }) {
     const user = req.user as { id: string };
