@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { FoldersService } from '../folders/folders.service';
 import { CreateNoteDto, UpdateNoteDto } from './dto';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class NotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly foldersService: FoldersService,
   ) {}
 
   async getNotesByUser(userId: string, folderId?: string) {
@@ -164,6 +166,12 @@ export class NotesService {
 
     this.logger.debug(`[createNote] Created note: ${note.id}`);
 
+    // Build storage path: users/{userNickname}/{folderPath}/{noteId}/
+    const folderStoragePath = await this.foldersService.buildFolderStoragePath(userId, dto.folder_id);
+    const noteBasePath = `${folderStoragePath}/${note.id}`;
+
+    this.logger.debug(`[createNote] Note base storage path: ${noteBasePath}`);
+
     if (files.length > 0) {
       this.logger.debug(
         `[createNote] Uploading ${files.length} files: ${files.map((f) => f.originalname).join(', ')}`,
@@ -171,20 +179,27 @@ export class NotesService {
 
       for (const file of files) {
         try {
-          let fileTypeCategory: 'notes' | 'typing' | 'audio' | 'pdf' = 'notes';
+          // Determine file category and storage subdirectory
+          let storageSubDir = 'files'; // Default for general files
           if (file.mimetype === 'application/pdf') {
-            fileTypeCategory = 'pdf';
+            storageSubDir = 'files';
           } else if (file.mimetype.startsWith('audio/')) {
-            fileTypeCategory = 'audio';
+            storageSubDir = 'audio';
           } else if (file.mimetype.includes('text/') || file.mimetype.includes('document')) {
-            fileTypeCategory = 'typing';
+            storageSubDir = 'files';
           }
 
-          const { url, key } = await this.storageService.uploadFile(
-            file,
-            userId,
-            note.id,
-            fileTypeCategory,
+          // Build storage key: users/{userNickname}/{folderPath}/{noteId}/{subDir}/{filename}
+          const sanitizedFilename = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const storageKey = `${noteBasePath}/${storageSubDir}/${Date.now()}_${sanitizedFilename}`;
+
+          this.logger.debug(`[createNote] Uploading file to: ${storageKey}`);
+
+          // Upload file using uploadBuffer method
+          const result = await this.storageService.uploadBuffer(
+            file.buffer,
+            storageKey,
+            file.mimetype,
           );
 
           await this.prisma.file.create({
@@ -193,12 +208,12 @@ export class NotesService {
               fileName: file.originalname,
               fileType: file.mimetype,
               fileSize: file.size,
-              storageUrl: url,
-              storageKey: key,
+              storageUrl: result.publicUrl || this.storageService.getPublicUrl(storageKey),
+              storageKey,
             },
           });
 
-          this.logger.log(`[createNote] File uploaded: ${file.originalname} as ${fileTypeCategory}`);
+          this.logger.log(`[createNote] ✅ File uploaded: ${file.originalname} to ${storageKey}`);
         } catch (error) {
           this.logger.error(`[createNote] Failed to upload file ${file.originalname}:`, error);
         }
