@@ -3,12 +3,12 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { UploadResult } from "../services/files.api.v2"; // ✅ Type moved to V2
+import type { UploadResult } from "../services/files.api"; // ✅ Type moved to V2
 import {
   saveFile as saveFileApi,
   saveMultipleFiles as saveMultipleFilesApi,
   deleteFile as deleteNoteFileApi,
-} from "../services/files.api.v2"; // ✅ V2 API로 변경
+} from "../services/files.api"; // ✅ V2 API로 변경
 import type { DBFile } from "@/lib/db/files";
 
 // ============================================================================
@@ -33,7 +33,12 @@ export function useSaveNoteFile(
       saveFileApi(noteId, file),
 
     onSuccess: (data, variables) => {
-      // Relevant Note File List Invalidate queryClient.invalidateQueries({ queryKey: ["files", "note", variables.noteId] });       options?.onSuccess?.(data);
+      // Invalidate all file queries for this note (both withId and without)
+      queryClient.invalidateQueries({
+        queryKey: ["files", "note", variables.noteId],
+        exact: false, // Invalidate all queries starting with this prefix
+      });
+      options?.onSuccess?.(data);
     },
 
     onError: (error) => {
@@ -59,7 +64,12 @@ export function useSaveMultipleNoteFiles(
       saveMultipleFilesApi(noteId, files),
 
     onSuccess: (data, variables) => {
-      // Relevant Note File List Invalidate queryClient.invalidateQueries({ queryKey: ["files", "note", variables.noteId] });       options?.onSuccess?.(data);
+      // Invalidate all file queries for this note (both withId and without)
+      queryClient.invalidateQueries({
+        queryKey: ["files", "note", variables.noteId],
+        exact: false, // Invalidate all queries starting with this prefix
+      });
+      options?.onSuccess?.(data);
     },
 
     onError: (error) => {
@@ -86,7 +96,12 @@ export function useDeleteNoteFile(
       deleteNoteFileApi(fileId),
 
     onSuccess: (_, variables) => {
-      // Relevant Note File List Invalidate queryClient.invalidateQueries({ queryKey: ["files", "note", variables.noteId] });       options?.onSuccess?.();
+      // Invalidate all file queries for this note (both withId and without)
+      queryClient.invalidateQueries({
+        queryKey: ["files", "note", variables.noteId],
+        exact: false, // Invalidate all queries starting with this prefix
+      });
+      options?.onSuccess?.();
     },
 
     onError: (error) => {

@@ -168,15 +168,106 @@ export function stopAutoSync(): void {
  */
 export async function pullFromBackend(): Promise<void> {
   try {
-    // TODO: Backend에서 모든 데이터 가져오기
-    // const response = await fetch(`${API_BASE_URL}/api/sync/full`);
-    // const data = await response.json();
+    console.log("[Sync] Starting full pull from backend...");
 
-    // TODO: IndexedDB에 덮어쓰기 (conflict resolution 필요)
+    // 백엔드에서 모든 데이터 가져오기
+    const [notes, folders, files, recordings] = await Promise.all([
+      apiClient<any[]>("/api/notes", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/api/folders", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/api/files", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/api/recordings", { method: "GET" }).catch(() => []),
+    ]);
 
-    console.log("Pull from backend completed");
+    console.log(`[Sync] Fetched ${notes.length} notes, ${folders.length} folders, ${files.length} files, ${recordings.length} recordings`);
+
+    // IndexedDB에 저장 (conflict resolution 적용)
+    const { initDB } = await import("@/lib/db/index");
+    const db = await initDB();
+
+    // 트랜잭션으로 한 번에 처리
+    const transaction = db.transaction(
+      ["notes", "folders", "files", "recordings"],
+      "readwrite"
+    );
+
+    const notesStore = transaction.objectStore("notes");
+    const foldersStore = transaction.objectStore("folders");
+    const filesStore = transaction.objectStore("files");
+    const recordingsStore = transaction.objectStore("recordings");
+
+    // 각 엔티티 병합 (Last-Write-Wins 전략)
+    for (const note of notes) {
+      const existingNote = await new Promise<any>((resolve) => {
+        const req = notesStore.get(note.id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+
+      if (!existingNote || note.updatedAt > existingNote.updatedAt) {
+        await new Promise<void>((resolve, reject) => {
+          const req = notesStore.put(note);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+    }
+
+    for (const folder of folders) {
+      const existingFolder = await new Promise<any>((resolve) => {
+        const req = foldersStore.get(folder.id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+
+      if (!existingFolder || folder.updatedAt > existingFolder.updatedAt) {
+        await new Promise<void>((resolve, reject) => {
+          const req = foldersStore.put(folder);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+    }
+
+    for (const file of files) {
+      const existingFile = await new Promise<any>((resolve) => {
+        const req = filesStore.get(file.id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+
+      if (!existingFile || file.updatedAt > existingFile.updatedAt) {
+        await new Promise<void>((resolve, reject) => {
+          const req = filesStore.put(file);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+    }
+
+    for (const recording of recordings) {
+      const existingRecording = await new Promise<any>((resolve) => {
+        const req = recordingsStore.get(recording.id);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+
+      if (!existingRecording || recording.updatedAt > existingRecording.updatedAt) {
+        await new Promise<void>((resolve, reject) => {
+          const req = recordingsStore.put(recording);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+
+    console.log("[Sync] Pull from backend completed successfully");
   } catch (error) {
-    console.error("Failed to pull from backend:", error);
+    console.error("[Sync] Failed to pull from backend:", error);
     throw error;
   }
 }

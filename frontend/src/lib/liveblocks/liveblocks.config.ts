@@ -43,6 +43,39 @@ type Presence = {
 
 // Storage 타입: 영구 저장 상태
 type Storage = {
+  // === 노트 기본 정보 (공유 모드용) ===
+  noteInfo: {
+    id: string;
+    title: string;
+    type: "student" | "educator";
+    folderId: string | null;
+    createdAt: number;
+    updatedAt: number;
+  } | null;
+
+  // === 파일 목록 (공유 모드용) ===
+  files: Array<{
+    id: string;
+    noteId: string;
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    fileUrl: string;
+    totalPages?: number;
+    uploadedAt: number;
+  }>;
+
+  // === 필기 데이터 (공유 모드용) ===
+  // Key: "fileId-pageNum", Value: NoteBlock[]
+  pageNotes: Record<string, Array<{
+    id: string;
+    type: "text" | "checklist";
+    content: string;
+    checked?: boolean;
+    order: number;
+    createdAt: number;
+  }>>;
+
   // === PDF 뷰어 상태 ===
   currentPage: number;          // 현재 페이지 번호 (Educator가 제어)
   currentFileId: string | null; // 현재 열린 파일 ID

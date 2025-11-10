@@ -8,6 +8,7 @@ import type { NoteAccessControl } from "@/lib/types/domain";
 
 interface UseSharingSettingsProps {
   initialSettings?: NoteAccessControl;
+  noteId?: string; // 공유 링크 생성에 필요
 }
 
 export function useSharingSettings(props?: UseSharingSettingsProps) {
@@ -75,14 +76,22 @@ export function useSharingSettings(props?: UseSharingSettingsProps) {
   const generateShareLink = () => {
     if (settings.shareLink) return settings.shareLink;
 
-    const token = Math.random().toString(36).substring(2, 15);
-    const shareLink = `${window.location.origin}/shared/${token}`;
+    // 토큰 형식: {timestamp}-{randomString}
+    const noteId = props?.noteId || "unknown";
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const token = `${timestamp}-${randomString}`;
+
+    // 공유 링크: /note/educator/{noteId}?view=shared&token={token}
+    const shareLink = `${window.location.origin}/note/educator/${noteId}?view=shared&token=${token}`;
 
     setSettings((prev) => ({
       ...prev,
       shareLink,
       expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30일
     }));
+
+    console.log("[공유 링크 생성]", shareLink);
 
     return shareLink;
   };

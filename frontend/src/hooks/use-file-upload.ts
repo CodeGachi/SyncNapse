@@ -3,8 +3,8 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { saveMultipleFiles as saveMultipleFilesApi } from "@/lib/api/services/files.api.v2";
-import type { UploadResult } from "@/lib/api/services/files.api.v2";
+import { saveMultipleFiles as saveMultipleFilesApi } from "@/lib/api/services/files.api";
+import type { UploadResult } from "@/lib/api/services/files.api";
 import type { DBFile } from "@/lib/db/files";
 
 export interface FileUploadItem {

@@ -6,6 +6,7 @@ import { initDB } from "./index";
 import type { DBFolder } from "./index";
 import { v4 as uuidv4 } from "uuid";
 import { moveFolderToTrash } from "./trash";
+import { deleteNotesByFolder } from "./notes";
 
 export type { DBFolder };
 
@@ -143,13 +144,14 @@ export async function deleteFolder(folderId: string): Promise<void> {
   // 휴지통으로 이동
   await moveFolderToTrash(folder);
 
+  // 폴더에 속한 노트들도 휴지통으로 이동
+  await deleteNotesByFolder(folderId);
+
   // 하위 폴더들도 휴지통으로 이동
   const subFolders = await getFoldersByParent(folderId);
   for (const subFolder of subFolders) {
     await deleteFolder(subFolder.id);
   }
-
-  // TODO: 폴더에 속한 노트들도 휴지통으로 이동
 }
 
 /**

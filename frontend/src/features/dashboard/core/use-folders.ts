@@ -11,7 +11,7 @@ import {
   deleteFolder as deleteFolderApi,
   moveFolder as moveFolderApi,
   fetchFolderPath,
-} from "@/lib/api/services/folders.api.v2"; // ✅ Updated to V2
+} from "@/lib/api/services/folders.api"; // ✅ Updated to V2
 import { useFoldersQuery } from "@/lib/api/queries/folders.queries";
 import type { DBFolder } from "@/lib/db/folders";
 

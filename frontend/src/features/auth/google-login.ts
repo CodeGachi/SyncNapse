@@ -7,7 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin, useLogout } from "@/lib/api/mutations/auth.mutations";
-import { getGoogleLoginUrl } from "@/lib/api/auth.api";
+import { getGoogleLoginUrl } from "@/lib/api/services/auth.api";
 import { mockGoogleLogin, mockLogout } from "@/lib/mock/auth.mock";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
@@ -36,13 +36,21 @@ export function useGoogleLogin() {
     try {
       if (USE_MOCK) {
         const { user, token } = await mockGoogleLogin();
-        window.location.href = "/dashboard/main";
+
+        // React Query 캐시에 사용자 정보 업데이트
+        queryClient.setQueryData(["auth", "currentUser"], user);
+
+        console.log("[Auth] Mock 로그인 완료:", user);
+
+        // 대시보드로 리다이렉트
+        router.push("/dashboard/main");
       } else {
         // 백엔드 Google OAuth로 리다이렉트
         const loginUrl = getGoogleLoginUrl();
         window.location.href = loginUrl;
       }
     } catch (err: any) {
+      console.error("[Auth] 로그인 실패:", err);
       alert(err.message || "로그인에 실패했습니다. 다시 시도해주세요.");
     }
   };
@@ -59,12 +67,19 @@ export function useGoogleLogin() {
     try {
       if (USE_MOCK) {
         await mockLogout();
+
+        // React Query 캐시 초기화
         queryClient.clear();
+
+        console.log("[Auth] Mock 로그아웃 완료");
+
+        // 홈으로 리다이렉트
         router.replace("/");
       } else {
         logoutMutation.mutate();
       }
     } catch (err: any) {
+      console.error("[Auth] 로그아웃 실패:", err);
       alert(err.message || "로그아웃에 실패했습니다. 다시 시도해주세요.");
     }
   };

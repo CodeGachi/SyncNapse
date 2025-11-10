@@ -9,7 +9,7 @@ import {
   fetchAllNotes,
   fetchNote,
   fetchNotesByFolder,
-} from "../services/notes.api.v2"; // ✅ V2 API로 변경
+} from "../services/notes.api"; // ✅ V2 API로 변경
 import type { Note } from "@/lib/types";
 
 /**

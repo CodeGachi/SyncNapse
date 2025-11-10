@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { setupAuthInterceptor } from "@/lib/api/client";
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -26,6 +27,11 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         // Consider applying QueryCache / MutationCache
       })
   );
+
+  // 앱 시작 시 인증 인터셉터 초기화
+  useEffect(() => {
+    setupAuthInterceptor();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
