@@ -9,6 +9,7 @@ import { devtools } from "zustand/middleware";
 import type { NoteBlock } from "@/features/note/text-notes/use-note-panel"; // ✅ text-notes
 import type { FileItem } from "@/features/note/file/use-file-panel";
 import type { Question, AutoSaveStatus } from "@/lib/types";
+import type { Block } from "@blocknote/core";
 
 /**
  * PDF 페이지별 노트 데이터 구조
@@ -82,6 +83,7 @@ interface NoteEditorState {
   updatePageBlock: (id: string, updates: Partial<NoteBlock>) => void;
   deletePageBlock: (id: string) => void;
   initializePageNotes: (fileId: string, totalPages: number) => void;
+  updatePageBlocksFromBlockNote: (blocks: Block[]) => void; // BlockNote 통합
 
   // File Actions
   addFile: (file: FileItem) => void;
@@ -308,6 +310,33 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         }
 
         set({ pageNotes: newPageNotes, currentPage: 1 });
+      },
+
+      updatePageBlocksFromBlockNote: (blocks) => {
+        const state = get();
+        if (!state.selectedFileId) return;
+
+        const pageKey = state.getPageKey(state.selectedFileId, state.currentPage);
+
+        // BlockNote의 Block[]을 NoteBlock[]으로 변환
+        const convertedBlocks: NoteBlock[] = blocks.map((block, index) => {
+          const blockType = mapBlockNoteTypeToNoteBlock(block.type);
+
+          return {
+            id: block.id || `${pageKey}-${index}`,
+            type: blockType,
+            content: getBlockContent(block),
+            checked: block.type === "checkListItem" ? (block.props as any)?.checked : undefined,
+            indent: 0, // BlockNote는 기본적으로 들여쓰기를 자체적으로 관리
+          };
+        });
+
+        set({
+          pageNotes: {
+            ...state.pageNotes,
+            [pageKey]: convertedBlocks,
+          },
+        });
       },
 
       // File Actions
@@ -590,3 +619,46 @@ export const useNoteEditorStore = create<NoteEditorState>()(
     }
   )
 );
+
+/**
+ * BlockNote 타입을 NoteBlock 타입으로 변환
+ */
+function mapBlockNoteTypeToNoteBlock(type: string): NoteBlock["type"] {
+  const typeMap: Record<string, NoteBlock["type"]> = {
+    paragraph: "text",
+    heading: "heading1", // 기본값, level에 따라 구분 필요
+    bulletListItem: "bullet",
+    numberedListItem: "numbered",
+    checkListItem: "checkbox",
+    code: "code",
+  };
+
+  return typeMap[type] || "text";
+}
+
+/**
+ * BlockNote Block에서 텍스트 콘텐츠 추출
+ */
+function getBlockContent(block: Block): string {
+  const content = (block as any).content;
+
+  if (!content) return "";
+
+  // content가 InlineContent[] 형태인 경우
+  if (Array.isArray(content)) {
+    return content
+      .map((item: any) => {
+        if (typeof item === "string") return item;
+        if (item.type === "text") return item.text || "";
+        return "";
+      })
+      .join("");
+  }
+
+  // content가 문자열인 경우
+  if (typeof content === "string") {
+    return content;
+  }
+
+  return "";
+}

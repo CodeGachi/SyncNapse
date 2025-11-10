@@ -29,12 +29,14 @@ import { CollaborationPanel } from "@/components/note/collaboration/collaboratio
 interface RightSidePanelProps {
   noteId: string | null;
   isCollaborating?: boolean;
+  isSharedView?: boolean; // 공유 모드 여부
 }
 
-export function RightSidePanel({ noteId, isCollaborating = false }: RightSidePanelProps) {
+export function RightSidePanel({ noteId, isCollaborating = false, isSharedView = false }: RightSidePanelProps) {
   // Get note data to determine if it's an educator note
-  const { data: note } = useNote(noteId);
-  const isEducatorNote = note?.type === "educator";
+  // 공유 모드에서는 로컬 DB 쿼리 비활성화
+  const { data: note } = useNote(noteId, { enabled: !isSharedView });
+  const isEducatorNote = note?.type === "educator" || isSharedView; // 공유 모드면 무조건 educator 노트
 
   // Store states
   const {
@@ -181,7 +183,7 @@ export function RightSidePanel({ noteId, isCollaborating = false }: RightSidePan
               userId="user-123" // TODO: Connect to actual user context
               userName="사용자" // TODO: Connect to actual user context
               noteId={noteId || ""} // Connected to current note ID
-              isEducator={isEducatorNote}
+              isEducator={!isSharedView} // 공유 모드에서는 학생
             />
           )}
 

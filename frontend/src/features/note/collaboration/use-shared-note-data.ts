@@ -109,6 +109,8 @@ export function useSharedNoteData({
     pageNotes,
     currentPage,
     currentFileId,
-    isLoading: isSharedView && !noteInfo,
+    // Liveblocks 연결 대기: noteInfo가 undefined면 아직 로딩 중
+    // noteInfo가 null이면 연결은 됐지만 데이터가 없는 상태 (빈 노트)
+    isLoading: isSharedView && noteInfo === undefined,
   };
 }
