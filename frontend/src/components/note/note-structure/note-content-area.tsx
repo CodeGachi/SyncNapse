@@ -36,7 +36,8 @@ export function NoteContentArea({
   onStopCollaboration,
 }: NoteContentAreaProps) {
   // 실제 노트 데이터로부터 제목 가져오기
-  const { data: note } = useNote(noteId);
+  // 공유 모드에서는 로컬 DB 쿼리 비활성화 (Liveblocks Storage에서 가져옴)
+  const { data: note } = useNote(noteId, { enabled: !isSharedView });
   const actualTitle = note?.title || noteTitle;
   const isEducatorNote = note?.type === "educator";
 
