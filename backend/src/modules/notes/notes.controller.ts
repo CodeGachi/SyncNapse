@@ -12,7 +12,6 @@ import {
   UploadedFiles,
   Logger,
   Query,
-  Res,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotesService } from './notes.service';

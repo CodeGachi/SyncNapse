@@ -31,7 +31,7 @@ export class TranscriptionController {
     @CurrentUser('id') userId: string,
     @Body() dto: CreateSessionDto,
   ) {
-    this.logger.debug(`[POST /transcription/sessions] userId=${userId}`);
+    this.logger.debug(`[POST /transcription/sessions] userId=${userId} title=${dto.title} noteId=${dto.noteId || 'NULL'}`);
     return this.transcriptionService.createSession(userId, dto);
   }
 

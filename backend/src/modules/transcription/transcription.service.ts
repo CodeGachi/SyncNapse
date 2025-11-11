@@ -1,7 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { NotesService } from '../notes/notes.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { SaveTranscriptDto } from './dto/save-transcript.dto';
 import { SaveAudioChunkDto } from './dto/save-audio-chunk.dto';
@@ -14,20 +15,23 @@ export class TranscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    @Inject(forwardRef(() => NotesService))
+    private readonly notesService: NotesService,
   ) {}
 
   async createSession(userId: string, dto: CreateSessionDto) {
-    this.logger.debug(`[createSession] userId=${userId} title=${dto.title}`);
+    this.logger.debug(`[createSession] userId=${userId} title=${dto.title} noteId=${dto.noteId || 'none'}`);
 
     const session = await this.prisma.transcriptionSession.create({
       data: {
         userId,
         title: dto.title,
+        noteId: dto.noteId,
         status: 'recording',
       },
     });
 
-    this.logger.log(`[createSession] Created session: ${session.id}`);
+    this.logger.log(`[createSession] Created session: ${session.id} for note: ${dto.noteId || 'standalone'}`);
     return session;
   }
 
@@ -288,27 +292,80 @@ export class TranscriptionService {
     this.logger.debug(`[saveFullAudio] Base64 data length: ${base64Data.length}`);
     const buffer = Buffer.from(base64Data, 'base64');
     this.logger.debug(`[saveFullAudio] Buffer size: ${buffer.length} bytes`);
+    this.logger.debug(`[saveFullAudio] Session noteId: ${session.noteId || 'NULL'} - Will use note-based path: ${!!session.noteId}`);
 
-    const fileExtension = 'webm';
-    const { url, key } = await this.storageService.uploadFullAudio(
-      buffer,
-      userId,
-      sessionId,
-      fileExtension,
-    );
+    let storageKey: string;
+    let url: string;
+
+    if (session.noteId) {
+      // Note-based path: use existing note folder structure
+      try {
+        const noteBasePath = await this.notesService.getNoteStoragePath(userId, session.noteId);
+        
+        // Sanitize session title for filename
+        const sanitizedTitle = encodeURIComponent(session.title)
+          .replace(/%20/g, ' ')
+          .replace(/%2F/g, '_')
+          .replace(/%5C/g, '_');
+        
+        // Store in note's audio subdirectory with recording title
+        storageKey = `${noteBasePath}/audio/${sanitizedTitle}.webm`;
+        
+        this.logger.log(`[saveFullAudio] Saving to note folder: ${storageKey}`);
+        
+        // Upload using generic uploadBuffer method
+        const uploadResult = await this.storageService.uploadBuffer(
+          buffer,
+          storageKey,
+          'audio/webm',
+        );
+        
+        url = uploadResult.publicUrl || this.storageService.getPublicUrl(uploadResult.storageKey);
+        storageKey = uploadResult.storageKey;
+        
+        this.logger.log(`[saveFullAudio] ✅ Saved to note audio folder: ${storageKey}`);
+      } catch (error) {
+        this.logger.error(`[saveFullAudio] Failed to get note path, falling back to session-based path:`, error);
+        // Fallback to old method
+        const fileExtension = 'webm';
+        const fallbackResult = await this.storageService.uploadFullAudio(
+          buffer,
+          userId,
+          sessionId,
+          fileExtension,
+          undefined,
+        );
+        url = fallbackResult.url;
+        storageKey = fallbackResult.key;
+      }
+    } else {
+      // User-based path (fallback for sessions without noteId)
+      const fileExtension = 'webm';
+      const result = await this.storageService.uploadFullAudio(
+        buffer,
+        userId,
+        sessionId,
+        fileExtension,
+        undefined,
+      );
+      url = result.url;
+      storageKey = result.key;
+      
+      this.logger.log(`[saveFullAudio] ✅ Saved to user transcription folder: ${storageKey}`);
+    }
 
     // Update session with full audio URL
     const updatedSession = await this.prisma.transcriptionSession.update({
       where: { id: sessionId },
       data: {
         fullAudioUrl: url,
-        fullAudioKey: key,
+        fullAudioKey: storageKey,
         fullAudioSize: buffer.length,
         duration: Math.max(Number(session.duration), duration),
       },
     });
 
-    this.logger.log(`[saveFullAudio] ✅ Full audio saved: ${key} (${buffer.length} bytes)`);
+    this.logger.log(`[saveFullAudio] ✅ Full audio saved: ${storageKey} (${buffer.length} bytes)`);
     return updatedSession;
   }
 
@@ -321,10 +378,70 @@ export class TranscriptionService {
         userId,
         deletedAt: null,
       },
+      include: {
+        segments: {
+          include: {
+            words: true,
+          },
+          orderBy: {
+            startTime: 'asc',
+          },
+        },
+      },
     });
 
     if (!session) {
       throw new NotFoundException('Session not found');
+    }
+
+    // Save transcription segments to MinIO as JSON if noteId exists
+    if (session.noteId && session.segments.length > 0) {
+      try {
+        const noteBasePath = await this.notesService.getNoteStoragePath(userId, session.noteId);
+        
+        // Sanitize session title for filename
+        const sanitizedTitle = encodeURIComponent(session.title)
+          .replace(/%20/g, ' ')
+          .replace(/%2F/g, '_')
+          .replace(/%5C/g, '_');
+        
+        // Create transcription JSON
+        const transcriptionData = {
+          sessionId: session.id,
+          title: session.title,
+          duration: Number(session.duration),
+          createdAt: session.createdAt.toISOString(),
+          segments: session.segments.map(seg => ({
+            id: seg.id,
+            text: seg.text,
+            startTime: Number(seg.startTime),
+            endTime: Number(seg.endTime),
+            confidence: Number(seg.confidence),
+            language: seg.language,
+            words: seg.words.map(w => ({
+              word: w.word,
+              startTime: Number(w.startTime),
+              confidence: Number(w.confidence),
+              wordIndex: w.wordIndex,
+            })),
+          })),
+        };
+        
+        const transcriptionKey = `${noteBasePath}/transcription/${sanitizedTitle}_segments.json`;
+        
+        this.logger.log(`[endSession] Saving transcription to: ${transcriptionKey}`);
+        
+        await this.storageService.uploadBuffer(
+          Buffer.from(JSON.stringify(transcriptionData, null, 2)),
+          transcriptionKey,
+          'application/json',
+        );
+        
+        this.logger.log(`[endSession] ✅ Saved transcription JSON: ${transcriptionKey}`);
+      } catch (error) {
+        this.logger.error(`[endSession] Failed to save transcription JSON:`, error);
+        // Don't fail the request if transcription save fails
+      }
     }
 
     const updatedSession = await this.prisma.transcriptionSession.update({
