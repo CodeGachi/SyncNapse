@@ -85,6 +85,42 @@ export async function createNote(
 }
 
 /**
+ * Update note (to sync backend ID with IndexedDB)
+ * Replace temporary UUID with real backend ID
+ */
+export async function updateNoteId(
+  oldId: string,
+  newNote: DBNote
+): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["notes"], "readwrite");
+    const store = transaction.objectStore("notes");
+
+    // Delete old entry
+    const deleteRequest = store.delete(oldId);
+
+    deleteRequest.onsuccess = () => {
+      // Add new entry with backend ID
+      const addRequest = store.add(newNote);
+
+      addRequest.onsuccess = () => {
+        console.log(`[notes.ts] ✅ Updated note ID: ${oldId} → ${newNote.id}`);
+        resolve();
+      };
+
+      addRequest.onerror = () => {
+        reject(new Error("Failed to add updated note"));
+      };
+    };
+
+    deleteRequest.onerror = () => {
+      reject(new Error("Failed to delete old note"));
+    };
+  });
+}
+
+/**
  * 노트 가져오기
  */
 export async function getNote(noteId: string): Promise<DBNote | undefined> {

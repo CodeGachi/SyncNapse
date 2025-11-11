@@ -177,9 +177,22 @@ class SyncQueueManager {
       }
 
       case 'note-create': {
+        // Get actual folder ID from IndexedDB (in case it was updated)
+        let actualFolderId = task.data.folderId;
+        try {
+          const { getFolder } = await import("@/lib/db/folders");
+          const folder = await getFolder(task.data.folderId);
+          if (folder) {
+            actualFolderId = folder.id;
+            console.log(`[SyncQueue] Using actual folder ID from IndexedDB: ${actualFolderId}`);
+          }
+        } catch (error) {
+          console.warn("[SyncQueue] Could not get folder from IndexedDB, using original ID:", error);
+        }
+
         const formData = new FormData();
         formData.append("title", task.data.title);
-        formData.append("folder_id", task.data.folderId);
+        formData.append("folder_id", actualFolderId);
         task.data.files?.forEach((file: File) => formData.append("files", file));
 
         const res = await fetch(`${API_BASE_URL}/api/notes`, {

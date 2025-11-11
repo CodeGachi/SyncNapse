@@ -172,6 +172,36 @@ export class NotesService {
 
     this.logger.debug(`[createNote] Note base storage path: ${noteBasePath}`);
 
+    // Create .note file to mark this folder as a note folder
+    try {
+      const noteMetadata = {
+        noteId: note.id,
+        title: note.title,
+        folderId: dto.folder_id,
+        createdAt: note.createdAt.toISOString(),
+        status: 'active',
+        structure: {
+          transcription: 'Transcription audio and subtitles',
+          audio: 'General audio files',
+          files: 'PDF and general files',
+          texttype: 'Text type data (planned)',
+          inklayer: 'Ink layer data (planned)',
+        },
+      };
+      
+      const metadataKey = `${noteBasePath}/.note`;
+      await this.storageService.uploadBuffer(
+        Buffer.from(JSON.stringify(noteMetadata, null, 2)),
+        metadataKey,
+        'application/json',
+      );
+      
+      this.logger.log(`[createNote] ✅ Created .note file: ${metadataKey}`);
+    } catch (error) {
+      this.logger.error(`[createNote] Failed to create .note file:`, error);
+      // Don't fail the request if metadata creation fails
+    }
+
     if (files.length > 0) {
       this.logger.debug(
         `[createNote] Uploading ${files.length} files: ${files.map((f) => f.originalname).join(', ')}`,
@@ -368,6 +398,46 @@ export class NotesService {
       where: { noteId },
     });
 
+    // Update .note file if title or folder changed
+    if (dto.title || dto.folder_id) {
+      try {
+        const targetFolderId = currentLink?.folderId || dto.folder_id;
+        if (targetFolderId) {
+          const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+            userId,
+            targetFolderId,
+          );
+          const metadataKey = `${folderStoragePath}/${noteId}/.note`;
+          
+          const noteMetadata = {
+            noteId: updatedNote.id,
+            title: updatedNote.title,
+            folderId: targetFolderId,
+            createdAt: updatedNote.createdAt.toISOString(),
+            updatedAt: updatedNote.updatedAt.toISOString(),
+            status: 'active',
+            structure: {
+              transcription: 'Transcription audio and subtitles',
+              audio: 'General audio files',
+              files: 'PDF and general files',
+              texttype: 'Text type data (planned)',
+              inklayer: 'Ink layer data (planned)',
+            },
+          };
+          
+          await this.storageService.uploadBuffer(
+            Buffer.from(JSON.stringify(noteMetadata, null, 2)),
+            metadataKey,
+            'application/json',
+          );
+          
+          this.logger.log(`[updateNote] ✅ Updated .note file: ${metadataKey}`);
+        }
+      } catch (error) {
+        this.logger.error(`[updateNote] Failed to update .note file:`, error);
+      }
+    }
+
     return {
       id: updatedNote.id,
       title: updatedNote.title,
@@ -393,6 +463,9 @@ export class NotesService {
           deletedAt: null,
         },
       },
+      include: {
+        folder: true,
+      },
     });
 
     if (!folderNoteLink) {
@@ -400,6 +473,7 @@ export class NotesService {
       throw new NotFoundException('Note not found');
     }
 
+    // Soft delete in PostgreSQL
     await this.prisma.lectureNote.update({
       where: { id: noteId },
       data: {
@@ -407,7 +481,23 @@ export class NotesService {
       },
     });
 
-    this.logger.debug(`[deleteNote] Deleted note: ${noteId}`);
+    this.logger.debug(`[deleteNote] Soft deleted note in DB: ${noteId}`);
+
+    // Rename .note file to .notex for soft delete in MinIO
+    try {
+      const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+        userId,
+        folderNoteLink.folderId,
+      );
+      const oldKey = `${folderStoragePath}/${noteId}/.note`;
+      const newKey = `${folderStoragePath}/${noteId}/.notex`;
+      
+      await this.storageService.renameFile(oldKey, newKey);
+      this.logger.log(`[deleteNote] ✅ Renamed .note to .notex: ${oldKey} → ${newKey}`);
+    } catch (error) {
+      this.logger.error(`[deleteNote] Failed to rename .note to .notex:`, error);
+      // Don't fail the request if rename fails
+    }
 
     return { message: 'Note deleted successfully' };
   }

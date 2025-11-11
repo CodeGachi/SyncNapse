@@ -88,6 +88,25 @@ export class FoldersService {
       const storagePath = await this.buildFolderStoragePath(userId, folder.id);
       await this.storageService.createFolder(storagePath);
       this.logger.log(`[createFolder] ✅ Created folder in storage: ${storagePath}`);
+      
+      // Create .folder metadata file
+      const folderMetadata = {
+        folderId: folder.id,
+        name: folder.name,
+        parentId: folder.parentId,
+        userId: userId,
+        createdAt: folder.createdAt.toISOString(),
+        type: 'folder',
+      };
+      
+      const metadataKey = `${storagePath}/.folder`;
+      await this.storageService.uploadBuffer(
+        Buffer.from(JSON.stringify(folderMetadata, null, 2)),
+        metadataKey,
+        'application/json',
+      );
+      
+      this.logger.log(`[createFolder] ✅ Created .folder metadata file: ${metadataKey}`);
     } catch (error) {
       this.logger.error(`[createFolder] Failed to create folder in storage:`, error);
       // Don't fail the request if storage creation fails
@@ -136,13 +155,33 @@ export class FoldersService {
 
     this.logger.debug(`[updateFolder] Updated folder in DB: ${folderId}`);
 
-    // Rename folder in MinIO storage
+    // Rename folder in MinIO storage and update .folder metadata
     try {
       const newStoragePath = await this.buildFolderStoragePath(userId, folderId);
       if (oldStoragePath !== newStoragePath) {
         await this.storageService.renameFolder(oldStoragePath, newStoragePath);
         this.logger.log(`[updateFolder] ✅ Renamed folder in storage: ${oldStoragePath} -> ${newStoragePath}`);
       }
+      
+      // Update .folder metadata file
+      const folderMetadata = {
+        folderId: updatedFolder.id,
+        name: updatedFolder.name,
+        parentId: updatedFolder.parentId,
+        userId: userId,
+        createdAt: updatedFolder.createdAt.toISOString(),
+        updatedAt: updatedFolder.updatedAt.toISOString(),
+        type: 'folder',
+      };
+      
+      const metadataKey = `${newStoragePath}/.folder`;
+      await this.storageService.uploadBuffer(
+        Buffer.from(JSON.stringify(folderMetadata, null, 2)),
+        metadataKey,
+        'application/json',
+      );
+      
+      this.logger.log(`[updateFolder] ✅ Updated .folder metadata file: ${metadataKey}`);
     } catch (error) {
       this.logger.error(`[updateFolder] Failed to rename folder in storage:`, error);
       // Don't fail the request if storage rename fails
@@ -189,16 +228,18 @@ export class FoldersService {
       },
     });
 
-    this.logger.debug(`[deleteFolder] Deleted folder in DB: ${folderId}`);
+    this.logger.debug(`[deleteFolder] Soft deleted folder in DB: ${folderId}`);
 
-    // Delete folder placeholder in MinIO storage
-    // Note: Actual files should be deleted separately
+    // Rename .folder to .folderx for soft delete in MinIO
     try {
-      await this.storageService.deleteFolder(storagePath);
-      this.logger.log(`[deleteFolder] ✅ Deleted folder placeholder in storage: ${storagePath}`);
+      const oldMetadataKey = `${storagePath}/.folder`;
+      const newMetadataKey = `${storagePath}/.folderx`;
+      
+      await this.storageService.renameFile(oldMetadataKey, newMetadataKey);
+      this.logger.log(`[deleteFolder] ✅ Renamed .folder to .folderx: ${oldMetadataKey} → ${newMetadataKey}`);
     } catch (error) {
-      this.logger.error(`[deleteFolder] Failed to delete folder in storage:`, error);
-      // Don't fail the request if storage deletion fails
+      this.logger.error(`[deleteFolder] Failed to rename .folder to .folderx:`, error);
+      // Don't fail the request if storage rename fails
     }
 
     return { message: 'Folder deleted successfully' };
@@ -272,6 +313,26 @@ export class FoldersService {
       if (oldStoragePath !== newStoragePath) {
         await this.storageService.renameFolder(oldStoragePath, newStoragePath);
         this.logger.log(`[moveFolder] ✅ Moved folder in storage: ${oldStoragePath} -> ${newStoragePath}`);
+        
+        // Update .folder metadata file with new parent
+        const folderMetadata = {
+          folderId: updatedFolder.id,
+          name: updatedFolder.name,
+          parentId: updatedFolder.parentId,
+          userId: userId,
+          createdAt: updatedFolder.createdAt.toISOString(),
+          updatedAt: updatedFolder.updatedAt.toISOString(),
+          type: 'folder',
+        };
+        
+        const metadataKey = `${newStoragePath}/.folder`;
+        await this.storageService.uploadBuffer(
+          Buffer.from(JSON.stringify(folderMetadata, null, 2)),
+          metadataKey,
+          'application/json',
+        );
+        
+        this.logger.log(`[moveFolder] ✅ Updated .folder metadata file: ${metadataKey}`);
       }
     } catch (error) {
       this.logger.error(`[moveFolder] Failed to move folder in storage:`, error);
@@ -389,7 +450,7 @@ export class FoldersService {
     let currentFolderId: string | null = folderId;
 
     while (currentFolderId) {
-      const folder = await this.prisma.folder.findFirst({
+      const folder: { name: string; parentId: string | null } | null = await this.prisma.folder.findFirst({
         where: {
           id: currentFolderId,
           userId,
@@ -403,8 +464,13 @@ export class FoldersService {
 
       if (!folder) break;
 
-      // Sanitize folder name for storage (remove special characters)
-      const sanitizedName = folder.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      // URL encode folder name to support Korean and other unicode characters
+      // Only encode special characters that are problematic in URLs/paths
+      const sanitizedName = encodeURIComponent(folder.name)
+        .replace(/%20/g, ' ')  // Keep spaces as spaces
+        .replace(/%2F/g, '_')  // Replace / with _
+        .replace(/%5C/g, '_'); // Replace \ with _
+      
       pathParts.unshift(sanitizedName);
 
       currentFolderId = folder.parentId;
