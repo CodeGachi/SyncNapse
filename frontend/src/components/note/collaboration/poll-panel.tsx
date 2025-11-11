@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useStorage,
   useMutation,
@@ -34,10 +34,27 @@ export function PollPanel({
   const polls = useStorage((root) => root.polls) || [];
   const activePoll = polls.find((p) => p.isActive);
 
+  // 투표 목록 변경 감지 (디버깅용)
+  useEffect(() => {
+    console.log(`[Poll Panel] 투표 목록 업데이트:`, {
+      userId,
+      isEducator,
+      pollCount: polls.length,
+      activePoll: activePoll ? {
+        id: activePoll.id,
+        question: activePoll.question,
+        optionCount: activePoll.options.length,
+      } : null,
+    });
+  }, [polls, userId, isEducator, activePoll]);
+
   // 투표 생성 Mutation (Educator만)
   const createPoll = useMutation(
     ({ storage }, question: string, options: string[]) => {
+      console.log(`[Poll Mutation] Storage 접근 시작`);
       const polls = storage.get("polls");
+      console.log(`[Poll Mutation] 현재 polls 배열:`, polls);
+      console.log(`[Poll Mutation] polls 타입:`, typeof polls, Array.isArray(polls));
 
       // 기존 활성 투표 비활성화
       polls.forEach((poll) => {
@@ -56,7 +73,10 @@ export function PollPanel({
         createdAt: Date.now(),
         isActive: true,
       };
+
+      console.log(`[Poll Mutation] 새 투표 생성:`, newPoll);
       polls.push(newPoll);
+      console.log(`[Poll Mutation] 투표 추가 후 배열 길이:`, polls.length);
     },
     [userId]
   );
@@ -93,7 +113,14 @@ export function PollPanel({
   const handleCreatePoll = () => {
     const validOptions = options.filter((opt) => opt.trim());
     if (question.trim() && validOptions.length >= 2) {
+      console.log(`[Poll Panel] 투표 생성 시작:`, {
+        userId,
+        isEducator,
+        question,
+        options: validOptions,
+      });
       createPoll(question, validOptions);
+      console.log(`[Poll Panel] 투표 생성 완료 (Mutation 실행됨)`);
       setQuestion("");
       setOptions(["", ""]);
       setIsCreating(false);

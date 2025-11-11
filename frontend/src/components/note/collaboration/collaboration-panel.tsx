@@ -13,7 +13,8 @@ import { useState } from "react";
 import { ActiveUsersPanel } from "./active-users-panel";
 import { QAPanel } from "./qa-panel";
 import { PollPanel } from "./poll-panel";
-import { Users, MessageCircle, BarChart3 } from "lucide-react";
+import { HandRaisePanel } from "./hand-raise-panel";
+import { Users, MessageCircle, BarChart3, Hand } from "lucide-react";
 
 interface CollaborationPanelProps {
   userId: string;
@@ -23,10 +24,11 @@ interface CollaborationPanelProps {
   className?: string;
 }
 
-type TabId = "users" | "qa" | "poll";
+type TabId = "users" | "qa" | "poll" | "handRaise";
 
 const TABS = [
   { id: "users" as const, label: "접속자", icon: Users },
+  { id: "handRaise" as const, label: "손들기", icon: Hand },
   { id: "qa" as const, label: "Q&A", icon: MessageCircle },
   { id: "poll" as const, label: "투표", icon: BarChart3 },
 ];
@@ -76,6 +78,14 @@ export function CollaborationPanel({
       {/* 탭 콘텐츠 */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {activeTab === "users" && <ActiveUsersPanel />}
+
+        {activeTab === "handRaise" && (
+          <HandRaisePanel
+            userId={userId}
+            userName={userName}
+            isEducator={isEducator}
+          />
+        )}
 
         {activeTab === "qa" && (
           <QAPanel

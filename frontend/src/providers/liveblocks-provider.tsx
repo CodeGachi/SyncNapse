@@ -8,7 +8,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { ClientSideSuspense } from "@liveblocks/react";
-import { RoomProvider, getUserColor, getNoteRoomId } from "@/lib/liveblocks/liveblocks.config";
+import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage } from "@/lib/liveblocks/liveblocks.config";
 
 interface LiveblocksProviderProps {
   noteId: string;
@@ -97,10 +97,13 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
   const roomId = getNoteRoomId(noteId);
   const userColor = getUserColor(userId);
 
+  console.log(`[Liveblocks] ====================================`);
   console.log(`[Liveblocks] RoomProvider 초기화 중...`);
-  console.log(`  - Room ID: ${roomId}`);
-  console.log(`  - User: ${userName} (${userId})`);
-  console.log(`  - Color: ${userColor}`);
+  console.log(`[Liveblocks] Room ID: ${roomId}`);
+  console.log(`[Liveblocks] Note ID: ${noteId}`);
+  console.log(`[Liveblocks] User: ${userName} (${userId})`);
+  console.log(`[Liveblocks] Color: ${userColor}`);
+  console.log(`[Liveblocks] ====================================`);
 
   return (
     <RoomProvider
@@ -154,9 +157,40 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
 
 // 연결 상태 모니터링 컴포넌트
 function ConnectionMonitor() {
+  const status = useStatus();
+  const room = useRoom();
+
+  // Storage 상태 모니터링
+  const questions = useStorage((root) => root.questions);
+  const polls = useStorage((root) => root.polls);
+  const handRaises = useStorage((root) => root.handRaises);
+  const noteInfo = useStorage((root) => root.noteInfo);
+
   useEffect(() => {
     console.log("[Liveblocks] ConnectionMonitor 마운트됨 - RoomProvider 내부 렌더링 성공!");
   }, []);
+
+  useEffect(() => {
+    console.log(`[Liveblocks] 연결 상태 변경: ${status}`);
+  }, [status]);
+
+  useEffect(() => {
+    if (room) {
+      console.log(`[Liveblocks] Room 객체 사용 가능:`, {
+        id: room.id,
+      });
+    }
+  }, [room]);
+
+  // Storage 변경 감지
+  useEffect(() => {
+    console.log(`[Liveblocks Storage] 전체 상태:`, {
+      questions: questions?.length || 0,
+      polls: polls?.length || 0,
+      handRaises: handRaises?.length || 0,
+      noteInfo: noteInfo ? 'exists' : 'null',
+    });
+  }, [questions, polls, handRaises, noteInfo]);
 
   return null;
 }
