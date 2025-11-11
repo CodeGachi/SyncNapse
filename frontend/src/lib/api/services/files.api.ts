@@ -29,25 +29,33 @@ function isIndexedDBAvailable(): boolean {
 
 /**
  * Fetch all files for a note
- * Tries IndexedDB first, falls back to API if unavailable or fails
+ * Returns local IndexedDB files immediately, then syncs metadata with server in background
  */
 export async function fetchFilesByNote(noteId: string): Promise<File[]> {
-  // Try IndexedDB first if available
+  // 1. 로컬 IndexedDB에서 파일 가져오기 (빠른 응답)
+  let localFiles: File[] = [];
+  
   if (isIndexedDBAvailable()) {
     try {
       const dbFiles = await getFilesByNoteFromDB(noteId);
-      if (dbFiles.length > 0) {
-        console.log(`[files.api] Loaded ${dbFiles.length} files from IndexedDB`);
-        return dbFiles.map(dbFileToFile);
-      }
-      // If IndexedDB is empty, fall through to API
-      console.log(`[files.api] No files in IndexedDB, trying API...`);
+      localFiles = dbFiles.map(dbFileToFile);
+      console.log(`[files.api] Loaded ${localFiles.length} files from IndexedDB`);
     } catch (error) {
-      console.warn("[files.api] IndexedDB failed, falling back to API:", error);
+      console.warn("[files.api] IndexedDB failed:", error);
     }
   }
 
-  // Fallback to API
+  // 2. 백그라운드에서 서버와 동기화 (메타데이터만)
+  syncFileMetadataInBackground(noteId);
+
+  return localFiles;
+}
+
+/**
+ * Background file metadata synchronization
+ * 서버에 있는 파일을 다운로드하여 IndexedDB에 저장
+ */
+async function syncFileMetadataInBackground(noteId: string): Promise<void> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/files`, {
       credentials: "include",
@@ -55,24 +63,74 @@ export async function fetchFilesByNote(noteId: string): Promise<File[]> {
         ...getAuthHeaders(),
       },
     });
-    if (!res.ok) throw new Error("Failed to fetch files from API");
+    
+    if (!res.ok) {
+      console.warn('[files.api] Failed to fetch file metadata from server:', res.status);
+      return;
+    }
+    
     const filesData = await res.json();
+    console.log(`[files.api] Synced ${filesData.length} file metadata from server`);
+    
+    if (filesData.length === 0) {
+      return;
+    }
 
-    console.log(`[files.api] Loaded ${filesData.length} files from API`);
+    // 서버에 있는 파일을 로컬 IndexedDB와 비교
+    const localFiles = await getFilesByNoteFromDB(noteId);
+    const localFileNames = new Set(localFiles.map((f) => f.fileName));
 
-    // Convert file URL from backend to File object
-    const files = await Promise.all(
-      filesData.map(async (fileData: any) => {
-        const response = await fetch(fileData.url);
-        const blob = await response.blob();
-        return new File([blob], fileData.fileName, { type: fileData.fileType });
-      })
-    );
+    // 로컬에 없는 파일 다운로드 및 저장 (파일 이름으로 비교)
+    let downloadedCount = 0;
+    for (const fileData of filesData) {
+      if (!localFileNames.has(fileData.fileName)) {
+        console.log(`[files.api] Downloading missing file: ${fileData.fileName}`);
+        try {
+          // 백엔드 프록시를 통해 파일 다운로드
+          const downloadRes = await fetch(
+            `${API_BASE_URL}/api/notes/${noteId}/files/${fileData.id}/download`,
+            {
+              credentials: "include",
+              headers: {
+                ...getAuthHeaders(),
+              },
+            }
+          );
 
-    return files;
+          if (!downloadRes.ok) {
+            console.warn(`[files.api] Failed to download file ${fileData.id}:`, downloadRes.status);
+            continue;
+          }
+
+          // Receive base64-encoded data from server
+          const base64Response = await downloadRes.json();
+          
+          // Convert base64 to blob
+          const binaryString = atob(base64Response.data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: base64Response.fileType });
+          const file = new File([blob], base64Response.fileName, { type: base64Response.fileType });
+
+          // IndexedDB에 저장
+          await saveFileInDB(noteId, file);
+          console.log(`[files.api] ✅ Saved file to IndexedDB: ${fileData.fileName}`);
+          downloadedCount++;
+        } catch (error) {
+          console.error(`[files.api] Failed to download/save file ${fileData.id}:`, error);
+        }
+      }
+    }
+
+    // UI 업데이트를 위한 이벤트 발생 (한 번만)
+    if (downloadedCount > 0 && typeof window !== 'undefined') {
+      console.log(`[files.api] 🎉 Downloaded and saved ${downloadedCount} files`);
+      window.dispatchEvent(new CustomEvent('files-synced', { detail: { noteId } }));
+    }
   } catch (error) {
-    console.error("[files.api] Failed to fetch files:", error);
-    return [];
+    console.error('[files.api] Background file metadata sync failed:', error);
   }
 }
 

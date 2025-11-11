@@ -112,6 +112,28 @@ export async function createNote(
 }
 
 /**
+ * 노트 저장 (ID 포함) - 서버 동기화용
+ * 이미 있으면 업데이트, 없으면 추가
+ */
+export async function saveNote(note: DBNote): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["notes"], "readwrite");
+    const store = transaction.objectStore("notes");
+    const request = store.put(note); // put은 추가/업데이트 모두 가능
+
+    request.onsuccess = () => {
+      console.log(`[notes.ts] ✅ Saved note to IndexedDB: ${note.id}`);
+      resolve();
+    };
+
+    request.onerror = () => {
+      reject(new Error(`노트 저장 실패: ${request.error?.message || "Unknown error"}`));
+    };
+  });
+}
+
+/**
  * Update note (to sync backend ID with IndexedDB)
  * Replace temporary UUID with real backend ID
  */

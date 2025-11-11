@@ -51,61 +51,122 @@ export async function fetchAllNotes(): Promise<Note[]> {
 
 /**
  * 폴더별 노트 가져오기
+ * Returns local data immediately, then syncs with server in background
  * @returns 도메인 Note 배열
  */
 export async function fetchNotesByFolder(
   folderId?: string
 ): Promise<Note[]> {
   console.log('[notes.api] fetchNotesByFolder called with folderId:', folderId);
-  console.log('[notes.api] USE_LOCAL mode:', USE_LOCAL);
   
-  if (USE_LOCAL) {
-    const dbNotes = folderId
-      ? await getNotesByFolderFromDB(folderId)
-      : await getNotesFromDB();
-    console.log('[notes.api] IndexedDB returned notes:', dbNotes.length, 'notes');
-    dbNotes.forEach(note => {
-      console.log('[notes.api] Note:', { id: note.id, title: note.title, folderId: note.folderId });
-    });
-    return dbToNotes(dbNotes);
-  } else {
-    // 백엔드 API 호출
+  // 1. 로컬 데이터 우선 반환 (빠른 응답)
+  const dbNotes = folderId
+    ? await getNotesByFolderFromDB(folderId)
+    : await getNotesFromDB();
+  console.log('[notes.api] IndexedDB returned notes:', dbNotes.length, 'notes');
+  const localNotes = dbToNotes(dbNotes);
+  
+  // 2. 백그라운드에서 서버 동기화
+  syncNotesInBackground(localNotes, folderId);
+  
+  return localNotes;
+}
+
+/**
+ * Background note synchronization
+ */
+async function syncNotesInBackground(localNotes: Note[], folderId?: string): Promise<void> {
+  try {
+    // 서버에서 최신 데이터 가져오기
     const url = folderId ? `${API_BASE_URL}/api/notes?folderId=${folderId}` : `${API_BASE_URL}/api/notes`;
-    console.log('[notes.api] Fetching from backend:', url);
     const res = await fetch(url, {
       credentials: "include",
       headers: {
-        ...getAuthHeaders(), // Add JWT token for authentication
+        ...getAuthHeaders(),
       },
     });
-    if (!res.ok) throw new Error("Failed to fetch notes");
+    
+    if (!res.ok) {
+      console.warn('[notes.api] Failed to fetch from server for sync:', res.status);
+      return;
+    }
+    
     const apiNotes: ApiNoteResponse[] = await res.json();
-    console.log('[notes.api] Backend returned notes:', apiNotes.length, 'notes');
-    return apiToNotes(apiNotes);
+    const serverNotes = apiToNotes(apiNotes);
+    
+    // 동기화할 데이터 찾기
+    const { syncNotes } = await import('../sync-utils');
+    const { toUpdate, toAdd, toDelete } = await syncNotes(localNotes, serverNotes);
+    
+    // IndexedDB 업데이트
+    if (toUpdate.length > 0 || toAdd.length > 0 || toDelete.length > 0) {
+      const { saveNote, permanentlyDeleteNote } = await import('@/lib/db/notes');
+      const { noteToDb } = await import('../adapters/note.adapter');
+      
+      // toUpdate와 toAdd 모두 saveNote로 처리 (put 메서드 사용)
+      const allToSave = [...toUpdate, ...toAdd];
+      
+      for (const note of allToSave) {
+        const dbNote = noteToDb(note);
+        await saveNote(dbNote);
+      }
+      
+      // toDelete 처리 - 서버에서 삭제된 노트는 로컬에서도 영구 삭제
+      for (const noteId of toDelete) {
+        await permanentlyDeleteNote(noteId);
+      }
+      
+      console.log(`[notes.api] ✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${toDelete.length} deleted notes from server`);
+      
+      // React Query cache 무효화
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('notes-synced'));
+      }
+    }
+  } catch (error) {
+    console.error('[notes.api] Background sync failed:', error);
   }
 }
 
 /**
  * 노트 상세 정보 가져오기
+ * Returns local data immediately if available, then syncs with server
  * @returns 도메인 Note 또는 null
  */
 export async function fetchNote(noteId: string): Promise<Note | null> {
   console.log('[notes.api] fetchNote called with noteId:', noteId);
-  console.log('[notes.api] USE_LOCAL mode:', USE_LOCAL);
   
-  if (USE_LOCAL) {
-    const dbNote = await getNoteFromDB(noteId);
-    console.log('[notes.api] IndexedDB result:', dbNote ? 'Found note' : 'Note not found', dbNote);
-    return dbNote ? dbToNote(dbNote) : null;
-  } else {
-    // 백엔드 API 호출
+  // 1. 로컬 데이터 우선 확인
+  const dbNote = await getNoteFromDB(noteId);
+  console.log('[notes.api] IndexedDB result:', dbNote ? 'Found note' : 'Note not found');
+  
+  const localNote = dbNote ? dbToNote(dbNote) : null;
+  
+  // 2. 백그라운드에서 서버 동기화 (로컬에 없으면 동기 호출)
+  if (!localNote) {
+    // 로컬에 없으면 서버에서 즉시 가져오기
+    return await fetchNoteFromServer(noteId);
+  }
+  
+  // 로컬 데이터가 있으면 백그라운드에서 동기화
+  syncSingleNoteInBackground(noteId, localNote);
+  
+  return localNote;
+}
+
+/**
+ * Fetch note from server (synchronous)
+ */
+async function fetchNoteFromServer(noteId: string): Promise<Note | null> {
+  try {
     console.log('[notes.api] Fetching from backend API:', `${API_BASE_URL}/api/notes/${noteId}`);
     const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
       credentials: "include",
       headers: {
-        ...getAuthHeaders(), // Add JWT token for authentication
+        ...getAuthHeaders(),
       },
     });
+    
     console.log('[notes.api] Backend response status:', res.status);
     if (!res.ok) {
       if (res.status === 404) {
@@ -114,9 +175,61 @@ export async function fetchNote(noteId: string): Promise<Note | null> {
       }
       throw new Error("Failed to fetch note");
     }
+    
     const apiNote: ApiNoteResponse = await res.json();
     console.log('[notes.api] Backend note data:', apiNote);
-    return apiToNote(apiNote);
+    const serverNote = apiToNote(apiNote);
+    
+    // IndexedDB에 저장
+    const { noteToDb } = await import('../adapters/note.adapter');
+    const { saveNote } = await import('@/lib/db/notes');
+    const dbNote = noteToDb(serverNote);
+    await saveNote(dbNote);
+    
+    return serverNote;
+  } catch (error) {
+    console.error('[notes.api] Failed to fetch from server:', error);
+    return null;
+  }
+}
+
+/**
+ * Background single note synchronization
+ */
+async function syncSingleNoteInBackground(noteId: string, localNote: Note): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
+      credentials: "include",
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+    
+    if (!res.ok) {
+      console.warn('[notes.api] Failed to fetch from server for sync:', res.status);
+      return;
+    }
+    
+    const apiNote: ApiNoteResponse = await res.json();
+    const serverNote = apiToNote(apiNote);
+    
+    // 서버가 더 최신이면 업데이트
+    if (serverNote.updatedAt > localNote.updatedAt) {
+      const { saveNote } = await import('@/lib/db/notes');
+      const { noteToDb } = await import('../adapters/note.adapter');
+      const dbNote = noteToDb(serverNote);
+      
+      await saveNote(dbNote);
+      
+      console.log(`[notes.api] ✅ Synced note from server: ${noteId}`);
+      
+      // React Query cache 무효화
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('note-synced', { detail: { noteId } }));
+      }
+    }
+  } catch (error) {
+    console.error('[notes.api] Background sync failed:', error);
   }
 }
 
