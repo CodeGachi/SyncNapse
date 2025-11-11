@@ -18,6 +18,7 @@ import {
   deleteNote as deleteNoteInDB,
   saveNoteContent as saveNoteContentInDB,
   getNoteContent as getNoteContentFromDB,
+  checkDuplicateNoteTitle,
 } from "@/lib/db/notes";
 import { dbToNote, dbToNotes, apiToNote, apiToNotes } from "../adapters/note.adapter";
 import { getAuthHeaders } from "../client";
@@ -55,14 +56,22 @@ export async function fetchAllNotes(): Promise<Note[]> {
 export async function fetchNotesByFolder(
   folderId?: string
 ): Promise<Note[]> {
+  console.log('[notes.api] fetchNotesByFolder called with folderId:', folderId);
+  console.log('[notes.api] USE_LOCAL mode:', USE_LOCAL);
+  
   if (USE_LOCAL) {
     const dbNotes = folderId
       ? await getNotesByFolderFromDB(folderId)
       : await getNotesFromDB();
+    console.log('[notes.api] IndexedDB returned notes:', dbNotes.length, 'notes');
+    dbNotes.forEach(note => {
+      console.log('[notes.api] Note:', { id: note.id, title: note.title, folderId: note.folderId });
+    });
     return dbToNotes(dbNotes);
   } else {
     // 백엔드 API 호출
     const url = folderId ? `${API_BASE_URL}/api/notes?folderId=${folderId}` : `${API_BASE_URL}/api/notes`;
+    console.log('[notes.api] Fetching from backend:', url);
     const res = await fetch(url, {
       credentials: "include",
       headers: {
@@ -71,6 +80,7 @@ export async function fetchNotesByFolder(
     });
     if (!res.ok) throw new Error("Failed to fetch notes");
     const apiNotes: ApiNoteResponse[] = await res.json();
+    console.log('[notes.api] Backend returned notes:', apiNotes.length, 'notes');
     return apiToNotes(apiNotes);
   }
 }
@@ -80,22 +90,32 @@ export async function fetchNotesByFolder(
  * @returns 도메인 Note 또는 null
  */
 export async function fetchNote(noteId: string): Promise<Note | null> {
+  console.log('[notes.api] fetchNote called with noteId:', noteId);
+  console.log('[notes.api] USE_LOCAL mode:', USE_LOCAL);
+  
   if (USE_LOCAL) {
     const dbNote = await getNoteFromDB(noteId);
+    console.log('[notes.api] IndexedDB result:', dbNote ? 'Found note' : 'Note not found', dbNote);
     return dbNote ? dbToNote(dbNote) : null;
   } else {
     // 백엔드 API 호출
+    console.log('[notes.api] Fetching from backend API:', `${API_BASE_URL}/api/notes/${noteId}`);
     const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
       credentials: "include",
       headers: {
         ...getAuthHeaders(), // Add JWT token for authentication
       },
     });
+    console.log('[notes.api] Backend response status:', res.status);
     if (!res.ok) {
-      if (res.status === 404) return null;
+      if (res.status === 404) {
+        console.log('[notes.api] Note not found in backend (404)');
+        return null;
+      }
       throw new Error("Failed to fetch note");
     }
     const apiNote: ApiNoteResponse = await res.json();
+    console.log('[notes.api] Backend note data:', apiNote);
     return apiToNote(apiNote);
   }
 }
@@ -110,8 +130,14 @@ export async function createNote(
   folderId: string,
   files: File[]
 ): Promise<Note> {
+  // Check for duplicate title in the same folder
+  const isDuplicate = await checkDuplicateNoteTitle(title, folderId);
+  if (isDuplicate) {
+    throw new Error(`이 폴더에 이미 같은 이름의 노트가 있습니다: "${title}"`);
+  }
+
   let localResult: Note | null = null;
-  let tempId: string | null = null;
+  let noteId: string | null = null;
 
   // 1. IndexedDB에 즉시 저장
   try {
@@ -119,7 +145,7 @@ export async function createNote(
     const { saveMultipleFiles } = await import("@/lib/db/files");
 
     const dbNote = await createNoteInDB(title, folderId);
-    tempId = dbNote.id; // Save temporary UUID
+    noteId = dbNote.id; // Use this ID for both local and backend
 
     // 파일도 IndexedDB에 저장
     if (files.length > 0) {
@@ -127,30 +153,18 @@ export async function createNote(
     }
 
     localResult = dbToNote(dbNote);
-    console.log(`[notes.api] Note saved to IndexedDB with temp ID:`, tempId);
+    console.log(`[notes.api] Note saved to IndexedDB with ID:`, noteId);
   } catch (error) {
     console.error("[notes.api] Failed to save to IndexedDB:", error);
   }
 
   // 2. 백엔드로 동기화 (파일 포함)
   const syncToBackend = async () => {
-    // Get the actual folder ID from IndexedDB (in case it was updated)
-    let actualFolderId = folderId;
-    try {
-      const { getFolder } = await import("@/lib/db/folders");
-      const folder = await getFolder(folderId);
-      if (folder) {
-        actualFolderId = folder.id;
-        console.log(`[notes.api] Using actual folder ID from IndexedDB: ${actualFolderId}`);
-      }
-    } catch (error) {
-      console.warn("[notes.api] Could not get folder from IndexedDB, using original ID:", error);
-    }
-
     try {
       const formData = new FormData();
+      formData.append("id", noteId!); // Send the same ID to backend
       formData.append("title", title);
-      formData.append("folder_id", actualFolderId);
+      formData.append("folder_id", folderId);
       files.forEach((file) => formData.append("files", file));
 
       const res = await fetch(`${API_BASE_URL}/api/notes`, {
@@ -165,29 +179,13 @@ export async function createNote(
       if (!res.ok) throw new Error("Failed to create note on backend");
       
       const backendNote: ApiNoteResponse = await res.json();
-      console.log(`[notes.api] Note synced to backend:`, title, `Backend ID: ${backendNote.id}`);
-      
-      // 3. Update IndexedDB with real backend ID
-      if (tempId && backendNote.id !== tempId) {
-        try {
-          await updateNoteIdInDB(tempId, {
-            id: backendNote.id,
-            title: backendNote.title,
-            folderId: backendNote.folder_id,
-            createdAt: new Date(backendNote.created_at).getTime(),
-            updatedAt: new Date(backendNote.updated_at).getTime(),
-          });
-          console.log(`[notes.api] ✅ IndexedDB updated: ${tempId} → ${backendNote.id}`);
-        } catch (error) {
-          console.error("[notes.api] Failed to update IndexedDB with backend ID:", error);
-        }
-      }
+      console.log(`[notes.api] ✅ Note synced to backend:`, title, `ID: ${backendNote.id}`);
       
       return backendNote;
     } catch (error) {
       console.error("[notes.api] Failed to sync to backend:", error);
-      // 재시도 큐에 추가 시 실제 폴더 ID 사용
-      getSyncQueue().addTask('note-create', { title, folderId: actualFolderId, files });
+      // 재시도 큐에 추가
+      getSyncQueue().addTask('note-create', { id: noteId, title, folderId, files });
       return null;
     }
   };

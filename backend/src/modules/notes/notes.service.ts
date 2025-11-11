@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
@@ -150,8 +151,28 @@ export class NotesService {
       throw new NotFoundException('Folder not found');
     }
 
+    // Check for duplicate note title in the same folder
+    const existingNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        folderId: dto.folder_id,
+        note: {
+          title: dto.title,
+          deletedAt: null,
+        },
+      },
+      include: {
+        note: true,
+      },
+    });
+
+    if (existingNote) {
+      this.logger.warn(`[createNote] Duplicate note title: ${dto.title} in folder: ${dto.folder_id}`);
+      throw new ConflictException('A note with this title already exists in this folder');
+    }
+
     const note = await this.prisma.lectureNote.create({
       data: {
+        id: dto.id, // Use provided ID if available
         title: dto.title,
         sourceFileUrl: files.length > 0 ? `temp://${files[0].originalname}` : null,
       },
@@ -166,9 +187,14 @@ export class NotesService {
 
     this.logger.debug(`[createNote] Created note: ${note.id}`);
 
-    // Build storage path: users/{userNickname}/{folderPath}/{noteId}/
+    // Build storage path: users/{userNickname}/{folderPath}/{noteTitle}/
     const folderStoragePath = await this.foldersService.buildFolderStoragePath(userId, dto.folder_id);
-    const noteBasePath = `${folderStoragePath}/${note.id}`;
+    // Sanitize note title for file path
+    const sanitizedTitle = encodeURIComponent(note.title)
+      .replace(/%20/g, ' ')  // Keep spaces as spaces
+      .replace(/%2F/g, '_')  // Replace / with _
+      .replace(/%5C/g, '_'); // Replace \ with _
+    const noteBasePath = `${folderStoragePath}/${sanitizedTitle}`;
 
     this.logger.debug(`[createNote] Note base storage path: ${noteBasePath}`);
 
@@ -181,11 +207,10 @@ export class NotesService {
         createdAt: note.createdAt.toISOString(),
         status: 'active',
         structure: {
-          transcription: 'Transcription audio and subtitles',
-          audio: 'General audio files',
-          files: 'PDF and general files',
-          texttype: 'Text type data (planned)',
-          inklayer: 'Ink layer data (planned)',
+          files: 'PDF, images, and general files',
+          audio: 'Audio recordings',
+          transcription: 'Transcription data (audio + subtitles)',
+          typing: 'Slide-based typing/handwriting data',
         },
       };
       
@@ -200,6 +225,23 @@ export class NotesService {
     } catch (error) {
       this.logger.error(`[createNote] Failed to create .note file:`, error);
       // Don't fail the request if metadata creation fails
+    }
+
+    // Create subdirectories by uploading placeholder .gitkeep files
+    try {
+      const subdirs = ['files', 'audio', 'transcription', 'typing'];
+      for (const subdir of subdirs) {
+        const placeholderKey = `${noteBasePath}/${subdir}/.gitkeep`;
+        await this.storageService.uploadBuffer(
+          Buffer.from(''),
+          placeholderKey,
+          'text/plain',
+        );
+        this.logger.debug(`[createNote] ✅ Created ${subdir}/ directory`);
+      }
+    } catch (error) {
+      this.logger.error(`[createNote] Failed to create subdirectories:`, error);
+      // Don't fail the request if subdirectory creation fails
     }
 
     if (files.length > 0) {
@@ -398,7 +440,7 @@ export class NotesService {
       where: { noteId },
     });
 
-    // Update .note file if title or folder changed
+    // Update .note file and rename folder if title or folder changed
     if (dto.title || dto.folder_id) {
       try {
         const targetFolderId = currentLink?.folderId || dto.folder_id;
@@ -407,8 +449,32 @@ export class NotesService {
             userId,
             targetFolderId,
           );
-          const metadataKey = `${folderStoragePath}/${noteId}/.note`;
           
+          // Build old and new note paths
+          const oldTitle = folderNoteLink.note.title;
+          const newTitle = updatedNote.title;
+          
+          const sanitizedOldTitle = encodeURIComponent(oldTitle)
+            .replace(/%20/g, ' ')
+            .replace(/%2F/g, '_')
+            .replace(/%5C/g, '_');
+          const sanitizedNewTitle = encodeURIComponent(newTitle)
+            .replace(/%20/g, ' ')
+            .replace(/%2F/g, '_')
+            .replace(/%5C/g, '_');
+          
+          const oldNoteBasePath = `${folderStoragePath}/${sanitizedOldTitle}`;
+          const newNoteBasePath = `${folderStoragePath}/${sanitizedNewTitle}`;
+          
+          // If title changed, rename the entire note folder in MinIO
+          if (dto.title && oldTitle !== newTitle) {
+            this.logger.debug(`[updateNote] Renaming note folder: ${oldNoteBasePath} -> ${newNoteBasePath}`);
+            await this.storageService.renameFolder(oldNoteBasePath, newNoteBasePath);
+            this.logger.log(`[updateNote] ✅ Renamed note folder in storage`);
+          }
+          
+          // Update .note metadata file
+          const metadataKey = `${newNoteBasePath}/.note`;
           const noteMetadata = {
             noteId: updatedNote.id,
             title: updatedNote.title,
@@ -417,11 +483,10 @@ export class NotesService {
             updatedAt: updatedNote.updatedAt.toISOString(),
             status: 'active',
             structure: {
-              transcription: 'Transcription audio and subtitles',
-              audio: 'General audio files',
-              files: 'PDF and general files',
-              texttype: 'Text type data (planned)',
-              inklayer: 'Ink layer data (planned)',
+              files: 'PDF, images, and general files',
+              audio: 'Audio recordings',
+              transcription: 'Transcription data (audio + subtitles)',
+              typing: 'Slide-based typing/handwriting data',
             },
           };
           
@@ -434,7 +499,7 @@ export class NotesService {
           this.logger.log(`[updateNote] ✅ Updated .note file: ${metadataKey}`);
         }
       } catch (error) {
-        this.logger.error(`[updateNote] Failed to update .note file:`, error);
+        this.logger.error(`[updateNote] Failed to update note in storage:`, error);
       }
     }
 
@@ -485,15 +550,30 @@ export class NotesService {
 
     // Rename .note file to .notex for soft delete in MinIO
     try {
-      const folderStoragePath = await this.foldersService.buildFolderStoragePath(
-        userId,
-        folderNoteLink.folderId,
-      );
-      const oldKey = `${folderStoragePath}/${noteId}/.note`;
-      const newKey = `${folderStoragePath}/${noteId}/.notex`;
+      // Get note details to build correct path
+      const noteDetails = await this.prisma.lectureNote.findUnique({
+        where: { id: noteId },
+        select: { title: true },
+      });
       
-      await this.storageService.renameFile(oldKey, newKey);
-      this.logger.log(`[deleteNote] ✅ Renamed .note to .notex: ${oldKey} → ${newKey}`);
+      if (noteDetails) {
+        const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+          userId,
+          folderNoteLink.folderId,
+        );
+        
+        const sanitizedTitle = encodeURIComponent(noteDetails.title)
+          .replace(/%20/g, ' ')
+          .replace(/%2F/g, '_')
+          .replace(/%5C/g, '_');
+        
+        const noteBasePath = `${folderStoragePath}/${sanitizedTitle}`;
+        const oldKey = `${noteBasePath}/.note`;
+        const newKey = `${noteBasePath}/.notex`;
+        
+        await this.storageService.renameFile(oldKey, newKey);
+        this.logger.log(`[deleteNote] ✅ Renamed .note to .notex: ${oldKey} → ${newKey}`);
+      }
     } catch (error) {
       this.logger.error(`[deleteNote] Failed to rename .note to .notex:`, error);
       // Don't fail the request if rename fails

@@ -26,6 +26,15 @@ export function FolderStructureSection({
     selectedFolderId ? { folderId: selectedFolderId } : { folderId: "root" }
   );
 
+  // Debug logs
+  console.log('[FolderStructureSection] Current state:', {
+    selectedFolderId,
+    notesCount: notes.length,
+    notes: notes.map(n => ({ id: n.id, title: n.title, folderId: n.folderId })),
+    isLoading: notesLoading,
+    subFoldersCount: subFolders.length
+  });
+
   return (
     <section className="mb-12">
       {/* 헤더와 Breadcrumb */}

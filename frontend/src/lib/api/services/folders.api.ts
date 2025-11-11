@@ -11,11 +11,12 @@ import {
   getAllFolders as getAllFoldersFromDB,
   getFoldersByParent as getFoldersByParentFromDB,
   createFolder as createFolderInDB,
-  updateFolder as updateFolderInDB,
+  updateFolder as updateFolderIdInDB,
   renameFolder as renameFolderInDB,
   deleteFolder as deleteFolderInDB,
   moveFolder as moveFolderInDB,
   getFolderPath as getFolderPathFromDB,
+  checkDuplicateFolderName,
 } from "@/lib/db/folders";
 import { dbToFolder, dbToFolders, apiToFolder, apiToFolders } from "../adapters/folder.adapter";
 import { getAuthHeaders } from "../client";
@@ -80,15 +81,22 @@ export async function createFolder(
   name: string,
   parentId: string | null = null
 ): Promise<Folder> {
+  // Check for duplicate name in the same parent folder
+  const isDuplicate = await checkDuplicateFolderName(name, parentId);
+  if (isDuplicate) {
+    const parentLabel = parentId ? "이 폴더" : "루트 폴더";
+    throw new Error(`${parentLabel}에 이미 같은 이름의 폴더가 있습니다: "${name}"`);
+  }
+
   let localResult: Folder | null = null;
-  let tempId: string | null = null;
+  let folderId: string | null = null;
 
   // 1. Save to IndexedDB immediately (fast local storage)
   try {
     const dbFolder = await createFolderInDB(name, parentId);
-    tempId = dbFolder.id; // Save temporary UUID
+    folderId = dbFolder.id; // Use this ID for both local and backend
     localResult = dbToFolder(dbFolder);
-    console.log(`[folders.api] Folder saved to IndexedDB with temp ID:`, tempId);
+    console.log(`[folders.api] Folder saved to IndexedDB with ID:`, folderId);
   } catch (error) {
     console.error("[folders.api] Failed to save to IndexedDB:", error);
   }
@@ -103,36 +111,23 @@ export async function createFolder(
           ...getAuthHeaders(),
         },
         credentials: "include",
-        body: JSON.stringify({ name, parent_id: parentId }), 
+        body: JSON.stringify({ 
+          id: folderId, // Send the same ID to backend
+          name, 
+          parent_id: parentId 
+        }), 
       });
 
       if (!res.ok) throw new Error("Failed to create folder on backend");
       
       const backendFolder: ApiFolderResponse = await res.json();
-      console.log(`[folders.api] Folder synced to backend:`, name, `Backend ID: ${backendFolder.id}`);
-      
-      // 3. Update IndexedDB with real backend ID
-      if (tempId && backendFolder.id !== tempId) {
-        try {
-          const updatedFolder = apiToFolder(backendFolder);
-          await updateFolderInDB(tempId, {
-            id: backendFolder.id,
-            name: backendFolder.name,
-            parentId: backendFolder.parent_id,
-            createdAt: new Date(backendFolder.created_at).getTime(),
-            updatedAt: new Date(backendFolder.updated_at).getTime(),
-          });
-          console.log(`[folders.api] ✅ IndexedDB updated: ${tempId} → ${backendFolder.id}`);
-        } catch (error) {
-          console.error("[folders.api] Failed to update IndexedDB with backend ID:", error);
-        }
-      }
+      console.log(`[folders.api] ✅ Folder synced to backend:`, name, `ID: ${backendFolder.id}`);
       
       return backendFolder;
     } catch (error) {
       console.error("[folders.api] Failed to sync to backend:", error);
       // 재시도 큐에 추가
-      getSyncQueue().addTask('folder-create', { name, parent_id: parentId });
+      getSyncQueue().addTask('folder-create', { id: folderId, name, parent_id: parentId });
       return null;
     }
   };

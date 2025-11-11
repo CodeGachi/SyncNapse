@@ -73,6 +73,17 @@ export async function getFoldersByParent(
 }
 
 /**
+ * 같은 부모 폴더에 동일한 이름이 있는지 확인
+ */
+export async function checkDuplicateFolderName(
+  name: string,
+  parentId: string | null = null
+): Promise<boolean> {
+  const folders = await getFoldersByParent(parentId);
+  return folders.some(folder => folder.name === name);
+}
+
+/**
  * 폴더 생성
  */
 export async function createFolder(
