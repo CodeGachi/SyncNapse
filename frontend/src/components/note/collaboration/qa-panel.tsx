@@ -17,10 +17,20 @@ import {
   useEventListener,
 } from "@/lib/liveblocks/liveblocks.config";
 import { ThumbsUp, Pin, Share2, Trash2, MessageCircle } from "lucide-react";
+import * as questionsApi from "@/lib/api/services/questions.api";
 
 /**
  * Liveblocks Storage에서 사용하는 Question 인터페이스
  */
+interface StorageAnswer {
+  id: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  createdAt: number;
+  isBest: boolean;
+}
+
 interface StorageQuestion {
   id: string;
   noteId?: string;
@@ -28,7 +38,7 @@ interface StorageQuestion {
   authorId: string;
   authorName: string;
   createdAt: number;
-  answers: unknown[];
+  answers: StorageAnswer[];
   upvotes: string[];
   isPinned: boolean;
   isSharedToAll: boolean;
@@ -171,7 +181,64 @@ export function QAPanel({
     []
   );
 
-  const handleAddQuestion = () => {
+  // 답변 추가 Mutation
+  const addAnswer = useMutation(
+    ({ storage }, questionId: string, content: string) => {
+      const questions = storage.get("questions");
+      const question = questions.find((q) => q.id === questionId);
+      if (!question) return;
+
+      const newAnswer = {
+        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        content,
+        authorId: userId,
+        authorName: userName,
+        createdAt: Date.now(),
+        isBest: false,
+      };
+
+      question.answers.push(newAnswer);
+    },
+    [userId, userName]
+  );
+
+  // 답변 삭제 Mutation
+  const deleteAnswer = useMutation(
+    ({ storage }, questionId: string, answerId: string) => {
+      const questions = storage.get("questions");
+      const question = questions.find((q) => q.id === questionId);
+      if (!question) return;
+
+      const index = question.answers.findIndex((a) => a.id === answerId);
+      if (index !== -1) {
+        question.answers.splice(index, 1);
+      }
+    },
+    []
+  );
+
+  // 베스트 답변 표시 Mutation (Educator만)
+  const markAnswerAsBest = useMutation(
+    ({ storage }, questionId: string, answerId: string) => {
+      const questions = storage.get("questions");
+      const question = questions.find((q) => q.id === questionId);
+      if (!question) return;
+
+      // 모든 답변의 isBest를 false로
+      question.answers.forEach((answer) => {
+        answer.isBest = false;
+      });
+
+      // 선택한 답변만 isBest를 true로
+      const targetAnswer = question.answers.find((a) => a.id === answerId);
+      if (targetAnswer) {
+        targetAnswer.isBest = true;
+      }
+    },
+    []
+  );
+
+  const handleAddQuestion = async () => {
     if (newQuestionText.trim()) {
       console.log(`[Q&A Panel] 질문 추가 시작:`, {
         userId,
@@ -183,11 +250,19 @@ export function QAPanel({
 
       const questionId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-      // 1. Storage에 저장
+      // 1. Liveblocks Storage에 저장 (실시간 협업)
       addQuestion(newQuestionText);
-      console.log(`[Q&A Panel] 질문 추가 완료 (Mutation 실행됨)`);
+      console.log(`[Q&A Panel] 질문 추가 완료 (Liveblocks Storage)`);
 
-      // 2. Broadcast로 즉시 알림
+      // 2. IndexedDB + 백엔드 동기화 큐에 추가
+      try {
+        await questionsApi.createQuestion(noteId, newQuestionText, userId, userName);
+        console.log(`[Q&A Panel] 질문 백엔드 동기화 큐 추가 완료`);
+      } catch (error) {
+        console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+      }
+
+      // 3. Broadcast로 즉시 알림
       broadcast({
         type: "QUESTION_ADDED",
         questionId,
@@ -200,14 +275,22 @@ export function QAPanel({
     }
   };
 
-  // 추천 (Storage + Broadcast)
-  const handleUpvote = (questionId: string) => {
+  // 추천 (Storage + Broadcast + Backend)
+  const handleUpvote = async (questionId: string) => {
     console.log(`[Q&A Panel] 질문 추천:`, { questionId, userId });
 
-    // 1. Storage에 저장
+    // 1. Liveblocks Storage에 저장
     upvoteQuestion(questionId);
 
-    // 2. Broadcast로 즉시 알림
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.toggleQuestionUpvote(questionId, noteId, userId);
+      console.log(`[Q&A Panel] 추천 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
+
+    // 3. Broadcast로 즉시 알림
     broadcast({
       type: "QUESTION_UPVOTED",
       questionId,
@@ -216,19 +299,107 @@ export function QAPanel({
     console.log(`[Q&A Panel] 추천 Broadcast 전송 완료`);
   };
 
-  // 삭제 (Storage + Broadcast)
-  const handleDelete = (questionId: string) => {
+  // 핀 고정/해제 (Storage + Backend)
+  const handleTogglePin = async (questionId: string) => {
+    console.log(`[Q&A Panel] 핀 고정/해제:`, { questionId });
+
+    // 1. Liveblocks Storage
+    togglePin(questionId);
+
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.toggleQuestionPin(questionId, noteId);
+      console.log(`[Q&A Panel] 핀 고정 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
+  };
+
+  // 공유 설정 토글 (Storage + Backend)
+  const handleToggleShare = async (questionId: string) => {
+    console.log(`[Q&A Panel] 공유 설정 토글:`, { questionId });
+
+    // 1. Liveblocks Storage
+    toggleShare(questionId);
+
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.toggleQuestionShare(questionId, noteId);
+      console.log(`[Q&A Panel] 공유 설정 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
+  };
+
+  // 삭제 (Storage + Broadcast + Backend)
+  const handleDelete = async (questionId: string) => {
     console.log(`[Q&A Panel] 질문 삭제:`, { questionId });
 
-    // 1. Storage에서 삭제
+    // 1. Liveblocks Storage에서 삭제
     deleteQuestion(questionId);
 
-    // 2. Broadcast로 즉시 알림
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.deleteQuestion(questionId, noteId);
+      console.log(`[Q&A Panel] 삭제 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
+
+    // 3. Broadcast로 즉시 알림
     broadcast({
       type: "QUESTION_DELETED",
       questionId,
     });
     console.log(`[Q&A Panel] 삭제 Broadcast 전송 완료`);
+  };
+
+  // 답변 추가 (Storage + Backend)
+  const handleAddAnswer = async (questionId: string, content: string) => {
+    console.log(`[Q&A Panel] 답변 추가:`, { questionId, content });
+
+    // 1. Liveblocks Storage에 저장
+    addAnswer(questionId, content);
+
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.addAnswer(questionId, noteId, content, userId, userName);
+      console.log(`[Q&A Panel] 답변 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
+  };
+
+  // 답변 삭제 (Storage + Backend)
+  const handleDeleteAnswer = async (questionId: string, answerId: string) => {
+    console.log(`[Q&A Panel] 답변 삭제:`, { questionId, answerId });
+
+    // 1. Liveblocks Storage에서 삭제
+    deleteAnswer(questionId, answerId);
+
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.deleteAnswer(questionId, noteId, answerId);
+      console.log(`[Q&A Panel] 답변 삭제 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
+  };
+
+  // 베스트 답변 표시 (Storage + Backend) - Educator만
+  const handleMarkAnswerAsBest = async (questionId: string, answerId: string) => {
+    console.log(`[Q&A Panel] 베스트 답변 표시:`, { questionId, answerId });
+
+    // 1. Liveblocks Storage
+    markAnswerAsBest(questionId, answerId);
+
+    // 2. IndexedDB + 백엔드 동기화
+    try {
+      await questionsApi.markAnswerAsBest(questionId, noteId, answerId);
+      console.log(`[Q&A Panel] 베스트 답변 백엔드 동기화 큐 추가 완료`);
+    } catch (error) {
+      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
+    }
   };
 
   // 정렬: 핀 고정 → 추천 많은 순
@@ -284,11 +455,15 @@ export function QAPanel({
               key={question.id}
               question={question}
               currentUserId={userId}
+              currentUserName={userName}
               isEducator={isEducator}
               onUpvote={() => handleUpvote(question.id)}
-              onTogglePin={() => togglePin(question.id)}
-              onToggleShare={() => toggleShare(question.id)}
+              onTogglePin={() => handleTogglePin(question.id)}
+              onToggleShare={() => handleToggleShare(question.id)}
               onDelete={() => handleDelete(question.id)}
+              onAddAnswer={(content) => handleAddAnswer(question.id, content)}
+              onDeleteAnswer={(answerId) => handleDeleteAnswer(question.id, answerId)}
+              onMarkAnswerAsBest={(answerId) => handleMarkAnswerAsBest(question.id, answerId)}
             />
           ))
         )}
@@ -320,24 +495,44 @@ export function QAPanel({
 interface QuestionCardProps {
   question: StorageQuestion;
   currentUserId: string;
+  currentUserName: string;
   isEducator: boolean;
   onUpvote: () => void;
   onTogglePin: () => void;
   onToggleShare: () => void;
   onDelete: () => void;
+  onAddAnswer: (content: string) => void;
+  onDeleteAnswer: (answerId: string) => void;
+  onMarkAnswerAsBest: (answerId: string) => void;
 }
 
 function QuestionCard({
   question,
   currentUserId,
+  currentUserName,
   isEducator,
   onUpvote,
   onTogglePin,
   onToggleShare,
   onDelete,
+  onAddAnswer,
+  onDeleteAnswer,
+  onMarkAnswerAsBest,
 }: QuestionCardProps) {
   const isUpvoted = question.upvotes?.includes(currentUserId) || false;
   const isMyQuestion = question.authorId === currentUserId;
+
+  // 답변 상태
+  const [showAnswers, setShowAnswers] = useState(false);
+  const [newAnswerText, setNewAnswerText] = useState("");
+
+  // 답변 추가 핸들러
+  const handleSubmitAnswer = () => {
+    if (newAnswerText.trim()) {
+      onAddAnswer(newAnswerText);
+      setNewAnswerText("");
+    }
+  };
 
   return (
     <div
@@ -437,7 +632,116 @@ function QuestionCard({
             <Trash2 size={12} />
           </button>
         )}
+
+        {/* 답변 토글 버튼 */}
+        <button
+          onClick={() => setShowAnswers(!showAnswers)}
+          className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <MessageCircle size={12} />
+          <span>{question.answers?.length || 0}</span>
+        </button>
       </div>
+
+      {/* 답변 섹션 */}
+      {showAnswers && (
+        <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+          {/* 답변 목록 */}
+          {question.answers && question.answers.length > 0 && (
+            <div className="space-y-2">
+              {question.answers.map((answer) => {
+                const isMyAnswer = answer.authorId === currentUserId;
+                return (
+                  <div
+                    key={answer.id}
+                    className={`bg-white/5 rounded p-2 border ${
+                      answer.isBest
+                        ? "border-[#AFC02B]/50 bg-[#AFC02B]/5"
+                        : "border-white/10"
+                    }`}
+                  >
+                    {/* 답변 헤더 */}
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/80 text-xs font-medium">
+                          {answer.authorName}
+                          {isMyAnswer && (
+                            <span className="text-[#AFC02B] ml-1">(나)</span>
+                          )}
+                        </span>
+                        <span className="text-white/40 text-xs">
+                          {new Date(answer.createdAt).toLocaleTimeString(
+                            "ko-KR",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </span>
+                        {/* 베스트 답변 배지 */}
+                        {answer.isBest && (
+                          <div className="bg-[#AFC02B]/20 text-[#AFC02B] rounded px-1.5 py-0.5 text-xs font-medium">
+                            ✓ 채택
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 답변 액션 버튼 */}
+                      <div className="flex gap-1">
+                        {/* 베스트 답변 표시 (Educator만, 이미 베스트가 아닐 때만) */}
+                        {isEducator && !answer.isBest && (
+                          <button
+                            onClick={() => onMarkAnswerAsBest(answer.id)}
+                            className="px-1.5 py-0.5 rounded text-xs bg-white/5 text-[#AFC02B]/60 hover:bg-[#AFC02B]/20 hover:text-[#AFC02B] transition-colors"
+                            title="베스트 답변으로 표시"
+                          >
+                            채택
+                          </button>
+                        )}
+
+                        {/* 답변 삭제 (본인 또는 Educator) */}
+                        {(isMyAnswer || isEducator) && (
+                          <button
+                            onClick={() => onDeleteAnswer(answer.id)}
+                            className="px-1.5 py-0.5 rounded text-xs bg-white/5 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            title="삭제"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 답변 내용 */}
+                    <p className="text-white/90 text-sm break-words">
+                      {answer.content}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 답변 입력 폼 */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newAnswerText}
+              onChange={(e) => setNewAnswerText(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSubmitAnswer()}
+              placeholder="답변을 입력하세요..."
+              className="flex-1 bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white text-xs placeholder:text-white/40 focus:outline-none focus:border-[#AFC02B]"
+            />
+            <button
+              onClick={handleSubmitAnswer}
+              disabled={!newAnswerText.trim()}
+              className="px-2 py-1.5 bg-[#AFC02B] text-black rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B]/90 transition-colors"
+            >
+              답변
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

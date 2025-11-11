@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SyncNapseDB";
-const DB_VERSION = 5; // v5: 필기 데이터 스토어 추가
+const DB_VERSION = 6; // v6: questions 스토어 추가
 
 // DB 스키마
 export interface DBFolder {
@@ -86,6 +86,30 @@ export interface DBTrashItem {
   expiresAt: number; // 영구 삭제 예정 시간 (15일 후)
 }
 
+/**
+ * Q&A 질문 데이터 모델
+ */
+export interface DBQuestion {
+  id: string; // 질문 ID
+  noteId: string; // 노트 ID
+  content: string; // 질문 내용
+  authorId: string; // 작성자 ID
+  authorName: string; // 작성자 이름
+  createdAt: number; // 생성 시간
+  updatedAt: number; // 수정 시간
+  answers: Array<{
+    id: string;
+    content: string;
+    authorId: string;
+    authorName: string;
+    createdAt: number;
+    isBest: boolean;
+  }>;
+  upvotes: string[]; // 추천한 userId 목록
+  isPinned: boolean; // Educator 고정
+  isSharedToAll: boolean; // 전체 공유 여부
+}
+
 let dbInstance: IDBDatabase | null = null;
 
 /**
@@ -159,6 +183,14 @@ export async function initDB(): Promise<IDBDatabase> {
         const drawingStore = db.createObjectStore("drawings", { keyPath: "id" });
         drawingStore.createIndex("noteId", "noteId", { unique: false });
         drawingStore.createIndex("createdAt", "createdAt", { unique: false });
+      }
+
+      // Q&A 질문 스토어
+      if (!db.objectStoreNames.contains("questions")) {
+        const questionStore = db.createObjectStore("questions", { keyPath: "id" });
+        questionStore.createIndex("noteId", "noteId", { unique: false });
+        questionStore.createIndex("createdAt", "createdAt", { unique: false });
+        questionStore.createIndex("isPinned", "isPinned", { unique: false });
       }
     };
   });

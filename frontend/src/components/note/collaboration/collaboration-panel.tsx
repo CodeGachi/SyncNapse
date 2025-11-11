@@ -14,7 +14,9 @@ import { ActiveUsersPanel } from "./active-users-panel";
 import { QAPanel } from "./qa-panel";
 import { PollPanel } from "./poll-panel";
 import { HandRaisePanel } from "./hand-raise-panel";
-import { Users, MessageCircle, BarChart3, Hand } from "lucide-react";
+import { useEmojiReaction } from "./emoji-reactions";
+import { AVAILABLE_EMOJIS, type AvailableEmoji } from "@/lib/types/collaboration";
+import { Users, MessageCircle, BarChart3, Hand, Smile } from "lucide-react";
 
 interface CollaborationPanelProps {
   userId: string;
@@ -24,13 +26,14 @@ interface CollaborationPanelProps {
   className?: string;
 }
 
-type TabId = "users" | "qa" | "poll" | "handRaise";
+type TabId = "users" | "qa" | "poll" | "handRaise" | "emoji";
 
 const TABS = [
   { id: "users" as const, label: "접속자", icon: Users },
   { id: "handRaise" as const, label: "손들기", icon: Hand },
   { id: "qa" as const, label: "Q&A", icon: MessageCircle },
   { id: "poll" as const, label: "투표", icon: BarChart3 },
+  { id: "emoji" as const, label: "이모지", icon: Smile },
 ];
 
 export function CollaborationPanel({
@@ -103,6 +106,55 @@ export function CollaborationPanel({
             isEducator={isEducator}
           />
         )}
+
+        {activeTab === "emoji" && (
+          <EmojiPanel
+            userId={userId}
+            userName={userName}
+            noteId={noteId}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 이모지 반응 패널
+ */
+interface EmojiPanelProps {
+  userId: string;
+  userName: string;
+  noteId: string;
+}
+
+function EmojiPanel({ userId, userName, noteId }: EmojiPanelProps) {
+  const { sendEmoji } = useEmojiReaction(noteId, userId, userName);
+
+  const handleEmojiClick = (emoji: AvailableEmoji) => {
+    sendEmoji(emoji);
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div className="text-center mb-2">
+        <Smile size={32} className="text-[#AFC02B] mx-auto mb-2" />
+        <h4 className="text-white text-sm font-medium mb-1">이모지 반응 보내기</h4>
+        <p className="text-white/60 text-xs">모든 참여자에게 실시간으로 표시됩니다</p>
+      </div>
+
+      {/* 이모지 그리드 */}
+      <div className="grid grid-cols-3 gap-3">
+        {AVAILABLE_EMOJIS.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => handleEmojiClick(emoji)}
+            className="w-16 h-16 flex items-center justify-center text-3xl bg-white/5 hover:bg-[#AFC02B]/20 rounded-lg transition-all hover:scale-110 active:scale-95 border border-white/10 hover:border-[#AFC02B]/50"
+            title={`${emoji} 반응 보내기`}
+          >
+            {emoji}
+          </button>
+        ))}
       </div>
     </div>
   );
