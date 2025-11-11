@@ -30,6 +30,26 @@ export async function getAllFolders(): Promise<DBFolder[]> {
 }
 
 /**
+ * Get a single folder by ID
+ */
+export async function getFolder(folderId: string): Promise<DBFolder | undefined> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["folders"], "readonly");
+    const store = transaction.objectStore("folders");
+    const request = store.get(folderId);
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(new Error(`폴더를 가져올 수 없습니다: ${folderId}`));
+    };
+  });
+}
+
+/**
  * 특정 폴더의 하위 폴더들 가져오기
  */
 export async function getFoldersByParent(
@@ -80,6 +100,42 @@ export async function createFolder(
 
     request.onerror = () => {
       reject(new Error(`폴더 생성 실패: ${request.error?.message || "Unknown error"}`));
+    };
+  });
+}
+
+/**
+ * Update folder (to sync backend ID with IndexedDB)
+ * Replace temporary UUID with real backend ID
+ */
+export async function updateFolder(
+  oldId: string,
+  newFolder: DBFolder
+): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["folders"], "readwrite");
+    const store = transaction.objectStore("folders");
+
+    // Delete old entry
+    const deleteRequest = store.delete(oldId);
+
+    deleteRequest.onsuccess = () => {
+      // Add new entry with backend ID
+      const addRequest = store.add(newFolder);
+
+      addRequest.onsuccess = () => {
+        console.log(`[folders.ts] ✅ Updated folder ID: ${oldId} → ${newFolder.id}`);
+        resolve();
+      };
+
+      addRequest.onerror = () => {
+        reject(new Error("Failed to add updated folder"));
+      };
+    };
+
+    deleteRequest.onerror = () => {
+      reject(new Error("Failed to delete old folder"));
     };
   });
 }

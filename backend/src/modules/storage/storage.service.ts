@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { Readable } from 'node:stream';
@@ -724,31 +724,16 @@ export class StorageService {
     }
   }
 
-  //  Create a folder in storage (by uploading a placeholder file)
-  //  Note: S3 doesn't have "folders" - they're implied by object key prefixes
-  //  We create a .folder placeholder file to ensure the folder exists
+  //  Create a folder in storage
+  //  Note: S3/MinIO doesn't have real folders - they're created automatically when files are uploaded
+  //  For local storage, we create actual directories
   async createFolder(folderPath: string): Promise<void> {
     this.logger.debug(`[createFolder] Creating folder: ${folderPath}`);
 
     if (this.config.provider === 's3' && this.s3Client) {
-      // Ensure folder path ends with /
-      const normalizedPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
-      
-      // Create a .folder placeholder file
-      const placeholderKey = `${normalizedPath}.folder`;
-      
-      const command = new PutObjectCommand({
-        Bucket: this.config.bucket,
-        Key: placeholderKey,
-        Body: Buffer.from(''), // Empty file
-        ContentType: 'application/x-directory',
-        Metadata: {
-          type: 'folder_placeholder',
-        },
-      });
-
-      await this.s3Client.send(command);
-      this.logger.debug(`[createFolder] ✅ Created folder placeholder: ${placeholderKey}`);
+      // S3/MinIO: Folders are virtual and created automatically when files are uploaded
+      // No need to create placeholder files
+      this.logger.debug(`[createFolder] ✅ S3 folder will be created automatically on file upload: ${folderPath}`);
     } else if (this.config.provider === 'local') {
       // For local storage, actually create the directory
       const normalizedPath = folderPath.endsWith('/') ? folderPath.slice(0, -1) : folderPath;
@@ -761,29 +746,17 @@ export class StorageService {
     }
   }
 
-  //  Delete a folder in storage (remove placeholder and all contents)
+  //  Delete a folder in storage
+  //  Note: S3/MinIO folders are virtual - actual file deletion should be handled separately
   async deleteFolder(folderPath: string): Promise<void> {
     this.logger.debug(`[deleteFolder] Deleting folder: ${folderPath}`);
 
     if (this.config.provider === 's3' && this.s3Client) {
-      // Note: This only deletes the placeholder. 
-      // Actual file deletion should be handled separately
-      const normalizedPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
-      const placeholderKey = `${normalizedPath}.folder`;
-      
-      try {
-        const command = new DeleteObjectCommand({
-          Bucket: this.config.bucket,
-          Key: placeholderKey,
-        });
-        await this.s3Client.send(command);
-        this.logger.debug(`[deleteFolder] ✅ Deleted folder placeholder: ${placeholderKey}`);
-      } catch (error) {
-        this.logger.warn(`[deleteFolder] Failed to delete folder placeholder: ${placeholderKey}`, error);
-      }
+      // S3/MinIO: No need to delete anything - folders are virtual
+      // Files in the folder should be deleted separately
+      this.logger.debug(`[deleteFolder] S3 folder is virtual, no deletion needed: ${folderPath}`);
     } else if (this.config.provider === 'local') {
       // For local storage, we don't delete the folder if it contains files
-      // This is just for consistency with S3 behavior
       const normalizedPath = folderPath.endsWith('/') ? folderPath.slice(0, -1) : folderPath;
       const fullPath = join(this.localBasePath, normalizedPath);
       
@@ -791,36 +764,124 @@ export class StorageService {
     }
   }
 
+  //  Rename a file in storage (copy + delete)
+  async renameFile(oldKey: string, newKey: string): Promise<void> {
+    this.logger.debug(`[renameFile] Renaming file: ${oldKey} -> ${newKey}`);
+
+    if (this.config.provider === 's3' && this.s3Client) {
+      try {
+        // Copy object to new key
+        const copyCommand = new CopyObjectCommand({
+          Bucket: this.config.bucket,
+          CopySource: `${this.config.bucket}/${oldKey}`,
+          Key: newKey,
+        });
+        
+        await this.s3Client.send(copyCommand);
+        this.logger.debug(`[renameFile] ✅ Copied: ${oldKey} -> ${newKey}`);
+        
+        // Delete old object
+        const deleteCommand = new DeleteObjectCommand({
+          Bucket: this.config.bucket,
+          Key: oldKey,
+        });
+        
+        await this.s3Client.send(deleteCommand);
+        this.logger.log(`[renameFile] ✅ Renamed file: ${oldKey} -> ${newKey}`);
+      } catch (error) {
+        this.logger.error(`[renameFile] ❌ Failed to rename file:`, error);
+        throw error;
+      }
+    } else if (this.config.provider === 'local') {
+      // For local storage, rename the file
+      const oldFullPath = join(this.localBasePath, oldKey);
+      const newFullPath = join(this.localBasePath, newKey);
+      
+      if (existsSync(oldFullPath)) {
+        const fs = require('fs');
+        fs.renameSync(oldFullPath, newFullPath);
+        this.logger.log(`[renameFile] ✅ Renamed local file: ${oldFullPath} -> ${newFullPath}`);
+      } else {
+        this.logger.warn(`[renameFile] Local file not found: ${oldFullPath}`);
+      }
+    }
+  }
+
   //  Rename/move a folder in storage
+  //  Note: S3/MinIO folders are virtual - no action needed
   async renameFolder(oldPath: string, newPath: string): Promise<void> {
     this.logger.debug(`[renameFolder] Renaming folder: ${oldPath} -> ${newPath}`);
 
     if (this.config.provider === 's3' && this.s3Client) {
-      // For S3, we need to update the placeholder
-      const oldNormalized = oldPath.endsWith('/') ? oldPath : `${oldPath}/`;
-      const newNormalized = newPath.endsWith('/') ? newPath : `${newPath}/`;
-      
-      const oldPlaceholder = `${oldNormalized}.folder`;
-      const newPlaceholder = `${newNormalized}.folder`;
-      
-      // Create new placeholder
-      await this.createFolder(newNormalized);
-      
-      // Delete old placeholder
+      // S3/MinIO: List all objects with oldPath prefix, copy to newPath, and delete old ones
       try {
-        const command = new DeleteObjectCommand({
+        const oldPrefix = oldPath.endsWith('/') ? oldPath : `${oldPath}/`;
+        const newPrefix = newPath.endsWith('/') ? newPath : `${newPath}/`;
+        
+        this.logger.debug(`[renameFolder] Listing objects with prefix: ${oldPrefix}`);
+        
+        // List all objects with old prefix
+        const listCommand = new ListObjectsV2Command({
           Bucket: this.config.bucket,
-          Key: oldPlaceholder,
+          Prefix: oldPrefix,
         });
-        await this.s3Client.send(command);
-        this.logger.debug(`[renameFolder] ✅ Renamed folder placeholder: ${oldPlaceholder} -> ${newPlaceholder}`);
+        
+        const listResponse = await this.s3Client.send(listCommand);
+        const objects = listResponse.Contents || [];
+        
+        if (objects.length === 0) {
+          this.logger.warn(`[renameFolder] No objects found with prefix: ${oldPrefix}`);
+          return;
+        }
+        
+        this.logger.debug(`[renameFolder] Found ${objects.length} objects to rename`);
+        
+        // Copy each object to new path and delete old one
+        for (const obj of objects) {
+          if (!obj.Key) continue;
+          
+          const relativePath = obj.Key.substring(oldPrefix.length);
+          const newKey = `${newPrefix}${relativePath}`;
+          
+          this.logger.debug(`[renameFolder] Copying: ${obj.Key} -> ${newKey}`);
+          
+          // Copy object to new path
+          const copyCommand = new CopyObjectCommand({
+            Bucket: this.config.bucket,
+            CopySource: `${this.config.bucket}/${obj.Key}`,
+            Key: newKey,
+          });
+          
+          await this.s3Client.send(copyCommand);
+          
+          // Delete old object
+          const deleteCommand = new DeleteObjectCommand({
+            Bucket: this.config.bucket,
+            Key: obj.Key,
+          });
+          
+          await this.s3Client.send(deleteCommand);
+          
+          this.logger.debug(`[renameFolder] ✅ Renamed: ${obj.Key} -> ${newKey}`);
+        }
+        
+        this.logger.log(`[renameFolder] ✅ Successfully renamed ${objects.length} objects from ${oldPath} to ${newPath}`);
       } catch (error) {
-        this.logger.warn(`[renameFolder] Failed to delete old placeholder: ${oldPlaceholder}`, error);
+        this.logger.error(`[renameFolder] ❌ Failed to rename folder:`, error);
+        throw error;
       }
     } else if (this.config.provider === 'local') {
-      // For local storage, we don't rename folders with files in them
-      // Files should be moved separately
-      this.logger.debug(`[renameFolder] Local folder rename skipped (files should be moved separately)`);
+      // For local storage, rename the directory
+      const oldFullPath = join(this.localBasePath, oldPath);
+      const newFullPath = join(this.localBasePath, newPath);
+      
+      if (existsSync(oldFullPath)) {
+        const fs = require('fs');
+        fs.renameSync(oldFullPath, newFullPath);
+        this.logger.log(`[renameFolder] ✅ Renamed local folder: ${oldFullPath} -> ${newFullPath}`);
+      } else {
+        this.logger.warn(`[renameFolder] Local folder not found: ${oldFullPath}`);
+      }
     }
   }
 

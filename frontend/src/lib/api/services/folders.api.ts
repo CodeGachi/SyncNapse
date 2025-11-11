@@ -11,6 +11,7 @@ import {
   getAllFolders as getAllFoldersFromDB,
   getFoldersByParent as getFoldersByParentFromDB,
   createFolder as createFolderInDB,
+  updateFolder as updateFolderInDB,
   renameFolder as renameFolderInDB,
   deleteFolder as deleteFolderInDB,
   moveFolder as moveFolderInDB,
@@ -80,12 +81,14 @@ export async function createFolder(
   parentId: string | null = null
 ): Promise<Folder> {
   let localResult: Folder | null = null;
+  let tempId: string | null = null;
 
   // 1. Save to IndexedDB immediately (fast local storage)
   try {
     const dbFolder = await createFolderInDB(name, parentId);
+    tempId = dbFolder.id; // Save temporary UUID
     localResult = dbToFolder(dbFolder);
-    console.log(`[folders.api] Folder saved to IndexedDB:`, name);
+    console.log(`[folders.api] Folder saved to IndexedDB with temp ID:`, tempId);
   } catch (error) {
     console.error("[folders.api] Failed to save to IndexedDB:", error);
   }
@@ -104,8 +107,28 @@ export async function createFolder(
       });
 
       if (!res.ok) throw new Error("Failed to create folder on backend");
-      console.log(`[folders.api] Folder synced to backend:`, name);
-      return await res.json();
+      
+      const backendFolder: ApiFolderResponse = await res.json();
+      console.log(`[folders.api] Folder synced to backend:`, name, `Backend ID: ${backendFolder.id}`);
+      
+      // 3. Update IndexedDB with real backend ID
+      if (tempId && backendFolder.id !== tempId) {
+        try {
+          const updatedFolder = apiToFolder(backendFolder);
+          await updateFolderInDB(tempId, {
+            id: backendFolder.id,
+            name: backendFolder.name,
+            parentId: backendFolder.parent_id,
+            createdAt: new Date(backendFolder.created_at).getTime(),
+            updatedAt: new Date(backendFolder.updated_at).getTime(),
+          });
+          console.log(`[folders.api] ✅ IndexedDB updated: ${tempId} → ${backendFolder.id}`);
+        } catch (error) {
+          console.error("[folders.api] Failed to update IndexedDB with backend ID:", error);
+        }
+      }
+      
+      return backendFolder;
     } catch (error) {
       console.error("[folders.api] Failed to sync to backend:", error);
       // 재시도 큐에 추가

@@ -12,6 +12,7 @@ import {
   getAllNotes as getNotesFromDB,
   getNotesByFolder as getNotesByFolderFromDB,
   createNote as createNoteInDB,
+  updateNoteId as updateNoteIdInDB,
   getNote as getNoteFromDB,
   updateNote as updateNoteInDB,
   deleteNote as deleteNoteInDB,
@@ -110,6 +111,7 @@ export async function createNote(
   files: File[]
 ): Promise<Note> {
   let localResult: Note | null = null;
+  let tempId: string | null = null;
 
   // 1. IndexedDB에 즉시 저장
   try {
@@ -117,6 +119,7 @@ export async function createNote(
     const { saveMultipleFiles } = await import("@/lib/db/files");
 
     const dbNote = await createNoteInDB(title, folderId);
+    tempId = dbNote.id; // Save temporary UUID
 
     // 파일도 IndexedDB에 저장
     if (files.length > 0) {
@@ -124,17 +127,30 @@ export async function createNote(
     }
 
     localResult = dbToNote(dbNote);
-    console.log(`[notes.api] Note saved to IndexedDB:`, title);
+    console.log(`[notes.api] Note saved to IndexedDB with temp ID:`, tempId);
   } catch (error) {
     console.error("[notes.api] Failed to save to IndexedDB:", error);
   }
 
   // 2. 백엔드로 동기화 (파일 포함)
   const syncToBackend = async () => {
+    // Get the actual folder ID from IndexedDB (in case it was updated)
+    let actualFolderId = folderId;
+    try {
+      const { getFolder } = await import("@/lib/db/folders");
+      const folder = await getFolder(folderId);
+      if (folder) {
+        actualFolderId = folder.id;
+        console.log(`[notes.api] Using actual folder ID from IndexedDB: ${actualFolderId}`);
+      }
+    } catch (error) {
+      console.warn("[notes.api] Could not get folder from IndexedDB, using original ID:", error);
+    }
+
     try {
       const formData = new FormData();
       formData.append("title", title);
-      formData.append("folder_id", folderId);
+      formData.append("folder_id", actualFolderId);
       files.forEach((file) => formData.append("files", file));
 
       const res = await fetch(`${API_BASE_URL}/api/notes`, {
@@ -147,12 +163,31 @@ export async function createNote(
       });
 
       if (!res.ok) throw new Error("Failed to create note on backend");
-      console.log(`[notes.api] Note synced to backend:`, title);
-      return await res.json();
+      
+      const backendNote: ApiNoteResponse = await res.json();
+      console.log(`[notes.api] Note synced to backend:`, title, `Backend ID: ${backendNote.id}`);
+      
+      // 3. Update IndexedDB with real backend ID
+      if (tempId && backendNote.id !== tempId) {
+        try {
+          await updateNoteIdInDB(tempId, {
+            id: backendNote.id,
+            title: backendNote.title,
+            folderId: backendNote.folder_id,
+            createdAt: new Date(backendNote.created_at).getTime(),
+            updatedAt: new Date(backendNote.updated_at).getTime(),
+          });
+          console.log(`[notes.api] ✅ IndexedDB updated: ${tempId} → ${backendNote.id}`);
+        } catch (error) {
+          console.error("[notes.api] Failed to update IndexedDB with backend ID:", error);
+        }
+      }
+      
+      return backendNote;
     } catch (error) {
       console.error("[notes.api] Failed to sync to backend:", error);
-      // 재시도 큐에 추가 (파일 포함)
-      getSyncQueue().addTask('note-create', { title, folderId, files });
+      // 재시도 큐에 추가 시 실제 폴더 ID 사용
+      getSyncQueue().addTask('note-create', { title, folderId: actualFolderId, files });
       return null;
     }
   };
