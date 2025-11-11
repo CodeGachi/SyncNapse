@@ -19,6 +19,8 @@ import { NoteDataLoader } from "@/components/note/note-structure/note-data-loade
 import { NoteLayoutWrapper } from "@/components/note/note-structure/note-layout-wrapper";
 import { LiveblocksProvider } from "@/providers/liveblocks-provider";
 import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
+import { EmojiReactions } from "@/components/note/collaboration/emoji-reactions";
+import { EmojiPicker } from "@/components/note/collaboration/emoji-picker";
 
 interface EducatorNotePageProps {
   params: {
@@ -64,6 +66,17 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
     setIsCollaborating(false);
   };
 
+  // 임시 사용자 정보 (추후 인증 시스템과 통합)
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
+    const storedUserName = localStorage.getItem("userName") || "사용자";
+    setUserId(storedUserId);
+    setUserName(storedUserName);
+  }, []);
+
   // 노트 컴포넌트
   const noteContent = (
     <div className="flex items-start bg-[#1e1e1e] h-screen w-full relative">
@@ -93,6 +106,21 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
 
           {/* Right Sidebar Icon (When closed) - Client Component */}
           <SidebarIcons noteId={noteId} />
+
+          {/* 협업 모드일 때만 이모지 기능 표시 */}
+          {isCollaborating && userId && userName && (
+            <>
+              {/* 이모지 오버레이 - 떠다니는 이모지 표시 */}
+              <EmojiReactions noteId={noteId} />
+
+              {/* 이모지 선택 버튼 - 화면 우하단 고정 */}
+              <EmojiPicker
+                userId={userId}
+                userName={userName}
+                noteId={noteId}
+              />
+            </>
+          )}
         </NoteLayoutWrapper>
       </NoteDataLoader>
     </div>

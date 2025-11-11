@@ -28,10 +28,78 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
     return;
   }
 
-  // API 엔드포인트 생성
-  let endpoint = `/api/${entityType}s`;
-  if (operation === "update" || operation === "delete") {
-    endpoint += `/${entityId}`;
+  // API 엔드포인트 생성 (entityType별 특별 처리)
+  let endpoint = "";
+
+  switch (entityType) {
+    case "noteContent":
+      // POST /notes/:noteId/content/:pageId
+      if (operation === "update" || operation === "create") {
+        const noteId = data?.note_id;
+        const pageId = data?.page_id;
+        if (!noteId || !pageId) {
+          throw new Error("noteContent requires note_id and page_id in data");
+        }
+        endpoint = `/notes/${noteId}/content/${pageId}`;
+      } else {
+        throw new Error(`noteContent does not support ${operation} operation`);
+      }
+      break;
+
+    case "file":
+      if (operation === "create") {
+        // POST /notes/:noteId/files
+        const noteId = data?.note_id;
+        if (!noteId) {
+          throw new Error("file create requires note_id in data");
+        }
+        endpoint = `/notes/${noteId}/files`;
+      } else if (operation === "delete") {
+        // DELETE /files/:id
+        endpoint = `/files/${entityId}`;
+      } else {
+        throw new Error(`file does not support ${operation} operation`);
+      }
+      break;
+
+    case "recording":
+      if (operation === "create") {
+        // POST /notes/:noteId/recordings
+        const noteId = data?.noteId || data?.note_id;
+        if (!noteId) {
+          throw new Error("recording create requires noteId in data");
+        }
+        endpoint = `/notes/${noteId}/recordings`;
+      } else if (operation === "delete") {
+        // DELETE /recordings/:id
+        endpoint = `/recordings/${entityId}`;
+      } else if (operation === "update") {
+        // PATCH /recordings/:id
+        endpoint = `/recordings/${entityId}`;
+      }
+      break;
+
+    case "note":
+      // 기본 CRUD: /notes, /notes/:id
+      endpoint = operation === "create" ? `/notes` : `/notes/${entityId}`;
+      break;
+
+    case "folder":
+      // 기본 CRUD: /folders, /folders/:id
+      endpoint = operation === "create" ? `/folders` : `/folders/${entityId}`;
+      break;
+
+    case "trash":
+      // 휴지통 관련
+      if (operation === "delete") {
+        endpoint = `/trash/${entityId}`;
+      } else {
+        endpoint = `/trash/${operation}/${entityId}`;
+      }
+      break;
+
+    default:
+      throw new Error(`Unsupported entityType: ${entityType}`);
   }
 
   // HTTP 메서드 결정

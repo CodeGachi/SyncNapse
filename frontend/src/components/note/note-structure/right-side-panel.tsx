@@ -7,6 +7,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useRecordingList } from "@/features/note/player";
@@ -37,6 +38,29 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
   // 공유 모드에서는 로컬 DB 쿼리 비활성화
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
   const isEducatorNote = note?.type === "educator" || isSharedView; // 공유 모드면 무조건 educator 노트
+
+  // 사용자 정보 로드 (협업 기능용)
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    // localStorage에서 사용자 정보 가져오기
+    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
+    const storedUserName = localStorage.getItem("userName") || "사용자";
+
+    // 없으면 새로 생성하여 저장
+    if (!localStorage.getItem("userId")) {
+      localStorage.setItem("userId", storedUserId);
+    }
+    if (!localStorage.getItem("userName")) {
+      localStorage.setItem("userName", storedUserName);
+    }
+
+    setUserId(storedUserId);
+    setUserName(storedUserName);
+
+    console.log(`[RightSidePanel] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
+  }, []);
 
   // Store states
   const {
@@ -178,11 +202,11 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
           <TagsPanel isOpen={isTagsPanelOpen} />
 
           {/* 협업 패널 (교육자 노트 + 협업 모드 활성화 시, Liveblocks 실시간) */}
-          {isCollaborationPanelOpen && isEducatorNote && isCollaborating && (
+          {isCollaborationPanelOpen && isEducatorNote && isCollaborating && userId && userName && (
             <CollaborationPanel
-              userId="user-123" // TODO: Connect to actual user context
-              userName="사용자" // TODO: Connect to actual user context
-              noteId={noteId || ""} // Connected to current note ID
+              userId={userId}
+              userName={userName}
+              noteId={noteId || ""}
               isEducator={!isSharedView} // 공유 모드에서는 학생
             />
           )}

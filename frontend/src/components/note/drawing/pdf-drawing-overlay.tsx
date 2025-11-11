@@ -18,6 +18,7 @@ import { useDrawStore } from "@/stores/draw-store";
 import { useToolsStore } from "@/stores/tools-store";
 import type { DrawingData } from "@/lib/types/drawing";
 import { drawShape, type DrawInfo } from "@/lib/utils/shapes";
+import { useCollaborativeCanvasSync } from "./collaborative-canvas-sync";
 
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;
@@ -38,6 +39,7 @@ interface PDFDrawingOverlayProps {
   penSize: number;
   isPdf?: boolean;
   onSave?: (data: DrawingData) => Promise<void>;
+  isCollaborative?: boolean;
 }
 
 export const PDFDrawingOverlay = forwardRef<
@@ -58,6 +60,7 @@ export const PDFDrawingOverlay = forwardRef<
       penSize,
       isPdf,
       onSave,
+      isCollaborative = false,
     },
     ref
   ) => {
@@ -69,6 +72,14 @@ export const PDFDrawingOverlay = forwardRef<
 
     const drawStore = useDrawStore();
     const toolsStore = useToolsStore();
+
+    // Liveblocks 협업 동기화 훅
+    const { syncToStorage } = useCollaborativeCanvasSync({
+      fileId,
+      pageNum,
+      fabricCanvas: fabricCanvasRef.current,
+      isEnabled: isCollaborative,
+    });
 
     // Canvas 초기화 (펜과 도형 모두 지원)
     useEffect(() => {
@@ -275,29 +286,38 @@ export const PDFDrawingOverlay = forwardRef<
       }
       autoSaveTimeoutRef.current = setTimeout(async () => {
         const canvas = fabricCanvasRef.current;
-        if (!onSave || !canvas) return;
+        if (!canvas) return;
 
         try {
           const canvasJSON = canvas.toJSON();
-          const imageData = canvas.toDataURL({ format: "png", multiplier: 1 });
 
-          const data: DrawingData = {
-            id: `${noteId}-${fileId}-${pageNum}`,
-            noteId,
-            fileId,
-            pageNum,
-            canvas: canvasJSON,
-            image: imageData,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          };
+          // Liveblocks 협업 동기화 (실시간 협업용)
+          if (isCollaborative) {
+            syncToStorage(canvas);
+          }
 
-          await onSave(data);
+          // IndexedDB 로컬 저장 (영구 백업용)
+          if (onSave) {
+            const imageData = canvas.toDataURL({ format: "png", multiplier: 1 });
+
+            const data: DrawingData = {
+              id: `${noteId}-${fileId}-${pageNum}`,
+              noteId,
+              fileId,
+              pageNum,
+              canvas: canvasJSON,
+              image: imageData,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+
+            await onSave(data);
+          }
         } catch (error) {
           console.error("Failed to auto-save drawing:", error);
         }
       }, 1000);
-    }, [onSave, noteId, fileId, pageNum]);
+    }, [onSave, noteId, fileId, pageNum, isCollaborative, syncToStorage]);
 
     // 마우스 다운 이벤트
     const handleMouseDown = useCallback(
@@ -467,6 +487,24 @@ export const PDFDrawingOverlay = forwardRef<
         canvas.off('mouse:up', handleMouseUp);
       };
     }, [handleMouseDown, handleMouseMove, handleMouseUp, drawStore.type, isDrawingMode]);
+
+    // Fabric.js 자유 그리기 이벤트 처리 (펜/형광펜 모드용)
+    useEffect(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas || !isDrawingMode) return;
+
+      const handlePathCreated = () => {
+        // 펜/형광펜으로 그린 후 자동 저장
+        triggerAutoSave();
+      };
+
+      // 자유 그리기 완료 이벤트 리스너 등록
+      canvas.on('path:created', handlePathCreated);
+
+      return () => {
+        canvas.off('path:created', handlePathCreated);
+      };
+    }, [isDrawingMode, triggerAutoSave]);
 
     // Update canvas dimensions on container size change
     useEffect(() => {

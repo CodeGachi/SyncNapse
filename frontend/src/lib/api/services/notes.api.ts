@@ -150,7 +150,11 @@ export async function saveNoteContent(
   // 1. IndexedDB에 즉시 저장
   await saveNoteContentInDB(noteId, pageId, blocks);
 
-  // 2. 동기화 큐에 추가
+  // 2. 저장된 컨텐츠 가져오기 (updatedAt 포함)
+  const savedContent = await getNoteContentFromDB(noteId, pageId);
+  const updatedAt = savedContent?.updatedAt || Date.now();
+
+  // 3. 동기화 큐에 추가 (updated_at 포함)
   const syncStore = useSyncStore.getState();
   syncStore.addToSyncQueue({
     entityType: "noteContent",
@@ -160,6 +164,7 @@ export async function saveNoteContent(
       note_id: noteId,
       page_id: pageId,
       blocks,
+      updated_at: new Date(updatedAt).toISOString(),
     },
   });
 }

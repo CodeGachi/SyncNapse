@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useStorage,
   useMutation,
@@ -50,9 +50,29 @@ export function QAPanel({
   // Liveblocks Storage에서 질문 목록 가져오기
   const questions = useStorage((root) => root.questions) || [];
 
+  // 질문 목록 변경 감지 (디버깅용)
+  useEffect(() => {
+    console.log(`[Q&A Panel] 질문 목록 업데이트:`, {
+      userId,
+      userName,
+      noteId,
+      isEducator,
+      questionCount: questions.length,
+      questions: questions.map((q) => ({
+        id: q.id,
+        author: q.authorName,
+        content: q.content.substring(0, 30) + '...',
+      })),
+    });
+  }, [questions, userId, userName, noteId, isEducator]);
+
   // 질문 추가 Mutation
   const addQuestion = useMutation(({ storage }, content: string) => {
+    console.log(`[Q&A Mutation] Storage 접근 시작`);
     const questions = storage.get("questions");
+    console.log(`[Q&A Mutation] 현재 questions 배열:`, questions);
+    console.log(`[Q&A Mutation] questions 타입:`, typeof questions, Array.isArray(questions));
+
     const newQuestion = {
       id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       noteId,
@@ -65,7 +85,10 @@ export function QAPanel({
       isPinned: false,
       isSharedToAll: false,
     };
+
+    console.log(`[Q&A Mutation] 새 질문 생성:`, newQuestion);
     questions.push(newQuestion);
+    console.log(`[Q&A Mutation] 질문 추가 후 배열 길이:`, questions.length);
   }, [noteId, userId, userName]);
 
   // 추천 Mutation
@@ -117,7 +140,15 @@ export function QAPanel({
 
   const handleAddQuestion = () => {
     if (newQuestionText.trim()) {
+      console.log(`[Q&A Panel] 질문 추가 시작:`, {
+        userId,
+        userName,
+        noteId,
+        content: newQuestionText,
+        isEducator,
+      });
       addQuestion(newQuestionText);
+      console.log(`[Q&A Panel] 질문 추가 완료 (Mutation 실행됨)`);
       setNewQuestionText("");
     }
   };
