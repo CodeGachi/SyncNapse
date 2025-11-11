@@ -28,6 +28,7 @@ class SyncQueueManager {
   constructor() {
     this.loadQueue();
     this.startRetryLoop();
+    console.log('[SyncQueue] Backend sync enabled, queue manager active');
   }
 
   /**
@@ -132,7 +133,11 @@ class SyncQueueManager {
             ...getAuthHeaders(),
           } as HeadersInit,
           credentials: "include",
-          body: JSON.stringify(task.data),
+          body: JSON.stringify({
+            id: task.data.id, // Include ID in sync
+            name: task.data.name,
+            parent_id: task.data.parent_id
+          }),
         });
         if (!res.ok) throw new Error("Failed to sync folder creation");
         break;
@@ -177,22 +182,10 @@ class SyncQueueManager {
       }
 
       case 'note-create': {
-        // Get actual folder ID from IndexedDB (in case it was updated)
-        let actualFolderId = task.data.folderId;
-        try {
-          const { getFolder } = await import("@/lib/db/folders");
-          const folder = await getFolder(task.data.folderId);
-          if (folder) {
-            actualFolderId = folder.id;
-            console.log(`[SyncQueue] Using actual folder ID from IndexedDB: ${actualFolderId}`);
-          }
-        } catch (error) {
-          console.warn("[SyncQueue] Could not get folder from IndexedDB, using original ID:", error);
-        }
-
         const formData = new FormData();
+        formData.append("id", task.data.id); // Include ID in sync
         formData.append("title", task.data.title);
-        formData.append("folder_id", actualFolderId);
+        formData.append("folder_id", task.data.folderId);
         task.data.files?.forEach((file: File) => formData.append("files", file));
 
         const res = await fetch(`${API_BASE_URL}/api/notes`, {

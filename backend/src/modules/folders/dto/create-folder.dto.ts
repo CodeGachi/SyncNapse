@@ -1,6 +1,10 @@
-import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsUUID } from 'class-validator';
 
 export class CreateFolderDto {
+  @IsUUID()
+  @IsOptional()
+  id?: string;
+
   @IsString()
   @IsNotEmpty()
   name!: string;

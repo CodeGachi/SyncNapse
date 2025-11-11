@@ -7,6 +7,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
@@ -73,8 +74,24 @@ export class FoldersService {
       }
     }
 
+    // Check for duplicate folder name in the same parent
+    const existingFolder = await this.prisma.folder.findFirst({
+      where: {
+        name: dto.name,
+        userId,
+        parentId: dto.parent_id || null,
+        deletedAt: null,
+      },
+    });
+
+    if (existingFolder) {
+      this.logger.warn(`[createFolder] Duplicate folder name: ${dto.name} in parent: ${dto.parent_id || 'root'}`);
+      throw new ConflictException('A folder with this name already exists in this location');
+    }
+
     const folder = await this.prisma.folder.create({
       data: {
+        id: dto.id, // Use provided ID if available
         name: dto.name,
         userId,
         parentId: dto.parent_id || null,
@@ -450,13 +467,14 @@ export class FoldersService {
     let currentFolderId: string | null = folderId;
 
     while (currentFolderId) {
-      const folder: { name: string; parentId: string | null } | null = await this.prisma.folder.findFirst({
+      const folder: { id: string; name: string; parentId: string | null } | null = await this.prisma.folder.findFirst({
         where: {
           id: currentFolderId,
           userId,
           deletedAt: null,
         },
         select: {
+          id: true,
           name: true,
           parentId: true,
         },
@@ -471,6 +489,7 @@ export class FoldersService {
         .replace(/%2F/g, '_')  // Replace / with _
         .replace(/%5C/g, '_'); // Replace \ with _
       
+      // Build path with folder name only (no ID)
       pathParts.unshift(sanitizedName);
 
       currentFolderId = folder.parentId;
