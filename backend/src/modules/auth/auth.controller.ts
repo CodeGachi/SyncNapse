@@ -44,7 +44,10 @@ export class AuthController {
   @Get('google/callback')
   @ApiOperation({ summary: 'Google OAuth callback' })
   @ApiOkResponse({ type: OAuthCallbackResponseDto })
-  async googleCallback(@Req() req: { query?: { code?: string; state?: string }; ip?: string; headers?: Record<string, string> }): Promise<OAuthCallbackResponseDto> {
+  async googleCallback(
+    @Req() req: { query?: { code?: string; state?: string }; ip?: string; headers?: Record<string, string> },
+    @Res() res: { redirect: (url: string) => void }
+  ) {
     const code = req.query?.code as string | undefined;
     const state = req.query?.state as string | undefined;
     
@@ -56,20 +59,20 @@ export class AuthController {
       userAgent: req.headers?.['user-agent'],
     };
     
-    const tokens = await this.authService.authenticateWithOAuth('google', code, state, metadata);
-    
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-      tokenType: 'Bearer',
-      _links: {
-        self: this.links.self('/auth/google/callback'),
-        me: this.links.action('/users/me', 'GET'),
-        refresh: this.links.action('/auth/refresh', 'POST'),
-        logout: this.links.action('/auth/logout', 'POST'),
-      },
-    };
+    try {
+      const tokens = await this.authService.authenticateWithOAuth('google', code, state, metadata);
+      
+      // Redirect to frontend with tokens
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const callbackUrl = `${frontendUrl}/auth/callback?accessToken=${tokens.accessToken}&refreshToken=${tokens.refreshToken}&expiresIn=${tokens.expiresIn}`;
+      
+      this.logger.debug(`[googleCallback] Redirecting to ${frontendUrl}/auth/callback`);
+      return res.redirect(callbackUrl);
+    } catch (error) {
+      this.logger.error('[googleCallback] Authentication failed', error);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/?error=auth_failed`);
+    }
   }
   
   @Post('refresh')
@@ -121,6 +124,34 @@ export class AuthController {
     this.logger.debug('[logout] User logged out');
     
     return { message: 'Logged out successfully' };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current user info' })
+  async getMe(@Req() req: { user?: { id?: string } }) {
+    const user = req.user as { id: string };
+    this.logger.debug(`[getMe] userId=${user?.id ?? 'unknown'}`);
+    
+    // Fetch full user details from database
+    const userDetails = await this.authService.getUserById(user.id);
+    
+    if (!userDetails) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    
+    return {
+      id: userDetails.id,
+      email: userDetails.email,
+      name: userDetails.displayName,
+      picture: null,
+      createdAt: userDetails.createdAt,
+      _links: {
+        self: this.links.self('/api/auth/me'),
+        logout: this.links.action('/api/auth/logout', 'POST'),
+        refresh: this.links.action('/api/auth/refresh', 'POST'),
+      },
+    };
   }
 
   @Get('check')

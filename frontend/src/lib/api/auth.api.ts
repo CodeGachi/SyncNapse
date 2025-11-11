@@ -18,24 +18,38 @@ export interface LoginResponse {
   token: string;
 }
 
+export interface OAuthTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType: string;
+}
+
 /**
  * Start Google OAuth login
  * Returns the URL to redirect to the backend Google OAuth endpoint
  */
 export function getGoogleLoginUrl(): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  return `${baseUrl}/api/auth/google/login`;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  return `${baseUrl}/api/auth/google`;
 }
 
 /**
  * Token exchange after OAuth callback
- * Exchanges the authorization code received from the backend for a JWT token
+ * Exchanges the authorization code for tokens via backend callback URL
  */
-export async function exchangeCodeForToken(code: string): Promise<LoginResponse> {
-  return apiClient<LoginResponse>("/api/auth/google/callback", {
-    method: "POST",
-    body: JSON.stringify({ code }),
+export async function exchangeCodeForToken(code: string, state: string): Promise<OAuthTokenResponse> {
+  // Call backend callback URL with code and state
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const response = await fetch(`${baseUrl}/api/auth/google/callback?code=${code}&state=${state}`, {
+    credentials: "include",
   });
+  
+  if (!response.ok) {
+    throw new Error("Failed to exchange code for token");
+  }
+  
+  return response.json();
 }
 
 /**
@@ -49,6 +63,41 @@ export async function exchangeCodeForToken(code: string): Promise<LoginResponse>
   return apiClient<User>("/api/auth/me", {
     headers: getAuthHeaders(),
   });
+}
+
+/**
+ * Refresh access token using refresh token
+ */
+export async function refreshAccessToken(): Promise<OAuthTokenResponse> {
+  const refreshToken = localStorage.getItem("refreshToken");
+  
+  if (!refreshToken) {
+    throw new Error("No refresh token available");
+  }
+  
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const response = await fetch(`${baseUrl}/api/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+    credentials: "include",
+  });
+  
+  if (!response.ok) {
+    throw new Error("Failed to refresh token");
+  }
+  
+  const data = await response.json();
+  
+  // Update tokens in localStorage
+  localStorage.setItem("authToken", data.accessToken);
+  if (data.refreshToken) {
+    localStorage.setItem("refreshToken", data.refreshToken);
+  }
+  
+  return data;
 }
 
 /**

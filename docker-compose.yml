@@ -5,7 +5,7 @@ services:
     ports:
       - "${REDIS_PORT_PUBLIC}:6379"
     volumes:
-      - redis_data:/data
+      - ./data/redis:/data  # Use local directory instead of named volume
     # Redis is used by n8n queue mode (Bull)
 
   n8n:
@@ -35,7 +35,7 @@ services:
     depends_on:
       - redis
     volumes:
-      - n8n_data:/home/node/.n8n
+      - ./data/n8n:/home/node/.n8n  # Use local directory instead of named volume
       - ${N8N_EXPORTS_DIR}:/exports
     ports:
       - "${N8N_PORT_PUBLIC}:5678"
@@ -64,12 +64,26 @@ services:
       - PORT=${BACKEND_PORT}
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_EXPIRATION=${JWT_ACCESS_EXPIRATION}
+      - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      # Storage (MinIO/S3)
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
+      - STORAGE_BUCKET=${STORAGE_BUCKET}
+      - STORAGE_REGION=${STORAGE_REGION}
+      - STORAGE_ACCESS_KEY_ID=${STORAGE_ACCESS_KEY_ID}
+      - STORAGE_SECRET_ACCESS_KEY=${STORAGE_SECRET_ACCESS_KEY}
+      - STORAGE_ENCRYPTION_KEY=${STORAGE_ENCRYPTION_KEY}
     ports:
       - "${BACKEND_PORT_PUBLIC}:4000"
 
-volumes:
-  n8n_data:
-  redis_data:
+# volumes:
+#   n8n_data:  # No longer needed - using bind mounts instead
+#   redis_data:
 
 networks:
   default:

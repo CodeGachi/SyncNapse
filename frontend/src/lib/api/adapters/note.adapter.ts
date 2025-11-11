@@ -32,6 +32,20 @@ export function dbToNotes(dbNotes: DBNote[]): Note[] {
   return dbNotes.map(dbToNote);
 }
 
+/**
+ * 도메인 노트를 IndexedDB 노트로 변환
+ */
+export function noteToDb(note: Note): DBNote {
+  return {
+    id: note.id,
+    title: note.title,
+    folderId: note.folderId,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
+    thumbnail: note.thumbnail,
+  };
+}
+
 // ============================================================================
 // Backend API → 도메인 타입 변환
 // ============================================================================

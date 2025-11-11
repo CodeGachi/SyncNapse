@@ -1,6 +1,7 @@
 import "./globals.css";
 import { QueryProvider } from "@/providers/query-client-provider";
 import { NotificationContainer } from "@/components/notification/notification-container";
+import { SyncListener } from "@/components/sync-listener";
 
 export const metadata = {
   title: "SyncNapse",
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <QueryProvider>
+          <SyncListener />
           {children}
           <NotificationContainer />
         </QueryProvider>

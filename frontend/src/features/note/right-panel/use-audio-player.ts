@@ -5,8 +5,10 @@
 
 "use client";
 
-import { useRef, useEffect } from "react";
-import { useNoteEditorStore } from "@/stores";
+import { useRef, useEffect, useState } from "react";
+import { useNoteEditorStore, useScriptTranslationStore } from "@/stores";
+import * as transcriptionApi from "@/lib/api/transcription.api";
+import type { WordWithTime } from "@/lib/types";
 
 export function useAudioPlayer() {
   const {
@@ -18,9 +20,12 @@ export function useAudioPlayer() {
     selectRecording,
   } = useNoteEditorStore();
 
+  const { setScriptSegments } = useScriptTranslationStore();
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // audio Initialize and Event s너
+  // audio Initialize and Event listeners
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
@@ -46,22 +51,107 @@ export function useAudioPlayer() {
     };
   }, [isPlaying, setCurrentTime, togglePlay]);
 
-  // Recording Select Handler
-  const handleRecordingSelect = (id: number) => {
-    const recording = recordings.find(
-      (r) => parseInt(r.id, 10) === id || r.id === id.toString()
-    );
-    if (!recording) return;
+  // Recording Select Handler - Load session data and play audio
+  const handleRecordingSelect = async (sessionIdParam: string) => {
+    try {
+      setIsLoadingSession(true);
+      console.log('[useAudioPlayer] Loading recording with sessionId:', sessionIdParam);
 
-    selectRecording(recording.id);
+      // Try to find in local recordings first
+      const localRecording = recordings.find(
+        (r) => r.sessionId === sessionIdParam
+      );
 
-    // audio Play
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = recording.audioUrl;
-      audioRef.current.load();
-      audioRef.current.play();
-      if (!isPlaying) togglePlay();
+      const sessionId = sessionIdParam;
+      const audioUrl = localRecording?.audioUrl;
+
+      console.log('[useAudioPlayer] Fetching session:', sessionId);
+
+      // Fetch session data from backend
+      const sessionData = await transcriptionApi.getSession(sessionId);
+      console.log('[useAudioPlayer] Session data loaded:', {
+        segments: sessionData.segments?.length || 0,
+        audioUrl: sessionData.fullAudioUrl,
+      });
+
+      // Load segments into ScriptPanel
+      if (sessionData.segments && sessionData.segments.length > 0) {
+        const scriptSegments = sessionData.segments.map((segment) => ({
+          id: segment.id,
+          timestamp: segment.startTime * 1000, // Convert seconds to milliseconds
+          originalText: segment.text,
+          translatedText: undefined,
+          speaker: undefined,
+          words: segment.words?.map((word: any) => ({
+            word: word.word,
+            startTime: word.startTime,
+            confidence: word.confidence || 1.0,
+            wordIndex: word.wordIndex,
+          })) as WordWithTime[] || undefined,
+          isPartial: false,
+        }));
+
+        setScriptSegments(scriptSegments);
+        console.log('[useAudioPlayer] Loaded', scriptSegments.length, 'segments into ScriptPanel');
+      } else {
+        console.warn('[useAudioPlayer] No segments found in session');
+        setScriptSegments([]);
+      }
+
+      // Play audio
+      const audioSource = audioUrl || sessionData.fullAudioUrl;
+      
+      if (!audioSource) {
+        console.error('[useAudioPlayer] No audio URL found');
+        // Try using backend proxy endpoint
+        const proxyUrl = `/api/transcription/sessions/${sessionId}/audio`;
+        console.log('[useAudioPlayer] Using proxy URL:', proxyUrl);
+        
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0; // Reset to beginning
+          audioRef.current.src = proxyUrl;
+          audioRef.current.load();
+          
+          // Wait for metadata to load before playing
+          audioRef.current.onloadedmetadata = async () => {
+            try {
+              await audioRef.current!.play();
+              if (!isPlaying) togglePlay();
+              console.log('[useAudioPlayer] ✅ Auto-play started');
+            } catch (playError) {
+              console.error('[useAudioPlayer] Auto-play failed:', playError);
+            }
+          };
+        }
+      } else {
+        console.log('[useAudioPlayer] Playing audio from:', audioSource);
+        
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0; // Reset to beginning
+          audioRef.current.src = audioSource;
+          audioRef.current.load();
+          
+          // Wait for metadata to load before playing
+          audioRef.current.onloadedmetadata = async () => {
+            try {
+              await audioRef.current!.play();
+              if (!isPlaying) togglePlay();
+              console.log('[useAudioPlayer] ✅ Auto-play started');
+            } catch (playError) {
+              console.error('[useAudioPlayer] Auto-play failed:', playError);
+            }
+          };
+        }
+      }
+
+      selectRecording(sessionId);
+      
+    } catch (error) {
+      console.error('[useAudioPlayer] Failed to load recording:', error);
+    } finally {
+      setIsLoadingSession(false);
     }
   };
 
@@ -80,5 +170,6 @@ export function useAudioPlayer() {
     togglePlay,
     handleRecordingSelect,
     handleStopPlayback,
+    isLoadingSession,
   };
 }

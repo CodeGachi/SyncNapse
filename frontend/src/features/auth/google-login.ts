@@ -1,7 +1,3 @@
-/**
- * Google OAuth Login Hook
- */
-
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -18,7 +14,11 @@ export function useGoogleLogin() {
 
   const loginMutation = useLogin({
     onSuccess: () => {
-      router.push("/dashboard/main");
+      // Check if there's a saved redirect URL
+      const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
+      localStorage.removeItem("redirectAfterLogin");
+      console.log("[GoogleLogin] ✅ Login successful, redirecting to:", redirectUrl);
+      router.push(redirectUrl);
     },
     onError: (error) => {
       alert("로그인에 실패했습니다.");
@@ -36,9 +36,17 @@ export function useGoogleLogin() {
     try {
       if (USE_MOCK) {
         const { user, token } = await mockGoogleLogin();
-        window.location.href = "/dashboard/main";
+        // Check if there's a saved redirect URL
+        const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
+        localStorage.removeItem("redirectAfterLogin");
+        window.location.href = redirectUrl;
       } else {
-        sessionStorage.setItem("auth_redirect", window.location.pathname);
+        // Save current URL (with query params) to redirect back after login
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        if (currentPath !== "/" && !currentPath.startsWith("/auth")) {
+          localStorage.setItem("redirectAfterLogin", currentPath);
+          console.log("[GoogleLogin] 💾 Saved redirect URL:", currentPath);
+        }
 
         // Redirect to the backend Google OAuth URL
         const loginUrl = getGoogleLoginUrl();
@@ -49,20 +57,33 @@ export function useGoogleLogin() {
     }
   };
 
-  /**
-   * Authorization code exchange (used in the OAuth callback page)
-   */
-  const handleCodeExchange = (code: string) => {
-    loginMutation.mutate({ code });
+  // Authorization code exchange (used in the OAuth callback page)
+  const handleCodeExchange = (code: string, state: string) => {
+    loginMutation.mutate({ code, state });
   };
 
   const handleLogout = async () => {
     try {
+      // IMPORTANT: Clear tokens FIRST before any API call or navigation
+      // This prevents race condition where page reload happens before token cleanup
+      console.log("[GoogleLogin] 🧹 Clearing tokens from localStorage...");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("redirectAfterLogin");
+      
+      // Clear cookies
+      document.cookie = "authToken=; path=/; max-age=0";
+      document.cookie = "refreshToken=; path=/; max-age=0";
+      
+      console.log("[GoogleLogin] ✅ Tokens cleared, now logging out...");
+
       if (USE_MOCK) {
         await mockLogout();
         queryClient.clear();
         router.replace("/");
       } else {
+        // Call logout API (this will invalidate tokens on backend)
         logoutMutation.mutate();
       }
     } catch (err: any) {
