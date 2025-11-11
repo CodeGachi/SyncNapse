@@ -40,10 +40,33 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
   const isSharedViewInitial = viewMode === "shared" && !!shareToken;
   const isCollaboratingInitial = isSharedViewInitial || !!joinToken;
 
+  // 디버깅: URL 파라미터 확인
+  console.log(`[EducatorNotePage] ==================== 페이지 로드 ====================`);
+  console.log(`[EducatorNotePage] URL 파라미터:`, {
+    noteId,
+    noteTitle,
+    joinToken: joinToken || 'null',
+    viewMode: viewMode || 'null',
+    shareToken: shareToken || 'null',
+  });
+  console.log(`[EducatorNotePage] 계산된 초기값:`, {
+    isSharedViewInitial,
+    isCollaboratingInitial,
+  });
+  console.log(`[EducatorNotePage] ====================================================`);
+
   // 협업 모드 state (초기값을 URL 파라미터로부터 설정)
   const [isCollaborating, setIsCollaborating] = useState(isCollaboratingInitial);
   // 공유 모드 state (초기값을 URL 파라미터로부터 설정)
   const [isSharedView, setIsSharedView] = useState(isSharedViewInitial);
+
+  // State 변경 감지
+  useEffect(() => {
+    console.log(`[EducatorNotePage] State 업데이트:`, {
+      isCollaborating,
+      isSharedView,
+    });
+  }, [isCollaborating, isSharedView]);
 
   useEffect(() => {
     // 공유 링크로 접속한 경우 로그
@@ -128,6 +151,7 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
 
   // 조건부 Liveblocks Provider
   if (isCollaborating) {
+    console.log(`[EducatorNotePage] LiveblocksProvider 렌더링 - 협업 모드 활성화`);
     return (
       <LiveblocksProvider noteId={noteId}>
         <CollaborationDataHandler
@@ -141,5 +165,6 @@ export default function EducatorNotePage({ params }: EducatorNotePageProps) {
     );
   }
 
+  console.log(`[EducatorNotePage] 일반 모드 렌더링 - 협업 비활성화`);
   return noteContent;
 }

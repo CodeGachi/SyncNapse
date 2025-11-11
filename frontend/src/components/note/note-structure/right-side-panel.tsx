@@ -62,7 +62,7 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     console.log(`[RightSidePanel] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
   }, []);
 
-  // Store states
+  // Store states (useEffect 전에 먼저 선언)
   const {
     files: uploadedFiles,
     removeFile,
@@ -74,6 +74,7 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     activeCategories,
     toggleCategory,
     isExpanded,
+    toggleExpand,
     currentTime,
   } = useNoteEditorStore();
 
@@ -91,6 +92,22 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     isCollaborationPanelOpen,
     toggleCollaborationPanel,
   } = usePanelsStore();
+
+  // 공유 모드일 때 자동으로 사이드바 확장 및 협업 패널 열기
+  useEffect(() => {
+    if (isSharedView && isCollaborating) {
+      // 사이드바 자동 확장
+      if (!isExpanded) {
+        console.log('[RightSidePanel] 공유 모드 - 사이드바 자동 확장');
+        toggleExpand();
+      }
+      // 협업 패널 자동 열기
+      if (!isCollaborationPanelOpen) {
+        console.log('[RightSidePanel] 공유 모드 - 협업 패널 자동 열기');
+        toggleCollaborationPanel();
+      }
+    }
+  }, [isSharedView, isCollaborating, isExpanded, isCollaborationPanelOpen, toggleExpand, toggleCollaborationPanel]);
 
   // Recording list
   const {

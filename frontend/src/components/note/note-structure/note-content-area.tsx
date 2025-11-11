@@ -358,6 +358,7 @@ export function NoteContentArea({
                   ref={drawingOverlayRef}
                   isEnabled={true}
                   isDrawingMode={isDrawingMode}
+                  isCollaborative={isCollaborating ?? false}
                   noteId={noteId || ""}
                   fileId={selectedFile.id.toString()}
                   pageNum={currentPdfPage}

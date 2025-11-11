@@ -26,8 +26,9 @@ export function CollaborationDataHandler({
   noteId,
   children,
 }: CollaborationDataHandlerProps) {
-  // 공유 모드에서는 로컬 DB 쿼리 비활성화 (Liveblocks Storage만 사용)
-  const { data: note } = useNote(noteId, { enabled: !isSharedView });
+  // 모든 모드에서 로컬 DB에서 노트 조회
+  // 공유 모드의 경우 use-shared-note-data에서 생성한 임시 노트를 로드
+  const { data: note } = useNote(noteId);
   const isEducatorNote = note?.type === "educator";
   const { files: uploadedFiles } = useNoteEditorStore();
 
@@ -40,7 +41,8 @@ export function CollaborationDataHandler({
   }, [isSharedView, isCollaborating, isEducatorNote, uploadedFiles.length]);
 
   // Student (공유 모드): Liveblocks Storage에서 노트 데이터 로드
-  const { isLoading, noteInfo } = useSharedNoteData({
+  // 백엔드에서 노트를 받거나 임시 빈 노트를 생성
+  const { isLoading } = useSharedNoteData({
     isSharedView,
     noteId,
   });
@@ -53,34 +55,19 @@ export function CollaborationDataHandler({
     files: uploadedFiles,
   });
 
-  // 공유 모드 로딩 중일 때 로딩 화면 표시
-  if (isSharedView && isLoading) {
+  // 공유 모드 로딩 중: 임시 노트 생성 또는 백엔드 노트 로드 대기
+  if (isSharedView && (isLoading || !note)) {
     return (
       <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#AFC02B] mx-auto mb-4"></div>
-            <p className="text-gray-400 text-lg">공유 노트 로딩 중...</p>
+            <p className="text-gray-400 text-lg">공유 노트 준비 중...</p>
             <p className="text-gray-500 text-sm mt-2">
-              교육자가 공유한 노트를 불러오고 있습니다
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 공유 모드에서 noteInfo가 아직 없으면 빈 화면 표시
-  // (Educator가 아직 협업을 시작하지 않은 경우)
-  if (isSharedView && !noteInfo) {
-    return (
-      <div className="flex flex-col gap-3 flex-1">
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="text-[#AFC02B] text-6xl mb-4">📝</div>
-            <p className="text-gray-400 text-lg mb-2">아직 공유된 노트가 없습니다</p>
-            <p className="text-gray-500 text-sm">
-              교육자가 협업을 시작하면 노트가 표시됩니다
+              {!note
+                ? "노트를 불러오는 중입니다"
+                : "Liveblocks 연결 대기 중입니다"
+              }
             </p>
           </div>
         </div>
