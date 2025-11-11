@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useScriptTranslationStore } from "@/stores";
 import type { SupportedLanguage } from "@/lib/types";
 
@@ -20,6 +20,9 @@ export function useTranscriptTranslation() {
 
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationSupported, setTranslationSupported] = useState<boolean | null>(null);
+  
+  // Track which segments have been translated to avoid re-translation
+  const translatedSegmentIdsRef = useRef<Set<string>>(new Set());
 
   // Check if Translation API is supported
   useEffect(() => {
@@ -97,6 +100,12 @@ export function useTranscriptTranslation() {
    */
   const translateSegment = useCallback(
     async (segmentId: string, text: string) => {
+      // Skip if already translated
+      if (translatedSegmentIdsRef.current.has(segmentId)) {
+        console.log('[TranscriptTranslation] Segment already translated:', segmentId);
+        return;
+      }
+
       try {
         let translatedText: string;
 
@@ -107,10 +116,12 @@ export function useTranscriptTranslation() {
         }
 
         updateSegmentTranslation(segmentId, translatedText);
+        translatedSegmentIdsRef.current.add(segmentId);
       } catch (error) {
         console.error(`[TranscriptTranslation] Failed to translate segment ${segmentId}:`, error);
         // Keep original text on error
         updateSegmentTranslation(segmentId, text);
+        translatedSegmentIdsRef.current.add(segmentId);
       }
     },
     [translationSupported, originalLanguage, targetLanguage, updateSegmentTranslation, translateWithAPI, translateWithFallback]
@@ -122,14 +133,27 @@ export function useTranscriptTranslation() {
   const translateAllSegments = useCallback(async () => {
     if (!isTranslationEnabled) return;
 
+    // Filter segments that need translation (skip partial and already translated)
+    const untranslatedSegments = scriptSegments.filter(
+      (segment) => 
+        !segment.translatedText && 
+        segment.originalText && 
+        !(segment as any).isPartial &&
+        !translatedSegmentIdsRef.current.has(segment.id)
+    );
+
+    if (untranslatedSegments.length === 0) {
+      console.log('[TranscriptTranslation] No segments to translate');
+      return;
+    }
+
     setIsTranslating(true);
 
     try {
+      console.log('[TranscriptTranslation] Translating', untranslatedSegments.length, 'segments');
+      
       // Translate segments in batches to avoid overwhelming the API
-      const batchSize = 5;
-      const untranslatedSegments = scriptSegments.filter(
-        (segment) => !segment.translatedText || segment.translatedText === segment.originalText
-      );
+      const batchSize = 3;
 
       for (let i = 0; i < untranslatedSegments.length; i += batchSize) {
         const batch = untranslatedSegments.slice(i, i + batchSize);
@@ -138,18 +162,46 @@ export function useTranscriptTranslation() {
             translateSegment(segment.id, segment.originalText)
           )
         );
+        
+        // Small delay between batches
+        if (i + batchSize < untranslatedSegments.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
       }
+      
+      console.log('[TranscriptTranslation] Translation complete');
+    } catch (error) {
+      console.error('[TranscriptTranslation] Translation failed:', error);
     } finally {
       setIsTranslating(false);
     }
   }, [isTranslationEnabled, scriptSegments, translateSegment]);
 
-  // Auto-translate when translation is enabled
+  // Clear translation cache when language changes
   useEffect(() => {
-    if (isTranslationEnabled && scriptSegments.length > 0) {
+    translatedSegmentIdsRef.current.clear();
+    console.log('[TranscriptTranslation] Translation cache cleared');
+  }, [targetLanguage, originalLanguage]);
+
+  // Auto-translate when translation is enabled or target language changes
+  useEffect(() => {
+    if (!isTranslationEnabled) return;
+    if (isTranslating) return; // Prevent overlapping translations
+    
+    // Only translate segments that don't have translations yet
+    const needsTranslation = scriptSegments.some(
+      seg => !seg.translatedText && 
+             seg.originalText && 
+             !(seg as any).isPartial &&
+             !translatedSegmentIdsRef.current.has(seg.id)
+    );
+    
+    if (needsTranslation) {
+      console.log('[TranscriptTranslation] New segments detected, starting translation...');
       translateAllSegments();
     }
-  }, [isTranslationEnabled, scriptSegments.length, translateAllSegments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTranslationEnabled, scriptSegments.length]);
 
   return {
     isTranslating,

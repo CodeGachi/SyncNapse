@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -511,14 +511,18 @@ export class StorageService {
     userId: string,
     sessionId: string,
     fileExtension: string,
+    noteId?: string,
   ): Promise<{ url: string; key: string }> {
     // Get user email to use as folder name
     const userEmail = await this.getUserEmail(userId);
 
+    // Determine storage path based on noteId availability
     const fileName = `full_audio.${fileExtension}.enc`; // .enc suffix indicates encrypted
-    const key = `users/${userEmail}/transcription/${sessionId}/${fileName}`;
+    const key = noteId 
+      ? `notes/${noteId}/audio/${sessionId}/${fileName}`  // Note-based path
+      : `users/${userEmail}/transcription/${sessionId}/${fileName}`;  // User-based path (fallback)
 
-    this.logger.debug(`[uploadFullAudio] Uploading: ${key} (${buffer.length} bytes)`);
+    this.logger.debug(`[uploadFullAudio] Uploading: ${key} (${buffer.length} bytes) [noteId: ${noteId || 'none'}]`);
 
     if (this.config.provider === 's3' && this.s3Client && this.encryptionKey) {
       this.logger.debug(`[uploadFullAudio] 🔒 Encrypting audio before upload...`);
@@ -831,8 +835,7 @@ export class StorageService {
       const newFullPath = join(this.localBasePath, newKey);
       
       if (existsSync(oldFullPath)) {
-        const fs = require('fs');
-        fs.renameSync(oldFullPath, newFullPath);
+        renameSync(oldFullPath, newFullPath);
         this.logger.log(`[renameFile] ✅ Renamed local file: ${oldFullPath} -> ${newFullPath}`);
       } else {
         this.logger.warn(`[renameFile] Local file not found: ${oldFullPath}`);
@@ -910,8 +913,7 @@ export class StorageService {
       const newFullPath = join(this.localBasePath, newPath);
       
       if (existsSync(oldFullPath)) {
-        const fs = require('fs');
-        fs.renameSync(oldFullPath, newFullPath);
+        renameSync(oldFullPath, newFullPath);
         this.logger.log(`[renameFolder] ✅ Renamed local folder: ${oldFullPath} -> ${newFullPath}`);
       } else {
         this.logger.warn(`[renameFolder] Local folder not found: ${oldFullPath}`);

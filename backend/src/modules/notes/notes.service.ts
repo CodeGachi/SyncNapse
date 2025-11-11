@@ -96,6 +96,48 @@ export class NotesService {
     }));
   }
 
+  /**
+   * Get the storage base path for a note
+   * Returns the path in format: users/{userNickname}/{folderPath}/{noteTitle}
+   */
+  async getNoteStoragePath(userId: string, noteId: string): Promise<string> {
+    this.logger.debug(`[getNoteStoragePath] userId=${userId} noteId=${noteId}`);
+
+    // Get note with folder relationship
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        note: true,
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Build folder storage path
+    const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+      userId,
+      folderNote.folderId,
+    );
+
+    // Sanitize note title
+    const sanitizedTitle = encodeURIComponent(folderNote.note.title)
+      .replace(/%20/g, ' ')
+      .replace(/%2F/g, '_')
+      .replace(/%5C/g, '_');
+
+    const noteBasePath = `${folderStoragePath}/${sanitizedTitle}`;
+    
+    this.logger.debug(`[getNoteStoragePath] noteBasePath=${noteBasePath}`);
+    return noteBasePath;
+  }
+
   async getNote(userId: string, noteId: string) {
     this.logger.debug(`[getNote] userId=${userId} noteId=${noteId}`);
 
@@ -415,8 +457,8 @@ export class NotesService {
         const arrayBuffer = await body.arrayBuffer();
         buffer = Buffer.from(arrayBuffer);
       } else {
-        // Try to convert to buffer
-        buffer = Buffer.from(body as any);
+        // Try to convert to buffer (string or other types)
+        buffer = Buffer.from(String(body));
       }
 
       // Return as JSON with base64-encoded data

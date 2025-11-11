@@ -13,6 +13,7 @@ interface Recording {
   time: string;
   date: string;
   duration: string;
+  sessionId?: string;
 }
 
 interface RecordingBarProps {
@@ -26,7 +27,7 @@ interface RecordingBarProps {
   isScriptOpen?: boolean;
   onToggleScript?: () => void;
   isRecording?: boolean;
-  onRecordingSelect?: (id: number) => void;
+  onRecordingSelect?: (sessionId: string) => void;
 }
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -177,8 +178,8 @@ export function RecordingBar({
         <div className="flex flex-col gap-1 w-full max-h-[120px] overflow-y-auto">
           {recordings.map((recording) => (
             <div
-              key={recording.id}
-              onClick={() => onRecordingSelect?.(recording.id)}
+              key={recording.sessionId || recording.id}
+              onClick={() => recording.sessionId && onRecordingSelect?.(recording.sessionId)}
               className="flex items-center justify-between py-2 px-3 hover:bg-[#444444] rounded-lg cursor-pointer transition-colors"
             >
               <div className="flex items-center gap-3">

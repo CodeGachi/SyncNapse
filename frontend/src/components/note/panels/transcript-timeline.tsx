@@ -34,7 +34,13 @@ export function TranscriptTimeline({
     if (!audio) return;
 
     const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
+      // Validate duration to prevent invalid array lengths
+      const audioDuration = audio.duration;
+      if (isNaN(audioDuration) || !isFinite(audioDuration) || audioDuration < 0) {
+        setDuration(0);
+      } else {
+        setDuration(audioDuration);
+      }
     };
 
     const handleTimeUpdate = () => {
@@ -57,13 +63,36 @@ export function TranscriptTimeline({
     };
   }, [audioRef, isDragging]);
 
+  // Format time to MM:SS
+  const formatTime = (seconds: number): string => {
+    // Validate input
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Estimate duration from segments if audio duration is not available
+  const estimatedDuration = segments.length > 0 
+    ? Math.max(...segments.map(s => (s.timestamp || 0) / 1000)) + 10 // Add 10s buffer
+    : 0;
+  
+  const effectiveDuration = duration > 0 ? duration : estimatedDuration;
+
   // Handle timeline click to seek
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!timelineRef.current || duration === 0) return;
+    if (!timelineRef.current || effectiveDuration === 0) return;
 
     const rect = timelineRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const clickedTime = (x / rect.width) * duration;
+    const clickedTime = (x / rect.width) * effectiveDuration;
+
+    // Validate calculated time
+    if (!isFinite(clickedTime) || clickedTime < 0) {
+      console.warn('[TranscriptTimeline] Invalid clicked time:', clickedTime);
+      return;
+    }
 
     onSeek(clickedTime);
   };
@@ -77,19 +106,25 @@ export function TranscriptTimeline({
   // Handle mouse move for dragging
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !timelineRef.current || duration === 0) return;
+      if (!isDragging || !timelineRef.current || effectiveDuration === 0) return;
 
       const rect = timelineRef.current.getBoundingClientRect();
       const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-      const newTime = (x / rect.width) * duration;
+      const newTime = (x / rect.width) * effectiveDuration;
 
-      setCurrentTime(newTime);
+      // Validate calculated time
+      if (isFinite(newTime) && newTime >= 0) {
+        setCurrentTime(newTime);
+      }
     };
 
     const handleMouseUp = () => {
       if (isDragging) {
         setIsDragging(false);
-        onSeek(currentTime);
+        // Validate currentTime before seeking
+        if (isFinite(currentTime) && currentTime >= 0) {
+          onSeek(currentTime);
+        }
       }
     };
 
@@ -102,23 +137,21 @@ export function TranscriptTimeline({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, duration, currentTime, onSeek]);
-
-  // Format time to MM:SS
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  }, [isDragging, effectiveDuration, currentTime, onSeek]);
 
   // Calculate segment position and width
   const getSegmentStyle = (segment: ScriptSegment) => {
-    if (duration === 0) return { left: "0%", width: "0%" };
+    const durationToUse = effectiveDuration || duration;
+    if (durationToUse === 0 || !isFinite(durationToUse)) return { left: "0%", width: "0%" };
 
-    const left = (segment.timestamp / duration) * 100;
+    // Validate segment timestamp
+    const timestamp = segment.timestamp || 0;
+    if (!isFinite(timestamp) || timestamp < 0) return { left: "0%", width: "0%" };
+
+    const left = Math.max(0, Math.min(100, (timestamp / durationToUse) * 100));
     // Assume each segment lasts 5 seconds or until next segment
     const segmentDuration = 5;
-    const width = (segmentDuration / duration) * 100;
+    const width = (segmentDuration / durationToUse) * 100;
 
     return {
       left: `${left}%`,
@@ -126,7 +159,7 @@ export function TranscriptTimeline({
     };
   };
 
-  if (duration === 0) {
+  if (effectiveDuration === 0) {
     return (
       <div className={`bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-4 ${className}`}>
         <div className="text-center text-gray-400 text-sm py-4">
@@ -142,7 +175,7 @@ export function TranscriptTimeline({
       <div className="flex justify-between items-center mb-3">
         <h4 className="text-white text-sm font-semibold">Transcript Timeline</h4>
         <div className="text-gray-400 text-xs">
-          {formatTime(currentTime)} / {formatTime(duration)}
+          {formatTime(currentTime)} / {formatTime(effectiveDuration)}
         </div>
       </div>
 
@@ -164,7 +197,7 @@ export function TranscriptTimeline({
                 isActive ? "bg-blue-500 opacity-80" : "bg-blue-600 opacity-40 hover:opacity-60"
               }`}
               style={style}
-              title={`${formatTime(segment.timestamp)}: ${segment.originalText.substring(0, 50)}...`}
+              title={`${formatTime(segment.timestamp || 0)}: ${(segment.originalText || '').substring(0, 50)}...`}
             />
           );
         })}
@@ -172,27 +205,27 @@ export function TranscriptTimeline({
         {/* Progress bar */}
         <div
           className="absolute top-0 left-0 h-full bg-blue-400 opacity-20 pointer-events-none"
-          style={{ width: `${(currentTime / duration) * 100}%` }}
+          style={{ width: `${effectiveDuration > 0 ? Math.min(100, (currentTime / effectiveDuration) * 100) : 0}%` }}
         />
 
         {/* Current time indicator */}
         <div
           className="absolute top-0 w-0.5 h-full bg-blue-300 pointer-events-none"
-          style={{ left: `${(currentTime / duration) * 100}%` }}
+          style={{ left: `${effectiveDuration > 0 ? Math.min(100, (currentTime / effectiveDuration) * 100) : 0}%` }}
         >
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-blue-300 rounded-full border-2 border-white" />
         </div>
 
         {/* Time markers (every minute) */}
-        {Array.from({ length: Math.ceil(duration / 60) }).map((_, i) => {
+        {effectiveDuration > 0 && Array.from({ length: Math.min(Math.ceil(effectiveDuration / 60), 1000) }).map((_, i) => {
           const time = (i + 1) * 60;
-          if (time >= duration) return null;
+          if (time >= effectiveDuration) return null;
 
           return (
             <div
               key={i}
               className="absolute top-0 h-full border-l border-gray-600 pointer-events-none"
-              style={{ left: `${(time / duration) * 100}%` }}
+              style={{ left: `${(time / effectiveDuration) * 100}%` }}
             >
               <span className="absolute top-full mt-1 transform -translate-x-1/2 text-xs text-gray-500">
                 {formatTime(time)}

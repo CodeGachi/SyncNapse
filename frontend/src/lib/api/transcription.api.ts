@@ -57,6 +57,7 @@ export interface TranscriptSegment {
 
 export interface CreateSessionDto {
   title: string;
+  noteId?: string;
 }
 
 export interface SaveAudioChunkDto {
@@ -95,10 +96,11 @@ export interface SaveFullAudioDto {
 
 export async function createSession(
   title: string,
+  noteId?: string,
 ): Promise<TranscriptionSession> {
   return apiClient<TranscriptionSession>('/api/transcription/sessions', {
     method: 'POST',
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, noteId }),
   });
 }
 
