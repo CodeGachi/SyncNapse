@@ -16,6 +16,8 @@ interface ScriptTranslationState {
   toggleTranslation: () => void;
   setTargetLanguage: (language: SupportedLanguage) => void;
   setScriptSegments: (segments: ScriptSegment[]) => void;
+  addScriptSegment: (segment: ScriptSegment) => void;
+  clearScriptSegments: () => void;
   updateSegmentTranslation: (id: string, translatedText: string) => void;
 
   // Reset
@@ -40,6 +42,13 @@ export const useScriptTranslationStore = create<ScriptTranslationState>()(
       setTargetLanguage: (language) => set({ targetLanguage: language }),
 
       setScriptSegments: (segments) => set({ scriptSegments: segments }),
+
+      addScriptSegment: (segment) =>
+        set((state) => ({
+          scriptSegments: [...state.scriptSegments, segment],
+        })),
+
+      clearScriptSegments: () => set({ scriptSegments: [] }),
 
       updateSegmentTranslation: (id, translatedText) =>
         set((state) => ({

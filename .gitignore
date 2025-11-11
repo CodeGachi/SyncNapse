@@ -28,6 +28,9 @@ frontend/build/
 *.db
 *.sqlite
 
+# Docker data directories (bind mounts)
+data/
+
 # Logs
 logs/
 *.log

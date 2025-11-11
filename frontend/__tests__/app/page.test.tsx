@@ -7,6 +7,19 @@ import HomePage from '@/app/page';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
+    replace: vi.fn(),
+  }),
+  useSearchParams: () => ({
+    get: vi.fn(() => null),
+  }),
+}));
+
+// Mock useAuth hook
+vi.mock('@/features/auth/use-auth', () => ({
+  useAuth: () => ({
+    isAuthenticated: false,
+    loading: false,
+    user: null,
   }),
 }));
 

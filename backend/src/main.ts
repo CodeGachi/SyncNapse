@@ -9,6 +9,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const portFromEnv = process.env.PORT;
@@ -16,7 +17,13 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
+    bodyParser: true,
+    rawBody: true,
   });
+
+  // Increase body size limit for audio chunks (50MB)
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
 
   app.setGlobalPrefix('api');
 
