@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, CopyObjectCommand } from '@aws-sdk/client-s3';
@@ -6,6 +6,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { Readable } from 'node:stream';
 import { StreamingBlobPayloadOutputTypes } from '@smithy/types';
+import { PrismaService } from '../db/prisma.service';
 
 export interface StorageConfig {
   provider: 'local' | 's3' | 'gcs' | 'azure';
@@ -37,7 +38,7 @@ export class StorageService {
   private readonly algorithm = 'aes-256-gcm';
   private s3Client?: S3Client;
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     // Support both old MINIO_* env vars and new STORAGE_* env vars for backward compatibility
     const endpoint = process.env.STORAGE_ENDPOINT || process.env.MINIO_ENDPOINT || 'http://localhost:9000';
     const region = process.env.STORAGE_REGION || process.env.MINIO_REGION || 'us-east-1';
@@ -118,6 +119,28 @@ export class StorageService {
   }
 
   // ============================================
+  // Helper Methods
+  // ============================================
+
+  // Get user email from userId
+  private async getUserEmail(userId: string): Promise<string> {
+    this.logger.debug(`[getUserEmail] Getting email for userId: ${userId}`);
+    
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    if (!user) {
+      this.logger.error(`[getUserEmail] User not found: ${userId}`);
+      throw new NotFoundException('User not found');
+    }
+
+    this.logger.debug(`[getUserEmail] Found email: ${user.email}`);
+    return user.email;
+  }
+
+  // ============================================
   // Encryption Methods
   // ============================================
 
@@ -195,9 +218,12 @@ export class StorageService {
       const noteIdValue = noteId!;
       const type = fileType || 'notes';
 
+      // Get user email to use as folder name
+      const userEmail = await this.getUserEmail(userId);
+
       const fileExtension = file.originalname.split('.').pop();
       const fileName = `${randomUUID()}.${fileExtension}`;
-      const key = `users/${userId}/notes/${noteIdValue}/${type}/${fileName}`;
+      const key = `users/${userEmail}/notes/${noteIdValue}/${type}/${fileName}`;
 
       this.logger.debug(`Uploading file: ${file.originalname} -> ${key}`);
 
@@ -440,8 +466,11 @@ export class StorageService {
     chunkIndex: number,
     fileExtension: string,
   ): Promise<{ url: string; key: string }> {
+    // Get user email to use as folder name
+    const userEmail = await this.getUserEmail(userId);
+
     const fileName = `chunk_${chunkIndex.toString().padStart(4, '0')}.${fileExtension}`;
-    const key = `users/${userId}/transcription/${sessionId}/audio/${fileName}`;
+    const key = `users/${userEmail}/transcription/${sessionId}/audio/${fileName}`;
 
     this.logger.debug(`[uploadAudioChunk] Uploading: ${key} (${buffer.length} bytes)`);
 
@@ -483,8 +512,11 @@ export class StorageService {
     sessionId: string,
     fileExtension: string,
   ): Promise<{ url: string; key: string }> {
+    // Get user email to use as folder name
+    const userEmail = await this.getUserEmail(userId);
+
     const fileName = `full_audio.${fileExtension}.enc`; // .enc suffix indicates encrypted
-    const key = `users/${userId}/transcription/${sessionId}/${fileName}`;
+    const key = `users/${userEmail}/transcription/${sessionId}/${fileName}`;
 
     this.logger.debug(`[uploadFullAudio] Uploading: ${key} (${buffer.length} bytes)`);
 
@@ -770,10 +802,11 @@ export class StorageService {
 
     if (this.config.provider === 's3' && this.s3Client) {
       try {
-        // Copy object to new key
+        // Copy object to new key (URL encode the source path)
+        const encodedOldKey = encodeURIComponent(oldKey);
         const copyCommand = new CopyObjectCommand({
           Bucket: this.config.bucket,
-          CopySource: `${this.config.bucket}/${oldKey}`,
+          CopySource: `${this.config.bucket}/${encodedOldKey}`,
           Key: newKey,
         });
         
@@ -845,10 +878,11 @@ export class StorageService {
           
           this.logger.debug(`[renameFolder] Copying: ${obj.Key} -> ${newKey}`);
           
-          // Copy object to new path
+          // Copy object to new path (URL encode the source path)
+          const encodedObjKey = encodeURIComponent(obj.Key);
           const copyCommand = new CopyObjectCommand({
             Bucket: this.config.bucket,
-            CopySource: `${this.config.bucket}/${obj.Key}`,
+            CopySource: `${this.config.bucket}/${encodedObjKey}`,
             Key: newKey,
           });
           

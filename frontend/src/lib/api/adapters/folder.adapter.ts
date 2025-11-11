@@ -30,6 +30,19 @@ export function dbToFolders(dbFolders: DBFolder[]): Folder[] {
   return dbFolders.map(dbToFolder);
 }
 
+/**
+ * Convert domain folder to IndexedDB folder
+ */
+export function folderToDb(folder: Folder): DBFolder {
+  return {
+    id: folder.id,
+    name: folder.name,
+    parentId: folder.parentId,
+    createdAt: folder.createdAt,
+    updatedAt: folder.updatedAt,
+  };
+}
+
 // ============================================================================
 // Backend API → Domain type conversion
 // ============================================================================

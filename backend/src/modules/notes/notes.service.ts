@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -16,6 +18,7 @@ export class NotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    @Inject(forwardRef(() => FoldersService))
     private readonly foldersService: FoldersService,
   ) {}
 
@@ -363,6 +366,72 @@ export class NotesService {
     return filesWithUrls;
   }
 
+  async downloadFileAsBase64(userId: string, noteId: string, fileId: string) {
+    this.logger.debug(`[downloadFileAsBase64] userId=${userId} noteId=${noteId} fileId=${fileId}`);
+
+    // Verify access
+    const folderNoteLink = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+    });
+
+    if (!folderNoteLink) {
+      throw new NotFoundException('Note not found');
+    }
+
+    // Get file from database
+    const file = await this.prisma.file.findFirst({
+      where: {
+        id: fileId,
+        noteId,
+        deletedAt: null,
+      },
+    });
+
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    try {
+      // Get file from storage
+      const { body, contentType } = await this.storageService.getFileStream(file.storageKey);
+      
+      // Convert to buffer
+      let buffer: Buffer;
+      
+      if (Buffer.isBuffer(body)) {
+        buffer = body;
+      } else if ('transformToByteArray' in body && typeof body.transformToByteArray === 'function') {
+        // S3 SDK stream - convert to buffer
+        const uint8Array = await body.transformToByteArray();
+        buffer = Buffer.from(uint8Array);
+      } else if (body instanceof Blob) {
+        // Blob type - convert to buffer
+        const arrayBuffer = await body.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+      } else {
+        // Try to convert to buffer
+        buffer = Buffer.from(body as any);
+      }
+
+      // Return as JSON with base64-encoded data
+      return {
+        fileName: file.fileName,
+        fileType: contentType || file.fileType,
+        fileSize: buffer.length,
+        data: buffer.toString('base64'),
+      };
+    } catch (error) {
+      this.logger.error(`[downloadFileAsBase64] Failed to get file ${fileId}:`, error);
+      throw new NotFoundException('File not accessible');
+    }
+  }
+
   async updateNote(userId: string, noteId: string, dto: UpdateNoteDto) {
     this.logger.debug(`[updateNote] userId=${userId} noteId=${noteId}`);
 
@@ -580,5 +649,75 @@ export class NotesService {
     }
 
     return { message: 'Note deleted successfully' };
+  }
+
+  /**
+   * Delete all notes in a folder (soft delete) - used internally by folder deletion
+   * @internal
+   */
+  async deleteNotesByFolder(userId: string, folderId: string): Promise<void> {
+    this.logger.debug(`[deleteNotesByFolder] Deleting all notes in folder: ${folderId}`);
+
+    // Find all notes in the folder
+    const folderNoteLinks = await this.prisma.folderLectureNote.findMany({
+      where: {
+        folderId,
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+        note: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        note: true,
+      },
+    });
+
+    this.logger.debug(`[deleteNotesByFolder] Found ${folderNoteLinks.length} notes to delete`);
+
+    // Soft delete each note
+    for (const link of folderNoteLinks) {
+      try {
+        // Soft delete in PostgreSQL
+        await this.prisma.lectureNote.update({
+          where: { id: link.noteId },
+          data: {
+            deletedAt: new Date(),
+          },
+        });
+
+        this.logger.debug(`[deleteNotesByFolder] Soft deleted note in DB: ${link.noteId}`);
+
+        // Rename .note file to .notex for soft delete in MinIO
+        try {
+          const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+            userId,
+            folderId,
+          );
+          
+          const sanitizedTitle = encodeURIComponent(link.note.title)
+            .replace(/%20/g, ' ')
+            .replace(/%2F/g, '_')
+            .replace(/%5C/g, '_');
+          
+          const noteBasePath = `${folderStoragePath}/${sanitizedTitle}`;
+          const oldKey = `${noteBasePath}/.note`;
+          const newKey = `${noteBasePath}/.notex`;
+          
+          await this.storageService.renameFile(oldKey, newKey);
+          this.logger.log(`[deleteNotesByFolder] ✅ Renamed .note to .notex: ${oldKey} → ${newKey}`);
+        } catch (error) {
+          this.logger.error(`[deleteNotesByFolder] Failed to rename .note to .notex for note ${link.noteId}:`, error);
+          // Continue with other notes even if one fails
+        }
+      } catch (error) {
+        this.logger.error(`[deleteNotesByFolder] Failed to delete note ${link.noteId}:`, error);
+        // Continue with other notes even if one fails
+      }
+    }
+
+    this.logger.log(`[deleteNotesByFolder] ✅ Completed deleting ${folderNoteLinks.length} notes in folder ${folderId}`);
   }
 }

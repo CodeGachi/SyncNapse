@@ -12,6 +12,7 @@ import {
   UploadedFiles,
   Logger,
   Query,
+  Res,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotesService } from './notes.service';
@@ -41,6 +42,16 @@ export class NotesController {
   ) {
     this.logger.debug(`[getNoteFiles] userId=${userId} noteId=${noteId}`);
     return this.notesService.getFilesForNote(userId, noteId);
+  }
+
+  @Get(':noteId/files/:fileId/download')
+  async downloadFile(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('fileId') fileId: string,
+  ) {
+    this.logger.debug(`[downloadFile] userId=${userId} noteId=${noteId} fileId=${fileId}`);
+    return this.notesService.downloadFileAsBase64(userId, noteId, fileId);
   }
 
   @Get(':noteId')

@@ -27,22 +27,72 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 /**
  * Get all folders
+ * Returns local data immediately, then syncs with server in background
  * @returns Main folder array
  */
 export async function fetchAllFolders(): Promise<Folder[]> {
-  if (USE_LOCAL) {
-    const dbFolders = await getAllFoldersFromDB();
-    return dbToFolders(dbFolders); // 🔄 IndexedDB → Main Type Conversion
-  } else {
+  // 1. 로컬 데이터 우선 반환 (빠른 응답)
+  const dbFolders = await getAllFoldersFromDB();
+  const localFolders = dbToFolders(dbFolders);
+  
+  // 2. 백그라운드에서 서버 동기화
+  syncFoldersInBackground(localFolders);
+  
+  return localFolders;
+}
+
+/**
+ * Background folder synchronization
+ */
+async function syncFoldersInBackground(localFolders: Folder[]): Promise<void> {
+  try {
+    // 서버에서 최신 데이터 가져오기
     const res = await fetch(`${API_BASE_URL}/api/folders`, {
       credentials: "include",
       headers: {
-        ...getAuthHeaders(), // Add JWT token for authentication
+        ...getAuthHeaders(),
       },
     });
-    if (!res.ok) throw new Error("Failed to fetch folders");
+    
+    if (!res.ok) {
+      console.warn('[folders.api] Failed to fetch from server for sync:', res.status);
+      return;
+    }
+    
     const apiFolders: ApiFolderResponse[] = await res.json();
-    return apiToFolders(apiFolders); // 🔄 Backend API → Main Type Conversion
+    const serverFolders = apiToFolders(apiFolders);
+    
+    // 동기화할 데이터 찾기
+    const { syncFolders } = await import('../sync-utils');
+    const { toUpdate, toAdd, toDelete } = await syncFolders(localFolders, serverFolders);
+    
+    // IndexedDB 업데이트
+    if (toUpdate.length > 0 || toAdd.length > 0 || toDelete.length > 0) {
+      const { saveFolder, permanentlyDeleteFolder } = await import('@/lib/db/folders');
+      const { folderToDb } = await import('../adapters/folder.adapter');
+      
+      // toUpdate와 toAdd 모두 saveFolder로 처리 (put 메서드 사용)
+      const allToSave = [...toUpdate, ...toAdd];
+      
+      for (const folder of allToSave) {
+        const dbFolder = folderToDb(folder);
+        await saveFolder(dbFolder);
+      }
+      
+      // toDelete 처리 - 서버에서 삭제된 폴더는 로컬에서도 영구 삭제
+      for (const folderId of toDelete) {
+        await permanentlyDeleteFolder(folderId);
+      }
+      
+      console.log(`[folders.api] ✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${toDelete.length} deleted folders from server`);
+      
+      // React Query cache 무효화 (다음 쿼리에서 최신 데이터 가져오도록)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('folders-synced'));
+      }
+    }
+  } catch (error) {
+    console.error('[folders.api] Background sync failed:', error);
   }
 }
 

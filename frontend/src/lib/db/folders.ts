@@ -116,6 +116,28 @@ export async function createFolder(
 }
 
 /**
+ * 폴더 저장 (ID 포함) - 서버 동기화용
+ * 이미 있으면 업데이트, 없으면 추가
+ */
+export async function saveFolder(folder: DBFolder): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["folders"], "readwrite");
+    const store = transaction.objectStore("folders");
+    const request = store.put(folder); // put은 추가/업데이트 모두 가능
+
+    request.onsuccess = () => {
+      console.log(`[folders.ts] ✅ Saved folder to IndexedDB: ${folder.id}`);
+      resolve();
+    };
+
+    request.onerror = () => {
+      reject(new Error(`폴더 저장 실패: ${request.error?.message || "Unknown error"}`));
+    };
+  });
+}
+
+/**
  * Update folder (to sync backend ID with IndexedDB)
  * Replace temporary UUID with real backend ID
  */
@@ -186,7 +208,7 @@ export async function renameFolder(
 }
 
 /**
- * 폴더 삭제 (휴지통으로 이동)
+ * 폴더 삭제 (휴지통으로 이동) - 하위 폴더와 노트도 함께 삭제
  */
 export async function deleteFolder(folderId: string): Promise<void> {
   const db = await initDB();
@@ -207,16 +229,18 @@ export async function deleteFolder(folderId: string): Promise<void> {
     request.onerror = () => reject(new Error("폴더를 가져올 수 없습니다."));
   });
 
-  // 휴지통으로 이동
-  await moveFolderToTrash(folder);
-
-  // 하위 폴더들도 휴지통으로 이동
+  // 하위 폴더들 재귀적으로 삭제
   const subFolders = await getFoldersByParent(folderId);
   for (const subFolder of subFolders) {
     await deleteFolder(subFolder.id);
   }
 
-  // TODO: 폴더에 속한 노트들도 휴지통으로 이동
+  // 폴더에 속한 노트들도 휴지통으로 이동
+  const { deleteNotesByFolder } = await import('./notes');
+  await deleteNotesByFolder(folderId);
+
+  // 폴더를 휴지통으로 이동
+  await moveFolderToTrash(folder);
 }
 
 /**

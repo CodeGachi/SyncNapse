@@ -9,10 +9,13 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateFolderDto, UpdateFolderDto } from './dto';
+import { NotesService } from '../notes/notes.service';
 
 @Injectable()
 export class FoldersService {
@@ -21,6 +24,8 @@ export class FoldersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    @Inject(forwardRef(() => NotesService))
+    private readonly notesService?: NotesService,
   ) {}
 
   /**
@@ -215,7 +220,7 @@ export class FoldersService {
   }
 
   /**
-   * Delete folder (soft delete)
+   * Delete folder (soft delete) - recursively deletes child folders and notes
    */
   async deleteFolder(userId: string, folderId: string) {
     this.logger.debug(`[deleteFolder] Deleting folder: ${folderId}`);
@@ -232,6 +237,21 @@ export class FoldersService {
     if (!folder) {
       this.logger.warn(`[deleteFolder] Folder not found: ${folderId}`);
       throw new NotFoundException('Folder not found');
+    }
+
+    // Recursively delete child folders first
+    await this.deleteChildFoldersRecursive(userId, folderId);
+
+    // Delete all notes in this folder
+    if (this.notesService && typeof this.notesService.deleteNotesByFolder === 'function') {
+      try {
+        await this.notesService.deleteNotesByFolder(userId, folderId);
+      } catch (error) {
+        this.logger.error(`[deleteFolder] Failed to delete notes in folder ${folderId}:`, error);
+        // Continue with folder deletion even if note deletion fails
+      }
+    } else {
+      this.logger.warn(`[deleteFolder] NotesService not available, skipping note deletion`);
     }
 
     // Get storage path before deletion
@@ -260,6 +280,68 @@ export class FoldersService {
     }
 
     return { message: 'Folder deleted successfully' };
+  }
+
+  /**
+   * Recursively delete all child folders (helper for deleteFolder)
+   * @private
+   */
+  private async deleteChildFoldersRecursive(userId: string, parentFolderId: string): Promise<void> {
+    this.logger.debug(`[deleteChildFoldersRecursive] Finding child folders of: ${parentFolderId}`);
+
+    // Find all direct child folders
+    const childFolders = await this.prisma.folder.findMany({
+      where: {
+        parentId: parentFolderId,
+        userId,
+        deletedAt: null,
+      },
+    });
+
+    this.logger.debug(`[deleteChildFoldersRecursive] Found ${childFolders.length} child folders`);
+
+    // Recursively delete each child folder
+    for (const childFolder of childFolders) {
+      // First, recursively delete this child's children
+      await this.deleteChildFoldersRecursive(userId, childFolder.id);
+
+      // Delete all notes in this child folder
+      if (this.notesService && typeof this.notesService.deleteNotesByFolder === 'function') {
+        try {
+          await this.notesService.deleteNotesByFolder(userId, childFolder.id);
+        } catch (error) {
+          this.logger.error(`[deleteChildFoldersRecursive] Failed to delete notes in folder ${childFolder.id}:`, error);
+          // Continue with other folders
+        }
+      }
+
+      // Get storage path before deletion
+      const storagePath = await this.buildFolderStoragePath(userId, childFolder.id);
+
+      // Soft delete the child folder in DB
+      await this.prisma.folder.update({
+        where: { id: childFolder.id },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+      this.logger.debug(`[deleteChildFoldersRecursive] Soft deleted child folder in DB: ${childFolder.id}`);
+
+      // Rename .folder to .folderx for soft delete in MinIO
+      try {
+        const oldMetadataKey = `${storagePath}/.folder`;
+        const newMetadataKey = `${storagePath}/.folderx`;
+        
+        await this.storageService.renameFile(oldMetadataKey, newMetadataKey);
+        this.logger.log(`[deleteChildFoldersRecursive] ✅ Renamed .folder to .folderx: ${oldMetadataKey} → ${newMetadataKey}`);
+      } catch (error) {
+        this.logger.error(`[deleteChildFoldersRecursive] Failed to rename .folder to .folderx for ${childFolder.id}:`, error);
+        // Continue with other folders
+      }
+    }
+
+    this.logger.log(`[deleteChildFoldersRecursive] ✅ Completed recursive deletion of ${childFolders.length} child folders`);
   }
 
   /**
@@ -444,12 +526,12 @@ export class FoldersService {
 
   /**
    * Build storage path for a folder
-   * Format: users/{userNickname}/{folderPath}
+   * Format: users/{email}/{folderPath}
    */
   async buildFolderStoragePath(userId: string, folderId: string): Promise<string> {
     this.logger.debug(`[buildFolderStoragePath] userId=${userId} folderId=${folderId}`);
 
-    // Get user nickname
+    // Get user email
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { displayName: true, email: true },
@@ -459,8 +541,9 @@ export class FoldersService {
       throw new NotFoundException('User not found');
     }
 
-    // Use displayName as nickname, fallback to email prefix
-    const userNickname = user.displayName || user.email.split('@')[0];
+    // Use email as the folder name
+    const userEmail = user.email;
+    this.logger.debug(`[buildFolderStoragePath] Using email as folder name: ${userEmail}`);
 
     // Build folder path from root to current folder
     const pathParts: string[] = [];
@@ -495,9 +578,9 @@ export class FoldersService {
       currentFolderId = folder.parentId;
     }
 
-    // Build final path: users/{nickname}/{folder1}/{folder2}/...
+    // Build final path: users/{email}/{folder1}/{folder2}/...
     const folderPath = pathParts.length > 0 ? pathParts.join('/') : '';
-    const storagePath = `users/${userNickname}/${folderPath}`;
+    const storagePath = `users/${userEmail}/${folderPath}`;
 
     this.logger.debug(`[buildFolderStoragePath] Built path: ${storagePath}`);
     return storagePath;
@@ -505,7 +588,7 @@ export class FoldersService {
 
   /**
    * Build storage path for user root
-   * Format: users/{userNickname}
+   * Format: users/{email}
    */
   async buildUserRootPath(userId: string): Promise<string> {
     const user = await this.prisma.user.findUnique({
@@ -517,8 +600,9 @@ export class FoldersService {
       throw new NotFoundException('User not found');
     }
 
-    const userNickname = user.displayName || user.email.split('@')[0];
-    return `users/${userNickname}`;
+    // Use email as the folder name
+    this.logger.debug(`[buildUserRootPath] Using email as folder name: ${user.email}`);
+    return `users/${user.email}`;
   }
 }
 
