@@ -18,7 +18,7 @@ import { useDrawStore } from "@/stores/draw-store";
 import { useToolsStore } from "@/stores/tools-store";
 import type { DrawingData } from "@/lib/types/drawing";
 import { drawShape, type DrawInfo } from "@/lib/utils/shapes";
-import { useCollaborativeCanvasSync } from "./collaborative-canvas-sync";
+import { CollaborativeCanvasWrapper } from "./collaborative-canvas-wrapper";
 
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;
@@ -73,13 +73,8 @@ export const PDFDrawingOverlay = forwardRef<
     const drawStore = useDrawStore();
     const toolsStore = useToolsStore();
 
-    // Liveblocks 협업 동기화 훅
-    const { syncToStorage } = useCollaborativeCanvasSync({
-      fileId,
-      pageNum,
-      fabricCanvas: fabricCanvasRef.current,
-      isEnabled: isCollaborative,
-    });
+    // syncToStorage 함수 ref (협업 래퍼에서 설정됨)
+    const syncToStorageRef = useRef<((canvas: fabric.Canvas) => void) | null>(null);
 
     // Canvas 초기화 (펜과 도형 모두 지원)
     useEffect(() => {
@@ -292,8 +287,8 @@ export const PDFDrawingOverlay = forwardRef<
           const canvasJSON = canvas.toJSON();
 
           // Liveblocks 협업 동기화 (실시간 협업용)
-          if (isCollaborative) {
-            syncToStorage(canvas);
+          if (isCollaborative && syncToStorageRef.current) {
+            syncToStorageRef.current(canvas);
           }
 
           // IndexedDB 로컬 저장 (영구 백업용)
@@ -317,7 +312,7 @@ export const PDFDrawingOverlay = forwardRef<
           console.error("Failed to auto-save drawing:", error);
         }
       }, 1000);
-    }, [onSave, noteId, fileId, pageNum, isCollaborative, syncToStorage]);
+    }, [onSave, noteId, fileId, pageNum, isCollaborative]);
 
     // 마우스 다운 이벤트
     const handleMouseDown = useCallback(
@@ -581,29 +576,41 @@ export const PDFDrawingOverlay = forwardRef<
     const canvasHeight = Math.max(containerHeight, 100);
 
     return (
-      <canvas
-        ref={canvasRef}
-        width={containerWidth}
-        height={canvasHeight}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: `${containerWidth}px`,
-          height: `${canvasHeight}px`,
-          cursor: isEnabled && isDrawingMode ? "crosshair" : "default",
-          // 뷰어 모드에서도 필기가 보이도록 항상 표시
-          opacity: isEnabled ? 1 : 0,
-          // 뷰어 모드: 필기 보기만 가능 (상호작용 불가)
-          // 필기 모드일 때만 마우스 이벤트 수신
-          pointerEvents: isEnabled && isDrawingMode ? "auto" : "none",
-          // z-index를 낮춰서 우측 사이드 패널이 위에 있도록 함
-          // (사이드 패널의 버튼 클릭이 가능해야 함)
-          zIndex: isDrawingMode ? 5 : -1,
-          // 항상 표시 (뷰어 모드에서도 필기 기록이 보임)
-          display: isEnabled ? "block" : "none",
-        }}
-      />
+      <>
+        <canvas
+          ref={canvasRef}
+          width={containerWidth}
+          height={canvasHeight}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: `${containerWidth}px`,
+            height: `${canvasHeight}px`,
+            cursor: isEnabled && isDrawingMode ? "crosshair" : "default",
+            // 뷰어 모드에서도 필기가 보이도록 항상 표시
+            opacity: isEnabled ? 1 : 0,
+            // 뷰어 모드: 필기 보기만 가능 (상호작용 불가)
+            // 필기 모드일 때만 마우스 이벤트 수신
+            pointerEvents: isEnabled && isDrawingMode ? "auto" : "none",
+            // z-index를 낮춰서 우측 사이드 패널이 위에 있도록 함
+            // (사이드 패널의 버튼 클릭이 가능해야 함)
+            zIndex: isDrawingMode ? 5 : -1,
+            // 항상 표시 (뷰어 모드에서도 필기 기록이 보임)
+            display: isEnabled ? "block" : "none",
+          }}
+        />
+
+        {/* 협업 모드일 때만 Liveblocks 동기화 활성화 */}
+        {isCollaborative && (
+          <CollaborativeCanvasWrapper
+            fabricCanvas={fabricCanvasRef.current}
+            fileId={fileId}
+            pageNum={pageNum}
+            syncToStorageRef={syncToStorageRef}
+          />
+        )}
+      </>
     );
   }
 );

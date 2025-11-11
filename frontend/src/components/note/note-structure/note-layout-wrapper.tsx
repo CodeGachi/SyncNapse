@@ -34,7 +34,10 @@ export function NoteLayoutWrapper({ children }: NoteLayoutWrapperProps) {
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [isExpanded, toggleExpand]);
+    // toggleExpand는 Zustand 함수로 안정적이므로 dependency에서 제거
+    // isExpanded를 dependency에 포함하면 무한 루프 발생
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Margin calculation
   const marginClass = isExpanded

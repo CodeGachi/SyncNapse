@@ -22,6 +22,8 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
     try {
       // 토큰에서 noteId 추출
       // 토큰 형식: {noteId}-{timestamp}-{randomString}
+      // noteId는 UUID 형식이므로 하이픈을 포함함 (예: 171378db-92da-437e-8512-2af45cf0926e)
+      // 따라서 마지막 2개 부분 (timestamp, randomString)을 제외한 나머지를 noteId로 추출
       const parts = params.token.split("-");
 
       if (parts.length < 3) {
@@ -29,12 +31,16 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
         return;
       }
 
-      const noteId = parts[0];
+      // 마지막 2개 부분은 timestamp와 randomString
+      // 나머지는 noteId (UUID이므로 하이픈으로 join)
+      const noteId = parts.slice(0, parts.length - 2).join('-');
 
       if (!noteId) {
         setError("노트 ID를 찾을 수 없습니다.");
         return;
       }
+
+      console.log(`[Share Token] 토큰 파싱 완료: noteId=${noteId}`);
 
       // educator 노트 페이지로 리다이렉트 (공유 모드)
       // ?view=shared 파라미터를 추가하여 공유 모드로 접속함을 표시

@@ -56,17 +56,21 @@ export function SharingSettingsModal({
   const [isCopiedCollab, setIsCopiedCollab] = useState(false);
   const [isGeneratingCollab, setIsGeneratingCollab] = useState(false);
 
-  // Generate collaboration link
+  // Generate collaboration link (Share Token for Students)
   const handleGenerateCollaborativeLink = async () => {
     setIsGeneratingCollab(true);
 
     try {
-      // Generate random token for collaboration URL
+      // Generate random share token for student access
+      // Token format: {noteId}-{timestamp}-{randomString}
       const token = `${noteId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-      const link = `${window.location.origin}/note/educator/${noteId}?join=${token}&title=${encodeURIComponent(noteTitle)}`;
+      const link = `${window.location.origin}/shared/${token}`;
 
       setCollaborativeLink(link);
       onStartCollaboration();
+
+      console.log(`[Share Link] 생성 완료: ${link}`);
+      console.log(`[Share Link] Token: ${token}`);
     } catch (error) {
       console.error("Failed to generate collaboration link:", error);
       alert("협업 링크 생성에 실패했습니다.");
@@ -284,14 +288,14 @@ export function SharingSettingsModal({
         <h3 className="text-sm font-semibold text-gray-300 mb-3">
           <div className="flex items-center gap-2">
             <Users size={16} />
-            <span>실시간 협업 링크</span>
+            <span>Student 공유 링크</span>
           </div>
         </h3>
 
         {!collaborativeLink ? (
           <div className="text-center py-6">
             <p className="text-gray-400 text-sm mb-4">
-              링크를 생성하여 다른 사용자들과 실시간으로 협업하세요
+              Student들과 실시간으로 협업할 수 있는 공유 링크를 생성하세요
             </p>
             {isCollaborating && (
               <div className="bg-green-500 bg-opacity-10 border border-green-500 border-opacity-30 rounded-lg p-3 mb-4">
@@ -305,7 +309,7 @@ export function SharingSettingsModal({
               disabled={isGeneratingCollab}
               className="px-6 py-2 bg-[#AFC02B] text-[#1E1E1E] rounded-lg font-medium text-sm hover:bg-[#9DB025] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isGeneratingCollab ? "생성 중..." : isCollaborating ? "새 링크 생성" : "협업 링크 생성"}
+              {isGeneratingCollab ? "생성 중..." : isCollaborating ? "새 공유 링크 생성" : "공유 링크 생성"}
             </button>
           </div>
         ) : (
@@ -336,12 +340,12 @@ export function SharingSettingsModal({
             {/* 안내 메시지 */}
             <div className="bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 rounded-lg p-3">
               <p className="text-blue-300 text-xs">
-                💡 이 링크를 통해 접속한 사용자들은:
+                💡 이 링크를 통해 접속한 Student는:
               </p>
               <ul className="text-blue-200 text-xs mt-2 space-y-1 list-disc list-inside">
-                <li>PDF 페이지가 실시간으로 동기화됩니다</li>
-                <li>필기 내용이 실시간으로 표시됩니다</li>
-                <li>손들기, 투표 등 협업 기능을 사용합니다</li>
+                <li>공유된 노트를 실시간으로 확인할 수 있습니다</li>
+                <li>Q&A, 손들기, 투표 등 협업 기능을 사용할 수 있습니다</li>
+                <li>이모지 반응을 보낼 수 있습니다</li>
               </ul>
             </div>
 

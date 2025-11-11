@@ -7,7 +7,7 @@
  * - 협업 기능 (손들기, 투표, 이모지, Q&A)
  */
 
-import { createClient } from "@liveblocks/client";
+import { createClient, LiveList, LiveObject } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 
 // Liveblocks 클라이언트 생성
@@ -60,7 +60,7 @@ type Storage = {
     fileName: string;
     fileType: string;
     fileSize: number;
-    fileUrl: string;
+    fileUrl: string; // Backend URL (영구 URL)
     totalPages?: number;
     uploadedAt: number;
   }>;
@@ -143,11 +143,20 @@ type UserMeta = {
 
 // RoomEvent 타입: 브로드캐스트 이벤트
 type RoomEvent =
+  // 이모지
   | { type: "EMOJI_REACTION"; userId: string; userName: string; emoji: string; timestamp: number }
+  // 손들기
   | { type: "HAND_RAISE"; userId: string; userName: string }
   | { type: "HAND_LOWER"; userId: string }
+  // 투표
+  | { type: "POLL_CREATED"; pollId: string; question: string }
   | { type: "POLL_VOTE"; pollId: string; optionIndex: number; userId: string }
-  | { type: "QUESTION_ADDED"; questionId: string }
+  | { type: "POLL_ENDED"; pollId: string }
+  // Q&A
+  | { type: "QUESTION_ADDED"; questionId: string; content: string; authorName: string }
+  | { type: "QUESTION_UPVOTED"; questionId: string; userId: string }
+  | { type: "QUESTION_DELETED"; questionId: string }
+  // PDF/Canvas
   | { type: "PAGE_CHANGE"; page: number; fileId: string }
   | { type: "CANVAS_UPDATE"; fileId: string; pageNum: number };
 
@@ -215,3 +224,6 @@ export function getNoteRoomId(noteId: string): string {
 export function getCanvasKey(fileId: string, pageNum: number): string {
   return `${fileId}-${pageNum}`;
 }
+
+// LiveList, LiveObject export (Storage 초기화용)
+export { LiveList, LiveObject };

@@ -8,7 +8,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { ClientSideSuspense } from "@liveblocks/react";
-import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage } from "@/lib/liveblocks/liveblocks.config";
+import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage, useMutation, LiveList, LiveObject } from "@/lib/liveblocks/liveblocks.config";
 
 interface LiveblocksProviderProps {
   noteId: string;
@@ -117,17 +117,6 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
         currentPage: 1,
         currentFileId: null,
       }}
-      initialStorage={{
-        noteInfo: null,
-        files: [],
-        pageNotes: {},
-        currentPage: 1,
-        currentFileId: null,
-        canvasData: {},
-        handRaises: [],
-        polls: [],
-        questions: [],
-      }}
       autoConnect={true}
     >
       <ClientSideSuspense
@@ -165,6 +154,72 @@ function ConnectionMonitor() {
   const polls = useStorage((root) => root.polls);
   const handRaises = useStorage((root) => root.handRaises);
   const noteInfo = useStorage((root) => root.noteInfo);
+  const files = useStorage((root) => root.files);
+  const pageNotes = useStorage((root) => root.pageNotes);
+  const canvasData = useStorage((root) => root.canvasData);
+  const currentPage = useStorage((root) => root.currentPage);
+  const currentFileId = useStorage((root) => root.currentFileId);
+
+  // Storage 초기화 Mutation
+  const initializeStorage = useMutation(({ storage }) => {
+    console.log("[Liveblocks] Storage 초기화 시작...");
+
+    // === 배열 필드: LiveList로 변환 (기존 데이터 보존) ===
+    const arrayFields = ["questions", "polls", "handRaises", "files"] as const;
+    arrayFields.forEach((field) => {
+      const existing = storage.get(field);
+
+      if (existing === undefined || existing === null) {
+        // 없으면 빈 LiveList 생성
+        storage.set(field, new LiveList([]));
+        console.log(`[Liveblocks] ${field} 초기화됨 (LiveList)`);
+      } else if (Array.isArray(existing)) {
+        // 일반 배열이면 LiveList로 변환 (기존 데이터 보존)
+        console.log(`[Liveblocks] ${field}를 일반 배열에서 LiveList로 변환 중... (기존 데이터: ${existing.length}개)`);
+        const liveList = new LiveList(existing);
+        storage.set(field, liveList);
+        console.log(`[Liveblocks] ${field} LiveList 변환 완료!`);
+      } else {
+        // 이미 LiveList면 그대로 유지
+        console.log(`[Liveblocks] ${field}는 이미 LiveList입니다 (유지)`);
+      }
+    });
+
+    // === 객체 필드: LiveObject로 변환 ===
+    const objectFields = ["pageNotes", "canvasData"] as const;
+    objectFields.forEach((field) => {
+      const existing = storage.get(field);
+
+      if (existing === undefined || existing === null) {
+        storage.set(field, new LiveObject({}));
+        console.log(`[Liveblocks] ${field} 초기화됨 (LiveObject)`);
+      } else if (typeof existing === "object" && !(existing instanceof LiveObject)) {
+        // 일반 객체면 LiveObject로 변환
+        console.log(`[Liveblocks] ${field}를 일반 객체에서 LiveObject로 변환 중...`);
+        const liveObject = new LiveObject(existing);
+        storage.set(field, liveObject);
+        console.log(`[Liveblocks] ${field} LiveObject 변환 완료!`);
+      } else {
+        console.log(`[Liveblocks] ${field}는 이미 LiveObject입니다 (유지)`);
+      }
+    });
+
+    // === 기타 필드 ===
+    if (storage.get("currentPage") === undefined) {
+      storage.set("currentPage", 1);
+      console.log("[Liveblocks] currentPage 초기화됨");
+    }
+    if (storage.get("currentFileId") === undefined) {
+      storage.set("currentFileId", null);
+      console.log("[Liveblocks] currentFileId 초기화됨");
+    }
+    if (storage.get("noteInfo") === undefined) {
+      storage.set("noteInfo", null);
+      console.log("[Liveblocks] noteInfo 초기화됨");
+    }
+
+    console.log("[Liveblocks] Storage 초기화/변환 완료!");
+  }, []);
 
   useEffect(() => {
     console.log("[Liveblocks] ConnectionMonitor 마운트됨 - RoomProvider 내부 렌더링 성공!");
@@ -172,7 +227,13 @@ function ConnectionMonitor() {
 
   useEffect(() => {
     console.log(`[Liveblocks] 연결 상태 변경: ${status}`);
-  }, [status]);
+
+    // 연결되면 Storage 초기화 (필요한 경우)
+    if (status === "connected") {
+      console.log("[Liveblocks] 연결됨! Storage 초기화 시도...");
+      initializeStorage();
+    }
+  }, [status, initializeStorage]);
 
   useEffect(() => {
     if (room) {
@@ -185,12 +246,15 @@ function ConnectionMonitor() {
   // Storage 변경 감지
   useEffect(() => {
     console.log(`[Liveblocks Storage] 전체 상태:`, {
-      questions: questions?.length || 0,
-      polls: polls?.length || 0,
-      handRaises: handRaises?.length || 0,
+      questions: questions?.length ?? 'undefined',
+      polls: polls?.length ?? 'undefined',
+      handRaises: handRaises?.length ?? 'undefined',
+      files: files?.length ?? 'undefined',
       noteInfo: noteInfo ? 'exists' : 'null',
+      currentPage: currentPage ?? 'undefined',
+      currentFileId: currentFileId ?? 'undefined',
     });
-  }, [questions, polls, handRaises, noteInfo]);
+  }, [questions, polls, handRaises, noteInfo, files, currentPage, currentFileId]);
 
   return null;
 }

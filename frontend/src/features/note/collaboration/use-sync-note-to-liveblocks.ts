@@ -54,7 +54,7 @@ export function useSyncNoteToLiveblocks({
     []
   );
 
-  // 파일 목록을 Storage에 저장
+  // 파일 목록을 Storage에 저장 (백엔드 URL만 저장, blob URL은 저장하지 않음)
   const syncFiles = useMutation(
     ({ storage }, fileList: FileItem[], noteIdValue: string) => {
       const currentFiles = storage.get("files");
@@ -93,29 +93,35 @@ export function useSyncNoteToLiveblocks({
       // 새 파일 추가
       fileList.forEach((file) => {
         const backendUrl = backendUrlMap.get(file.id);
-        const finalUrl = backendUrl || file.url || ""; // backend_url 우선, 없으면 기존 url
 
-        const fileData = {
-          id: file.id,
-          noteId: noteIdValue,
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          fileUrl: finalUrl,
-          totalPages: undefined, // FileItem doesn't have totalPages
-          uploadedAt: new Date(file.uploadedAt).getTime(),
-        };
-        currentFiles.push(fileData);
+        // Backend URL이 있는 경우에만 Storage에 저장
+        // (없으면 Student가 백엔드로부터 받아와야 함)
+        if (backendUrl) {
+          const fileData = {
+            id: file.id,
+            noteId: noteIdValue,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            fileUrl: backendUrl,
+            totalPages: undefined,
+            uploadedAt: new Date(file.uploadedAt).getTime(),
+          };
+          currentFiles.push(fileData);
 
-        console.log(`[Liveblocks] 파일 저장:`, {
-          name: file.name,
-          url: finalUrl?.substring(0, 50) + '...',
-          isBlob: finalUrl?.startsWith('blob:'),
-          hasBackendUrl: !!backendUrl,
-        });
+          console.log(`[Liveblocks] 파일 저장 (Backend URL):`, {
+            name: file.name,
+            url: backendUrl.substring(0, 50) + '...',
+            hasBackendUrl: true,
+          });
+        } else {
+          console.warn(
+            `[Liveblocks] 백엔드 URL 없음 (Blob URL은 Storage에 저장하지 않음): ${file.name}`
+          );
+        }
       });
 
-      console.log(`[Liveblocks] 파일 ${fileList.length}개 동기화 완료`);
+      console.log(`[Liveblocks] 파일 ${currentFiles.length}개 동기화 완료`);
     },
     []
   );

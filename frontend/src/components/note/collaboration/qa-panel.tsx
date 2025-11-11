@@ -13,6 +13,8 @@ import { useState, useEffect } from "react";
 import {
   useStorage,
   useMutation,
+  useBroadcastEvent,
+  useEventListener,
 } from "@/lib/liveblocks/liveblocks.config";
 import { ThumbsUp, Pin, Share2, Trash2, MessageCircle } from "lucide-react";
 
@@ -46,9 +48,14 @@ export function QAPanel({
   isEducator = false,
 }: QAPanelProps) {
   const [newQuestionText, setNewQuestionText] = useState("");
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   // Liveblocks Storage에서 질문 목록 가져오기
   const questions = useStorage((root) => root.questions) || [];
+
+  // Broadcast 이벤트
+  const broadcast = useBroadcastEvent();
 
   // 질문 목록 변경 감지 (디버깅용)
   useEffect(() => {
@@ -65,6 +72,32 @@ export function QAPanel({
       })),
     });
   }, [questions, userId, userName, noteId, isEducator]);
+
+  // Q&A 이벤트 리스너
+  useEventListener(({ event }) => {
+    if (event.type === "QUESTION_ADDED") {
+      console.log(`[Q&A Panel] 새 질문 추가됨:`, event.content);
+      // Educator에게만 알림
+      if (isEducator) {
+        setToastMessage(`${event.authorName}님이 질문했습니다: ${event.content.substring(0, 30)}...`);
+        setShowToast(true);
+      }
+    } else if (event.type === "QUESTION_UPVOTED") {
+      console.log(`[Q&A Panel] 질문 추천:`, event.questionId);
+      // 조용히 로그만
+    } else if (event.type === "QUESTION_DELETED") {
+      console.log(`[Q&A Panel] 질문 삭제:`, event.questionId);
+      // 조용히 로그만
+    }
+  });
+
+  // 토스트 자동 숨김
+  useEffect(() => {
+    if (showToast) {
+      const timer = setTimeout(() => setShowToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]);
 
   // 질문 추가 Mutation
   const addQuestion = useMutation(({ storage }, content: string) => {
@@ -147,10 +180,55 @@ export function QAPanel({
         content: newQuestionText,
         isEducator,
       });
+
+      const questionId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      // 1. Storage에 저장
       addQuestion(newQuestionText);
       console.log(`[Q&A Panel] 질문 추가 완료 (Mutation 실행됨)`);
+
+      // 2. Broadcast로 즉시 알림
+      broadcast({
+        type: "QUESTION_ADDED",
+        questionId,
+        content: newQuestionText,
+        authorName: userName,
+      });
+      console.log(`[Q&A Panel] 질문 추가 Broadcast 전송 완료`);
+
       setNewQuestionText("");
     }
+  };
+
+  // 추천 (Storage + Broadcast)
+  const handleUpvote = (questionId: string) => {
+    console.log(`[Q&A Panel] 질문 추천:`, { questionId, userId });
+
+    // 1. Storage에 저장
+    upvoteQuestion(questionId);
+
+    // 2. Broadcast로 즉시 알림
+    broadcast({
+      type: "QUESTION_UPVOTED",
+      questionId,
+      userId,
+    });
+    console.log(`[Q&A Panel] 추천 Broadcast 전송 완료`);
+  };
+
+  // 삭제 (Storage + Broadcast)
+  const handleDelete = (questionId: string) => {
+    console.log(`[Q&A Panel] 질문 삭제:`, { questionId });
+
+    // 1. Storage에서 삭제
+    deleteQuestion(questionId);
+
+    // 2. Broadcast로 즉시 알림
+    broadcast({
+      type: "QUESTION_DELETED",
+      questionId,
+    });
+    console.log(`[Q&A Panel] 삭제 Broadcast 전송 완료`);
   };
 
   // 정렬: 핀 고정 → 추천 많은 순
@@ -164,6 +242,13 @@ export function QAPanel({
 
   return (
     <div className="flex flex-col gap-3 h-full">
+      {/* 토스트 알림 */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50 bg-[#AFC02B] text-black px-4 py-2 rounded-lg shadow-lg animate-slide-in-right">
+          {toastMessage}
+        </div>
+      )}
+
       {/* 질문 작성 폼 */}
       <div className="border-b border-white/20 pb-3">
         <div className="flex gap-2">
@@ -200,14 +285,31 @@ export function QAPanel({
               question={question}
               currentUserId={userId}
               isEducator={isEducator}
-              onUpvote={() => upvoteQuestion(question.id)}
+              onUpvote={() => handleUpvote(question.id)}
               onTogglePin={() => togglePin(question.id)}
               onToggleShare={() => toggleShare(question.id)}
-              onDelete={() => deleteQuestion(question.id)}
+              onDelete={() => handleDelete(question.id)}
             />
           ))
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes slide-in-right {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-in-right {
+          animation: slide-in-right 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
