@@ -8,7 +8,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useNoteEditorStore, usePanelsStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useRecordingList } from "@/features/note/player";
 import {
@@ -83,6 +83,9 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
 
   const { scriptSegments } = useScriptTranslationStore();
 
+  // Active segment tracking for transcript timeline
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+
   const {
     isNotePanelOpen,
     toggleNotePanel,
@@ -146,7 +149,7 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
   // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
   const { handleAddFile } = useFileManagement({ noteId });
 
-  const { handleAddQuestion, deleteQuestion } = useQuestionManagement();
+  const { handleAddQuestion, deleteQuestion } = useQuestionManagement({ noteId });
 
   const { isTranslating, translationSupported } = useTranscriptTranslation();
 

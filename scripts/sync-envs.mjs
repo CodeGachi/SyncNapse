@@ -101,6 +101,8 @@ const frontendEnv = {
   NEXT_PUBLIC_API_URL: rootEnv.NEXT_PUBLIC_API_URL,
   // Real-time Transcription Settings (Web Speech API)
   NEXT_PUBLIC_SPEECH_LANGUAGE: rootEnv.NEXT_PUBLIC_SPEECH_LANGUAGE,
+  // Real-time Collaboration (Liveblocks)
+  NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY: rootEnv.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY,
 };
 
 fs.mkdirSync(path.dirname(frontendEnvPath), { recursive: true });

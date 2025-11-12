@@ -55,6 +55,7 @@ export function DashboardSidebar({
     handleRenameSubmit,
     handleDeleteFolder,
     handleDeleteSubmit,
+    handleDeleteNote,
   } = useDashboardSidebar({
     selectedFolderId,
     onSelectFolder,
@@ -146,6 +147,7 @@ export function DashboardSidebar({
             onCreateSubFolder={handleCreateSubFolder}
             onRenameFolder={handleRenameFolder}
             onDeleteFolder={handleDeleteFolder}
+            onDeleteNote={handleDeleteNote}
           />
         </div>
       </nav>

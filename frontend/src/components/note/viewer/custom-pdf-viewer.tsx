@@ -101,7 +101,11 @@ export function CustomPdfViewer({
     )
       return;
 
+    let renderTask: any = null;
+    let isUnmounted = false;
+
     const renderPage = async () => {
+      if (isUnmounted) return;
       try {
         const page = await pdfDoc.getPage(currentPage);
         const canvas = canvasRef.current;
@@ -110,6 +114,11 @@ export function CustomPdfViewer({
 
         const context = canvas.getContext("2d");
         if (!context) return;
+
+        // Cancel previous render if exists
+        if (renderTask) {
+          renderTask.cancel();
+        }
 
         // 컨테이너 크기 계산
         const containerWidth = container.clientWidth - 16;
@@ -124,17 +133,26 @@ export function CustomPdfViewer({
         // scale 1.0 = 피팅 크기, 그 이상은 확대, 그 이하는 축소
         const finalScale = fitScale * scale;
 
-        // 렌더링
+        // 렌더링 - 캔버스 크기를 정확하게 설정
         const scaledViewport = page.getViewport({ scale: finalScale, rotation });
-        canvas.height = scaledViewport.height;
-        canvas.width = scaledViewport.width;
+        
+        // High DPI 디스플레이 지원
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = scaledViewport.width * dpr;
+        canvas.height = scaledViewport.height * dpr;
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
+        
+        // Context scale for high DPI
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const renderContext = {
           canvasContext: context,
           viewport: scaledViewport,
         };
 
-        await page.render(renderContext).promise;
+        renderTask = page.render(renderContext);
+        await renderTask.promise;
 
         // PDF 렌더링 정보 전달 (드로잉 캔버스 동기화용)
         if (onPdfRenderInfo) {
@@ -173,7 +191,28 @@ export function CustomPdfViewer({
       }
     };
 
+    // Initial render
     renderPage();
+
+    // ResizeObserver to detect container size changes
+    const resizeObserver = new ResizeObserver(() => {
+      if (!isUnmounted) {
+        renderPage();
+      }
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    // Cleanup function
+    return () => {
+      isUnmounted = true;
+      if (renderTask) {
+        renderTask.cancel();
+      }
+      resizeObserver.disconnect();
+    };
   }, [pdfDoc, currentPage, scale, rotation, numPages, onPdfRenderInfo]);
 
   // 페이지 변경 시 콜백 호출
@@ -239,13 +278,17 @@ export function CustomPdfViewer({
               </div>
             )}
 
-            <canvas
-              ref={canvasRef}
-              className={loading || error ? "hidden" : "block m-2"}
-              style={{
-                display: loading || error ? "none" : "block",
-              }}
-            />
+            <div className="p-2 inline-block">
+              <canvas
+                ref={canvasRef}
+                className={loading || error ? "hidden" : ""}
+                style={{
+                  display: loading || error ? "none" : "block",
+                  imageRendering: scale > 1.5 ? "auto" : "crisp-edges",
+                  transition: "all 0.15s ease-out",
+                }}
+              />
+            </div>
           </>
         ) : isImage ? (
           // 이미지 파일
@@ -359,7 +402,7 @@ export function CustomPdfViewer({
               </svg>
             </button>
 
-            <span className="text-gray-400 text-sm w-16 text-center">
+            <span className="text-white font-semibold text-sm w-20 text-center bg-[#1e1e1e] px-2 py-1 rounded border border-[#444444]">
               {Math.round(scale * 100)}%
             </span>
 

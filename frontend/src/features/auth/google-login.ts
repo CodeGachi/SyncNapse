@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin, useLogout } from "@/lib/api/mutations/auth.mutations";
-import { getGoogleLoginUrl } from "@/lib/api/services/auth.api";
+import { getGoogleLoginUrl } from "@/lib/api/auth.api";
 import { mockGoogleLogin, mockLogout } from "@/lib/mock/auth.mock";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
@@ -36,18 +36,10 @@ export function useGoogleLogin() {
     try {
       if (USE_MOCK) {
         const { user, token } = await mockGoogleLogin();
-
-        // React Query 캐시에 사용자 정보 업데이트
-        queryClient.setQueryData(["auth", "currentUser"], user);
-
-        console.log("[Auth] Mock 로그인 완료:", user);
-
         // Check if there's a saved redirect URL
         const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
         localStorage.removeItem("redirectAfterLogin");
-
-        // 대시보드로 리다이렉트
-        router.push(redirectUrl);
+        window.location.href = redirectUrl;
       } else {
         // Save current URL (with query params) to redirect back after login
         const currentPath = window.location.pathname + window.location.search + window.location.hash;
@@ -56,22 +48,18 @@ export function useGoogleLogin() {
           console.log("[GoogleLogin] 💾 Saved redirect URL:", currentPath);
         }
 
-        // 백엔드 Google OAuth로 리다이렉트
+        // Redirect to the backend Google OAuth URL
         const loginUrl = getGoogleLoginUrl();
         window.location.href = loginUrl;
       }
     } catch (err: any) {
-      console.error("[Auth] 로그인 실패:", err);
       alert(err.message || "로그인에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
-  /**
-   * Handle OAuth callback with tokens from backend
-   * Called from /auth/callback page after OAuth completes
-   */
-  const handleOAuthCallback = (accessToken: string, refreshToken: string) => {
-    loginMutation.mutate({ accessToken, refreshToken });
+  // Authorization code exchange (used in the OAuth callback page)
+  const handleCodeExchange = (code: string, state: string) => {
+    loginMutation.mutate({ code, state });
   };
 
   const handleLogout = async () => {
@@ -92,27 +80,20 @@ export function useGoogleLogin() {
 
       if (USE_MOCK) {
         await mockLogout();
-
-        // React Query 캐시 초기화
         queryClient.clear();
-
-        console.log("[Auth] Mock 로그아웃 완료");
-
-        // 홈으로 리다이렉트
         router.replace("/");
       } else {
         // Call logout API (this will invalidate tokens on backend)
         logoutMutation.mutate();
       }
     } catch (err: any) {
-      console.error("[Auth] 로그아웃 실패:", err);
       alert(err.message || "로그아웃에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
   return {
     handleGoogleLogin,
-    handleOAuthCallback,
+    handleCodeExchange,
     handleLogout,
     loading: loginMutation.isPending || logoutMutation.isPending,
     error: loginMutation.error?.message || logoutMutation.error?.message || null,

@@ -7,8 +7,8 @@
  * - 토큰 유효성 검사
  */
 
-const ACCESS_TOKEN_KEY = "syncnapse_access_token";
-const REFRESH_TOKEN_KEY = "syncnapse_refresh_token";
+const ACCESS_TOKEN_KEY = "authToken";
+const REFRESH_TOKEN_KEY = "refreshToken";
 
 /**
  * Access Token 저장
@@ -103,7 +103,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   try {
     const API_BASE_URL =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
     const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
       method: "POST",

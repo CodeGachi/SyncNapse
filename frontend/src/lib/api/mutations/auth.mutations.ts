@@ -15,30 +15,22 @@ export function useLogin(
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ accessToken, refreshToken }: { accessToken: string; refreshToken: string }) => {
-      localStorage.setItem("syncnapse_access_token", accessToken);
-      localStorage.setItem("syncnapse_refresh_token", refreshToken);
-
-      try {
-        const parts = accessToken.split(".");
-        const decoded = JSON.parse(
-          atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
-        );
-        return {
-          accessToken,
-          refreshToken,
-          user: {
-            id: decoded.sub || decoded.id,
-            email: decoded.email || "",
-            name: decoded.name || "User",
-          },
-        };
-      } catch {
-        return { accessToken, refreshToken, user: {} };
-      }
+    mutationFn: async ({ code, state }: { code: string; state: string }) => {
+      const response = await exchangeCodeForToken(code, state);
+      return response;
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["auth", "currentUser"], data.user);
+    onSuccess: async (data) => {
+      // Store tokens in localStorage
+      localStorage.setItem("authToken", data.accessToken);
+      localStorage.setItem("refreshToken", data.refreshToken);
+      
+      // Fetch user info
+      try {
+        const user = await getCurrentUser();
+        queryClient.setQueryData(["auth", "currentUser"], user);
+      } catch (error) {
+        console.error("Failed to fetch user info:", error);
+      }
     },
     ...options,
   });
