@@ -83,9 +83,23 @@ export function useFolders() {
     }
   };
 
+  // Find the "Root" folder (special system folder with name "Root" and parentId null)
+  const rootFolder = folders.find((f) => f.name === "Root" && f.parentId === null);
+
   // Get subfolders of a specific folder
   const getSubFolders = (parentId: string | null): DBFolder[] => {
-    return folders.filter((f) => f.parentId === parentId);
+    // Filter folders based on parentId
+    const subfolders = folders.filter((f) => f.parentId === parentId);
+    
+    // If we're at the root level (parentId === null), also include children of "Root" folder
+    if (parentId === null && rootFolder) {
+      const rootChildren = folders.filter((f) => f.parentId === rootFolder.id);
+      // Exclude the "Root" folder itself and combine with root level folders
+      return [...subfolders.filter((f) => f.id !== rootFolder.id), ...rootChildren];
+    }
+    
+    // Exclude "Root" folder from results
+    return subfolders.filter((f) => !(f.name === "Root" && f.parentId === null));
   };
 
   // Build folder tree structure

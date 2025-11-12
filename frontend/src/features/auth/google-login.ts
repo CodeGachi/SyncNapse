@@ -28,7 +28,7 @@ export function useGoogleLogin() {
   const logoutMutation = useLogout({
     onSuccess: () => {
       queryClient.clear();
-      router.replace("/");
+      router.replace("/login");
     },
   });
 
@@ -43,7 +43,7 @@ export function useGoogleLogin() {
       } else {
         // Save current URL (with query params) to redirect back after login
         const currentPath = window.location.pathname + window.location.search + window.location.hash;
-        if (currentPath !== "/" && !currentPath.startsWith("/auth")) {
+        if (currentPath !== "/" && currentPath !== "/login" && !currentPath.startsWith("/auth")) {
           localStorage.setItem("redirectAfterLogin", currentPath);
           console.log("[GoogleLogin] 💾 Saved redirect URL:", currentPath);
         }
@@ -81,7 +81,7 @@ export function useGoogleLogin() {
       if (USE_MOCK) {
         await mockLogout();
         queryClient.clear();
-        router.replace("/");
+        router.replace("/login");
       } else {
         // Call logout API (this will invalidate tokens on backend)
         logoutMutation.mutate();

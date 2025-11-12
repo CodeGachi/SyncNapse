@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
   const authToken = request.cookies.get("authToken")?.value;
 
   // 로그인 페이지 접근 시 이미 로그인되어 있으면 대시보드로 리다이렉트
-  if (pathname === "/") {
+  if (pathname === "/login") {
     if (authToken) {
       console.log("[Middleware] Already authenticated, redirecting to dashboard");
       return NextResponse.redirect(new URL("/dashboard/main", request.url));
@@ -30,12 +30,12 @@ export function middleware(request: NextRequest) {
 
   if (isProtectedRoute && !authToken) {
     console.log("[Middleware] Protected route without auth, redirecting to login");
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/auth/callback", "/dashboard/:path*", "/note/:path*"],
+  matcher: ["/", "/login", "/auth/callback", "/dashboard/:path*", "/note/:path*"],
 };
