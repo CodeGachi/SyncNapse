@@ -12,6 +12,9 @@ import {
   CreateInviteDto,
   JoinSessionDto,
   CreateSharedNoteDto,
+  CreateTypingSectionDto,
+  UpdateTypingSectionDto,
+  FinalizeSessionDto,
 } from './dto';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -413,6 +416,7 @@ export class LiveSessionsService {
         sessionId,
         noteId: dto.noteId,
         mode: dto.mode,
+        excludeTyping: dto.excludeTyping !== undefined ? dto.excludeTyping : true,
         startSec: dto.startSec ? new Prisma.Decimal(dto.startSec) : null,
         endSec: dto.endSec ? new Prisma.Decimal(dto.endSec) : null,
         pageNumber: dto.pageNumber,
@@ -444,6 +448,333 @@ export class LiveSessionsService {
     await this.prisma.sectionSync.delete({
       where: { id: sync.id },
     });
+  }
+
+  /**
+   * Create a typing section for a student in a session
+   */
+  async createTypingSection(userId: string, dto: CreateTypingSectionDto) {
+    this.logger.debug(`createTypingSection userId=${userId} sessionId=${dto.sessionId}`);
+
+    // Verify user is a member of the session
+    await this.assertSessionMember(userId, dto.sessionId);
+
+    // Check if note exists
+    const note = await this.prisma.lectureNote.findUnique({
+      where: { id: dto.noteId },
+    });
+
+    if (!note) {
+      throw new NotFoundException(`Note with ID ${dto.noteId} not found`);
+    }
+
+    // Create typing section
+    const typingSection = await this.prisma.typingSection.create({
+      data: {
+        noteId: dto.noteId,
+        userId,
+        sessionId: dto.sessionId,
+        chunkId: dto.chunkId,
+        title: dto.title,
+        content: dto.content,
+        startSec: dto.startSec ? new Prisma.Decimal(dto.startSec) : null,
+        endSec: dto.endSec ? new Prisma.Decimal(dto.endSec) : null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return typingSection;
+  }
+
+  /**
+   * Update a typing section
+   */
+  async updateTypingSection(
+    typingSectionId: string,
+    userId: string,
+    dto: UpdateTypingSectionDto,
+  ) {
+    this.logger.debug(`updateTypingSection id=${typingSectionId} userId=${userId}`);
+
+    // Find the typing section
+    const typingSection = await this.prisma.typingSection.findUnique({
+      where: { id: typingSectionId },
+    });
+
+    if (!typingSection) {
+      throw new NotFoundException('Typing section not found');
+    }
+
+    // Only the owner can update
+    if (typingSection.userId !== userId) {
+      throw new ForbiddenException('You can only update your own typing sections');
+    }
+
+    // Update typing section
+    const updated = await this.prisma.typingSection.update({
+      where: { id: typingSectionId },
+      data: {
+        title: dto.title,
+        content: dto.content,
+        startSec: dto.startSec !== undefined
+          ? (dto.startSec ? new Prisma.Decimal(dto.startSec) : null)
+          : undefined,
+        endSec: dto.endSec !== undefined
+          ? (dto.endSec ? new Prisma.Decimal(dto.endSec) : null)
+          : undefined,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Delete a typing section
+   */
+  async deleteTypingSection(typingSectionId: string, userId: string) {
+    this.logger.debug(`deleteTypingSection id=${typingSectionId} userId=${userId}`);
+
+    // Find the typing section
+    const typingSection = await this.prisma.typingSection.findUnique({
+      where: { id: typingSectionId },
+    });
+
+    if (!typingSection) {
+      throw new NotFoundException('Typing section not found');
+    }
+
+    // Only the owner can delete
+    if (typingSection.userId !== userId) {
+      throw new ForbiddenException('You can only delete your own typing sections');
+    }
+
+    await this.prisma.typingSection.delete({
+      where: { id: typingSectionId },
+    });
+  }
+
+  /**
+   * Get typing sections for a user in a session
+   */
+  async getTypingSections(sessionId: string, userId: string) {
+    this.logger.debug(`getTypingSections sessionId=${sessionId} userId=${userId}`);
+
+    await this.assertSessionMember(userId, sessionId);
+
+    const typingSections = await this.prisma.typingSection.findMany({
+      where: {
+        sessionId,
+        userId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    return typingSections;
+  }
+
+  /**
+   * Finalize session for a student - creates a copy of shared notes + student's typing sections
+   */
+  async finalizeSessionForStudent(
+    sessionId: string,
+    userId: string,
+    dto: FinalizeSessionDto,
+  ) {
+    this.logger.debug(
+      `finalizeSessionForStudent sessionId=${sessionId} userId=${userId}`,
+    );
+
+    await this.assertSessionMember(userId, sessionId);
+
+    // Get the session with shared notes
+    const session = await this.prisma.liveSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        note: true,
+        sectionSyncs: {
+          include: {
+            note: {
+              include: {
+                transcripts: true,
+                translations: true,
+                materialPages: true,
+                audioRecordings: true,
+                inkLayers: true,
+                chunks: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (!session.isActive) {
+      throw new BadRequestException('Session has already ended');
+    }
+
+    // Get student's typing sections
+    const studentTypingSections = await this.prisma.typingSection.findMany({
+      where: {
+        sessionId,
+        userId,
+      },
+    });
+
+    // Create a new note for the student
+    const studentNote = await this.prisma.lectureNote.create({
+      data: {
+        title: dto.noteTitle,
+        sourceFileUrl: session.note.sourceFileUrl,
+        audioFileUrl: session.note.audioFileUrl,
+      },
+    });
+
+    // Copy all shared content (excluding typing sections as per excludeTyping flag)
+    for (const sync of session.sectionSyncs) {
+      if (sync.mode === 'COPY') {
+        const sourceNote = sync.note;
+
+        // Copy transcripts
+        for (const transcript of sourceNote.transcripts) {
+          await this.prisma.transcriptSegment.create({
+            data: {
+              noteId: studentNote.id,
+              startSec: transcript.startSec,
+              endSec: transcript.endSec,
+              text: transcript.text,
+            },
+          });
+        }
+
+        // Copy translations
+        for (const translation of sourceNote.translations) {
+          await this.prisma.translationSegment.create({
+            data: {
+              noteId: studentNote.id,
+              sourceLang: translation.sourceLang,
+              targetLang: translation.targetLang,
+              startSec: translation.startSec,
+              endSec: translation.endSec,
+              text: translation.text,
+            },
+          });
+        }
+
+        // Copy material pages
+        for (const page of sourceNote.materialPages) {
+          await this.prisma.materialPage.create({
+            data: {
+              noteId: studentNote.id,
+              pageNumber: page.pageNumber,
+              pageUrl: page.pageUrl,
+              pageHash: page.pageHash,
+              canonicalPageId: page.canonicalPageId,
+              viewTransform: page.viewTransform,
+            },
+          });
+        }
+
+        // Copy audio recordings
+        for (const audio of sourceNote.audioRecordings) {
+          await this.prisma.audioRecording.create({
+            data: {
+              noteId: studentNote.id,
+              startSec: audio.startSec,
+              endSec: audio.endSec,
+              audioUrl: audio.audioUrl,
+            },
+          });
+        }
+
+        // Note: We don't copy ink layers (those are presenter's annotations)
+      }
+    }
+
+    // Copy student's typing sections to the new note
+    for (const typingSection of studentTypingSections) {
+      await this.prisma.typingSection.create({
+        data: {
+          noteId: studentNote.id,
+          userId,
+          sessionId: null, // No longer linked to session
+          chunkId: typingSection.chunkId,
+          title: typingSection.title,
+          content: typingSection.content,
+          startSec: typingSection.startSec,
+          endSec: typingSection.endSec,
+        },
+      });
+    }
+
+    // Link to folder if provided
+    if (dto.folderId) {
+      // Verify folder exists and belongs to user
+      const folder = await this.prisma.folder.findFirst({
+        where: { id: dto.folderId, userId },
+      });
+
+      if (!folder) {
+        throw new NotFoundException('Folder not found or does not belong to you');
+      }
+
+      await this.prisma.folderLectureNote.create({
+        data: {
+          folderId: dto.folderId,
+          noteId: studentNote.id,
+        },
+      });
+    }
+
+    return {
+      studentNote,
+      copiedContent: {
+        transcriptsCount: session.sectionSyncs.reduce(
+          (sum, sync) => sum + sync.note.transcripts.length,
+          0,
+        ),
+        translationsCount: session.sectionSyncs.reduce(
+          (sum, sync) => sum + sync.note.translations.length,
+          0,
+        ),
+        materialPagesCount: session.sectionSyncs.reduce(
+          (sum, sync) => sum + sync.note.materialPages.length,
+          0,
+        ),
+        typingSectionsCount: studentTypingSections.length,
+      },
+    };
   }
 }
 

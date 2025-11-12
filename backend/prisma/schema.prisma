@@ -33,6 +33,7 @@ model User {
   // LiveSession-related back-relations
   sessionsCreated        LiveSession[] @relation("SessionPresenter")
   sessionMemberships     SessionMember[]
+  typingSections         TypingSection[] @relation("UserTypingSections")
 }
 
 model Folder {
@@ -140,6 +141,8 @@ model TypingSection {
   id            String   @id @default(cuid())
   noteId        String
   chunkId       String?
+  userId        String   // Who created this typing section (student/presenter)
+  sessionId     String?  // Optional: linked to a live session
   // a named section of typed notes that can map to a time range
   title         String
   content       String
@@ -149,9 +152,13 @@ model TypingSection {
   updatedAt     DateTime @updatedAt
   note          LectureNote @relation(fields: [noteId], references: [id])
   chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
+  user          User @relation("UserTypingSections", fields: [userId], references: [id])
+  session       LiveSession? @relation("SessionTypingSections", fields: [sessionId], references: [id])
   links         MediaLink[]
   @@index([noteId, startSec])
   @@index([chunkId])
+  @@index([userId])
+  @@index([sessionId])
 }
 
 // A generic link that associates a time range to resources (file page, transcript, translation, typing)
@@ -275,6 +282,7 @@ model LiveSession {
   members          SessionMember[]
   invites          SessionInvite[]
   sectionSyncs     SectionSync[]
+  typingSections   TypingSection[] @relation("SessionTypingSections")
 
   @@index([noteId])
   @@index([presenterId])
@@ -319,18 +327,19 @@ model SessionMember {
 
 // Section sync mapping for shared materials
 model SectionSync {
-  id          String   @id @default(cuid())
-  sessionId   String
-  noteId      String
-  mode        String   // 'LINK' | 'COPY'
-  startSec    Decimal? @db.Decimal(7, 2)
-  endSec      Decimal? @db.Decimal(7, 2)
-  pageNumber  Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  sessionId      String
+  noteId         String
+  mode           String   // 'LINK' | 'COPY'
+  excludeTyping  Boolean  @default(true) // Exclude typing sections from shared content
+  startSec       Decimal? @db.Decimal(7, 2)
+  endSec         Decimal? @db.Decimal(7, 2)
+  pageNumber     Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  session     LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  note        LectureNote @relation(fields: [noteId], references: [id])
+  session        LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  note           LectureNote @relation(fields: [noteId], references: [id])
 
   @@index([sessionId])
   @@index([noteId])

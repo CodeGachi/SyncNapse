@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Delete,
+  Put,
   Body,
   Param,
   UseGuards,
@@ -25,6 +26,9 @@ import {
   CreateInviteDto,
   JoinSessionDto,
   CreateSharedNoteDto,
+  CreateTypingSectionDto,
+  UpdateTypingSectionDto,
+  FinalizeSessionDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -291,6 +295,141 @@ export class LiveSessionsController {
     );
 
     await this.sessionsService.removeSharedNote(sessionId, noteId, user.id);
+  }
+
+  /**
+   * POST /typing-sections
+   * Create a typing section for a student in a session
+   */
+  @Post('typing-sections')
+  @ApiOperation({ summary: 'Create a typing section for a student in a session' })
+  @ApiCreatedResponse({ description: 'Typing section created (HAL)', schema: { type: 'object' } })
+  async createTypingSection(
+    @Body() dto: CreateTypingSectionDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    this.logger.debug(`createTypingSection userId=${user.id} sessionId=${dto.sessionId}`);
+
+    const typingSection = await this.sessionsService.createTypingSection(user.id, dto);
+
+    return this.hal.resource(typingSection, {
+      self: this.links.self(`/api/typing-sections/${typingSection.id}`),
+      session: { href: `/api/live-sessions/${dto.sessionId}` },
+      note: { href: `/api/notes/${dto.noteId}` },
+      user: { href: `/api/users/${user.id}` },
+    });
+  }
+
+  /**
+   * PUT /typing-sections/:typingSectionId
+   * Update a typing section
+   */
+  @Put('typing-sections/:typingSectionId')
+  @ApiOperation({ summary: 'Update a typing section' })
+  @ApiParam({ name: 'typingSectionId', description: 'Typing Section ID' })
+  @ApiOkResponse({ description: 'Typing section updated (HAL)', schema: { type: 'object' } })
+  async updateTypingSection(
+    @Param('typingSectionId') typingSectionId: string,
+    @Body() dto: UpdateTypingSectionDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    this.logger.debug(`updateTypingSection id=${typingSectionId} userId=${user.id}`);
+
+    const typingSection = await this.sessionsService.updateTypingSection(
+      typingSectionId,
+      user.id,
+      dto,
+    );
+
+    return this.hal.resource(typingSection, {
+      self: this.links.self(`/api/typing-sections/${typingSection.id}`),
+      session: typingSection.sessionId
+        ? { href: `/api/live-sessions/${typingSection.sessionId}` }
+        : undefined,
+      note: { href: `/api/notes/${typingSection.noteId}` },
+      user: { href: `/api/users/${user.id}` },
+    });
+  }
+
+  /**
+   * DELETE /typing-sections/:typingSectionId
+   * Delete a typing section
+   */
+  @Delete('typing-sections/:typingSectionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a typing section' })
+  @ApiParam({ name: 'typingSectionId', description: 'Typing Section ID' })
+  @ApiNoContentResponse({ description: 'Typing section deleted' })
+  async deleteTypingSection(
+    @Param('typingSectionId') typingSectionId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    this.logger.debug(`deleteTypingSection id=${typingSectionId} userId=${user.id}`);
+
+    await this.sessionsService.deleteTypingSection(typingSectionId, user.id);
+  }
+
+  /**
+   * GET /live-sessions/:sessionId/typing-sections
+   * Get all typing sections for a user in a session
+   */
+  @Get('live-sessions/:sessionId/typing-sections')
+  @ApiOperation({ summary: 'Get all typing sections for current user in a session' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiOkResponse({ description: 'Typing sections collection (HAL)', schema: { type: 'object' } })
+  async getTypingSections(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    this.logger.debug(`getTypingSections sessionId=${sessionId} userId=${user.id}`);
+
+    const typingSections = await this.sessionsService.getTypingSections(sessionId, user.id);
+
+    return this.hal.collection(typingSections, {
+      selfHref: `/api/live-sessions/${sessionId}/typing-sections`,
+      itemSelfHref: (item) => `/api/typing-sections/${item.id}`,
+      extraLinks: {
+        session: { href: `/api/live-sessions/${sessionId}` },
+      },
+    });
+  }
+
+  /**
+   * POST /live-sessions/:sessionId/finalize
+   * Finalize session for a student - creates their own note with shared content + their typing sections
+   */
+  @Post('live-sessions/:sessionId/finalize')
+  @ApiOperation({
+    summary: 'Finalize session for a student',
+    description:
+      'Creates a new note for the student with shared content (excluding presenter typing sections) and student\'s own typing sections',
+  })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiCreatedResponse({ description: 'Student note created (HAL)', schema: { type: 'object' } })
+  async finalizeSession(
+    @Param('sessionId') sessionId: string,
+    @Body() dto: FinalizeSessionDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    this.logger.debug(`finalizeSession sessionId=${sessionId} userId=${user.id}`);
+
+    const result = await this.sessionsService.finalizeSessionForStudent(
+      sessionId,
+      user.id,
+      dto,
+    );
+
+    return this.hal.resource(
+      {
+        note: result.studentNote,
+        copiedContent: result.copiedContent,
+      },
+      {
+        self: this.links.self(`/api/notes/${result.studentNote.id}`),
+        note: { href: `/api/notes/${result.studentNote.id}` },
+        session: { href: `/api/live-sessions/${sessionId}` },
+      },
+    );
   }
 }
 

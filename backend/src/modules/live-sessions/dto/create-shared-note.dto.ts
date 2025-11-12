@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsUUID, IsIn, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsUUID, IsIn, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateSharedNoteDto {
   @ApiProperty({ description: 'Note ID to share' })
@@ -10,6 +10,11 @@ export class CreateSharedNoteDto {
   @IsString()
   @IsIn(['LINK', 'COPY'])
   mode!: 'LINK' | 'COPY';
+
+  @ApiPropertyOptional({ description: 'Exclude typing sections from shared content (default: true)' })
+  @IsBoolean()
+  @IsOptional()
+  excludeTyping?: boolean;
 
   @ApiPropertyOptional({ description: 'Start time in seconds' })
   @IsNumber()
