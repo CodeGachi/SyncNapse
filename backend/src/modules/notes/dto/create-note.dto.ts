@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, IsOptional, IsIn } from 'class-validator';
 
 export class CreateNoteDto {
   @IsUUID()
@@ -12,4 +12,9 @@ export class CreateNoteDto {
   @IsString()
   @IsNotEmpty()
   folder_id!: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['student', 'educator'])
+  type?: 'student' | 'educator'; // Note type field for educator mode
 }

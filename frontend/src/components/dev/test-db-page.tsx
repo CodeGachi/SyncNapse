@@ -42,7 +42,7 @@ export function TestDBPage() {
       // Test 2: Create root folder
       addLog("Test 2: Creating root folder...");
       try {
-        const folder1 = await createFolder("Test Folder 1", null);
+        const folder1 = await createFolder("Test Folder 1");
         addLog(`Created folder: ${folder1.name} (ID: ${folder1.id})`);
       } catch (error) {
         addLog(`Failed to create folder: ${error}`, true);

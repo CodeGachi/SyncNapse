@@ -6,10 +6,11 @@ import {
   forwardRef,
   Inject,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { FoldersService } from '../folders/folders.service';
-import { CreateNoteDto, UpdateNoteDto } from './dto';
+import { CreateNoteDto, UpdateNoteDto, NoteBlock, NoteContentPages } from './dto';
 
 @Injectable()
 export class NotesService {
@@ -88,6 +89,7 @@ export class NotesService {
     return folderNoteLinks.map((link) => ({
       id: link.note.id,
       title: link.note.title,
+      type: link.note.type || 'student', // Include note type in response
       folder_id: link.folderId,
       source_file_url: link.note.sourceFileUrl,
       audio_file_url: link.note.audioFileUrl,
@@ -166,6 +168,7 @@ export class NotesService {
     return {
       id: folderNoteLink.note.id,
       title: folderNoteLink.note.title,
+      type: folderNoteLink.note.type || 'student', // Include note type in response
       folder_id: folderNoteLink.folderId,
       source_file_url: folderNoteLink.note.sourceFileUrl,
       audio_file_url: folderNoteLink.note.audioFileUrl,
@@ -183,23 +186,55 @@ export class NotesService {
       `[createNote] Creating note: ${dto.title} for userId=${userId} folderId=${dto.folder_id}`,
     );
 
+    // Handle "root" folder ID - find or create root folder
+    let actualFolderId = dto.folder_id;
+    
+    if (dto.folder_id === 'root' || !dto.folder_id) {
+      this.logger.debug(`[createNote] Finding or creating root folder for user: ${userId}`);
+      
+      // Find root folder (parentId is null)
+      let rootFolder = await this.prisma.folder.findFirst({
+        where: {
+          userId,
+          parentId: null,
+          deletedAt: null,
+        },
+      });
+      
+      // Create root folder if not exists
+      if (!rootFolder) {
+        this.logger.debug(`[createNote] Creating root folder for user: ${userId}`);
+        rootFolder = await this.prisma.folder.create({
+          data: {
+            name: 'Root',
+            userId,
+            parentId: null,
+          },
+        });
+        this.logger.log(`[createNote] ✅ Created root folder: ${rootFolder.id}`);
+      }
+      
+      actualFolderId = rootFolder.id;
+      this.logger.debug(`[createNote] Using root folder ID: ${actualFolderId}`);
+    }
+
     const folder = await this.prisma.folder.findFirst({
       where: {
-        id: dto.folder_id,
+        id: actualFolderId,
         userId,
         deletedAt: null,
       },
     });
 
     if (!folder) {
-      this.logger.warn(`[createNote] Folder not found: ${dto.folder_id}`);
+      this.logger.warn(`[createNote] Folder not found: ${actualFolderId}`);
       throw new NotFoundException('Folder not found');
     }
 
     // Check for duplicate note title in the same folder
     const existingNote = await this.prisma.folderLectureNote.findFirst({
       where: {
-        folderId: dto.folder_id,
+        folderId: actualFolderId, // Use actualFolderId for duplicate check
         note: {
           title: dto.title,
           deletedAt: null,
@@ -211,7 +246,7 @@ export class NotesService {
     });
 
     if (existingNote) {
-      this.logger.warn(`[createNote] Duplicate note title: ${dto.title} in folder: ${dto.folder_id}`);
+      this.logger.warn(`[createNote] Duplicate note title: ${dto.title} in folder: ${actualFolderId}`);
       throw new ConflictException('A note with this title already exists in this folder');
     }
 
@@ -219,13 +254,14 @@ export class NotesService {
       data: {
         id: dto.id, // Use provided ID if available
         title: dto.title,
+        type: dto.type || 'student', // Default to 'student' if not provided
         sourceFileUrl: files.length > 0 ? `temp://${files[0].originalname}` : null,
       },
     });
 
     await this.prisma.folderLectureNote.create({
       data: {
-        folderId: dto.folder_id,
+        folderId: actualFolderId, // Use actualFolderId instead of dto.folder_id
         noteId: note.id,
       },
     });
@@ -233,7 +269,7 @@ export class NotesService {
     this.logger.debug(`[createNote] Created note: ${note.id}`);
 
     // Build storage path: users/{userNickname}/{folderPath}/{noteTitle}/
-    const folderStoragePath = await this.foldersService.buildFolderStoragePath(userId, dto.folder_id);
+    const folderStoragePath = await this.foldersService.buildFolderStoragePath(userId, actualFolderId);
     // Sanitize note title for file path
     const sanitizedTitle = encodeURIComponent(note.title)
       .replace(/%20/g, ' ')  // Keep spaces as spaces
@@ -340,7 +376,8 @@ export class NotesService {
     return {
       id: note.id,
       title: note.title,
-      folder_id: dto.folder_id,
+      type: note.type || 'student', // Include note type in response
+      folder_id: actualFolderId, // Return the actual folder ID used
       source_file_url: note.sourceFileUrl,
       audio_file_url: note.audioFileUrl,
       created_at: note.createdAt.toISOString(),
@@ -761,5 +798,405 @@ export class NotesService {
     }
 
     this.logger.log(`[deleteNotesByFolder] ✅ Completed deleting ${folderNoteLinks.length} notes in folder ${folderId}`);
+  }
+
+  /**
+   * Save or update page content (blocks)
+   */
+  async savePageContent(
+    userId: string,
+    noteId: string,
+    pageNumber: number,
+    blocks: NoteBlock[],
+  ) {
+    this.logger.debug(`[savePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNumber} blocks=${blocks.length}`);
+
+    // Verify note ownership
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+      include: {
+        note: true,
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Find or create MaterialPage
+    let materialPage = await this.prisma.materialPage.findFirst({
+      where: {
+        noteId,
+        pageNumber,
+      },
+    });
+
+    if (!materialPage) {
+      materialPage = await this.prisma.materialPage.create({
+        data: {
+          noteId,
+          pageNumber,
+        },
+      });
+      this.logger.log(`[savePageContent] Created MaterialPage for page ${pageNumber}`);
+    }
+
+    // Build storage key for MinIO backup (typing section)
+    const noteBasePath = await this.getNoteStoragePath(userId, noteId);
+    const storageKey = `${noteBasePath}/typing/page_${pageNumber}_content.json`;
+
+    // Save to MinIO
+    try {
+      const contentData = {
+        noteId,
+        pageNumber,
+        blocks,
+        version: 1,
+        savedAt: new Date().toISOString(),
+      };
+
+      await this.storageService.uploadBuffer(
+        Buffer.from(JSON.stringify(contentData, null, 2)),
+        storageKey,
+        'application/json',
+      );
+
+      this.logger.log(`[savePageContent] ✅ Saved to MinIO: ${storageKey}`);
+    } catch (error) {
+      this.logger.error(`[savePageContent] Failed to save to MinIO:`, error);
+      // Continue even if MinIO fails
+    }
+
+    // Upsert PageContent
+    const pageContent = await this.prisma.pageContent.upsert({
+      where: {
+        pageId: materialPage.id,
+      },
+      update: {
+        blocks: blocks as unknown as Prisma.InputJsonValue,
+        storageKey,
+        updatedAt: new Date(),
+      },
+      create: {
+        noteId,
+        pageId: materialPage.id,
+        pageNumber,
+        blocks: blocks as unknown as Prisma.InputJsonValue,
+        storageKey,
+      },
+    });
+
+    this.logger.log(`[savePageContent] ✅ Saved PageContent: ${pageContent.id}`);
+    return pageContent;
+  }
+
+  /**
+   * Get page content by note ID and page number
+   */
+  async getPageContent(userId: string, noteId: string, pageNumber: number) {
+    this.logger.debug(`[getPageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNumber}`);
+
+    // Verify note ownership
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Find MaterialPage
+    const materialPage = await this.prisma.materialPage.findFirst({
+      where: {
+        noteId,
+        pageNumber,
+      },
+      include: {
+        pageContent: true,
+      },
+    });
+
+    if (!materialPage || !materialPage.pageContent) {
+      // Return empty blocks if no content exists
+      return {
+        noteId,
+        pageNumber,
+        blocks: [],
+        version: 1,
+      };
+    }
+
+    return {
+      id: materialPage.pageContent.id,
+      noteId: materialPage.pageContent.noteId,
+      pageNumber: materialPage.pageContent.pageNumber,
+      blocks: materialPage.pageContent.blocks,
+      version: materialPage.pageContent.version,
+      createdAt: materialPage.pageContent.createdAt,
+      updatedAt: materialPage.pageContent.updatedAt,
+    };
+  }
+
+  /**
+   * Delete page content
+   */
+  async deletePageContent(userId: string, noteId: string, pageNumber: number) {
+    this.logger.debug(`[deletePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNumber}`);
+
+    // Verify note ownership
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Find MaterialPage
+    const materialPage = await this.prisma.materialPage.findFirst({
+      where: {
+        noteId,
+        pageNumber,
+      },
+      include: {
+        pageContent: true,
+      },
+    });
+
+    if (!materialPage || !materialPage.pageContent) {
+      throw new NotFoundException(`Page content not found for page ${pageNumber}`);
+    }
+
+    // Delete from MinIO if storage key exists
+    if (materialPage.pageContent.storageKey) {
+      try {
+        await this.storageService.deleteFile(materialPage.pageContent.storageKey);
+        this.logger.log(`[deletePageContent] ✅ Deleted from MinIO: ${materialPage.pageContent.storageKey}`);
+      } catch (error) {
+        this.logger.error(`[deletePageContent] Failed to delete from MinIO:`, error);
+      }
+    }
+
+    // Delete PageContent from database
+    await this.prisma.pageContent.delete({
+      where: {
+        id: materialPage.pageContent.id,
+      },
+    });
+
+    this.logger.log(`[deletePageContent] ✅ Deleted PageContent for page ${pageNumber}`);
+  }
+
+  /**
+   * Save entire note content (all pages in a single document)
+   */
+  async saveNoteContent(
+    userId: string,
+    noteId: string,
+    pages: NoteContentPages,
+  ) {
+    this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId} pages=${Object.keys(pages).length}`);
+
+    // Verify note ownership
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+      include: {
+        note: true,
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Build storage key for MinIO backup
+    const noteBasePath = await this.getNoteStoragePath(userId, noteId);
+    const storageKey = `${noteBasePath}/typing/note_content.json`;
+
+    // Save to MinIO
+    try {
+      const contentData = {
+        noteId,
+        pages,
+        version: 1,
+        savedAt: new Date().toISOString(),
+      };
+
+      await this.storageService.uploadBuffer(
+        Buffer.from(JSON.stringify(contentData, null, 2)),
+        storageKey,
+        'application/json',
+      );
+
+      this.logger.log(`[saveNoteContent] ✅ Saved to MinIO: ${storageKey}`);
+    } catch (error) {
+      this.logger.error(`[saveNoteContent] Failed to save to MinIO:`, error);
+      // Continue even if MinIO fails
+    }
+
+    // Upsert NoteContent
+    const noteContent = await this.prisma.noteContent.upsert({
+      where: {
+        noteId,
+      },
+      update: {
+        content: { pages } as unknown as Prisma.JsonObject,
+        storageKey,
+        updatedAt: new Date(),
+      },
+      create: {
+        noteId,
+        content: { pages } as unknown as Prisma.JsonObject,
+        storageKey,
+        version: 1,
+      },
+    });
+
+    this.logger.log(`[saveNoteContent] ✅ Saved NoteContent: ${noteContent.id}`);
+    return noteContent;
+  }
+
+  /**
+   * Get entire note content
+   */
+  async getNoteContent(userId: string, noteId: string) {
+    this.logger.debug(`[getNoteContent] userId=${userId} noteId=${noteId}`);
+
+    // Verify note ownership
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Get NoteContent
+    const noteContent = await this.prisma.noteContent.findUnique({
+      where: {
+        noteId,
+      },
+    });
+
+    if (!noteContent) {
+      // Return empty structure if no content exists
+      return {
+        noteId,
+        pages: {},
+        version: 1,
+      };
+    }
+
+    const content = noteContent.content as unknown as { pages: NoteContentPages };
+
+    return {
+      id: noteContent.id,
+      noteId: noteContent.noteId,
+      pages: content.pages || {},
+      version: noteContent.version,
+      storageKey: noteContent.storageKey,
+      createdAt: noteContent.createdAt,
+      updatedAt: noteContent.updatedAt,
+    };
+  }
+
+  /**
+   * Delete entire note content
+   */
+  async deleteNoteContent(userId: string, noteId: string) {
+    this.logger.debug(`[deleteNoteContent] userId=${userId} noteId=${noteId}`);
+
+    // Verify note ownership
+    const folderNote = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        note: {
+          deletedAt: null,
+        },
+        folder: {
+          userId,
+          deletedAt: null,
+        },
+      },
+    });
+
+    if (!folderNote) {
+      throw new NotFoundException(`Note not found: ${noteId}`);
+    }
+
+    // Get NoteContent
+    const noteContent = await this.prisma.noteContent.findUnique({
+      where: {
+        noteId,
+      },
+    });
+
+    if (!noteContent) {
+      throw new NotFoundException(`Note content not found for note ${noteId}`);
+    }
+
+    // Delete from MinIO if storage key exists
+    if (noteContent.storageKey) {
+      try {
+        await this.storageService.deleteFile(noteContent.storageKey);
+        this.logger.log(`[deleteNoteContent] ✅ Deleted from MinIO: ${noteContent.storageKey}`);
+      } catch (error) {
+        this.logger.error(`[deleteNoteContent] Failed to delete from MinIO:`, error);
+      }
+    }
+
+    // Delete NoteContent from database
+    await this.prisma.noteContent.delete({
+      where: {
+        id: noteContent.id,
+      },
+    });
+
+    this.logger.log(`[deleteNoteContent] ✅ Deleted NoteContent for note ${noteId}`);
   }
 }

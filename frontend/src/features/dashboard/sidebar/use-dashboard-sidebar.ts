@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { useFolders } from "@/features/dashboard";
 import type { DBFolder } from "@/lib/db/folders";
+import { useDeleteNote } from "@/lib/api/mutations/notes.mutations";
 
 interface UseDashboardSidebarProps {
   selectedFolderId: string | null;
@@ -17,6 +18,7 @@ export function useDashboardSidebar({
   onSelectFolder,
 }: UseDashboardSidebarProps) {
   const { folders, createFolder, renameFolder, deleteFolder } = useFolders();
+  const deleteNoteMutation = useDeleteNote();
 
   // 폴더 모달 상태
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
@@ -25,6 +27,7 @@ export function useDashboardSidebar({
   >(null);
   const [renamingFolder, setRenamingFolder] = useState<DBFolder | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<DBFolder | null>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   // 폴더 생성 핸들러
   const handleCreateFolderModal = async (
@@ -89,6 +92,19 @@ export function useDashboardSidebar({
     }
   };
 
+  // 노트 삭제 핸들러
+  const handleDeleteNote = async (noteId: string) => {
+    if (confirm("이 노트를 삭제하시겠습니까?")) {
+      try {
+        await deleteNoteMutation.mutateAsync(noteId);
+        console.log(`[DashboardSidebar] Note deleted: ${noteId}`);
+      } catch (error) {
+        console.error(`[DashboardSidebar] Failed to delete note:`, error);
+        alert("노트 삭제에 실패했습니다.");
+      }
+    }
+  };
+
   return {
     // Folder Modal states
     isCreateFolderModalOpen,
@@ -107,5 +123,6 @@ export function useDashboardSidebar({
     handleRenameSubmit,
     handleDeleteFolder,
     handleDeleteSubmit,
+    handleDeleteNote,
   };
 }

@@ -15,8 +15,8 @@ interface NoteDataLoaderProps {
   children: React.ReactNode;
 }
 
-export function NoteDataLoader({ noteId, children }: NoteDataLoaderProps) {
-  const { data: note, isLoading, error } = useNote(noteId);
+export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteDataLoaderProps) {
+  const { data: note, isLoading, error } = useNote(noteId, { enabled: !isSharedView });
   const { handleAutoSave } = useNoteDataLoader({ noteId });
 
   // Debug logs

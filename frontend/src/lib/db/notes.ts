@@ -81,33 +81,22 @@ export async function checkDuplicateNoteTitle(
 
 /**
  * 노트 생성
- * @param title - 노트 제목
- * @param folderId - 폴더 ID
- * @param type - 노트 타입 ("student" | "educator")
  */
 export async function createNote(
   title: string,
   folderId: string = "root",
   type: "student" | "educator" = "student"
 ): Promise<DBNote> {
+  console.log(`[notes.ts] 📝 Creating note with type: ${type}`); // Debug log
   const db = await initDB();
 
   const note: DBNote = {
     id: uuidv4(),
     title,
     folderId,
-    type,
+    type, // Use the provided type parameter
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    // Educator 노트의 기본 공유 설정
-    ...(type === "educator" && {
-      accessControl: {
-        isPublic: false,
-        allowedUsers: [],
-        allowComments: true,
-        realTimeInteraction: true,
-      },
-    }),
   };
 
   return new Promise((resolve, reject) => {
@@ -116,6 +105,7 @@ export async function createNote(
     const request = store.add(note);
 
     request.onsuccess = () => {
+      console.log(`[notes.ts] ✅ Created note with type: ${type}, id: ${note.id}`); // Debug log
       resolve(note);
     };
 

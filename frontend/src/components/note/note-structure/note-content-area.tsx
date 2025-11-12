@@ -17,6 +17,7 @@ import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
+import { EducatorNoteLayout } from "@/components/note/educator/educator-note-layout";
 
 interface NoteContentAreaProps {
   noteId: string | null;
@@ -40,6 +41,17 @@ export function NoteContentArea({
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
   const actualTitle = note?.title || noteTitle;
   const isEducatorNote = note?.type === "educator";
+
+  // Educator 노트는 전용 레이아웃 사용
+  if (isEducatorNote && noteId) {
+    return (
+      <EducatorNoteLayout
+        noteId={noteId}
+        noteTitle={actualTitle}
+        isCollaborating={isCollaborating}
+      />
+    );
+  }
 
   // 공유 설정 관리
   const [isSharingOpen, setIsSharingOpen] = useState(false);
