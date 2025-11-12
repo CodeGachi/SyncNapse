@@ -148,13 +148,13 @@ export function CustomPdfViewer({
           console.log('📐 PDF 원본 크기 (scale=1.0):');
           console.log(`   Width: ${baseViewport.width.toFixed(2)}px`);
           console.log(`   Height: ${baseViewport.height.toFixed(2)}px`);
-          console.log(`   중심 좌표: (${(baseViewport.width / 2).toFixed(2)}, ${(baseViewport.height / 2).toFixed(2)})`);
+          console.log(`   오른쪽 아래 모서리: (${baseViewport.width.toFixed(2)}, ${baseViewport.height.toFixed(2)})`);
           console.log('');
           console.log('🔍 현재 렌더링 크기:');
           console.log(`   Width: ${scaledViewport.width.toFixed(2)}px`);
           console.log(`   Height: ${scaledViewport.height.toFixed(2)}px`);
           console.log(`   Scale: ${finalScale.toFixed(3)} (${(finalScale * 100).toFixed(1)}%)`);
-          console.log(`   중심 좌표: (${(scaledViewport.width / 2).toFixed(2)}, ${(scaledViewport.height / 2).toFixed(2)})`);
+          console.log(`   오른쪽 아래 모서리: (${scaledViewport.width.toFixed(2)}, ${scaledViewport.height.toFixed(2)})`);
           console.log('');
           console.log(`📄 페이지: ${currentPage}`);
           console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

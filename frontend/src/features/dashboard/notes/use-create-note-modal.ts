@@ -20,7 +20,8 @@ import type { NoteData } from "@/lib/types";
 
 export function useCreateNoteModal(
   onSubmit: (noteData: NoteData) => Promise<void> | void,
-  defaultFolderId?: string | null
+  defaultFolderId?: string | null,
+  initialNoteType: "student" | "educator" = "student"
 ) {
   const {
     title,
@@ -52,6 +53,11 @@ export function useCreateNoteModal(
       setSelectedLocation(defaultFolderId || "root");
     }
   }, [defaultFolderId, setSelectedLocation]);
+
+  // Set initial note type when modal opens
+  useEffect(() => {
+    setNoteType(initialNoteType);
+  }, [initialNoteType, setNoteType]);
 
   // File upload Management
   const uploadQueue = useFileUpload({
