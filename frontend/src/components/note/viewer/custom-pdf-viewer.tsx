@@ -242,7 +242,9 @@ export function CustomPdfViewer({
             <canvas
               ref={canvasRef}
               className={loading || error ? "hidden" : "block m-2"}
-              style={{ display: loading || error ? "none" : "block" }}
+              style={{
+                display: loading || error ? "none" : "block",
+              }}
             />
           </>
         ) : isImage ? (

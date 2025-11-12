@@ -3,7 +3,7 @@
  *
  * Liveblocks Broadcast 이벤트를 통한 실시간 이모지 반응 표시
  * - 화면 우측 하단에 토스트처럼 나타남
- * - 3초 후 자동 제거
+ * - 3초 후 자동 제거 (부드러운 애니메이션)
  */
 
 "use client";
@@ -43,11 +43,11 @@ export function EmojiReactions({
     }
   });
 
-  // 오래된 이모지 자동 제거 (3초마다 체크)
+  // 오래된 이모지 자동 제거 (주기적 체크)
   useEffect(() => {
     const interval = setInterval(() => {
       clearOldReactions();
-    }, 1000); // 1초마다 체크
+    }, 200); // 200ms마다 체크하여 부드럽게 처리
 
     return () => clearInterval(interval);
   }, [clearOldReactions]);
@@ -100,6 +100,10 @@ export function EmojiReactions({
         }
 
         @keyframes fade-out {
+          from {
+            opacity: 1;
+            transform: translateX(0);
+          }
           to {
             opacity: 0;
             transform: translateX(20px);
@@ -107,7 +111,8 @@ export function EmojiReactions({
         }
 
         .animate-slide-in-right {
-          animation: slide-in-right 0.3s ease-out, fade-out 0.3s ease-in 2.7s forwards;
+          animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                     fade-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) 2.5s forwards;
         }
       `}</style>
     </div>

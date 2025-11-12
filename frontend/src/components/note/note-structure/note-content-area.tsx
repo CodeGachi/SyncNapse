@@ -364,32 +364,45 @@ export function NoteContentArea({
               </div>
 
               {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
-              {isEducatorNote && selectedFile && pdfRenderInfo && (
-                <PDFDrawingOverlay
-                  ref={drawingOverlayRef}
-                  isEnabled={true}
-                  isDrawingMode={isDrawingMode}
-                  isCollaborative={isCollaborating ?? false}
-                  noteId={noteId || ""}
-                  fileId={selectedFile.id.toString()}
-                  pageNum={currentPdfPage}
-                  containerWidth={pdfRenderInfo.baseWidth}
-                  containerHeight={pdfRenderInfo.baseHeight}
-                  pdfScale={pdfRenderInfo.scale}
-                  currentTool={currentTool}
-                  penColor={penColor}
-                  penSize={penSize}
-                  isPdf={selectedFile.type?.includes("pdf")}
-                  onSave={async (data) => {
-                    try {
-                      await saveDrawing(data);
-                      console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
-                    } catch (error) {
-                      console.error("Failed to save drawing:", error);
-                    }
-                  }}
-                />
-              )}
+              {isEducatorNote && selectedFile && pdfRenderInfo && (() => {
+                // 디버깅: PDF 렌더링 정보 확인
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('📊 note-content-area.tsx - PDF 렌더링 정보');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('baseWidth:', pdfRenderInfo.baseWidth);
+                console.log('baseHeight:', pdfRenderInfo.baseHeight);
+                console.log('scale (finalScale):', pdfRenderInfo.scale);
+                console.log('실제 렌더링 크기:', pdfRenderInfo.width, 'x', pdfRenderInfo.height);
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+                return (
+                  <PDFDrawingOverlay
+                    ref={drawingOverlayRef}
+                    isEnabled={true}
+                    isDrawingMode={isDrawingMode}
+                    isCollaborative={isCollaborating ?? false}
+                    noteId={noteId || ""}
+                    fileId={selectedFile.id.toString()}
+                    pageNum={currentPdfPage}
+                    containerWidth={pdfRenderInfo.baseWidth}
+                    containerHeight={pdfRenderInfo.baseHeight}
+                    pdfScale={pdfRenderInfo.scale}
+                    currentTool={currentTool}
+                    penColor={penColor}
+                    penSize={penSize}
+                    isPdf={selectedFile.type?.includes("pdf")}
+                    onSave={async (data) => {
+                      try {
+                        await saveDrawing(data);
+                        console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
+                      } catch (error) {
+                        console.error("Failed to save drawing:", error);
+                      }
+                    }}
+                  />
+                );
+
+              })()}
             </div>
 
             {/* 필기 도구 사이드바 - 우측 */}

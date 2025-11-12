@@ -568,19 +568,8 @@ export const PDFDrawingOverlay = forwardRef<
       };
     }, [isDrawingMode, triggerAutoSave]);
 
-    // Update canvas dimensions on container size change
-    useEffect(() => {
-      const canvas = fabricCanvasRef.current;
-      if (!canvas) return;
-
-      // PDF 컨트롤 바 높이를 고려하여 조정
-      const controlBarHeight = isPdf ? 56 : 0;
-      const adjustedHeight = Math.max(containerHeight - controlBarHeight, 100);
-
-      canvas.setWidth(containerWidth);
-      canvas.setHeight(adjustedHeight);
-      canvas.renderAll();
-    }, [containerWidth, containerHeight, isPdf]);
+    // 이 useEffect는 위의 "Canvas 크기 업데이트"와 중복되어 제거됨
+    // containerWidth, containerHeight가 변경될 때 이미 위에서 처리됨
 
     // Cleanup on unmount
     useEffect(() => {
