@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotesService } from './notes.service';
-import { CreateNoteDto, UpdateNoteDto, SavePageContentDto, SaveNoteContentDto } from './dto';
+import { CreateNoteDto, UpdateNoteDto, SavePageContentDto, SaveNoteContentDto, NoteBlock } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 
@@ -104,7 +104,7 @@ export class NotesController {
   ) {
     const pageNum = parseInt(pageNumber, 10);
     this.logger.debug(`[savePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum} blocks=${dto.blocks.length}`);
-    return this.notesService.savePageContent(userId, noteId, pageNum, dto.blocks);
+    return this.notesService.savePageContent(userId, noteId, pageNum, dto.blocks as NoteBlock[]);
   }
 
   @Get(':noteId/pages/:pageNumber/content')

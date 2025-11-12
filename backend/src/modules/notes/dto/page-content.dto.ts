@@ -1,7 +1,14 @@
-import { IsString, IsInt, IsArray, IsOptional, IsNumber, ValidateNested } from 'class-validator';
+import { IsString, IsInt, IsArray, IsOptional, IsNumber, ValidateNested, IsIn, IsBoolean, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
+import { NoteBlockType } from './note-content.dto';
 
-// Block interface matching frontend
+const VALID_BLOCK_TYPES: NoteBlockType[] = [
+  'text', 'heading1', 'heading2', 'heading3',
+  'bullet', 'numbered', 'code', 'strikethrough',
+  'checkbox', 'toggle', 'divider', 'quote'
+];
+
+// Block DTO matching NoteBlock interface from note-content.dto
 export class NoteBlockDto {
   @IsString()
   id!: string;
@@ -10,7 +17,8 @@ export class NoteBlockDto {
   content!: string;
 
   @IsString()
-  type!: string;
+  @IsIn(VALID_BLOCK_TYPES)
+  type!: NoteBlockType;
 
   @IsOptional()
   @IsNumber()
@@ -25,10 +33,37 @@ export class NoteBlockDto {
   listIndex?: number;
 
   @IsOptional()
+  @IsBoolean()
   isVisible?: boolean;
 
   @IsOptional()
+  @IsArray()
   children?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  checked?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  expanded?: boolean;
+
+  @IsOptional()
+  @IsString()
+  linkedTranscriptSegmentId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  linkedTimestamp?: number;
+
+  @IsOptional()
+  @IsObject()
+  audioLink?: {
+    recordingId: string;
+    recordingTitle?: string;
+    startTime: number;
+    endTime?: number;
+  };
 }
 
 export class SavePageContentDto {

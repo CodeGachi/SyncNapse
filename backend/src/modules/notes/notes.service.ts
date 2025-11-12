@@ -846,7 +846,7 @@ export class NotesService {
         pageId: materialPage.id,
       },
       update: {
-        blocks,
+        blocks: blocks as unknown as Prisma.InputJsonValue,
         storageKey,
         updatedAt: new Date(),
       },
@@ -854,7 +854,7 @@ export class NotesService {
         noteId,
         pageId: materialPage.id,
         pageNumber,
-        blocks,
+        blocks: blocks as unknown as Prisma.InputJsonValue,
         storageKey,
       },
     });
@@ -1040,13 +1040,13 @@ export class NotesService {
         noteId,
       },
       update: {
-        content: { pages } as Prisma.JsonObject,
+        content: { pages } as unknown as Prisma.JsonObject,
         storageKey,
         updatedAt: new Date(),
       },
       create: {
         noteId,
-        content: { pages } as Prisma.JsonObject,
+        content: { pages } as unknown as Prisma.JsonObject,
         storageKey,
         version: 1,
       },
@@ -1096,7 +1096,7 @@ export class NotesService {
       };
     }
 
-    const content = noteContent.content as { pages: NoteContentPages };
+    const content = noteContent.content as unknown as { pages: NoteContentPages };
 
     return {
       id: noteContent.id,

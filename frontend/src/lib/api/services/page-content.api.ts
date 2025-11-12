@@ -4,17 +4,16 @@
  */
 
 import { apiClient } from '../client';
+import type { NoteBlock as NoteBlockType } from '@/features/note/editor/use-note-panel';
 
-export interface NoteBlock {
-  id: string;
-  content: string;
-  type: string;
-  indent?: number;
+// Re-export NoteBlock from use-note-panel to ensure type consistency
+export type NoteBlock = NoteBlockType & {
+  // Additional fields for API compatibility
   listType?: string;
   listIndex?: number;
   isVisible?: boolean;
   children?: string[];
-}
+};
 
 export interface PageBlocks {
   blocks: NoteBlock[];
