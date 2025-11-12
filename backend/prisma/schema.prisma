@@ -18,7 +18,7 @@ model User {
   folders       Folder[]
   bookmark      Bookmark[]
   authProvider  String   // e.g., cognito, credentials, oauth
-  role          String   // e.g., user, admin
+  role          String   // e.g., user, admin, educator, student
   // Back-relations
   // Ink back-relations
   inkLayersCreated       InkLayer[]   @relation("InkLayerCreatedBy")
@@ -30,6 +30,10 @@ model User {
   auditLogs              AuditLog[]
   // Auth-related back-relations
   refreshTokens          RefreshToken[]
+  // LiveSession-related back-relations
+  sessionsCreated        LiveSession[] @relation("SessionPresenter")
+  sessionMemberships     SessionMember[]
+  typingSections         TypingSection[] @relation("UserTypingSections")
 }
 
 model Folder {
@@ -73,7 +77,9 @@ model LectureNote {
   audioRecordings AudioRecording[]
   inkLayers      InkLayer[]
   bookmark       Bookmark[]
-  // Section sync mappings removed to match DB schema
+  // LiveSession and SectionSync relations
+  liveSessions   LiveSession[]
+  sectionSyncs   SectionSync[]
   questions      Question[]
   // FileBlob relations
   sourceBlob     FileBlob? @relation("LectureNoteSourceBlob", fields: [sourceBlobId], references: [id])
@@ -135,6 +141,8 @@ model TypingSection {
   id            String   @id @default(cuid())
   noteId        String
   chunkId       String?
+  userId        String   // Who created this typing section (student/presenter)
+  sessionId     String?  // Optional: linked to a live session
   // a named section of typed notes that can map to a time range
   title         String
   content       String
@@ -144,9 +152,13 @@ model TypingSection {
   updatedAt     DateTime @updatedAt
   note          LectureNote @relation(fields: [noteId], references: [id])
   chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
+  user          User @relation("UserTypingSections", fields: [userId], references: [id])
+  session       LiveSession? @relation("SessionTypingSections", fields: [sessionId], references: [id])
   links         MediaLink[]
   @@index([noteId, startSec])
   @@index([chunkId])
+  @@index([userId])
+  @@index([sessionId])
 }
 
 // A generic link that associates a time range to resources (file page, transcript, translation, typing)
@@ -250,20 +262,88 @@ model Bookmark {
   @@unique([userId, noteId, startSec])
 }
 
-// User-specific bookmarks tied to a note and an optional page/time
-// Removed Bookmark and VocabEntry to match current DB schema
+// === Live Session & Collaboration ===
 
-// Live sessions for presenter/listeners with invite links and Q&A
+// Live session for real-time collaboration
+model LiveSession {
+  id               String   @id @default(cuid())
+  noteId           String
+  presenterId      String   // Educator/instructor who created the session
+  title            String?
+  liveblocksRoomId String?  // Optional: Liveblocks room identifier
+  isActive         Boolean  @default(true)
+  startedAt        DateTime @default(now())
+  endedAt          DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-// Removed SessionInvite to match current DB schema
+  note             LectureNote @relation(fields: [noteId], references: [id])
+  presenter        User @relation("SessionPresenter", fields: [presenterId], references: [id])
+  members          SessionMember[]
+  invites          SessionInvite[]
+  sectionSyncs     SectionSync[]
+  typingSections   TypingSection[] @relation("SessionTypingSections")
 
-// Timestamped Q&A during/after sessions
-// Removed Q&A models to match current DB schema
+  @@index([noteId])
+  @@index([presenterId])
+  @@index([isActive])
+}
 
-// Trusted devices per user for MFA remember/WebAuthn binding and session management
-// Removed TrustedDevice and RefreshToken to match current DB schema
+// Session invite tokens for joining
+model SessionInvite {
+  id         String   @id @default(cuid())
+  sessionId  String
+  token      String   @unique  // Unique invite token
+  expiresAt  DateTime
+  maxUses    Int?     // null = unlimited
+  usedCount  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
-// LiveSession/SessionMember/SectionSync removed to match DB schema
+  session    LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([sessionId])
+  @@index([expiresAt])
+}
+
+// Session members (participants)
+model SessionMember {
+  id          String   @id @default(cuid())
+  sessionId   String
+  userId      String
+  role        String   // 'presenter' | 'listener'
+  displayName String?  // Optional display name for anonymous users
+  joinedAt    DateTime @default(now())
+  leftAt      DateTime?
+
+  session     LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+// Section sync mapping for shared materials
+model SectionSync {
+  id             String   @id @default(cuid())
+  sessionId      String
+  noteId         String
+  mode           String   // 'LINK' | 'COPY'
+  excludeTyping  Boolean  @default(true) // Exclude typing sections from shared content
+  startSec       Decimal? @db.Decimal(7, 2)
+  endSec         Decimal? @db.Decimal(7, 2)
+  pageNumber     Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  session        LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  note           LectureNote @relation(fields: [noteId], references: [id])
+
+  @@index([sessionId])
+  @@index([noteId])
+}
 
 // Time-aligned chunk to group transcript/translation/typing and audio slices
 model MediaChunk {

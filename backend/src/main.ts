@@ -4,6 +4,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ApiLinksService } from './modules/hypermedia/api-links.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
+import { LiveSessionsModule } from './modules/live-sessions/live-sessions.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
 
@@ -50,7 +52,7 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config, {
-    include: [AuthModule, UsersModule],
+    include: [AuthModule, UsersModule, BookmarksModule, LiveSessionsModule],
   });
   SwaggerModule.setup('docs', app, document);
 
