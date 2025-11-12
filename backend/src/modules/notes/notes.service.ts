@@ -6,10 +6,11 @@ import {
   forwardRef,
   Inject,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { FoldersService } from '../folders/folders.service';
-import { CreateNoteDto, UpdateNoteDto } from './dto';
+import { CreateNoteDto, UpdateNoteDto, NoteBlock, NoteContentPages } from './dto';
 
 @Injectable()
 export class NotesService {
@@ -770,7 +771,7 @@ export class NotesService {
     userId: string,
     noteId: string,
     pageNumber: number,
-    blocks: any[],
+    blocks: NoteBlock[],
   ) {
     this.logger.debug(`[savePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNumber} blocks=${blocks.length}`);
 
@@ -983,7 +984,7 @@ export class NotesService {
   async saveNoteContent(
     userId: string,
     noteId: string,
-    pages: { [pageNumber: string]: { blocks: any[] } },
+    pages: NoteContentPages,
   ) {
     this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId} pages=${Object.keys(pages).length}`);
 
@@ -1039,13 +1040,13 @@ export class NotesService {
         noteId,
       },
       update: {
-        content: { pages } as any,
+        content: { pages } as Prisma.JsonObject,
         storageKey,
         updatedAt: new Date(),
       },
       create: {
         noteId,
-        content: { pages } as any,
+        content: { pages } as Prisma.JsonObject,
         storageKey,
         version: 1,
       },
@@ -1095,7 +1096,7 @@ export class NotesService {
       };
     }
 
-    const content = noteContent.content as any;
+    const content = noteContent.content as { pages: NoteContentPages };
 
     return {
       id: noteContent.id,
