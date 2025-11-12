@@ -12,16 +12,24 @@ interface UseFolderStructureSectionProps {
 export function useFolderStructureSection({ selectedFolderId }: UseFolderStructureSectionProps) {
   const { folders } = useFolders();
 
+  // Find the "Root" folder (special system folder with name "Root" and parentId null)
+  const rootFolder = folders.find((f) => f.name === "Root" && f.parentId === null);
+
   // Select Folder Sub Folders
   const subFolders = folders.filter((folder) => {
     if (selectedFolderId === null) {
+      // At the root level, show folders that have parentId === null (excluding "Root")
+      // OR folders that have the "Root" folder as parent
+      if (rootFolder) {
+        return (folder.parentId === null && folder.id !== rootFolder.id) || (folder.parentId === rootFolder.id);
+      }
       return folder.parentId === null;
     } else {
       return folder.parentId === selectedFolderId;
     }
   });
 
-  // Folder Path (breadcrumb)
+  // Folder Path (breadcrumb) - exclude "Root" folder from the path
   const getFolderPath = (): Folder[] => {
     if (selectedFolderId === null) return [];
 
@@ -31,7 +39,12 @@ export function useFolderStructureSection({ selectedFolderId }: UseFolderStructu
     while (currentId !== null) {
       const folder = folders.find((f) => f.id === currentId);
       if (!folder) break;
-      path.unshift(folder);
+      
+      // Skip "Root" folder in the path (don't add it to breadcrumb)
+      if (!(folder.name === "Root" && folder.parentId === null)) {
+        path.unshift(folder);
+      }
+      
       currentId = folder.parentId;
     }
 
@@ -53,5 +66,6 @@ export function useFolderStructureSection({ selectedFolderId }: UseFolderStructu
     subFolders,
     folderPath,
     formatDate,
+    rootFolder, // Return rootFolder so components can use it for queries
   };
 }

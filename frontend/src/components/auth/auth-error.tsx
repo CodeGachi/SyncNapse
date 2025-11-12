@@ -21,10 +21,10 @@ export function AuthError({ error }: AuthErrorProps) {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">로그인 실패</h1>
         <p className="text-gray-600 mb-6">{error}</p>
         <button
-          onClick={() => router.replace("/")}
+          onClick={() => router.replace("/login")}
           className="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
         >
-          홈으로 돌아가기
+          로그인 페이지로 돌아가기
         </button>
       </div>
     </div>

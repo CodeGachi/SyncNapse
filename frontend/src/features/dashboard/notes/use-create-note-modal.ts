@@ -88,6 +88,10 @@ export function useCreateNoteModal(
   const getSelectedFolderName = () => {
     if (selectedLocation === "root") return "루트";
     const folder = dbFolders.find((f) => f.id === selectedLocation);
+    // If the folder is the "Root" system folder, display it as "루트" instead
+    if (folder && folder.name === "Root" && folder.parentId === null) {
+      return "루트";
+    }
     return folder?.name || "루트";
   };
 

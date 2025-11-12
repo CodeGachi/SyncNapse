@@ -14,6 +14,7 @@ import { RenameFolderModal } from "@/components/dashboard/folder-management/rena
 import { DeleteFolderModal } from "@/components/dashboard/folder-management/delete-folder-modal";
 import { NotificationCenter } from "@/components/notification/notification-center";
 import { FolderTree } from "@/components/dashboard/folder-management/folder-tree";
+import { RootNotes } from "@/components/dashboard/folder-management/root-notes";
 import { useDashboard } from "@/features/dashboard";
 import { useAuth } from "@/features/auth/use-auth";
 import { useGoogleLogin } from "@/features/auth/google-login";
@@ -33,7 +34,10 @@ export function DashboardSidebar({
   const { handleCreateNote } = useDashboard();
   const { user } = useAuth();
   const { handleLogout } = useGoogleLogin();
-  const { buildFolderTree } = useFolders();
+  const { buildFolderTree, folders } = useFolders();
+  
+  // Find the "Root" folder for querying root-level notes
+  const rootFolder = folders.find((f) => f.name === "Root" && f.parentId === null);
 
   // 간단한 UI 상태 - 컴포넌트에서 직접 관리
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -139,7 +143,7 @@ export function DashboardSidebar({
             <span className="text-sm">전체 노트</span>
           </button>
 
-          {/* Folder tree */}
+          {/* Folder tree (먼저 표시) */}
           <FolderTree
             tree={buildFolderTree()}
             selectedFolderId={selectedFolderId}
@@ -149,6 +153,14 @@ export function DashboardSidebar({
             onDeleteFolder={handleDeleteFolder}
             onDeleteNote={handleDeleteNote}
           />
+
+          {/* Root-level notes (폴더 다음에 표시) */}
+          {rootFolder && (
+            <RootNotes
+              folderId={rootFolder.id}
+              onDeleteNote={handleDeleteNote}
+            />
+          )}
         </div>
       </nav>
 
