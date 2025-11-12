@@ -6,6 +6,7 @@ import { CreateLiveSessionDto, CreateInviteDto, JoinSessionDto, CreateSharedNote
 
 describe('LiveSessionsService', () => {
   let service: LiveSessionsService;
+  let _prisma: PrismaService; // eslint-disable-line @typescript-eslint/no-unused-vars
 
   const mockPrismaService = {
     liveSession: {
@@ -69,7 +70,7 @@ describe('LiveSessionsService', () => {
     }).compile();
 
     service = module.get<LiveSessionsService>(LiveSessionsService);
-    prisma = module.get<PrismaService>(PrismaService);
+    _prisma = module.get<PrismaService>(PrismaService);
   });
 
   describe('create', () => {

@@ -7,6 +7,7 @@ import { CreateLiveSessionDto, CreateInviteDto, CreateSharedNoteDto, CreateTypin
 
 describe('LiveSessionsController', () => {
   let controller: LiveSessionsController;
+  let _service: LiveSessionsService; // eslint-disable-line @typescript-eslint/no-unused-vars
 
   const mockSessionsService = {
     create: jest.fn(),
@@ -53,7 +54,7 @@ describe('LiveSessionsController', () => {
     }).compile();
 
     controller = module.get<LiveSessionsController>(LiveSessionsController);
-    service = module.get<LiveSessionsService>(LiveSessionsService);
+    _service = module.get<LiveSessionsService>(LiveSessionsService);
   });
 
   describe('create', () => {
