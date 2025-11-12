@@ -26,7 +26,7 @@ export default function NotePage({ searchParams }: NotePageProps) {
         {/* Main Layout Wrapper - Client Component (isExpanded Status Management) */}
         <NoteLayoutWrapper>
           {/* Main Content Area - Client Component */}
-          <NoteContentArea noteTitle={noteTitle} />
+          <NoteContentArea noteTitle={noteTitle} noteId={noteId} />
 
           {/* Right Side Panel - Client Component */}
           <RightSidePanel noteId={noteId} />

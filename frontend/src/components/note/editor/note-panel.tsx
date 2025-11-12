@@ -5,16 +5,19 @@
 
 "use client";
 
+import { useEffect } from "react";
 import { useNoteEditorStore } from "@/stores";
 import { getVisibleBlocks } from "@/features/note/editor/use-toggle-visibility";
 import { createKeyboardHandler } from "@/features/note/editor/use-note-keyboard";
+import { useNoteContent } from "@/features/note/editor/use-note-content"; // Changed to useNoteContent
 import { NoteBlockComponent } from "./note-block";
 
 interface NotePanelProps {
   isOpen: boolean;
+  noteId?: string | null;
 }
 
-export function NotePanel({ isOpen }: NotePanelProps) {
+export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   const {
     getCurrentPageBlocks,
     addPageBlock,
@@ -23,19 +26,41 @@ export function NotePanel({ isOpen }: NotePanelProps) {
     currentPage,
   } = useNoteEditorStore();
 
+  // Auto-save hook (note-level, not page-level)
+  const { scheduleAutoSave, loadNoteContent, isSaving } = useNoteContent({
+    noteId,
+    enabled: !!noteId && isOpen,
+    autoSaveDelay: 2000, // 2 seconds
+  });
+
+  // Load entire note content when note opens
+  useEffect(() => {
+    if (noteId && isOpen) {
+      loadNoteContent();
+    }
+  }, [noteId, isOpen, loadNoteContent]);
+
   if (!isOpen) return null;
 
   const blocks = getCurrentPageBlocks();
   const visibleBlocks = getVisibleBlocks(blocks);
 
+  // Schedule auto-save when blocks change (any page)
+  useEffect(() => {
+    if (noteId && isOpen) {
+      scheduleAutoSave();
+    }
+  }, [blocks, noteId, isOpen, scheduleAutoSave]);
+
   return (
     <div className="w-full h-full bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-3 flex flex-col">
       {/* Page info header */}
-      <div className="flex-shrink-0 mb-2 pb-1 border-b border-[#444444] flex items-center gap-2">
-        <h3 className="text-white text-xs">P{currentPage}</h3>
+      <div className="flex-shrink-0 mb-2 pb-1 border-b border-[#444444] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-white text-xs">P{currentPage}</h3>
 
-        {/* Help icon */}
-        <div className="relative group">
+          {/* Help icon */}
+          <div className="relative group">
           <button className="w-4 h-4 rounded-full bg-[#444444] hover:bg-[#555555] flex items-center justify-center transition-colors">
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
               <circle cx="6" cy="6" r="5" stroke="#b9b9b9" strokeWidth="1" />
@@ -59,6 +84,15 @@ export function NotePanel({ isOpen }: NotePanelProps) {
             </p>
           </div>
         </div>
+        </div>
+
+        {/* Saving indicator */}
+        {isSaving && noteId && (
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-[#888888] text-[10px]">저장 중...</span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
