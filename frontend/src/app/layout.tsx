@@ -3,6 +3,7 @@ import { QueryProvider } from "@/providers/query-client-provider";
 import { SyncProvider } from "@/providers/sync-provider";
 import { NotificationContainer } from "@/components/notification/notification-container";
 import { SyncStatusBar } from "@/components/sync/sync-status-bar";
+import { SyncListener } from "@/components/sync-listener";
 
 export const metadata = {
   title: "SyncNapse",
@@ -20,6 +21,7 @@ export default function RootLayout({
         <QueryProvider>
           <SyncProvider interval={5000} autoSync={true}>
             <SyncStatusBar />
+            <SyncListener />
             {children}
             <NotificationContainer />
           </SyncProvider>

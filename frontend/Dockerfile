@@ -8,12 +8,16 @@ WORKDIR /app
 # Install all dependencies (including dev) for build
 FROM base AS deps
 ENV NODE_ENV=development
+# Add build dependencies for native modules (sharp, etc.)
+RUN apk add --no-cache python3 make g++ vips-dev
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 
 # Install only production deps for runtime image
 FROM base AS prod-deps
 ENV NODE_ENV=production
+# Add runtime dependencies for sharp
+RUN apk add --no-cache vips
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 

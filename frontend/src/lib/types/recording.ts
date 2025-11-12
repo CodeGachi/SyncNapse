@@ -36,6 +36,16 @@ export interface LanguageOption {
 // ============================================================================
 
 /**
+ * Word with time information for word-level playback
+ */
+export interface WordWithTime {
+  word: string;
+  startTime: number; // Start time in seconds
+  confidence?: number;
+  wordIndex: number;
+}
+
+/**
  * Script segment (text per timestamp)
  */
 export interface ScriptSegment {
@@ -44,6 +54,8 @@ export interface ScriptSegment {
   originalText: string;
   translatedText?: string;
   speaker?: string;
+  words?: WordWithTime[]; // Optional word-level timing for playback
+  isPartial?: boolean; // True for interim results during recording
 }
 
 // ============================================================================

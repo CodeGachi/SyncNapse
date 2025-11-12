@@ -11,6 +11,15 @@ const nextConfig = {
       },
     ],
   },
+  // Proxy API requests to backend
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:4000/api/:path*',
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
@@ -24,13 +33,42 @@ const nextConfig = {
       encoding: false,
     };
 
-    // pdfjs-dist의 ESM 모듈을 제대로 처리하도록 설정
+    // Ignore onnxruntime-node (only use onnxruntime-web for browser)
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'onnxruntime-node': false,
+      };
+    }
+
+    // Externalize onnxruntime-node for server builds
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'onnxruntime-node'];
+    }
+
+    // PDF.js 설정: worker와 .mjs 파일 처리
     config.module.rules.push({
       test: /pdf\.worker\.(min\.)?js/,
       type: "asset/resource",
       generator: {
         filename: "static/worker/[hash][ext][query]",
       },
+    });
+
+    // pdfjs-dist를 클라이언트에서만 로드하도록 설정
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+      };
+    }
+
+    // .mjs 파일을 JavaScript로 처리
+    config.module.rules.push({
+      test: /\.mjs$/,
+      include: /node_modules/,
+      type: 'javascript/auto',
     });
 
     return config;

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LinkBuilderService } from './link-builder.service';
+import { HttpMethod } from './types';
 
 type OpenApiDoc = {
   paths?: Record<string, Record<string, unknown>>;
@@ -39,14 +40,15 @@ export class ApiLinksService {
 
       for (const method of Object.keys(methods)) {
         const upper = method.toUpperCase();
-        if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(upper)) continue;
+        const validMethods: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+        if (!validMethods.includes(upper as HttpMethod)) continue;
 
         const href = `/api${normPath === '/' ? '' : normPath}`;
         const rel = upper === 'GET' ? relBase : `${relBase}.${method.toLowerCase()}`;
         if (upper === 'GET') {
           result[rel] = this.links.self(href);
         } else {
-          result[rel] = this.links.action(href, upper);
+          result[rel] = this.links.action(href, upper as HttpMethod);
         }
       }
     }

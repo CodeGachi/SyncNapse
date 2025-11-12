@@ -30,6 +30,8 @@ model User {
   auditLogs              AuditLog[]
   // Auth-related back-relations
   refreshTokens          RefreshToken[]
+  trustedDevices         TrustedDevice[]
+  transcriptionSessions  TranscriptionSession[]
 }
 
 model Folder {
@@ -78,10 +80,40 @@ model LectureNote {
   // FileBlob relations
   sourceBlob     FileBlob? @relation("LectureNoteSourceBlob", fields: [sourceBlobId], references: [id])
   audioBlob      FileBlob? @relation("LectureNoteAudioBlob", fields: [audioBlobId], references: [id])
+  // File attachments (MinIO/S3 storage)
+  files          File[]
   
   @@index([sourceBlobId])
   @@index([audioBlobId])
 }
+
+// File attachments for LectureNote (stored in MinIO/S3)
+model File {
+  id          String   @id @default(cuid())
+  noteId      String
+  fileName    String
+  fileType    String   // MIME type
+  fileSize    Int      // Size in bytes
+  storageUrl  String   // MinIO/S3 URL or path
+  storageKey  String   // MinIO object key for deletion
+  uploadedAt  DateTime @default(now())
+  deletedAt   DateTime?
+
+  note        LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@index([storageKey])
+}
+
+// ============================================================================
+// ============================================================================
+// Transcription (녹음 및 자막) - 통합 버전
+// ============================================================================
+// WhisperCpp WASM 기반 로컬 실시간 자막 생성 및 백엔드 저장
+// - 자막과 오디오 chunk 링킹
+// - MinIO에 오디오 저장, PostgreSQL에 메타데이터 저장
+// - 재생 시 자막-오디오 동기화
+// ============================================================================
 
 // Explicit join table mapping for Folder <-> LectureNote
 model FolderLectureNote {
@@ -519,4 +551,111 @@ model FileBlob {
   @@index([fileName])
   @@index([mimeType])
   @@index([createdAt])
+}
+
+// === Trusted Devices for P2P Communication ===
+// Stores registered devices for WebRTC P2P audio streaming
+model TrustedDevice {
+  id            String   @id @default(cuid())
+  userId        String
+  deviceName    String   // User-friendly name: "iPhone 13", "MacBook Pro"
+  deviceType    String   // mobile, desktop, tablet
+  fingerprint   String   @unique // Unique device identifier (browser fingerprint or UUID)
+  publicKey     String?  // Optional: for future E2E encryption
+  lastSeenAt    DateTime @default(now())
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([fingerprint])
+}
+
+// === Transcription Sessions ===
+// Web Speech API 기반 실시간 자막 생성 및 백엔드 저장
+model TranscriptionSession {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String   @default("Untitled Session")
+  noteId          String?  // Optional: link to LectureNote
+  startTime       Decimal  @default(0) @db.Decimal(10, 3) // Session start timestamp (relative to recording start, in seconds)
+  endTime         Decimal? @db.Decimal(10, 3) // Session end timestamp (relative to recording start, in seconds)
+  duration        Decimal  @default(0) @db.Decimal(10, 3) // Total duration in seconds
+  status          String   @default("recording") // recording, completed, processing
+  fullAudioUrl    String?  // Full audio file URL (MinIO)
+  fullAudioKey    String?  // Full audio file storage key (MinIO)
+  fullAudioSize   Int?     // Full audio file size in bytes
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audioChunks     AudioChunk[]
+  segments        TranscriptionSegment[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+// === Audio Chunks ===
+// 오디오 chunk 저장 (MinIO에 실제 파일, DB에 메타데이터)
+model AudioChunk {
+  id              String   @id @default(cuid())
+  sessionId       String
+  chunkIndex      Int      // Sequential index (0부터 시작)
+  startTime       Decimal  @db.Decimal(10, 3) // Start time in seconds (millisecond precision)
+  endTime         Decimal  @db.Decimal(10, 3) // End time in seconds
+  duration        Decimal  @db.Decimal(10, 3) // Duration in seconds
+  sampleRate      Int      @default(16000)
+  storageUrl      String   // MinIO URL
+  storageKey      String   // MinIO object key
+  fileSize        Int      @default(0) // Size in bytes
+  createdAt       DateTime @default(now())
+
+  session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@unique([sessionId, chunkIndex])
+  @@index([sessionId])
+  @@index([storageKey])
+}
+
+// === Transcription Segments ===
+// 자막 세그먼트 (문장 단위)
+model TranscriptionSegment {
+  id              String   @id @default(cuid())
+  sessionId       String
+  text            String   @db.Text
+  startTime       Decimal  @db.Decimal(10, 3) // Start time in seconds (millisecond precision)
+  endTime         Decimal  @db.Decimal(10, 3) // End time in seconds
+  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
+  isPartial       Boolean  @default(false) // true for streaming partial results
+  language        String   @default("ko")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  words           TranscriptionWord[]
+
+  @@index([sessionId, startTime])
+  @@index([sessionId, isPartial])
+}
+
+// === Transcription Words ===
+// 단어 레벨 타임스탬프 (자막 내부의 각 단어)
+model TranscriptionWord {
+  id              String   @id @default(cuid())
+  segmentId       String
+  word            String   // 단어 텍스트
+  startTime       Decimal  @db.Decimal(10, 3) // Word start time in seconds
+  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
+  wordIndex       Int      // 문장 내 단어 순서 (0부터 시작)
+  createdAt       DateTime @default(now())
+
+  segment         TranscriptionSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@index([segmentId, wordIndex])
+  @@index([segmentId, startTime])
 }
