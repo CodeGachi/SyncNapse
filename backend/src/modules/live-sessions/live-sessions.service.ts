@@ -705,7 +705,7 @@ export class LiveSessionsService {
               pageUrl: page.pageUrl,
               pageHash: page.pageHash,
               canonicalPageId: page.canonicalPageId,
-              viewTransform: page.viewTransform as Prisma.JsonValue,
+              viewTransform: page.viewTransform as Prisma.InputJsonValue,
             },
           });
         }
