@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { ExportsService } from './exports.service';
 import { PrismaService } from '../db/prisma.service';
 import * as fs from 'node:fs';
@@ -8,6 +9,7 @@ const mockExistsSync = fs.existsSync as jest.MockedFunction<typeof fs.existsSync
 const mockMkdirSync = fs.mkdirSync as jest.MockedFunction<typeof fs.mkdirSync>;
 const mockWriteFileSync = fs.writeFileSync as jest.MockedFunction<typeof fs.writeFileSync>;
 const mockReadFileSync = fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>;
+const mockStatSync = fs.statSync as jest.MockedFunction<typeof fs.statSync>;
 
 describe('ExportsService', () => {
   let service: ExportsService;
@@ -33,6 +35,7 @@ describe('ExportsService', () => {
     mockExistsSync.mockReturnValue(false);
     mockMkdirSync.mockReturnValue(undefined);
     mockWriteFileSync.mockReturnValue(undefined);
+    mockStatSync.mockReturnValue({ size: 1024 } as fs.Stats);
   });
 
   describe('createExportForNote', () => {
@@ -105,13 +108,16 @@ describe('ExportsService', () => {
       expect(writeCall[2]).toBe('utf8');
 
       expect(result.file).toContain('note-789.json');
+      expect(result.size).toBe(1024);
+      expect(result.generatedAt).toBeInstanceOf(Date);
     });
 
-    it('should throw error when note not found', async () => {
+    it('should throw NotFoundException when note not found', async () => {
       // Mock note not found
       mockFindUnique.mockResolvedValue(null);
 
-      await expect(service.createExportForNote('non-existent')).rejects.toThrow('note not found');
+      await expect(service.createExportForNote('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.createExportForNote('non-existent')).rejects.toThrow('Note with ID non-existent not found');
     });
 
     it('should include correct counts in export', async () => {
@@ -197,7 +203,8 @@ describe('ExportsService', () => {
 
   describe('readExport', () => {
     it('should read export file and return buffer', async () => {
-      // Mock file content
+      // Mock file exists and content
+      mockExistsSync.mockReturnValue(true);
       const mockBuffer = Buffer.from('{"test": "data"}');
       mockReadFileSync.mockReturnValue(mockBuffer);
 
@@ -207,7 +214,16 @@ describe('ExportsService', () => {
       expect(mockReadFileSync).toHaveBeenCalledWith('/path/to/export.json');
     });
 
+    it('should throw NotFoundException when file does not exist', async () => {
+      // Mock file does not exist
+      mockExistsSync.mockReturnValue(false);
+
+      await expect(service.readExport('/path/to/missing.json')).rejects.toThrow(NotFoundException);
+      await expect(service.readExport('/path/to/missing.json')).rejects.toThrow('Export file not found');
+    });
+
     it('should handle various file paths', async () => {
+      mockExistsSync.mockReturnValue(true);
       const mockBuffer = Buffer.from('test content');
       mockReadFileSync.mockReturnValue(mockBuffer);
 
@@ -226,7 +242,8 @@ describe('ExportsService', () => {
     });
 
     it('should handle large export files', async () => {
-      // Mock large file content
+      // Mock file exists and large content
+      mockExistsSync.mockReturnValue(true);
       const largeContent = JSON.stringify({ data: 'x'.repeat(10000) });
       const mockBuffer = Buffer.from(largeContent);
       mockReadFileSync.mockReturnValue(mockBuffer);
@@ -235,6 +252,16 @@ describe('ExportsService', () => {
 
       expect(result.content).toEqual(mockBuffer);
       expect(result.content.length).toBeGreaterThan(10000);
+    });
+
+    it('should handle read errors gracefully', async () => {
+      // Mock file exists but read fails
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('Permission denied');
+      });
+
+      await expect(service.readExport('/path/to/protected.json')).rejects.toThrow('Failed to read export file');
     });
   });
 });

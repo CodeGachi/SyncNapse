@@ -23,6 +23,8 @@ export interface NoteBlock {
   checked?: boolean; // checkbox용
   expanded?: boolean; // toggle용
   indent?: number; // 들여쓰기 레벨 (0~5)
+  linkedTranscriptSegmentId?: string; // 연결된 자막 세그먼트 ID
+  linkedTimestamp?: number; // 연결된 자막의 타임스탬프 (초)
 }
 
 export function useNotePanel() {

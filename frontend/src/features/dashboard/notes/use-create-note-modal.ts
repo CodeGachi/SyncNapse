@@ -205,7 +205,8 @@ export function useCreateNoteModal(
       reset();
     } catch (error) {
       console.error("Failed to create note:", error);
-      alert("노트 생성에 실패했습니다.");
+      const errorMessage = error instanceof Error ? error.message : "노트 생성에 실패했습니다.";
+      alert(errorMessage);
     } finally {
       setIsCreating(false);
     }

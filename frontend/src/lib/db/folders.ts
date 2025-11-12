@@ -1,56 +1,48 @@
 /**
- * 폴더 관리 함수
+ * Folders IndexedDB - 폴더 관리
  */
 
-import { initDB } from "./index";
-import type { DBFolder } from "./index";
-import { v4 as uuidv4 } from "uuid";
-import { moveFolderToTrash } from "./trash";
-import { deleteNotesByFolder } from "./notes";
+import { openDB, type IDBPDatabase } from "idb";
+import type { DBFolder } from "./schema";
 
-export type { DBFolder };
+const DB_NAME = "SyncNapseDB";
+const STORE_NAME = "folders";
+
+let dbPromise: Promise<IDBPDatabase> | null = null;
+
+async function getDB(): Promise<IDBPDatabase> {
+  if (!dbPromise) {
+    dbPromise = openDB(DB_NAME, 1);
+  }
+  return dbPromise;
+}
 
 /**
  * 모든 폴더 가져오기
  */
 export async function getAllFolders(): Promise<DBFolder[]> {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readonly");
-    const store = transaction.objectStore("folders");
-    const request = store.getAll();
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onerror = () => {
-      reject(new Error("폴더 목록을 가져올 수 없습니다."));
-    };
-  });
+  const db = await getDB();
+  return db.getAll(STORE_NAME);
 }
 
 /**
- * 특정 폴더의 하위 폴더들 가져오기
+ * 특정 부모 폴더의 하위 폴더 가져오기
  */
 export async function getFoldersByParent(
   parentId: string | null
 ): Promise<DBFolder[]> {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readonly");
-    const store = transaction.objectStore("folders");
-    const index = store.index("parentId");
-    const request = index.getAll(parentId);
+  const db = await getDB();
+  const allFolders = await db.getAll(STORE_NAME);
+  return allFolders.filter((folder) => folder.parentFolderId === parentId);
+}
 
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onerror = () => {
-      reject(new Error("하위 폴더를 가져올 수 없습니다."));
-    };
-  });
+/**
+ * 폴더 ID로 폴더 가져오기
+ */
+export async function getFolder(folderId: string): Promise<DBFolder | null> {
+  const db = await getDB();
+  const folder = await db.get(STORE_NAME, folderId);
+  return folder || null;
 }
 
 /**
@@ -58,125 +50,130 @@ export async function getFoldersByParent(
  */
 export async function createFolder(
   name: string,
-  parentId: string | null = null
+  color: string = "#6366f1",
+  parentFolderId?: string
 ): Promise<DBFolder> {
-  const db = await initDB();
+  const db = await getDB();
 
   const folder: DBFolder = {
-    id: uuidv4(),
+    id: crypto.randomUUID(),
     name,
-    parentId,
+    color,
+    parentFolderId: parentFolderId || null,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
+    isTrashed: false,
+  };
+
+  await db.add(STORE_NAME, folder);
+  return folder;
+}
+
+/**
+ * 폴더 업데이트
+ */
+export async function updateFolder(
+  folderId: string,
+  updates: Partial<Omit<DBFolder, "id" | "createdAt">>
+): Promise<void> {
+  const db = await getDB();
+  const folder = await db.get(STORE_NAME, folderId);
+
+  if (!folder) {
+    throw new Error("폴더를 찾을 수 없습니다.");
+  }
+
+  const updatedFolder: DBFolder = {
+    ...folder,
+    ...updates,
     updatedAt: Date.now(),
   };
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readwrite");
-    const store = transaction.objectStore("folders");
-    const request = store.add(folder);
-
-    request.onsuccess = () => {
-      resolve(folder);
-    };
-
-    request.onerror = () => {
-      reject(new Error(`폴더 생성 실패: ${request.error?.message || "Unknown error"}`));
-    };
-  });
+  await db.put(STORE_NAME, updatedFolder);
 }
 
 /**
- * 폴더 이름 변경
+ * 폴더를 휴지통으로 이동
  */
-export async function renameFolder(
-  folderId: string,
-  newName: string
-): Promise<void> {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readwrite");
-    const store = transaction.objectStore("folders");
-    const getRequest = store.get(folderId);
+export async function moveFolderToTrash(folder: DBFolder): Promise<void> {
+  const db = await getDB();
 
-    getRequest.onsuccess = () => {
-      const folder = getRequest.result as DBFolder;
-      if (!folder) {
-        reject(new Error("폴더를 찾을 수 없습니다."));
-        return;
-      }
+  const trashedFolder: DBFolder = {
+    ...folder,
+    isTrashed: true,
+    trashedAt: Date.now(),
+    updatedAt: Date.now(),
+  };
 
-      folder.name = newName;
-      folder.updatedAt = Date.now();
-
-      const updateRequest = store.put(folder);
-      updateRequest.onsuccess = () => resolve();
-      updateRequest.onerror = () => reject(new Error("폴더 이름 변경 실패"));
-    };
-
-    getRequest.onerror = () => {
-      reject(new Error("폴더를 가져올 수 없습니다."));
-    };
-  });
+  await db.put(STORE_NAME, trashedFolder);
 }
 
 /**
- * 폴더 삭제 (휴지통으로 이동)
+ * 폴더를 휴지통에서 복원
  */
-export async function deleteFolder(folderId: string): Promise<void> {
-  const db = await initDB();
+export async function restoreFolderFromTrash(folderId: string): Promise<void> {
+  const db = await getDB();
+  const folder = await db.get(STORE_NAME, folderId);
 
-  // 폴더 정보 가져오기
-  const folder = await new Promise<DBFolder>((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readonly");
-    const store = transaction.objectStore("folders");
-    const request = store.get(folderId);
-
-    request.onsuccess = () => {
-      if (request.result) {
-        resolve(request.result);
-      } else {
-        reject(new Error("폴더를 찾을 수 없습니다."));
-      }
-    };
-    request.onerror = () => reject(new Error("폴더를 가져올 수 없습니다."));
-  });
-
-  // 휴지통으로 이동
-  await moveFolderToTrash(folder);
-
-  // 폴더에 속한 노트들도 휴지통으로 이동
-  await deleteNotesByFolder(folderId);
-
-  // 하위 폴더들도 휴지통으로 이동
-  const subFolders = await getFoldersByParent(folderId);
-  for (const subFolder of subFolders) {
-    await deleteFolder(subFolder.id);
+  if (!folder) {
+    throw new Error("폴더를 찾을 수 없습니다.");
   }
+
+  const restoredFolder: DBFolder = {
+    ...folder,
+    isTrashed: false,
+    trashedAt: undefined,
+    updatedAt: Date.now(),
+  };
+
+  await db.put(STORE_NAME, restoredFolder);
 }
 
 /**
- * 폴더 영구 삭제 (휴지통에서 사용)
+ * 폴더 영구 삭제
  */
 export async function permanentlyDeleteFolder(folderId: string): Promise<void> {
-  const db = await initDB();
+  const db = await getDB();
+  await db.delete(STORE_NAME, folderId);
+}
 
-  // 하위 폴더들 찾기
-  const subFolders = await getFoldersByParent(folderId);
+/**
+ * 휴지통의 모든 폴더 가져오기
+ */
+export async function getTrashedFolders(): Promise<DBFolder[]> {
+  const db = await getDB();
+  const allFolders = await db.getAll(STORE_NAME);
+  return allFolders.filter((folder) => folder.isTrashed);
+}
 
-  // 재귀적으로 하위 폴더 영구 삭제
-  for (const subFolder of subFolders) {
-    await permanentlyDeleteFolder(subFolder.id);
+/**
+ * 휴지통 비우기 (모든 폴더 영구 삭제)
+ */
+export async function emptyFolderTrash(): Promise<void> {
+  const trashedFolders = await getTrashedFolders();
+  for (const folder of trashedFolders) {
+    await permanentlyDeleteFolder(folder.id);
   }
+}
 
-  // 폴더 자체 영구 삭제
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readwrite");
-    const store = transaction.objectStore("folders");
-    const request = store.delete(folderId);
+/**
+ * 폴더 이름 중복 확인
+ */
+export async function isFolderNameDuplicate(
+  name: string,
+  parentFolderId: string | null,
+  excludeFolderId?: string
+): Promise<boolean> {
+  const db = await getDB();
+  const allFolders = await db.getAll(STORE_NAME);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(new Error("폴더 영구 삭제 실패"));
-  });
+  return allFolders.some(
+    (folder) =>
+      folder.name === name &&
+      folder.parentFolderId === parentFolderId &&
+      folder.id !== excludeFolderId &&
+      !folder.isTrashed
+  );
 }
 
 /**
@@ -186,56 +183,82 @@ export async function moveFolder(
   folderId: string,
   newParentId: string | null
 ): Promise<void> {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["folders"], "readwrite");
-    const store = transaction.objectStore("folders");
-    const getRequest = store.get(folderId);
+  const db = await getDB();
+  const folder = await db.get(STORE_NAME, folderId);
 
-    getRequest.onsuccess = () => {
-      const folder = getRequest.result as DBFolder;
-      if (!folder) {
-        reject(new Error("폴더를 찾을 수 없습니다."));
-        return;
-      }
+  if (!folder) {
+    throw new Error("폴더를 찾을 수 없습니다.");
+  }
 
-      folder.parentId = newParentId;
-      folder.updatedAt = Date.now();
+  // 순환 참조 방지
+  if (newParentId && (await isDescendantOf(newParentId, folderId))) {
+    throw new Error("하위 폴더로 이동할 수 없습니다.");
+  }
 
-      const updateRequest = store.put(folder);
-      updateRequest.onsuccess = () => resolve();
-      updateRequest.onerror = () => reject(new Error("폴더 이동 실패"));
-    };
+  const movedFolder: DBFolder = {
+    ...folder,
+    parentFolderId: newParentId,
+    updatedAt: Date.now(),
+  };
 
-    getRequest.onerror = () => {
-      reject(new Error("폴더를 가져올 수 없습니다."));
-    };
-  });
+  await db.put(STORE_NAME, movedFolder);
 }
 
 /**
- * 폴더 경로 가져오기 (breadcrumb용)
+ * 순환 참조 확인 (targetId가 sourceId의 하위 폴더인지 확인)
  */
-export async function getFolderPath(folderId: string): Promise<DBFolder[]> {
-  const path: DBFolder[] = [];
-  let currentId: string | null = folderId;
+async function isDescendantOf(
+  targetId: string,
+  sourceId: string
+): Promise<boolean> {
+  const db = await getDB();
+  let currentId: string | null = targetId;
 
   while (currentId) {
-    const db = await initDB();
-    const folder = await new Promise<DBFolder | undefined>((resolve, reject) => {
-      const transaction = db.transaction(["folders"], "readonly");
-      const store = transaction.objectStore("folders");
-      const request = store.get(currentId!);
+    if (currentId === sourceId) {
+      return true;
+    }
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(new Error("폴더를 가져올 수 없습니다."));
-    });
-
-    if (!folder) break;
-
-    path.unshift(folder);
-    currentId = folder.parentId;
+    const folder = await db.get(STORE_NAME, currentId);
+    currentId = folder?.parentFolderId || null;
   }
 
-  return path;
+  return false;
+}
+
+/**
+ * 폴더 삭제 (휴지통으로 이동, 하위 폴더와 노트도 함께)
+ */
+export async function deleteFolder(folderId: string): Promise<void> {
+  const db = await getDB();
+
+  // IndexedDB 트랜잭션 시작
+  const folder = await new Promise<DBFolder>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.get(folderId);
+
+    request.onsuccess = () => {
+      if (!request.result) {
+        reject(new Error("폴더를 찾을 수 없습니다."));
+      } else {
+        resolve(request.result as DBFolder);
+      }
+    };
+
+    request.onerror = () => reject(new Error("폴더를 가져올 수 없습니다."));
+  });
+
+  // 하위 폴더들 재귀적으로 삭제
+  const subFolders = await getFoldersByParent(folderId);
+  for (const subFolder of subFolders) {
+    await deleteFolder(subFolder.id);
+  }
+
+  // 폴더에 속한 노트들도 휴지통으로 이동
+  const { deleteNotesByFolder } = await import('./notes');
+  await deleteNotesByFolder(folderId);
+
+  // 폴더를 휴지통으로 이동
+  await moveFolderToTrash(folder);
 }

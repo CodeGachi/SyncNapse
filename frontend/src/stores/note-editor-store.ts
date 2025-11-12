@@ -30,6 +30,7 @@ export interface Recording {
   createdAt: Date;
   audioUrl: string; // Blob URL
   audioBlob?: Blob; // 실제 오디오 데이터
+  sessionId?: string; // Backend transcription session ID
 }
 
 interface NoteEditorState {

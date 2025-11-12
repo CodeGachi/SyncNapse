@@ -1,7 +1,3 @@
-/**
- * Google OAuth Login Hook
- */
-
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -18,7 +14,11 @@ export function useGoogleLogin() {
 
   const loginMutation = useLogin({
     onSuccess: () => {
-      router.push("/dashboard/main");
+      // Check if there's a saved redirect URL
+      const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
+      localStorage.removeItem("redirectAfterLogin");
+      console.log("[GoogleLogin] ✅ Login successful, redirecting to:", redirectUrl);
+      router.push(redirectUrl);
     },
     onError: (error) => {
       alert("로그인에 실패했습니다.");
@@ -42,9 +42,20 @@ export function useGoogleLogin() {
 
         console.log("[Auth] Mock 로그인 완료:", user);
 
+        // Check if there's a saved redirect URL
+        const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
+        localStorage.removeItem("redirectAfterLogin");
+
         // 대시보드로 리다이렉트
-        router.push("/dashboard/main");
+        router.push(redirectUrl);
       } else {
+        // Save current URL (with query params) to redirect back after login
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        if (currentPath !== "/" && !currentPath.startsWith("/auth")) {
+          localStorage.setItem("redirectAfterLogin", currentPath);
+          console.log("[GoogleLogin] 💾 Saved redirect URL:", currentPath);
+        }
+
         // 백엔드 Google OAuth로 리다이렉트
         const loginUrl = getGoogleLoginUrl();
         window.location.href = loginUrl;
@@ -65,6 +76,20 @@ export function useGoogleLogin() {
 
   const handleLogout = async () => {
     try {
+      // IMPORTANT: Clear tokens FIRST before any API call or navigation
+      // This prevents race condition where page reload happens before token cleanup
+      console.log("[GoogleLogin] 🧹 Clearing tokens from localStorage...");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("redirectAfterLogin");
+      
+      // Clear cookies
+      document.cookie = "authToken=; path=/; max-age=0";
+      document.cookie = "refreshToken=; path=/; max-age=0";
+      
+      console.log("[GoogleLogin] ✅ Tokens cleared, now logging out...");
+
       if (USE_MOCK) {
         await mockLogout();
 
@@ -76,6 +101,7 @@ export function useGoogleLogin() {
         // 홈으로 리다이렉트
         router.replace("/");
       } else {
+        // Call logout API (this will invalidate tokens on backend)
         logoutMutation.mutate();
       }
     } catch (err: any) {
