@@ -88,6 +88,8 @@ CREATE TABLE "TypingSection" (
     "id" TEXT NOT NULL,
     "noteId" TEXT NOT NULL,
     "chunkId" TEXT,
+    "userId" TEXT NOT NULL,
+    "sessionId" TEXT,
     "title" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "startSec" DECIMAL(7,2),
@@ -172,6 +174,65 @@ CREATE TABLE "Bookmark" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Bookmark_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LiveSession" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "presenterId" TEXT NOT NULL,
+    "title" TEXT,
+    "liveblocksRoomId" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "LiveSession_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SessionInvite" (
+    "id" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "maxUses" INTEGER,
+    "usedCount" INTEGER NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SessionInvite_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SessionMember" (
+    "id" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "role" TEXT NOT NULL,
+    "displayName" TEXT,
+    "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "leftAt" TIMESTAMP(3),
+
+    CONSTRAINT "SessionMember_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SectionSync" (
+    "id" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "mode" TEXT NOT NULL,
+    "excludeTyping" BOOLEAN NOT NULL DEFAULT true,
+    "startSec" DECIMAL(7,2),
+    "endSec" DECIMAL(7,2),
+    "pageNumber" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SectionSync_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -399,6 +460,12 @@ CREATE INDEX "TypingSection_noteId_startSec_idx" ON "TypingSection"("noteId", "s
 CREATE INDEX "TypingSection_chunkId_idx" ON "TypingSection"("chunkId");
 
 -- CreateIndex
+CREATE INDEX "TypingSection_userId_idx" ON "TypingSection"("userId");
+
+-- CreateIndex
+CREATE INDEX "TypingSection_sessionId_idx" ON "TypingSection"("sessionId");
+
+-- CreateIndex
 CREATE INDEX "MediaLink_noteId_startSec_idx" ON "MediaLink"("noteId", "startSec");
 
 -- CreateIndex
@@ -430,6 +497,42 @@ CREATE INDEX "Bookmark_userId_idx" ON "Bookmark"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Bookmark_userId_noteId_startSec_key" ON "Bookmark"("userId", "noteId", "startSec");
+
+-- CreateIndex
+CREATE INDEX "LiveSession_noteId_idx" ON "LiveSession"("noteId");
+
+-- CreateIndex
+CREATE INDEX "LiveSession_presenterId_idx" ON "LiveSession"("presenterId");
+
+-- CreateIndex
+CREATE INDEX "LiveSession_isActive_idx" ON "LiveSession"("isActive");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SessionInvite_token_key" ON "SessionInvite"("token");
+
+-- CreateIndex
+CREATE INDEX "SessionInvite_token_idx" ON "SessionInvite"("token");
+
+-- CreateIndex
+CREATE INDEX "SessionInvite_sessionId_idx" ON "SessionInvite"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "SessionInvite_expiresAt_idx" ON "SessionInvite"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "SessionMember_sessionId_idx" ON "SessionMember"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "SessionMember_userId_idx" ON "SessionMember"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SessionMember_sessionId_userId_key" ON "SessionMember"("sessionId", "userId");
+
+-- CreateIndex
+CREATE INDEX "SectionSync_sessionId_idx" ON "SectionSync"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "SectionSync_noteId_idx" ON "SectionSync"("noteId");
 
 -- CreateIndex
 CREATE INDEX "MediaChunk_noteId_startSec_idx" ON "MediaChunk"("noteId", "startSec");
@@ -549,6 +652,12 @@ ALTER TABLE "TypingSection" ADD CONSTRAINT "TypingSection_noteId_fkey" FOREIGN K
 ALTER TABLE "TypingSection" ADD CONSTRAINT "TypingSection_chunkId_fkey" FOREIGN KEY ("chunkId") REFERENCES "MediaChunk"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "TypingSection" ADD CONSTRAINT "TypingSection_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TypingSection" ADD CONSTRAINT "TypingSection_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "MediaLink" ADD CONSTRAINT "MediaLink_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -592,6 +701,27 @@ ALTER TABLE "Bookmark" ADD CONSTRAINT "Bookmark_noteId_fkey" FOREIGN KEY ("noteI
 
 -- AddForeignKey
 ALTER TABLE "Bookmark" ADD CONSTRAINT "Bookmark_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LiveSession" ADD CONSTRAINT "LiveSession_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LiveSession" ADD CONSTRAINT "LiveSession_presenterId_fkey" FOREIGN KEY ("presenterId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SessionInvite" ADD CONSTRAINT "SessionInvite_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SessionMember" ADD CONSTRAINT "SessionMember_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SessionMember" ADD CONSTRAINT "SessionMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SectionSync" ADD CONSTRAINT "SectionSync_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SectionSync" ADD CONSTRAINT "SectionSync_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MediaChunk" ADD CONSTRAINT "MediaChunk_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -643,122 +773,3 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- ============================================
--- LiveSession Tables (Added: 2025-11-10)
--- ============================================
-
--- CreateTable
-CREATE TABLE "LiveSession" (
-    "id" TEXT NOT NULL,
-    "noteId" TEXT NOT NULL,
-    "presenterId" TEXT NOT NULL,
-    "title" TEXT,
-    "liveblocksRoomId" TEXT,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "endedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "LiveSession_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "SessionInvite" (
-    "id" TEXT NOT NULL,
-    "sessionId" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "maxUses" INTEGER,
-    "usedCount" INTEGER NOT NULL DEFAULT 0,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "SessionInvite_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "SessionMember" (
-    "id" TEXT NOT NULL,
-    "sessionId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "role" TEXT NOT NULL,
-    "displayName" TEXT,
-    "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "leftAt" TIMESTAMP(3),
-
-    CONSTRAINT "SessionMember_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "SectionSync" (
-    "id" TEXT NOT NULL,
-    "sessionId" TEXT NOT NULL,
-    "noteId" TEXT NOT NULL,
-    "mode" TEXT NOT NULL,
-    "startSec" DECIMAL(7,2),
-    "endSec" DECIMAL(7,2),
-    "pageNumber" INTEGER,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "SectionSync_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE INDEX "LiveSession_noteId_idx" ON "LiveSession"("noteId");
-
--- CreateIndex
-CREATE INDEX "LiveSession_presenterId_idx" ON "LiveSession"("presenterId");
-
--- CreateIndex
-CREATE INDEX "LiveSession_isActive_idx" ON "LiveSession"("isActive");
-
--- CreateIndex
-CREATE UNIQUE INDEX "SessionInvite_token_key" ON "SessionInvite"("token");
-
--- CreateIndex
-CREATE INDEX "SessionInvite_token_idx" ON "SessionInvite"("token");
-
--- CreateIndex
-CREATE INDEX "SessionInvite_sessionId_idx" ON "SessionInvite"("sessionId");
-
--- CreateIndex
-CREATE INDEX "SessionInvite_expiresAt_idx" ON "SessionInvite"("expiresAt");
-
--- CreateIndex
-CREATE INDEX "SessionMember_sessionId_idx" ON "SessionMember"("sessionId");
-
--- CreateIndex
-CREATE INDEX "SessionMember_userId_idx" ON "SessionMember"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "SessionMember_sessionId_userId_key" ON "SessionMember"("sessionId", "userId");
-
--- CreateIndex
-CREATE INDEX "SectionSync_sessionId_idx" ON "SectionSync"("sessionId");
-
--- CreateIndex
-CREATE INDEX "SectionSync_noteId_idx" ON "SectionSync"("noteId");
-
--- AddForeignKey
-ALTER TABLE "LiveSession" ADD CONSTRAINT "LiveSession_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "LiveSession" ADD CONSTRAINT "LiveSession_presenterId_fkey" FOREIGN KEY ("presenterId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SessionInvite" ADD CONSTRAINT "SessionInvite_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SessionMember" ADD CONSTRAINT "SessionMember_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SessionMember" ADD CONSTRAINT "SessionMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SectionSync" ADD CONSTRAINT "SectionSync_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "LiveSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SectionSync" ADD CONSTRAINT "SectionSync_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
