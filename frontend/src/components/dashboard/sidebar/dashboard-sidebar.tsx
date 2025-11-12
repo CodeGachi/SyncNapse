@@ -37,6 +37,7 @@ export function DashboardSidebar({
 
   // 간단한 UI 상태 - 컴포넌트에서 직접 관리
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [currentNoteType, setCurrentNoteType] = useState<"student" | "educator">("student");
 
   // 폴더 관련 상태와 핸들러 - use-dashboard-sidebar에서 관리
   const {
@@ -101,7 +102,14 @@ export function DashboardSidebar({
       {/* Create new menu */}
       <div className="mb-4">
         <CreateMenu
-          onCreateNote={() => setIsSettingsModalOpen(true)}
+          onCreatePersonalNote={() => {
+            setCurrentNoteType("student");
+            setIsSettingsModalOpen(true);
+          }}
+          onCreateLectureNote={() => {
+            setCurrentNoteType("educator");
+            setIsSettingsModalOpen(true);
+          }}
           onCreateFolder={() => setIsCreateFolderModalOpen(true)}
         />
       </div>
@@ -174,6 +182,7 @@ export function DashboardSidebar({
         setIsSettingsModalOpen(false);
       }}
       defaultFolderId={selectedFolderId}
+      noteType={currentNoteType}
     />
 
     {/* Folder creation modal */}

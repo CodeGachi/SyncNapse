@@ -3,7 +3,8 @@
 import { useCreateMenu } from "@/features/dashboard";
 
 interface CreateMenuProps {
-  onCreateNote: () => void;
+  onCreatePersonalNote: () => void;
+  onCreateLectureNote: () => void;
   onCreateFolder: () => void;
 }
 
@@ -16,12 +17,21 @@ interface MenuItem {
   hasBorder?: boolean;
 }
 
-export function CreateMenu({ onCreateNote, onCreateFolder }: CreateMenuProps) {
+export function CreateMenu({
+  onCreatePersonalNote,
+  onCreateLectureNote,
+  onCreateFolder
+}: CreateMenuProps) {
   const { isOpen, menuRef, handleToggle, handleClose } = useCreateMenu();
 
-  const handleCreateNote = () => {
+  const handleCreatePersonalNote = () => {
     handleClose();
-    onCreateNote();
+    onCreatePersonalNote();
+  };
+
+  const handleCreateLectureNote = () => {
+    handleClose();
+    onCreateLectureNote();
   };
 
   const handleCreateFolder = () => {
@@ -31,12 +41,20 @@ export function CreateMenu({ onCreateNote, onCreateFolder }: CreateMenuProps) {
 
   const menuItems: MenuItem[] = [
     {
-      label: "New Note",
-      description: "Create a new note with files",
+      label: "개인 노트",
+      description: "개인용 노트를 생성합니다",
+      iconPath:
+        "M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z",
+      iconColor: "#6B7B3E",
+      onClick: handleCreatePersonalNote,
+    },
+    {
+      label: "강의 노트",
+      description: "학생과 공유 가능한 강의 노트를 생성합니다",
       iconPath:
         "M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z",
-      iconColor: "#6B7B3E",
-      onClick: handleCreateNote,
+      iconColor: "#8A9A4D",
+      onClick: handleCreateLectureNote,
     },
     {
       label: "New Folder",
