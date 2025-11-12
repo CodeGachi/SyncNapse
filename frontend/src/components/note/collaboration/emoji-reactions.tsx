@@ -1,9 +1,9 @@
 /**
- * 이모지 반응 오버레이
+ * 이모지 반응 오버레이 (토스트 스타일)
  *
  * Liveblocks Broadcast 이벤트를 통한 실시간 이모지 반응 표시
- * - 화면 상단에서 하단으로 떨어지는 애니메이션
- * - 5초 후 자동 제거
+ * - 화면 우측 하단에 토스트처럼 나타남
+ * - 3초 후 자동 제거
  */
 
 "use client";
@@ -30,9 +30,6 @@ export function EmojiReactions({
   const { emojiReactions, addEmojiReaction, removeEmojiReaction, clearOldReactions } =
     useCollaborationStore();
 
-  // 이모지 전송 (Broadcast)
-  const broadcast = useBroadcastEvent();
-
   // 이모지 Broadcast 이벤트 수신
   useEventListener(({ event }) => {
     if (event.type === "EMOJI_REACTION") {
@@ -46,7 +43,7 @@ export function EmojiReactions({
     }
   });
 
-  // 오래된 이모지 자동 제거 (5초마다 체크)
+  // 오래된 이모지 자동 제거 (3초마다 체크)
   useEffect(() => {
     const interval = setInterval(() => {
       clearOldReactions();
@@ -55,11 +52,11 @@ export function EmojiReactions({
     return () => clearInterval(interval);
   }, [clearOldReactions]);
 
-  // 각 이모지의 5초 타이머
+  // 각 이모지의 3초 타이머
   useEffect(() => {
     emojiReactions.forEach((reaction) => {
       const age = Date.now() - reaction.timestamp;
-      const remaining = 5000 - age;
+      const remaining = 3000 - age;
 
       if (remaining > 0) {
         const timer = setTimeout(() => {
@@ -72,41 +69,45 @@ export function EmojiReactions({
   }, [emojiReactions, removeEmojiReaction]);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {emojiReactions.map((reaction) => (
+    <div className="fixed bottom-20 right-4 pointer-events-none z-50 flex flex-col-reverse gap-2">
+      {emojiReactions.map((reaction, index) => (
         <div
           key={reaction.id}
-          className="absolute animate-emoji-float"
+          className="bg-black/80 backdrop-blur-sm rounded-lg px-4 py-3 shadow-lg border border-white/20 animate-slide-in-right"
           style={{
-            left: reaction.x || Math.random() * window.innerWidth,
-            top: -50,
-            fontSize: "3rem",
-            animationDuration: "5s",
-            animationDelay: "0s",
+            animationDelay: `${index * 50}ms`,
           }}
         >
-          {reaction.emoji}
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">{reaction.emoji}</span>
+            <div className="text-white">
+              <p className="text-sm font-medium">{reaction.userName}</p>
+            </div>
+          </div>
         </div>
       ))}
 
       <style jsx>{`
-        @keyframes emoji-float {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 1;
-          }
-          50% {
-            transform: translateY(40vh) rotate(180deg);
-            opacity: 0.8;
-          }
-          100% {
-            transform: translateY(100vh) rotate(360deg);
+        @keyframes slide-in-right {
+          from {
+            transform: translateX(100%);
             opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
           }
         }
 
-        .animate-emoji-float {
-          animation: emoji-float 5s ease-in forwards;
+        @keyframes fade-out {
+          to {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+        }
+
+        .animate-slide-in-right {
+          animation: slide-in-right 0.3s ease-out, fade-out 0.3s ease-in 2.7s forwards;
         }
       `}</style>
     </div>

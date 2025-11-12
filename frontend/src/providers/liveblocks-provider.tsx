@@ -117,6 +117,17 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
         currentPage: 1,
         currentFileId: null,
       }}
+      initialStorage={{
+        noteInfo: null,
+        files: [],
+        pageNotes: {},
+        currentPage: 1,
+        currentFileId: null,
+        canvasData: {},
+        handRaises: new LiveList([]),
+        polls: new LiveList([]),
+        questions: new LiveList([]),
+      }}
       autoConnect={true}
     >
       <ClientSideSuspense
@@ -165,44 +176,57 @@ function ConnectionMonitor() {
     console.log("[Liveblocks] Storage 초기화 시작...");
 
     // === 배열 필드: LiveList로 변환 (기존 데이터 보존) ===
-    const arrayFields = ["questions", "polls", "handRaises", "files"] as const;
-    arrayFields.forEach((field) => {
-      const existing = storage.get(field);
+    // handRaises
+    const handRaises = storage.get("handRaises");
+    if (handRaises === undefined || handRaises === null) {
+      storage.set("handRaises", new LiveList([]));
+      console.log(`[Liveblocks] handRaises 초기화됨 (LiveList)`);
+    } else if (Array.isArray(handRaises)) {
+      storage.set("handRaises", new LiveList(handRaises));
+      console.log(`[Liveblocks] handRaises LiveList 변환 완료!`);
+    }
 
-      if (existing === undefined || existing === null) {
-        // 없으면 빈 LiveList 생성
-        storage.set(field, new LiveList([]));
-        console.log(`[Liveblocks] ${field} 초기화됨 (LiveList)`);
-      } else if (Array.isArray(existing)) {
-        // 일반 배열이면 LiveList로 변환 (기존 데이터 보존)
-        console.log(`[Liveblocks] ${field}를 일반 배열에서 LiveList로 변환 중... (기존 데이터: ${existing.length}개)`);
-        const liveList = new LiveList(existing);
-        storage.set(field, liveList);
-        console.log(`[Liveblocks] ${field} LiveList 변환 완료!`);
-      } else {
-        // 이미 LiveList면 그대로 유지
-        console.log(`[Liveblocks] ${field}는 이미 LiveList입니다 (유지)`);
-      }
-    });
+    // polls
+    const polls = storage.get("polls");
+    if (polls === undefined || polls === null) {
+      storage.set("polls", new LiveList([]));
+      console.log(`[Liveblocks] polls 초기화됨 (LiveList)`);
+    } else if (Array.isArray(polls)) {
+      storage.set("polls", new LiveList(polls));
+      console.log(`[Liveblocks] polls LiveList 변환 완료!`);
+    }
 
-    // === 객체 필드: LiveObject로 변환 ===
-    const objectFields = ["pageNotes", "canvasData"] as const;
-    objectFields.forEach((field) => {
-      const existing = storage.get(field);
+    // questions
+    const questions = storage.get("questions");
+    if (questions === undefined || questions === null) {
+      storage.set("questions", new LiveList([]));
+      console.log(`[Liveblocks] questions 초기화됨 (LiveList)`);
+    } else if (Array.isArray(questions)) {
+      storage.set("questions", new LiveList(questions));
+      console.log(`[Liveblocks] questions LiveList 변환 완료!`);
+    }
 
-      if (existing === undefined || existing === null) {
-        storage.set(field, new LiveObject({}));
-        console.log(`[Liveblocks] ${field} 초기화됨 (LiveObject)`);
-      } else if (typeof existing === "object" && !(existing instanceof LiveObject)) {
-        // 일반 객체면 LiveObject로 변환
-        console.log(`[Liveblocks] ${field}를 일반 객체에서 LiveObject로 변환 중...`);
-        const liveObject = new LiveObject(existing);
-        storage.set(field, liveObject);
-        console.log(`[Liveblocks] ${field} LiveObject 변환 완료!`);
-      } else {
-        console.log(`[Liveblocks] ${field}는 이미 LiveObject입니다 (유지)`);
-      }
-    });
+    // files (일반 배열)
+    const files = storage.get("files");
+    if (files === undefined || files === null) {
+      storage.set("files", []);
+      console.log(`[Liveblocks] files 초기화됨 (Array)`);
+    }
+
+    // === 객체 필드: Record 타입 (일반 객체) ===
+    // pageNotes
+    const pageNotes = storage.get("pageNotes");
+    if (pageNotes === undefined || pageNotes === null) {
+      storage.set("pageNotes", {});
+      console.log(`[Liveblocks] pageNotes 초기화됨 (Record)`);
+    }
+
+    // canvasData
+    const canvasDataField = storage.get("canvasData");
+    if (canvasDataField === undefined || canvasDataField === null) {
+      storage.set("canvasData", {});
+      console.log(`[Liveblocks] canvasData 초기화됨 (Record)`);
+    }
 
     // === 기타 필드 ===
     if (storage.get("currentPage") === undefined) {

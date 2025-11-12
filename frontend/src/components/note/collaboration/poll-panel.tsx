@@ -92,10 +92,14 @@ export function PollPanel({
       console.log(`[Poll Mutation] 현재 polls 배열:`, polls);
       console.log(`[Poll Mutation] polls 타입:`, typeof polls, Array.isArray(polls));
 
-      // 기존 활성 투표 비활성화
-      polls.forEach((poll) => {
-        poll.isActive = false;
-      });
+      // 기존 활성 투표 비활성화 (LiveList 중첩 객체 문제 해결)
+      for (let i = 0; i < polls.length; i++) {
+        const poll = polls.get(i);
+        if (!poll) continue;
+        if (poll.isActive) {
+          polls.set(i, { ...poll, isActive: false });
+        }
+      }
 
       // 새 투표 생성
       const newPoll = {
@@ -121,19 +125,26 @@ export function PollPanel({
   const vote = useMutation(
     ({ storage }, pollId: string, optionIndex: number) => {
       const polls = storage.get("polls");
-      const poll = polls.find((p) => p.id === pollId);
+      const pollIndex = polls.findIndex((p) => p.id === pollId);
+      if (pollIndex === -1) return;
+
+      const poll = polls.get(pollIndex);
       if (!poll) return;
-
-      // 기존 투표 제거 (다른 옵션에 투표했을 수 있음)
-      poll.options.forEach((option) => {
-        const voteIndex = option.votes.indexOf(userId);
-        if (voteIndex !== -1) {
-          option.votes.splice(voteIndex, 1);
-        }
+      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
+      polls.set(pollIndex, {
+        ...poll,
+        options: poll.options.map((option, idx) => ({
+          ...option,
+          votes:
+            idx === optionIndex
+              ? // 선택한 옵션: 기존 투표 제거 후 추가
+                option.votes.includes(userId)
+                ? option.votes // 이미 투표했으면 그대로
+                : [...option.votes, userId]
+              : // 다른 옵션: 기존 투표 제거
+                option.votes.filter((id) => id !== userId),
+        })),
       });
-
-      // 새로운 투표 추가
-      poll.options[optionIndex].votes.push(userId);
     },
     [userId]
   );
@@ -141,9 +152,16 @@ export function PollPanel({
   // 투표 종료 Mutation (Educator만)
   const endPoll = useMutation(({ storage }, pollId: string) => {
     const polls = storage.get("polls");
-    const poll = polls.find((p) => p.id === pollId);
+    const pollIndex = polls.findIndex((p) => p.id === pollId);
+    if (pollIndex === -1) return;
+
+    const poll = polls.get(pollIndex);
     if (!poll) return;
-    poll.isActive = false;
+    // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
+    polls.set(pollIndex, {
+      ...poll,
+      isActive: false,
+    });
   }, []);
 
   const handleCreatePoll = () => {

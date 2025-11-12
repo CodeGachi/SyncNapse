@@ -57,6 +57,16 @@ export function NoteContentArea({
   const [pdfContainerSize, setPdfContainerSize] = useState({ width: 0, height: 0 });
   const pdfViewerContainerRef = useRef<HTMLDivElement>(null);
 
+  // PDF 실제 렌더링 크기 추적 (드로잉 캔버스 동기화용)
+  const [pdfRenderInfo, setPdfRenderInfo] = useState<{
+    width: number;
+    height: number;
+    scale: number;
+    pageNum: number;
+    baseWidth: number;
+    baseHeight: number;
+  } | null>(null);
+
   // 필기 오버레이 ref (undo/redo/clear 함수 호출용)
   const drawingOverlayRef = useRef<PDFDrawingOverlayHandle>(null);
 
@@ -349,11 +359,12 @@ export function NoteContentArea({
                   fileName={selectedFile?.name}
                   fileType={selectedFile?.type}
                   onPageChange={setCurrentPdfPage}
+                  onPdfRenderInfo={setPdfRenderInfo}
                 />
               </div>
 
               {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
-              {isEducatorNote && selectedFile && (
+              {isEducatorNote && selectedFile && pdfRenderInfo && (
                 <PDFDrawingOverlay
                   ref={drawingOverlayRef}
                   isEnabled={true}
@@ -362,8 +373,9 @@ export function NoteContentArea({
                   noteId={noteId || ""}
                   fileId={selectedFile.id.toString()}
                   pageNum={currentPdfPage}
-                  containerWidth={Math.max((pdfContainerSize.width || 800) - (isExpanded ? 500 : 0) - 80, 100)}
-                  containerHeight={pdfContainerSize.height || 600}
+                  containerWidth={pdfRenderInfo.baseWidth}
+                  containerHeight={pdfRenderInfo.baseHeight}
+                  pdfScale={pdfRenderInfo.scale}
                   currentTool={currentTool}
                   penColor={penColor}
                   penSize={penSize}

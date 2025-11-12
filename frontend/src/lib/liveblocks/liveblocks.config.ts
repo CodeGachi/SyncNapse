@@ -90,7 +90,7 @@ type Storage = {
   }>;
 
   // === 협업 상태 ===
-  handRaises: Array<{
+  handRaises: LiveList<{
     id: string;
     userId: string;
     userName: string;
@@ -98,7 +98,7 @@ type Storage = {
     isActive: boolean;
   }>;
 
-  polls: Array<{
+  polls: LiveList<{
     id: string;
     question: string;
     options: Array<{
@@ -110,7 +110,7 @@ type Storage = {
     isActive: boolean;
   }>;
 
-  questions: Array<{
+  questions: LiveList<{
     id: string;
     content: string;
     authorId: string;
@@ -152,10 +152,14 @@ type RoomEvent =
   | { type: "POLL_CREATED"; pollId: string; question: string }
   | { type: "POLL_VOTE"; pollId: string; optionIndex: number; userId: string }
   | { type: "POLL_ENDED"; pollId: string }
-  // Q&A
+  // Q&A 질문
   | { type: "QUESTION_ADDED"; questionId: string; content: string; authorName: string }
   | { type: "QUESTION_UPVOTED"; questionId: string; userId: string }
   | { type: "QUESTION_DELETED"; questionId: string }
+  // Q&A 답변
+  | { type: "ANSWER_ADDED"; questionId: string; answerId: string; authorName: string }
+  | { type: "ANSWER_DELETED"; questionId: string; answerId: string }
+  | { type: "ANSWER_MARKED_BEST"; questionId: string; answerId: string }
   // PDF/Canvas
   | { type: "PAGE_CHANGE"; page: number; fileId: string }
   | { type: "CANVAS_UPDATE"; fileId: string; pageNum: number };

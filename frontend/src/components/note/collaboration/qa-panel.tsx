@@ -16,7 +16,7 @@ import {
   useBroadcastEvent,
   useEventListener,
 } from "@/lib/liveblocks/liveblocks.config";
-import { ThumbsUp, Pin, Share2, Trash2, MessageCircle } from "lucide-react";
+import { ThumbsUp, Pin, Trash2, MessageCircle } from "lucide-react";
 import * as questionsApi from "@/lib/api/services/questions.api";
 
 /**
@@ -138,17 +138,18 @@ export function QAPanel({
   const upvoteQuestion = useMutation(
     ({ storage }, questionId: string) => {
       const questions = storage.get("questions");
-      const question = questions.find((q) => q.id === questionId);
-      if (!question) return;
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      if (questionIndex === -1) return;
 
-      const upvoteIndex = question.upvotes.indexOf(userId);
-      if (upvoteIndex === -1) {
-        // 추천
-        question.upvotes.push(userId);
-      } else {
-        // 추천 취소
-        question.upvotes.splice(upvoteIndex, 1);
-      }
+      const question = questions.get(questionIndex);
+      if (!question) return;
+      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
+      questions.set(questionIndex, {
+        ...question,
+        upvotes: question.upvotes.includes(userId)
+          ? question.upvotes.filter((id) => id !== userId) // 추천 취소
+          : [...question.upvotes, userId], // 추천 추가
+      });
     },
     [userId]
   );
@@ -156,26 +157,25 @@ export function QAPanel({
   // 핀 고정 Mutation (Educator만)
   const togglePin = useMutation(({ storage }, questionId: string) => {
     const questions = storage.get("questions");
-    const question = questions.find((q) => q.id === questionId);
-    if (!question) return;
-    question.isPinned = !question.isPinned;
-  }, []);
+    const questionIndex = questions.findIndex((q) => q.id === questionId);
+    if (questionIndex === -1) return;
 
-  // 공유 Mutation (Educator만)
-  const toggleShare = useMutation(({ storage }, questionId: string) => {
-    const questions = storage.get("questions");
-    const question = questions.find((q) => q.id === questionId);
+    const question = questions.get(questionIndex);
     if (!question) return;
-    question.isSharedToAll = !question.isSharedToAll;
+    // LiveList 중첩 객체 문제: 전체 객체를 새로 만들어 set()으로 교체
+    questions.set(questionIndex, {
+      ...question,
+      isPinned: !question.isPinned,
+    });
   }, []);
 
   // 삭제 Mutation
   const deleteQuestion = useMutation(
     ({ storage }, questionId: string) => {
       const questions = storage.get("questions");
-      const index = questions.findIndex((q) => q.id === questionId);
-      if (index !== -1) {
-        questions.splice(index, 1);
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      if (questionIndex !== -1) {
+        questions.delete(questionIndex);
       }
     },
     []
@@ -185,9 +185,11 @@ export function QAPanel({
   const addAnswer = useMutation(
     ({ storage }, questionId: string, content: string) => {
       const questions = storage.get("questions");
-      const question = questions.find((q) => q.id === questionId);
-      if (!question) return;
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      if (questionIndex === -1) return;
 
+      const question = questions.get(questionIndex);
+      if (!question) return;
       const newAnswer = {
         id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         content,
@@ -197,7 +199,11 @@ export function QAPanel({
         isBest: false,
       };
 
-      question.answers.push(newAnswer);
+      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
+      questions.set(questionIndex, {
+        ...question,
+        answers: [...question.answers, newAnswer],
+      });
     },
     [userId, userName]
   );
@@ -206,13 +212,16 @@ export function QAPanel({
   const deleteAnswer = useMutation(
     ({ storage }, questionId: string, answerId: string) => {
       const questions = storage.get("questions");
-      const question = questions.find((q) => q.id === questionId);
-      if (!question) return;
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      if (questionIndex === -1) return;
 
-      const index = question.answers.findIndex((a) => a.id === answerId);
-      if (index !== -1) {
-        question.answers.splice(index, 1);
-      }
+      const question = questions.get(questionIndex);
+      if (!question) return;
+      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
+      questions.set(questionIndex, {
+        ...question,
+        answers: question.answers.filter((a) => a.id !== answerId),
+      });
     },
     []
   );
@@ -221,19 +230,19 @@ export function QAPanel({
   const markAnswerAsBest = useMutation(
     ({ storage }, questionId: string, answerId: string) => {
       const questions = storage.get("questions");
-      const question = questions.find((q) => q.id === questionId);
+      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      if (questionIndex === -1) return;
+
+      const question = questions.get(questionIndex);
       if (!question) return;
-
-      // 모든 답변의 isBest를 false로
-      question.answers.forEach((answer) => {
-        answer.isBest = false;
+      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
+      questions.set(questionIndex, {
+        ...question,
+        answers: question.answers.map((answer) => ({
+          ...answer,
+          isBest: answer.id === answerId,
+        })),
       });
-
-      // 선택한 답변만 isBest를 true로
-      const targetAnswer = question.answers.find((a) => a.id === answerId);
-      if (targetAnswer) {
-        targetAnswer.isBest = true;
-      }
     },
     []
   );
@@ -315,22 +324,6 @@ export function QAPanel({
     }
   };
 
-  // 공유 설정 토글 (Storage + Backend)
-  const handleToggleShare = async (questionId: string) => {
-    console.log(`[Q&A Panel] 공유 설정 토글:`, { questionId });
-
-    // 1. Liveblocks Storage
-    toggleShare(questionId);
-
-    // 2. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.toggleQuestionShare(questionId, noteId);
-      console.log(`[Q&A Panel] 공유 설정 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-  };
-
   // 삭제 (Storage + Broadcast + Backend)
   const handleDelete = async (questionId: string) => {
     console.log(`[Q&A Panel] 질문 삭제:`, { questionId });
@@ -354,14 +347,23 @@ export function QAPanel({
     console.log(`[Q&A Panel] 삭제 Broadcast 전송 완료`);
   };
 
-  // 답변 추가 (Storage + Backend)
+  // 답변 추가 (Storage + Backend + Broadcast)
   const handleAddAnswer = async (questionId: string, content: string) => {
     console.log(`[Q&A Panel] 답변 추가:`, { questionId, content });
 
     // 1. Liveblocks Storage에 저장
     addAnswer(questionId, content);
 
-    // 2. IndexedDB + 백엔드 동기화
+    // 2. Broadcast로 즉시 알림
+    broadcast({
+      type: "ANSWER_ADDED",
+      questionId,
+      answerId: `a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      authorName: userName,
+    });
+    console.log(`[Q&A Panel] 답변 추가 Broadcast 전송 완료`);
+
+    // 3. IndexedDB + 백엔드 동기화
     try {
       await questionsApi.addAnswer(questionId, noteId, content, userId, userName);
       console.log(`[Q&A Panel] 답변 백엔드 동기화 큐 추가 완료`);
@@ -370,14 +372,22 @@ export function QAPanel({
     }
   };
 
-  // 답변 삭제 (Storage + Backend)
+  // 답변 삭제 (Storage + Backend + Broadcast)
   const handleDeleteAnswer = async (questionId: string, answerId: string) => {
     console.log(`[Q&A Panel] 답변 삭제:`, { questionId, answerId });
 
     // 1. Liveblocks Storage에서 삭제
     deleteAnswer(questionId, answerId);
 
-    // 2. IndexedDB + 백엔드 동기화
+    // 2. Broadcast로 즉시 알림
+    broadcast({
+      type: "ANSWER_DELETED",
+      questionId,
+      answerId,
+    });
+    console.log(`[Q&A Panel] 답변 삭제 Broadcast 전송 완료`);
+
+    // 3. IndexedDB + 백엔드 동기화
     try {
       await questionsApi.deleteAnswer(questionId, noteId, answerId);
       console.log(`[Q&A Panel] 답변 삭제 백엔드 동기화 큐 추가 완료`);
@@ -386,14 +396,22 @@ export function QAPanel({
     }
   };
 
-  // 베스트 답변 표시 (Storage + Backend) - Educator만
+  // 베스트 답변 표시 (Storage + Backend + Broadcast) - Educator만
   const handleMarkAnswerAsBest = async (questionId: string, answerId: string) => {
     console.log(`[Q&A Panel] 베스트 답변 표시:`, { questionId, answerId });
 
     // 1. Liveblocks Storage
     markAnswerAsBest(questionId, answerId);
 
-    // 2. IndexedDB + 백엔드 동기화
+    // 2. Broadcast로 즉시 알림
+    broadcast({
+      type: "ANSWER_MARKED_BEST",
+      questionId,
+      answerId,
+    });
+    console.log(`[Q&A Panel] 베스트 답변 Broadcast 전송 완료`);
+
+    // 3. IndexedDB + 백엔드 동기화
     try {
       await questionsApi.markAnswerAsBest(questionId, noteId, answerId);
       console.log(`[Q&A Panel] 베스트 답변 백엔드 동기화 큐 추가 완료`);
@@ -459,7 +477,6 @@ export function QAPanel({
               isEducator={isEducator}
               onUpvote={() => handleUpvote(question.id)}
               onTogglePin={() => handleTogglePin(question.id)}
-              onToggleShare={() => handleToggleShare(question.id)}
               onDelete={() => handleDelete(question.id)}
               onAddAnswer={(content) => handleAddAnswer(question.id, content)}
               onDeleteAnswer={(answerId) => handleDeleteAnswer(question.id, answerId)}
@@ -499,7 +516,6 @@ interface QuestionCardProps {
   isEducator: boolean;
   onUpvote: () => void;
   onTogglePin: () => void;
-  onToggleShare: () => void;
   onDelete: () => void;
   onAddAnswer: (content: string) => void;
   onDeleteAnswer: (answerId: string) => void;
@@ -513,7 +529,6 @@ function QuestionCard({
   isEducator,
   onUpvote,
   onTogglePin,
-  onToggleShare,
   onDelete,
   onAddAnswer,
   onDeleteAnswer,
@@ -539,8 +554,6 @@ function QuestionCard({
       className={`bg-white/5 rounded-lg p-3 border transition-colors ${
         question.isPinned
           ? "border-yellow-400/50 bg-yellow-400/5"
-          : question.isSharedToAll
-          ? "border-green-400/50 bg-green-400/5"
           : "border-white/10 hover:border-white/20"
       }`}
     >
@@ -565,18 +578,11 @@ function QuestionCard({
         </div>
 
         {/* 배지 */}
-        <div className="flex gap-1 flex-shrink-0">
-          {question.isPinned && (
-            <div className="bg-yellow-400/20 text-yellow-400 rounded px-1.5 py-0.5 text-xs font-medium">
-              고정
-            </div>
-          )}
-          {question.isSharedToAll && (
-            <div className="bg-green-400/20 text-green-400 rounded px-1.5 py-0.5 text-xs font-medium">
-              공유
-            </div>
-          )}
-        </div>
+        {question.isPinned && (
+          <div className="bg-yellow-400/20 text-yellow-400 rounded px-1.5 py-0.5 text-xs font-medium flex-shrink-0">
+            고정
+          </div>
+        )}
       </div>
 
       {/* 액션 버튼 */}
@@ -596,30 +602,17 @@ function QuestionCard({
 
         {/* Educator 전용 버튼 */}
         {isEducator && (
-          <>
-            <button
-              onClick={onTogglePin}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                question.isPinned
-                  ? "bg-yellow-400/20 text-yellow-400"
-                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-              }`}
-              title="고정"
-            >
-              <Pin size={12} />
-            </button>
-            <button
-              onClick={onToggleShare}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                question.isSharedToAll
-                  ? "bg-green-400/20 text-green-400"
-                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-              }`}
-              title="공유"
-            >
-              <Share2 size={12} />
-            </button>
-          </>
+          <button
+            onClick={onTogglePin}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+              question.isPinned
+                ? "bg-yellow-400/20 text-yellow-400"
+                : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+            }`}
+            title="고정"
+          >
+            <Pin size={12} />
+          </button>
         )}
 
         {/* 삭제 (본인 또는 Educator) */}

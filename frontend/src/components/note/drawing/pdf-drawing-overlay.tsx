@@ -32,8 +32,9 @@ interface PDFDrawingOverlayProps {
   noteId: string;
   fileId: string;
   pageNum: number;
-  containerWidth: number;
-  containerHeight: number;
+  containerWidth: number;   // PDF 원본 크기 (baseWidth)
+  containerHeight: number;  // PDF 원본 크기 (baseHeight)
+  pdfScale: number;         // PDF 현재 스케일 (CSS transform용)
   currentTool: string;
   penColor: string;
   penSize: number;
@@ -55,6 +56,7 @@ export const PDFDrawingOverlay = forwardRef<
       pageNum,
       containerWidth,
       containerHeight,
+      pdfScale,
       currentTool,
       penColor,
       penSize,
@@ -93,7 +95,7 @@ export const PDFDrawingOverlay = forwardRef<
       // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
       const adjustedHeight = Math.max(containerHeight, 100);
 
-      // Fabric Canvas 생성
+      // Fabric Canvas 생성 (항상 PDF 원본 크기로 고정)
       const canvas = new fabric.Canvas(canvasRef.current, {
         width: containerWidth,
         height: adjustedHeight,
@@ -102,6 +104,25 @@ export const PDFDrawingOverlay = forwardRef<
       });
 
       fabricCanvasRef.current = canvas;
+
+      // 캔버스 크기 정보 콘솔 출력
+      const renderedWidth = containerWidth * pdfScale;
+      const renderedHeight = adjustedHeight * pdfScale;
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🎨 드로잉 캔버스 초기화');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📐 캔버스 원본 크기 (PDF 원본 기준):');
+      console.log(`   Width: ${containerWidth.toFixed(2)}px`);
+      console.log(`   Height: ${adjustedHeight.toFixed(2)}px`);
+      console.log(`   중심 좌표: (${(containerWidth / 2).toFixed(2)}, ${(adjustedHeight / 2).toFixed(2)})`);
+      console.log('');
+      console.log('🔍 현재 렌더링 크기:');
+      console.log(`   Width: ${renderedWidth.toFixed(2)}px`);
+      console.log(`   Height: ${renderedHeight.toFixed(2)}px`);
+      console.log(`   Scale: ${pdfScale.toFixed(3)} (${(pdfScale * 100).toFixed(1)}%)`);
+      console.log(`   중심 좌표: (${(renderedWidth / 2).toFixed(2)}, ${(renderedHeight / 2).toFixed(2)})`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // 초기 히스토리 저장
       useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
@@ -120,19 +141,38 @@ export const PDFDrawingOverlay = forwardRef<
       };
     }, [canvasRef, isEnabled, isPdf]);
 
-    // Canvas 리사이징 (사이드 패널 확장/축소 시)
+    // Canvas 크기 업데이트 (PDF 원본 크기 변경 시만 - 페이지 전환 등)
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
 
-      // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
       const adjustedHeight = Math.max(containerHeight, 100);
 
-      // 캔버스 크기 조정 (재생성 아님)
+      // 캔버스를 항상 PDF 원본 크기로 유지
+      // CSS transform: scale(pdfScale)로 시각적 확대/축소 처리
       canvas.setWidth(containerWidth);
       canvas.setHeight(adjustedHeight);
       canvas.renderAll();
-    }, [containerWidth, containerHeight]);
+
+      // 캔버스 리사이즈 정보 출력
+      const renderedWidth = containerWidth * pdfScale;
+      const renderedHeight = adjustedHeight * pdfScale;
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔄 드로잉 캔버스 크기 업데이트');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📐 캔버스 원본 크기 (PDF 원본 기준):');
+      console.log(`   Width: ${containerWidth.toFixed(2)}px`);
+      console.log(`   Height: ${adjustedHeight.toFixed(2)}px`);
+      console.log(`   중심 좌표: (${(containerWidth / 2).toFixed(2)}, ${(adjustedHeight / 2).toFixed(2)})`);
+      console.log('');
+      console.log('🔍 현재 렌더링 크기:');
+      console.log(`   Width: ${renderedWidth.toFixed(2)}px`);
+      console.log(`   Height: ${renderedHeight.toFixed(2)}px`);
+      console.log(`   Scale: ${pdfScale.toFixed(3)} (${(pdfScale * 100).toFixed(1)}%)`);
+      console.log(`   중심 좌표: (${(renderedWidth / 2).toFixed(2)}, ${(renderedHeight / 2).toFixed(2)})`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }, [containerWidth, containerHeight, pdfScale]);
 
     // 펜 모드 설정 (펜/형광펜 자유 그리기)
     useEffect(() => {
@@ -585,8 +625,10 @@ export const PDFDrawingOverlay = forwardRef<
             position: "absolute",
             top: 0,
             left: 0,
-            width: `${containerWidth}px`,
-            height: `${canvasHeight}px`,
+            // CSS transform으로 PDF 줌 레벨 적용
+            // 캔버스는 항상 원본 크기, 시각적으로만 확대/축소
+            transform: `scale(${pdfScale})`,
+            transformOrigin: "top left",
             cursor: isEnabled && isDrawingMode ? "crosshair" : "default",
             // 뷰어 모드에서도 필기가 보이도록 항상 표시
             opacity: isEnabled ? 1 : 0,

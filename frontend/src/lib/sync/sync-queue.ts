@@ -19,6 +19,8 @@ export type SyncEntity =
   | "file"
   | "recording"
   | "noteContent"
+  | "question" // Q&A 질문
+  | "answer" // Q&A 답변
   | "trash"; // 휴지통 관련 작업
 
 export interface SyncQueueItem {
