@@ -6,7 +6,6 @@ import { CreateLiveSessionDto, CreateInviteDto, JoinSessionDto, CreateSharedNote
 
 describe('LiveSessionsService', () => {
   let service: LiveSessionsService;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     liveSession: {

@@ -141,7 +141,7 @@ export class LiveSessionsService {
       },
     });
 
-    return memberships.map((m: any) => m.session);
+    return memberships.map((m) => m.session);
   }
 
   /**
@@ -705,7 +705,7 @@ export class LiveSessionsService {
               pageUrl: page.pageUrl,
               pageHash: page.pageHash,
               canonicalPageId: page.canonicalPageId,
-              viewTransform: page.viewTransform as any,
+              viewTransform: page.viewTransform as Prisma.JsonValue,
             },
           });
         }

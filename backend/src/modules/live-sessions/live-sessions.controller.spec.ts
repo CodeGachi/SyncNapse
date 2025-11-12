@@ -7,7 +7,6 @@ import { CreateLiveSessionDto, CreateInviteDto, CreateSharedNoteDto, CreateTypin
 
 describe('LiveSessionsController', () => {
   let controller: LiveSessionsController;
-  let service: LiveSessionsService;
 
   const mockSessionsService = {
     create: jest.fn(),
@@ -29,8 +28,8 @@ describe('LiveSessionsController', () => {
   };
 
   const mockHalService = {
-    resource: jest.fn((data: any, links: any) => ({ ...data, _links: links })),
-    collection: jest.fn((items: any[], options: any) => ({
+    resource: jest.fn((data: Record<string, unknown>, links: Record<string, unknown>) => ({ ...data, _links: links })),
+    collection: jest.fn((items: unknown[], options: Record<string, unknown>) => ({
       items,
       _links: { self: { href: options.selfHref } },
     })),
