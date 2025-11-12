@@ -188,7 +188,7 @@ export const useCollaborationStore = create<CollaborationStore>((set) => ({
   clearOldReactions: () =>
     set((state) => {
       const now = Date.now();
-      const REACTION_LIFETIME = 5000; // 5초
+      const REACTION_LIFETIME = 3000; // 3초
       return {
         emojiReactions: state.emojiReactions.filter(
           (r) => now - r.timestamp < REACTION_LIFETIME

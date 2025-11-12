@@ -22,6 +22,14 @@ interface CustomPdfViewerProps {
   fileName?: string | null;
   fileType?: string | null;
   onPageChange?: (pageNum: number) => void;
+  onPdfRenderInfo?: (info: {
+    width: number;           // 현재 렌더링 크기
+    height: number;
+    scale: number;           // 현재 스케일
+    pageNum: number;
+    baseWidth: number;       // 원본 크기 (scale=1.0 기준)
+    baseHeight: number;
+  }) => void;
 }
 
 export function CustomPdfViewer({
@@ -29,6 +37,7 @@ export function CustomPdfViewer({
   fileName,
   fileType,
   onPageChange,
+  onPdfRenderInfo,
 }: CustomPdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,13 +135,46 @@ export function CustomPdfViewer({
         };
 
         await page.render(renderContext).promise;
+
+        // PDF 렌더링 정보 전달 (드로잉 캔버스 동기화용)
+        if (onPdfRenderInfo) {
+          // 원본 크기 계산 (scale=1.0, rotation=0 기준)
+          const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+
+          // PDF 크기 정보 콘솔 출력
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('📄 PDF 렌더링 정보');
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('📐 PDF 원본 크기 (scale=1.0):');
+          console.log(`   Width: ${baseViewport.width.toFixed(2)}px`);
+          console.log(`   Height: ${baseViewport.height.toFixed(2)}px`);
+          console.log(`   중심 좌표: (${(baseViewport.width / 2).toFixed(2)}, ${(baseViewport.height / 2).toFixed(2)})`);
+          console.log('');
+          console.log('🔍 현재 렌더링 크기:');
+          console.log(`   Width: ${scaledViewport.width.toFixed(2)}px`);
+          console.log(`   Height: ${scaledViewport.height.toFixed(2)}px`);
+          console.log(`   Scale: ${finalScale.toFixed(3)} (${(finalScale * 100).toFixed(1)}%)`);
+          console.log(`   중심 좌표: (${(scaledViewport.width / 2).toFixed(2)}, ${(scaledViewport.height / 2).toFixed(2)})`);
+          console.log('');
+          console.log(`📄 페이지: ${currentPage}`);
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+          onPdfRenderInfo({
+            width: scaledViewport.width,
+            height: scaledViewport.height,
+            scale: finalScale,
+            pageNum: currentPage,
+            baseWidth: baseViewport.width,
+            baseHeight: baseViewport.height,
+          });
+        }
       } catch (err) {
         // 페이지 렌더링 실패 (무시)
       }
     };
 
     renderPage();
-  }, [pdfDoc, currentPage, scale, rotation, numPages]);
+  }, [pdfDoc, currentPage, scale, rotation, numPages, onPdfRenderInfo]);
 
   // 페이지 변경 시 콜백 호출
   useEffect(() => {

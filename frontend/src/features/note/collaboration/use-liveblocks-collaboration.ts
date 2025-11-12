@@ -11,6 +11,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { LiveList } from "@liveblocks/client";
 import {
   useStorage,
   useMutation,
@@ -41,7 +42,7 @@ export function useLivebloksCollaboration() {
       if (handRaises) {
         handRaises.push(newHandRaise);
       } else {
-        storage.set("handRaises", [newHandRaise]);
+        storage.set("handRaises", new LiveList([newHandRaise]));
       }
 
       broadcastEvent({ type: "HAND_RAISE", userId, userName });
@@ -55,7 +56,7 @@ export function useLivebloksCollaboration() {
 
     const index = handRaises.findIndex((h: any) => h.id === handRaiseId);
     if (index !== -1) {
-      handRaises.splice(index, 1);
+      handRaises.delete(index);
     }
   }, []);
 
@@ -80,7 +81,7 @@ export function useLivebloksCollaboration() {
       if (polls) {
         polls.push(newPoll);
       } else {
-        storage.set("polls", [newPoll]);
+        storage.set("polls", new LiveList([newPoll]));
       }
     },
     []
@@ -163,12 +164,14 @@ export function useLivebloksCollaboration() {
       if (questions) {
         questions.push(newQuestion);
       } else {
-        storage.set("questions", [newQuestion]);
+        storage.set("questions", new LiveList([newQuestion]));
       }
 
       broadcastEvent({
         type: "QUESTION_ADDED",
         questionId: newQuestion.id,
+        content: newQuestion.content,
+        authorName: newQuestion.authorName,
       });
     },
     [broadcastEvent]

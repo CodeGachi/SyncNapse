@@ -130,7 +130,7 @@ export function EducatorNoteClient({
 
           {/* 협업 모드일 때만 이모지 반응 오버레이 표시 */}
           {isCollaborating && userId && userName && (
-            <EmojiReactions noteId={noteId} />
+            <EmojiReactions noteId={noteId} userId={userId} userName={userName} />
           )}
         </NoteLayoutWrapper>
       </NoteDataLoader>

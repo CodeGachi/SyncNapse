@@ -96,32 +96,29 @@ export function HandRaisePanel({
     const index = handRaises.findIndex((h) => h.id === handRaiseId);
 
     if (index !== -1) {
-      // isActive를 false로 변경 (삭제 대신)
-      handRaises[index].isActive = false;
+      const handRaise = handRaises.get(index);
+      if (!handRaise) return;
+      // LiveList 중첩 객체 문제: 전체 객체를 새로 만들어 set()으로 교체
+      handRaises.set(index, { ...handRaise, isActive: false });
     }
   }, []);
 
   // 모든 손들기 제거 Mutation (Educator만)
   const clearAllHandRaises = useMutation(({ storage }) => {
     const handRaises = storage.get("handRaises");
-    handRaises.forEach((h) => {
-      h.isActive = false;
-    });
+    // LiveList 중첩 객체 문제: 각 항목을 set()으로 교체
+    for (let i = 0; i < handRaises.length; i++) {
+      const handRaise = handRaises.get(i);
+      if (!handRaise) continue;
+      if (handRaise.isActive) {
+        handRaises.set(i, { ...handRaise, isActive: false });
+      }
+    }
   }, []);
 
-  // 손들기 버튼 클릭 (Student)
+  // 손들기 버튼 클릭 (Student) - 한 번만 가능
   const handleRaiseHand = () => {
-    if (isHandRaised) {
-      // 손 내리기
-      console.log(`[Hand Raise Panel] 손 내리기 시작:`, { userId, userName });
-      if (myHandRaise) {
-        lowerHand(myHandRaise.id);
-        broadcast({
-          type: "HAND_LOWER",
-          userId,
-        });
-      }
-    } else {
+    if (!isHandRaised) {
       // 손들기
       console.log(`[Hand Raise Panel] 손들기 시작:`, { userId, userName });
       raiseHand(userName, userId);
@@ -178,20 +175,17 @@ export function HandRaisePanel({
         <div className="flex flex-col gap-3">
           <button
             onClick={handleRaiseHand}
-            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-              isHandRaised
-                ? "bg-red-500/20 text-red-400 border-2 border-red-400 hover:bg-red-500/30"
-                : "bg-[#AFC02B] text-black hover:bg-[#AFC02B]/90"
-            }`}
+            disabled={isHandRaised}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all bg-[#AFC02B] text-black hover:bg-[#AFC02B]/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Hand size={20} className={isHandRaised ? "animate-wiggle" : ""} />
-            <span>{isHandRaised ? "손 내리기" : "손들기"}</span>
+            <Hand size={20} />
+            <span>손들기</span>
           </button>
 
           {isHandRaised && (
             <div className="text-center text-white/60 text-sm flex items-center justify-center gap-2">
-              <Clock size={14} />
-              <span>대기 중... Educator가 곧 응답합니다</span>
+              <CheckCircle size={14} className="text-[#AFC02B]" />
+              <span>손들기 완료! Educator가 확인 중입니다</span>
             </div>
           )}
         </div>
