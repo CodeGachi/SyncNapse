@@ -1,15 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateInviteDto {
-  @ApiProperty({ description: 'Expiration date/time for the invite' })
-  @IsDateString()
-  expiresAt!: string;
+  @ApiPropertyOptional({ description: 'Role for invited users (listener/presenter)', default: 'listener' })
+  @IsString()
+  @IsOptional()
+  role?: string;
 
-  @ApiPropertyOptional({ description: 'Maximum number of uses (null = unlimited)' })
+  @ApiPropertyOptional({ description: 'Maximum number of uses (null = unlimited)', default: null })
   @IsInt()
   @Min(1)
   @IsOptional()
   maxUses?: number;
+
+  @ApiPropertyOptional({ description: 'Expiration time in minutes from now', default: 120 })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  expiresInMinutes?: number;
 }
 

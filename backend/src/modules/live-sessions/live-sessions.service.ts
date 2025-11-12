@@ -220,12 +220,16 @@ export class LiveSessionsService {
     // Generate unique token
     const token = crypto.randomBytes(32).toString('hex');
 
+    // Calculate expiration date
+    const expiresInMinutes = dto.expiresInMinutes || 120; // default 2 hours
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+
     const invite = await this.prisma.sessionInvite.create({
       data: {
         sessionId,
         token,
-        expiresAt: new Date(dto.expiresAt),
-        maxUses: dto.maxUses,
+        expiresAt,
+        maxUses: dto.maxUses || null,
       },
     });
 
@@ -640,8 +644,8 @@ export class LiveSessionsService {
       throw new NotFoundException('Session not found');
     }
 
-    if (!session.isActive) {
-      throw new BadRequestException('Session has already ended');
+    if (session.isActive) {
+      throw new BadRequestException('Cannot finalize an active session. Please end the session first.');
     }
 
     // Get student's typing sections
