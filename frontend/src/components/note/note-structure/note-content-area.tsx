@@ -14,9 +14,10 @@ import { AutoSaveBadge } from "@/components/note/editor/auto-save-badge";
 
 interface NoteContentAreaProps {
   noteTitle: string;
+  noteId?: string | null;
 }
 
-export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
+export function NoteContentArea({ noteTitle, noteId }: NoteContentAreaProps) {
   const {
     files: uploadedFiles,
     openedTabs,
@@ -146,7 +147,7 @@ export function NoteContentArea({ noteTitle }: NoteContentAreaProps) {
               className="overflow-y-auto bg-[#1e1e1e]"
               style={{ height: `${100 - viewerHeight}%` }}
             >
-              <NotePanel isOpen={isNotePanelOpen} />
+              <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />
             </div>
           )}
         </div>
