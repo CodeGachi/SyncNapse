@@ -7,7 +7,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNoteEditorStore } from '@/stores';
 import * as pageContentApi from '@/lib/api/services/page-content.api';
-import { saveNoteContent as saveToIndexedDB, getAllNoteContent, initDB } from '@/lib/db/notes';
+import { saveNoteContent as saveToIndexedDB, getAllNoteContent } from '@/lib/db/notes';
+import { initDB } from '@/lib/db';
 
 interface UseNoteContentOptions {
   noteId?: string | null;
@@ -204,10 +205,20 @@ export function useNoteContent({
       const transaction = db.transaction(['noteContent'], 'readwrite');
       const store = transaction.objectStore('noteContent');
       const index = store.index('noteId');
-      const allContent = await index.getAll(noteId);
+      
+      // Wrap getAll in a promise
+      const allContent = await new Promise<any[]>((resolve, reject) => {
+        const request = index.getAll(noteId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
       
       for (const content of allContent) {
-        await store.delete(content.id);
+        await new Promise<void>((resolve, reject) => {
+          const deleteRequest = store.delete(content.id);
+          deleteRequest.onsuccess = () => resolve();
+          deleteRequest.onerror = () => reject(deleteRequest.error);
+        });
       }
       console.log('[useNoteContent] ✅ Deleted from IndexedDB');
 
