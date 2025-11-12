@@ -6,6 +6,7 @@ import {
   Put,
   Body,
   Param,
+  UseGuards,
   Logger,
   HttpCode,
   HttpStatus,
@@ -29,14 +30,14 @@ import {
   UpdateTypingSectionDto,
   FinalizeSessionDto,
 } from './dto';
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';  // 테스트용 임시 비활성화
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { HalService } from '../hypermedia/hal.service';
 import { LinkBuilderService } from '../hypermedia/link-builder.service';
 
 @ApiTags('live-sessions')
 @Controller()
-// @UseGuards(JwtAuthGuard)  // 테스트용 임시 비활성화
+@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class LiveSessionsController {
   private readonly logger = new Logger(LiveSessionsController.name);
