@@ -33,6 +33,10 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
     autoSaveDelay: 2000, // 2 seconds
   });
 
+  // Get current page blocks
+  const blocks = getCurrentPageBlocks();
+  const visibleBlocks = getVisibleBlocks(blocks);
+
   // Load entire note content when note opens
   useEffect(() => {
     if (noteId && isOpen) {
@@ -40,17 +44,14 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
     }
   }, [noteId, isOpen, loadNoteContent]);
 
-  if (!isOpen) return null;
-
-  const blocks = getCurrentPageBlocks();
-  const visibleBlocks = getVisibleBlocks(blocks);
-
   // Schedule auto-save when blocks change (any page)
   useEffect(() => {
     if (noteId && isOpen) {
       scheduleAutoSave();
     }
   }, [blocks, noteId, isOpen, scheduleAutoSave]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="w-full h-full bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-3 flex flex-col">
