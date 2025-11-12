@@ -623,7 +623,7 @@ export class LiveSessionsService {
           include: {
             note: {
               include: {
-                transcripts: true,
+                transcript: true,
                 translations: true,
                 materialPages: true,
                 audioRecordings: true,
@@ -667,7 +667,7 @@ export class LiveSessionsService {
         const sourceNote = sync.note;
 
         // Copy transcripts
-        for (const transcript of sourceNote.transcripts) {
+        for (const transcript of sourceNote.transcript) {
           await this.prisma.transcriptSegment.create({
             data: {
               noteId: studentNote.id,
@@ -701,7 +701,7 @@ export class LiveSessionsService {
               pageUrl: page.pageUrl,
               pageHash: page.pageHash,
               canonicalPageId: page.canonicalPageId,
-              viewTransform: page.viewTransform,
+              viewTransform: page.viewTransform as any,
             },
           });
         }
@@ -711,9 +711,8 @@ export class LiveSessionsService {
           await this.prisma.audioRecording.create({
             data: {
               noteId: studentNote.id,
-              startSec: audio.startSec,
-              endSec: audio.endSec,
-              audioUrl: audio.audioUrl,
+              fileUrl: audio.fileUrl,
+              durationSec: audio.durationSec,
             },
           });
         }
@@ -761,15 +760,15 @@ export class LiveSessionsService {
       studentNote,
       copiedContent: {
         transcriptsCount: session.sectionSyncs.reduce(
-          (sum, sync) => sum + sync.note.transcripts.length,
+          (sum: number, sync) => sum + sync.note.transcript.length,
           0,
         ),
         translationsCount: session.sectionSyncs.reduce(
-          (sum, sync) => sum + sync.note.translations.length,
+          (sum: number, sync) => sum + sync.note.translations.length,
           0,
         ),
         materialPagesCount: session.sectionSyncs.reduce(
-          (sum, sync) => sum + sync.note.materialPages.length,
+          (sum: number, sync) => sum + sync.note.materialPages.length,
           0,
         ),
         typingSectionsCount: studentTypingSections.length,

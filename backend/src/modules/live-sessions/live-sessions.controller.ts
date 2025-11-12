@@ -343,9 +343,9 @@ export class LiveSessionsController {
 
     return this.hal.resource(typingSection, {
       self: this.links.self(`/api/typing-sections/${typingSection.id}`),
-      session: typingSection.sessionId
-        ? { href: `/api/live-sessions/${typingSection.sessionId}` }
-        : undefined,
+      ...(typingSection.sessionId && {
+        session: { href: `/api/live-sessions/${typingSection.sessionId}` },
+      }),
       note: { href: `/api/notes/${typingSection.noteId}` },
       user: { href: `/api/users/${user.id}` },
     });
