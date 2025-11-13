@@ -259,7 +259,7 @@ export function TrashContent() {
           <div className="mt-8 space-y-3">
             <div className="p-4 bg-blue-900/20 border border-blue-800/30 rounded-lg">
               <p className="text-sm text-blue-300">
-                💡 복구 시 타임스탬프가 포함된 이름으로 복구됩니다. (예: "노트이름_1731456789123")
+                💡 복구 시 타임스탬프가 포함된 이름으로 복구됩니다. (예: &quot;노트이름_1731456789123&quot;)
               </p>
             </div>
             <div className="p-4 bg-red-900/20 border border-red-800/30 rounded-lg">

@@ -1231,7 +1231,7 @@ export class NotesService {
         } else {
           // Convert stream to buffer
           const chunks: Uint8Array[] = [];
-          for await (const chunk of body as any) {
+          for await (const chunk of body as AsyncIterable<Uint8Array>) {
             chunks.push(chunk);
           }
           minioBuffer = Buffer.concat(chunks);
@@ -1286,7 +1286,7 @@ export class NotesService {
         } else {
           // Convert stream to buffer
           const chunks: Uint8Array[] = [];
-          for await (const chunk of body as any) {
+          for await (const chunk of body as AsyncIterable<Uint8Array>) {
             chunks.push(chunk);
           }
           minioBuffer = Buffer.concat(chunks);
@@ -1338,7 +1338,7 @@ export class NotesService {
         } else {
           // Convert stream to buffer
           const chunks: Uint8Array[] = [];
-          for await (const chunk of body as any) {
+          for await (const chunk of body as AsyncIterable<Uint8Array>) {
             chunks.push(chunk);
           }
           minioBuffer = Buffer.concat(chunks);

@@ -237,7 +237,7 @@ describe("NoteSettingsModal - File Upload", () => {
     });
 
     // 제목 입력
-    const titleInput = screen.getByPlaceholderText("노트 제목");
+    const titleInput = screen.getByPlaceholderText("노트 제목 (비워두면 첫 번째 파일 이름 사용)");
     await act(async () => {
       await user.type(titleInput, "테스트 노트");
     });

@@ -337,9 +337,10 @@ export class StorageService {
     this.logger.debug(`[fileExists] provider=${this.config.provider} key=${storageKey}`);
 
     switch (this.config.provider) {
-      case 'local':
+      case 'local': {
         const localPath = join(this.localBasePath, storageKey);
         return existsSync(localPath);
+      }
       case 's3':
         return this.existsInS3(storageKey);
       case 'gcs':
