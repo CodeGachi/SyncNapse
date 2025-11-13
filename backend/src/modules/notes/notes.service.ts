@@ -696,7 +696,7 @@ export class NotesService {
 
     this.logger.debug(`[deleteNote] Soft deleted note in DB: ${noteId}`);
 
-    // Rename .note file to .notex for soft delete in MinIO
+    // Move entire note folder to .deleted archive for soft delete
     try {
       // Get note details to build correct path
       const noteDetails = await this.prisma.lectureNote.findUnique({
@@ -715,16 +715,23 @@ export class NotesService {
           .replace(/%2F/g, '_')
           .replace(/%5C/g, '_');
         
+        // Source: current note folder
         const noteBasePath = `${folderStoragePath}/${sanitizedTitle}`;
-        const oldKey = `${noteBasePath}/.note`;
-        const newKey = `${noteBasePath}/.notex`;
         
-        await this.storageService.renameFile(oldKey, newKey);
-        this.logger.log(`[deleteNote] ✅ Renamed .note to .notex: ${oldKey} → ${newKey}`);
+        // Destination: .deleted folder with timestamp
+        const timestamp = Date.now();
+        const archivedPath = `${folderStoragePath}/.deleted/${sanitizedTitle}_${timestamp}`;
+        
+        this.logger.log(`[deleteNote] 📦 Moving note to archive: ${noteBasePath} → ${archivedPath}`);
+        
+        // Move entire folder (includes .note, files/, audio/, transcription/, typing/)
+        await this.storageService.renameFolder(noteBasePath, archivedPath);
+        
+        this.logger.log(`[deleteNote] ✅ Archived note folder to .deleted: ${archivedPath}`);
       }
     } catch (error) {
-      this.logger.error(`[deleteNote] Failed to rename .note to .notex:`, error);
-      // Don't fail the request if rename fails
+      this.logger.error(`[deleteNote] Failed to archive note folder:`, error);
+      // Don't fail the request if archiving fails
     }
 
     return { message: 'Note deleted successfully' };
@@ -769,7 +776,7 @@ export class NotesService {
 
         this.logger.debug(`[deleteNotesByFolder] Soft deleted note in DB: ${link.noteId}`);
 
-        // Rename .note file to .notex for soft delete in MinIO
+        // Move entire note folder to .deleted archive for soft delete
         try {
           const folderStoragePath = await this.foldersService.buildFolderStoragePath(
             userId,
@@ -781,14 +788,21 @@ export class NotesService {
             .replace(/%2F/g, '_')
             .replace(/%5C/g, '_');
           
+          // Source: current note folder
           const noteBasePath = `${folderStoragePath}/${sanitizedTitle}`;
-          const oldKey = `${noteBasePath}/.note`;
-          const newKey = `${noteBasePath}/.notex`;
           
-          await this.storageService.renameFile(oldKey, newKey);
-          this.logger.log(`[deleteNotesByFolder] ✅ Renamed .note to .notex: ${oldKey} → ${newKey}`);
+          // Destination: .deleted folder with timestamp
+          const timestamp = Date.now();
+          const archivedPath = `${folderStoragePath}/.deleted/${sanitizedTitle}_${timestamp}`;
+          
+          this.logger.log(`[deleteNotesByFolder] 📦 Moving note to archive: ${noteBasePath} → ${archivedPath}`);
+          
+          // Move entire folder (includes .note, files/, audio/, transcription/, typing/)
+          await this.storageService.renameFolder(noteBasePath, archivedPath);
+          
+          this.logger.log(`[deleteNotesByFolder] ✅ Archived note folder to .deleted: ${archivedPath}`);
         } catch (error) {
-          this.logger.error(`[deleteNotesByFolder] Failed to rename .note to .notex for note ${link.noteId}:`, error);
+          this.logger.error(`[deleteNotesByFolder] Failed to archive note folder for note ${link.noteId}:`, error);
           // Continue with other notes even if one fails
         }
       } catch (error) {
@@ -1251,5 +1265,267 @@ export class NotesService {
     });
 
     this.logger.log(`[deleteNoteContent] ✅ Deleted NoteContent for note ${noteId}`);
+  }
+
+  /**
+   * Get all trashed (soft-deleted) notes for a user
+   */
+  async getTrashedNotes(userId: string) {
+    this.logger.debug(`[getTrashedNotes] Getting trashed notes for userId: ${userId}`);
+
+    // Get all soft-deleted notes for the user
+    const trashedNotes = await this.prisma.folderLectureNote.findMany({
+      where: {
+        folder: {
+          userId,
+        },
+        note: {
+          deletedAt: {
+            not: null,
+          },
+        },
+      },
+      include: {
+        note: true,
+        folder: true,
+      },
+      orderBy: {
+        note: {
+          deletedAt: 'desc', // Most recently deleted first
+        },
+      },
+    });
+
+    this.logger.log(`[getTrashedNotes] Found ${trashedNotes.length} trashed notes`);
+
+    return trashedNotes.map((link) => ({
+      id: link.note.id,
+      title: link.note.title,
+      type: link.note.type || 'student',
+      folder_id: link.folderId,
+      folder_name: link.folder.name,
+      deleted_at: link.note.deletedAt?.toISOString(),
+      created_at: link.note.createdAt.toISOString(),
+    }));
+  }
+
+  /**
+   * Restore a trashed note
+   * Moves the note folder from .deleted back to active location with timestamp in name
+   */
+  async restoreNote(userId: string, noteId: string) {
+    this.logger.debug(`[restoreNote] Restoring note: ${noteId} for userId: ${userId}`);
+
+    // Find the note
+    const folderNoteLink = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        folder: {
+          userId,
+        },
+      },
+      include: {
+        note: true,
+        folder: true,
+      },
+    });
+
+    if (!folderNoteLink) {
+      throw new NotFoundException('Note not found');
+    }
+
+    // Check if note is actually deleted
+    if (!folderNoteLink.note.deletedAt) {
+      throw new ConflictException('Note is not in trash');
+    }
+
+    // Restore in database (remove deletedAt)
+    await this.prisma.lectureNote.update({
+      where: { id: noteId },
+      data: {
+        deletedAt: null,
+      },
+    });
+
+    this.logger.log(`[restoreNote] ✅ Restored note in database: ${noteId}`);
+
+    // Move folder from .deleted back to active location with timestamp in name
+    try {
+      const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+        userId,
+        folderNoteLink.folderId,
+      );
+
+      const sanitizedTitle = encodeURIComponent(folderNoteLink.note.title)
+        .replace(/%20/g, ' ')
+        .replace(/%2F/g, '_')
+        .replace(/%5C/g, '_');
+
+      // Find the archived folder in .deleted (it should have a timestamp)
+      // We need to search for it since we don't know the exact timestamp
+      const deletedFolderPrefix = `${folderStoragePath}/.deleted/${sanitizedTitle}_`;
+      
+      this.logger.debug(`[restoreNote] Searching for archived folder with prefix: ${deletedFolderPrefix}`);
+
+      // List all folders in .deleted to find the right one
+      const archivedFolders = await this.storageService.listFolders(`${folderStoragePath}/.deleted/`);
+      const matchingFolder = archivedFolders.find(folder => folder.startsWith(`${sanitizedTitle}_`));
+
+      if (!matchingFolder) {
+        this.logger.warn(`[restoreNote] Archived folder not found for note: ${noteId}`);
+        return {
+          id: noteId,
+          message: 'Note restored in database, but archived folder not found in storage',
+        };
+      }
+
+      const archivedPath = `${folderStoragePath}/.deleted/${matchingFolder}`;
+      
+      // Restore with timestamp in the name (keep the timestamp from deletion)
+      const restoredPath = `${folderStoragePath}/${matchingFolder}`;
+
+      this.logger.log(`[restoreNote] 📦 Moving from archive: ${archivedPath} → ${restoredPath}`);
+
+      await this.storageService.renameFolder(archivedPath, restoredPath);
+
+      this.logger.log(`[restoreNote] ✅ Restored note folder from .deleted: ${restoredPath}`);
+
+      return {
+        id: noteId,
+        title: matchingFolder, // Return the full name with timestamp
+        message: 'Note restored successfully with timestamp',
+      };
+    } catch (error) {
+      this.logger.error(`[restoreNote] Failed to restore note folder:`, error);
+      
+      // Note is already restored in database, so partial success
+      return {
+        id: noteId,
+        message: 'Note restored in database, but failed to restore folder from storage',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Permanently delete a trashed note (hard delete)
+   * Deletes the note from database and removes the archived folder from .deleted
+   */
+  async permanentlyDeleteNote(userId: string, noteId: string) {
+    this.logger.debug(`[permanentlyDeleteNote] Permanently deleting note: ${noteId} for userId: ${userId}`);
+
+    // Find the note
+    const folderNoteLink = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        folder: {
+          userId,
+        },
+      },
+      include: {
+        note: true,
+        folder: true,
+      },
+    });
+
+    if (!folderNoteLink) {
+      throw new NotFoundException('Note not found');
+    }
+
+    // Check if note is actually deleted
+    if (!folderNoteLink.note.deletedAt) {
+      throw new ConflictException('Note is not in trash. Please delete it first before permanent deletion.');
+    }
+
+    // Delete archived folder from .deleted in storage
+    try {
+      const folderStoragePath = await this.foldersService.buildFolderStoragePath(
+        userId,
+        folderNoteLink.folderId,
+      );
+
+      const sanitizedTitle = encodeURIComponent(folderNoteLink.note.title)
+        .replace(/%20/g, ' ')
+        .replace(/%2F/g, '_')
+        .replace(/%5C/g, '_');
+
+      // Find the archived folder in .deleted
+      this.logger.debug(`[permanentlyDeleteNote] Searching for archived folder in .deleted`);
+
+      const archivedFolders = await this.storageService.listFolders(`${folderStoragePath}/.deleted/`);
+      const matchingFolder = archivedFolders.find(folder => folder.startsWith(`${sanitizedTitle}_`));
+
+      if (matchingFolder) {
+        const archivedPath = `${folderStoragePath}/.deleted/${matchingFolder}`;
+        
+        this.logger.log(`[permanentlyDeleteNote] 🗑️ Deleting archived folder: ${archivedPath}`);
+
+        // Delete entire folder recursively
+        await this.storageService.deleteFolderRecursively(archivedPath);
+
+        this.logger.log(`[permanentlyDeleteNote] ✅ Deleted archived folder from storage`);
+      } else {
+        this.logger.warn(`[permanentlyDeleteNote] Archived folder not found for note: ${noteId}`);
+      }
+    } catch (error) {
+      this.logger.error(`[permanentlyDeleteNote] Failed to delete archived folder:`, error);
+      // Continue with database deletion even if storage deletion fails
+    }
+
+    // Delete related files from database
+    try {
+      const deletedFiles = await this.prisma.file.deleteMany({
+        where: {
+          noteId,
+        },
+      });
+      this.logger.log(`[permanentlyDeleteNote] ✅ Deleted ${deletedFiles.count} related files from database`);
+    } catch (error) {
+      this.logger.error(`[permanentlyDeleteNote] Failed to delete related files:`, error);
+    }
+
+    // Delete note content from database
+    try {
+      const noteContent = await this.prisma.noteContent.findFirst({
+        where: {
+          noteId,
+        },
+      });
+
+      if (noteContent) {
+        await this.prisma.noteContent.delete({
+          where: {
+            id: noteContent.id,
+          },
+        });
+        this.logger.log(`[permanentlyDeleteNote] ✅ Deleted note content from database`);
+      }
+    } catch (error) {
+      this.logger.error(`[permanentlyDeleteNote] Failed to delete note content:`, error);
+    }
+
+    // Delete folder-note link
+    await this.prisma.folderLectureNote.delete({
+      where: {
+        folderId_noteId: {
+          folderId: folderNoteLink.folderId,
+          noteId,
+        },
+      },
+    });
+
+    this.logger.log(`[permanentlyDeleteNote] ✅ Deleted folder-note link`);
+
+    // Delete note from database (hard delete)
+    await this.prisma.lectureNote.delete({
+      where: { id: noteId },
+    });
+
+    this.logger.log(`[permanentlyDeleteNote] ✅ Permanently deleted note from database: ${noteId}`);
+
+    return {
+      id: noteId,
+      message: 'Note permanently deleted successfully',
+    };
   }
 }

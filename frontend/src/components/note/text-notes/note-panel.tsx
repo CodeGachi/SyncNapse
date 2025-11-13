@@ -1,11 +1,11 @@
 /**
  * Note panel component (BlockNote-based editor)
- * Clean implementation with auto-save on typing and page change
+ * Load content only on initial mount and page change
  */
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import type { Block, BlockNoteEditor, PartialBlock } from "@blocknote/core";
@@ -33,47 +33,28 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
     enabled: !!noteId && isOpen,
   });
 
-  // Track initial mount and previous page
-  const isInitialMountRef = useRef(true);
+  // Track if we should load content
+  const [shouldLoadContent, setShouldLoadContent] = useState(true);
   const prevPageRef = useRef<number>(currentPage);
+  const isInitialMountRef = useRef(true);
 
   /**
-   * Handle page change - save immediately
+   * Get initial content for editor
+   * Only load from store when shouldLoadContent is true
    */
-  useEffect(() => {
-    // Skip on initial mount
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      prevPageRef.current = currentPage;
-      console.log('[NotePanel] ⏭️ Initial mount - skipping save');
-      return;
+  const initialContent = useMemo(() => {
+    if (!shouldLoadContent) {
+      // Don't load - let editor keep its current state
+      return null;
     }
 
-    // Only save if page actually changed
-    if (prevPageRef.current !== currentPage) {
-      console.log('[NotePanel] 📄 Page changed:', prevPageRef.current, '->', currentPage);
-      prevPageRef.current = currentPage;
-
-      // Don't save while loading
-      if (!isLoading) {
-        forceSave();
-      }
-    }
-  }, [currentPage, isLoading, forceSave]);
-
-  /**
-   * Convert NoteBlock to BlockNote format
-   */
-  const blocknoteContent = useMemo(() => {
-    // Get current page key
     const pageKey = selectedFileId ? `${selectedFileId}-${currentPage}` : null;
     const blocks = pageKey ? pageNotes[pageKey] : null;
     
-    console.log('[NotePanel] 📋 blocknoteContent computed:', { 
+    console.log('[NotePanel] 📋 Loading content:', { 
       pageKey, 
       hasBlocks: !!blocks, 
       blockCount: blocks?.length || 0,
-      firstBlockContent: blocks && blocks.length > 0 ? (blocks[0] as any)?.content : 'N/A'
     });
     
     if (!blocks || blocks.length === 0) {
@@ -101,60 +82,73 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
         content: block.content || "",
       } as PartialBlock;
     });
-  }, [currentPage, selectedFileId, pageNotes]);
+  }, [shouldLoadContent, currentPage, selectedFileId, pageNotes]);
 
   /**
-   * Create BlockNote editor
+   * Create BlockNote editor with initial content
    */
   const editor: BlockNoteEditor = useCreateBlockNote({
-    initialContent: blocknoteContent,
+    initialContent: initialContent || undefined,
   });
 
   /**
-   * Track previous content to prevent infinite loop
-   */
-  const prevContentRef = useRef<string>('');
-  const hasLoadedRef = useRef<boolean>(false);
-
-  /**
-   * Update editor content when loading completes (initial load)
+   * Handle page change - save current and load new page
    */
   useEffect(() => {
-    if (!isLoading && !hasLoadedRef.current && editor && blocknoteContent) {
-      console.log('[NotePanel] ✅ Initial load complete - updating editor');
-      hasLoadedRef.current = true;
-      prevContentRef.current = JSON.stringify(blocknoteContent);
-      editor.replaceBlocks(editor.document, blocknoteContent);
+    // Skip on initial mount
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      prevPageRef.current = currentPage;
+      console.log('[NotePanel] ⏭️ Initial mount');
+      return;
     }
-  }, [isLoading, editor, blocknoteContent]);
 
-  /**
-   * Update editor content when page changes
-   */
-  useEffect(() => {
-    if (editor && blocknoteContent && hasLoadedRef.current) {
-      const contentString = JSON.stringify(blocknoteContent);
-      
-      // Only update if content actually changed
-      if (contentString !== prevContentRef.current) {
-        console.log('[NotePanel] 🔄 Updating editor content for page:', currentPage);
-        prevContentRef.current = contentString;
-        editor.replaceBlocks(editor.document, blocknoteContent);
+    // Only trigger on actual page change
+    if (prevPageRef.current !== currentPage) {
+      console.log('[NotePanel] 📄 Page changed:', prevPageRef.current, '->', currentPage);
+      prevPageRef.current = currentPage;
+
+      // Save current page
+      if (!isLoading) {
+        forceSave();
       }
+
+      // Trigger content reload
+      setShouldLoadContent(true);
     }
-  }, [blocknoteContent, currentPage]);
+  }, [currentPage, isLoading, forceSave]);
+
+  /**
+   * Load content into editor when shouldLoadContent is true
+   */
+  useEffect(() => {
+    if (!shouldLoadContent || !editor || !initialContent || isLoading) {
+      return;
+    }
+
+    console.log('[NotePanel] 🔄 Updating editor with loaded content');
+    
+    // Update editor content
+    editor.replaceBlocks(editor.document, initialContent);
+    
+    // Reset flag - don't load again until page changes
+    setShouldLoadContent(false);
+  }, [shouldLoadContent, editor, initialContent, isLoading]);
+
+  /**
+   * Reset shouldLoadContent when loading completes
+   */
+  useEffect(() => {
+    if (!isLoading) {
+      setShouldLoadContent(true);
+    }
+  }, [isLoading]);
 
   /**
    * Handle editor change - schedule auto-save
    */
   const handleEditorChange = () => {
-    if (!editor) {
-      return;
-    }
-
-    // Don't update store during initial load
-    if (isLoading || !hasLoadedRef.current) {
-      console.log('[NotePanel] ⏸️ Skipping update during load');
+    if (!editor || isLoading) {
       return;
     }
 

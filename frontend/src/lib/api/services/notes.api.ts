@@ -491,3 +491,79 @@ export async function fetchNoteContent(
     return data.blocks;
   }
 }
+
+/**
+ * Trash API - Get all trashed notes
+ */
+export async function fetchTrashedNotes(): Promise<Note[]> {
+  console.log('[notes.api] 🗑️ Fetching trashed notes');
+  
+  const res = await fetch(`${API_BASE_URL}/api/notes/trash/list`, {
+    credentials: "include",
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!res.ok) {
+    console.error('[notes.api] ❌ Failed to fetch trashed notes:', res.status);
+    throw new Error("Failed to fetch trashed notes");
+  }
+
+  const apiNotes: ApiNoteResponse[] = await res.json();
+  console.log('[notes.api] ✅ Fetched trashed notes:', apiNotes.length);
+  
+  return apiToNotes(apiNotes);
+}
+
+/**
+ * Trash API - Restore a trashed note
+ */
+export async function restoreNote(noteId: string): Promise<{ message: string; title?: string }> {
+  console.log('[notes.api] 🔄 Restoring note:', noteId);
+
+  const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/restore`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!res.ok) {
+    console.error('[notes.api] ❌ Failed to restore note:', res.status);
+    throw new Error("Failed to restore note");
+  }
+
+  const result = await res.json();
+  console.log('[notes.api] ✅ Note restored:', result);
+  
+  return result;
+}
+
+/**
+ * Trash API - Permanently delete a trashed note
+ */
+export async function permanentlyDeleteNote(noteId: string): Promise<{ message: string }> {
+  console.log('[notes.api] 🗑️ Permanently deleting note:', noteId);
+
+  const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/permanent`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!res.ok) {
+    console.error('[notes.api] ❌ Failed to permanently delete note:', res.status);
+    throw new Error("Failed to permanently delete note");
+  }
+
+  const result = await res.json();
+  console.log('[notes.api] ✅ Note permanently deleted:', result);
+  
+  return result;
+}

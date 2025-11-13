@@ -377,15 +377,7 @@ export function NoteContentArea({
 
               {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
               {isEducatorNote && selectedFile && pdfRenderInfo && (() => {
-                // 디버깅: PDF 렌더링 정보 확인
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log('📊 note-content-area.tsx - PDF 렌더링 정보');
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log('baseWidth:', pdfRenderInfo.baseWidth);
-                console.log('baseHeight:', pdfRenderInfo.baseHeight);
-                console.log('scale (finalScale):', pdfRenderInfo.scale);
-                console.log('실제 렌더링 크기:', pdfRenderInfo.width, 'x', pdfRenderInfo.height);
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                // PDF Debug logs disabled for performance
 
                 return (
                   <PDFDrawingOverlay

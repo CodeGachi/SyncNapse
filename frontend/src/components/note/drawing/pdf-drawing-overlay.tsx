@@ -124,20 +124,7 @@ export const PDFDrawingOverlay = forwardRef<
       const renderedWidth = containerWidth * pdfScale;
       const renderedHeight = adjustedHeight * pdfScale;
 
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🎨 드로잉 캔버스 초기화');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📐 캔버스 원본 크기 (PDF 원본 기준):');
-      console.log(`   Width: ${containerWidth.toFixed(2)}px`);
-      console.log(`   Height: ${adjustedHeight.toFixed(2)}px`);
-      console.log(`   오른쪽 아래 모서리: (${containerWidth.toFixed(2)}, ${adjustedHeight.toFixed(2)})`);
-      console.log('');
-      console.log('🔍 현재 렌더링 크기:');
-      console.log(`   Width: ${renderedWidth.toFixed(2)}px`);
-      console.log(`   Height: ${renderedHeight.toFixed(2)}px`);
-      console.log(`   Scale: ${pdfScale.toFixed(3)} (${(pdfScale * 100).toFixed(1)}%)`);
-      console.log(`   오른쪽 아래 모서리: (${renderedWidth.toFixed(2)}, ${renderedHeight.toFixed(2)})`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // Canvas initialization debug logs disabled for performance
 
       // 초기 히스토리 저장
       useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
@@ -169,24 +156,7 @@ export const PDFDrawingOverlay = forwardRef<
       canvas.setHeight(adjustedHeight);
       canvas.renderAll();
 
-      // 캔버스 리사이즈 정보 출력
-      const renderedWidth = containerWidth * pdfScale;
-      const renderedHeight = adjustedHeight * pdfScale;
-
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🔄 드로잉 캔버스 크기 업데이트');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📐 캔버스 원본 크기 (PDF 원본 기준):');
-      console.log(`   Width: ${containerWidth.toFixed(2)}px`);
-      console.log(`   Height: ${adjustedHeight.toFixed(2)}px`);
-      console.log(`   오른쪽 아래 모서리: (${containerWidth.toFixed(2)}, ${adjustedHeight.toFixed(2)})`);
-      console.log('');
-      console.log('🔍 현재 렌더링 크기:');
-      console.log(`   Width: ${renderedWidth.toFixed(2)}px`);
-      console.log(`   Height: ${renderedHeight.toFixed(2)}px`);
-      console.log(`   Scale: ${pdfScale.toFixed(3)} (${(pdfScale * 100).toFixed(1)}%)`);
-      console.log(`   오른쪽 아래 모서리: (${renderedWidth.toFixed(2)}, ${renderedHeight.toFixed(2)})`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // Canvas resize debug logs disabled for performance
     }, [containerWidth, containerHeight, pdfScale]);
 
     // 펜 모드 설정 (펜/형광펜 자유 그리기)

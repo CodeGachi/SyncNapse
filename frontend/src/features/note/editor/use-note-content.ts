@@ -24,7 +24,7 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
     if (!noteId || !isLoadedRef.current) {
       console.log('[useNoteContent] ⏸️ Skip save:', { noteId, isLoaded: isLoadedRef.current });
       return;
-    }
+      }
 
     console.log('[useNoteContent] 💾 Starting save...');
     setIsSaving(true);
@@ -47,8 +47,8 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
           // Extract page number: it's after the last '-'
           const pageNumber = pageKey.substring(fileIdPrefix.length);
           console.log('[useNoteContent] 📄 Page:', { pageKey, selectedFileId, pageNumber, blockCount: blocks.length });
-          pages[pageNumber] = { blocks };
-        }
+            pages[pageNumber] = { blocks };
+          }
       });
 
       const pageCount = Object.keys(pages).length;
@@ -61,22 +61,22 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
       }
 
       // 1. Save to IndexedDB
-      for (const [pageNumber, pageData] of Object.entries(pages)) {
+        for (const [pageNumber, pageData] of Object.entries(pages)) {
         await saveToIndexedDB(noteId, String(pageNumber), pageData.blocks);
-      }
+        }
       console.log('[useNoteContent] ✅ Saved to IndexedDB');
 
       // 2. Save to Backend (PostgreSQL + MinIO)
       await saveNoteContentAPI(noteId, pages);
       console.log('[useNoteContent] ✅ Saved to Backend');
 
-      setLastSavedAt(new Date());
-    } catch (err) {
+        setLastSavedAt(new Date());
+      } catch (err) {
       console.error('[useNoteContent] ❌ Save failed:', err);
       setError('저장 실패');
-    } finally {
-      setIsSaving(false);
-    }
+      } finally {
+        setIsSaving(false);
+      }
   }, [noteId]);
 
   /**
@@ -142,7 +142,7 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
       
       if (allPages && allPages.length > 0) {
         console.log('[useNoteContent] ✅ Found in IndexedDB:', allPages.length, 'pages');
-        
+
         // Clean duplicates
         const duplicatesRemoved = await cleanDuplicateNoteContent(noteId);
         if (duplicatesRemoved > 0) {
@@ -172,26 +172,26 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
       // Update store with loaded data
       if (allPages && allPages.length > 0) {
         const updatedPageNotes: Record<string, any[]> = {};
-        
-        for (const page of allPages) {
-          const pageNumber = parseInt(page.pageId, 10);
-          if (!isNaN(pageNumber)) {
-            const pageKey = `${selectedFileId}-${pageNumber}`;
-            updatedPageNotes[pageKey] = page.blocks;
-          }
-        }
-
-        useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
+            
+            for (const page of allPages) {
+              const pageNumber = parseInt(page.pageId, 10);
+              if (!isNaN(pageNumber)) {
+                const pageKey = `${selectedFileId}-${pageNumber}`;
+                updatedPageNotes[pageKey] = page.blocks;
+              }
+            }
+            
+            useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
         console.log('[useNoteContent] ✅ Loaded to store:', Object.keys(updatedPageNotes).length, 'pages');
-      }
-
+          }
+          
       isLoadedRef.current = true;
     } catch (err) {
       console.error('[useNoteContent] ❌ Load failed:', err);
       setError('로드 실패');
       isLoadedRef.current = true; // Allow saves even if load failed
     } finally {
-      setIsLoading(false);
+          setIsLoading(false);
     }
   }, [noteId, enabled]);
 
