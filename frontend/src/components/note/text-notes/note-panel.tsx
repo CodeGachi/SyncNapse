@@ -27,34 +27,42 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
     selectedFileId,
   } = useNoteEditorStore();
 
-  // Auto-save hook
+  // Auto-save hook (always load content when noteId exists, regardless of panel open/close state)
   const { scheduleAutoSave, forceSave, isSaving, lastSavedAt, isLoading } = useNoteContent({
     noteId,
-    enabled: !!noteId && isOpen,
+    enabled: !!noteId,
   });
 
   // Track if we should load content
   const [shouldLoadContent, setShouldLoadContent] = useState(true);
   const prevPageRef = useRef<number>(currentPage);
   const isInitialMountRef = useRef(true);
+  const hasLoadedRef = useRef(false);
+  const prevNoteIdRef = useRef<string | null | undefined>(noteId);
+
+  // Reset hasLoadedRef when noteId changes (switching to different note)
+  useEffect(() => {
+    if (prevNoteIdRef.current !== noteId) {
+      console.log('[NotePanel] 📝 Note changed, resetting load state');
+      hasLoadedRef.current = false;
+      setShouldLoadContent(true);
+      prevNoteIdRef.current = noteId;
+    }
+  }, [noteId]);
 
   /**
    * Get initial content for editor
-   * Only load from store when shouldLoadContent is true
+   * Convert pageNotes to BlockNote format
    */
   const initialContent = useMemo(() => {
-    if (!shouldLoadContent) {
-      // Don't load - let editor keep its current state
-      return null;
-    }
-
     const pageKey = selectedFileId ? `${selectedFileId}-${currentPage}` : null;
     const blocks = pageKey ? pageNotes[pageKey] : null;
     
-    console.log('[NotePanel] 📋 Loading content:', { 
+    console.log('[NotePanel] 📋 Building content:', { 
       pageKey, 
       hasBlocks: !!blocks, 
       blockCount: blocks?.length || 0,
+      firstBlockContent: blocks?.[0]?.content,
     });
     
     if (!blocks || blocks.length === 0) {
@@ -82,7 +90,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
         content: block.content || "",
       } as PartialBlock;
     });
-  }, [shouldLoadContent, currentPage, selectedFileId, pageNotes]);
+  }, [currentPage, selectedFileId, pageNotes]);
 
   /**
    * Create BlockNote editor with initial content
@@ -113,36 +121,56 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
         forceSave();
       }
 
-      // Trigger content reload
+      // Reset load flag and trigger content reload
+      hasLoadedRef.current = false;
       setShouldLoadContent(true);
     }
   }, [currentPage, isLoading, forceSave]);
 
   /**
-   * Load content into editor when shouldLoadContent is true
+   * Load content into editor on initial load
+   * Wait for data to be loaded from IndexedDB
    */
   useEffect(() => {
-    if (!shouldLoadContent || !editor || !initialContent || isLoading) {
-      return;
+    if (!isLoading && !hasLoadedRef.current && editor) {
+      const pageKey = selectedFileId ? `${selectedFileId}-${currentPage}` : null;
+      const pageData = pageKey ? pageNotes[pageKey] : null;
+      const hasActualData = pageData && pageData.length > 0 && pageData[0].content !== "";
+      const hasAnyData = Object.keys(pageNotes).length > 0;
+      
+      console.log('[NotePanel] 🔍 Checking for data:', { 
+        hasActualData, 
+        hasAnyData, 
+        pageDataLength: pageData?.length,
+        firstBlockContent: pageData?.[0]?.content,
+        pageNotesKeys: Object.keys(pageNotes).slice(0, 3),
+      });
+      
+      // Only mark as loaded when we have actual content data
+      // This ensures we wait for IndexedDB load to complete
+      if (hasActualData && initialContent) {
+        console.log('[NotePanel] 🔄 Initial load - updating editor with loaded data');
+        editor.replaceBlocks(editor.document, initialContent);
+        hasLoadedRef.current = true;
+        setShouldLoadContent(false);
+      } else if (!hasAnyData) {
+        console.log('[NotePanel] ⏸️ Waiting for data from IndexedDB...');
+      } else {
+        console.log('[NotePanel] ⏸️ Has store data but waiting for actual content...');
+      }
     }
-
-    console.log('[NotePanel] 🔄 Updating editor with loaded content');
-    
-    // Update editor content
-    editor.replaceBlocks(editor.document, initialContent);
-    
-    // Reset flag - don't load again until page changes
-    setShouldLoadContent(false);
-  }, [shouldLoadContent, editor, initialContent, isLoading]);
+  }, [isLoading, editor, initialContent, selectedFileId, currentPage, pageNotes]);
 
   /**
-   * Reset shouldLoadContent when loading completes
+   * Load content into editor when page changes
    */
   useEffect(() => {
-    if (!isLoading) {
-      setShouldLoadContent(true);
+    if (shouldLoadContent && editor && initialContent && !isLoading) {
+      console.log('[NotePanel] 🔄 Page changed - updating editor');
+      editor.replaceBlocks(editor.document, initialContent);
+      setShouldLoadContent(false);
     }
-  }, [isLoading]);
+  }, [shouldLoadContent, editor, initialContent, isLoading]);
 
   /**
    * Handle editor change - schedule auto-save

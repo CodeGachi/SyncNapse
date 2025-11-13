@@ -6,11 +6,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { fetchTrashedNotes, restoreNote, permanentlyDeleteNote } from "@/lib/api/services/notes.api";
 import type { Note } from "@/lib/types";
 import { Trash2, RotateCcw, Clock, X } from "lucide-react";
 
 export function TrashContent() {
+  const queryClient = useQueryClient();
   const [trashedNotes, setTrashedNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -49,6 +51,10 @@ export function TrashContent() {
       console.log('[TrashContent] Restore result:', result);
       
       alert(`복구되었습니다!\n새 이름: ${result.title || noteTitle}`);
+      
+      // Invalidate queries to refresh all note lists
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
       
       // Reload trashed notes list
       await loadTrashedNotes();
@@ -89,6 +95,10 @@ export function TrashContent() {
       console.log('[TrashContent] Permanent delete successful');
       
       alert('영구적으로 삭제되었습니다.');
+      
+      // Invalidate queries to refresh all note lists
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
       
       // Reload trashed notes list
       await loadTrashedNotes();

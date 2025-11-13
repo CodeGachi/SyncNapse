@@ -154,18 +154,46 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
         console.log('[useNoteContent] 📥 Loading from Backend...');
         const backendData = await getNoteContentAPI(noteId);
         
+        console.log('[useNoteContent] 🔍 Backend response:', {
+          hasData: !!backendData,
+          hasPages: !!backendData?.pages,
+          pagesType: typeof backendData?.pages,
+          pageCount: Object.keys(backendData?.pages || {}).length,
+          pageKeys: Object.keys(backendData?.pages || {}),
+        });
+        
         if (backendData && backendData.pages) {
-          console.log('[useNoteContent] ✅ Loaded from Backend');
+          const pageKeys = Object.keys(backendData.pages);
+          console.log('[useNoteContent] ✅ Loaded from Backend - Pages:', pageKeys.join(', '));
+          
+          // Debug first page
+          const firstPageKey = pageKeys[0];
+          if (firstPageKey && backendData.pages[firstPageKey]) {
+            const firstPage = backendData.pages[firstPageKey] as { blocks: any[] };
+            console.log(`[useNoteContent] 📄 First page (${firstPageKey}):`, {
+              hasBlocks: !!firstPage.blocks,
+              blocksIsArray: Array.isArray(firstPage.blocks),
+              blockCount: firstPage.blocks?.length || 0,
+              firstBlockContent: firstPage.blocks?.[0]?.content,
+            });
+          }
           
           // Save to IndexedDB for next time
           for (const [pageNumber, pageData] of Object.entries(backendData.pages)) {
             const typedPageData = pageData as { blocks: any[] };
+            console.log(`[useNoteContent] 💾 Saving page ${pageNumber} to IndexedDB:`, {
+              hasBlocks: !!typedPageData.blocks,
+              blockCount: typedPageData.blocks?.length || 0,
+            });
             await saveToIndexedDB(noteId, pageNumber, typedPageData.blocks);
           }
           console.log('[useNoteContent] ✅ Cached to IndexedDB');
           
           // Reload from IndexedDB
           allPages = await getAllNoteContent(noteId);
+          console.log('[useNoteContent] 🔄 Reloaded from IndexedDB:', allPages?.length || 0, 'pages');
+        } else {
+          console.warn('[useNoteContent] ⚠️ No data loaded from backend!');
         }
       }
 
