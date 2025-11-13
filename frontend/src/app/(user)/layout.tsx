@@ -14,7 +14,7 @@ export default function UserLayout({
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.replace("/");
+      router.replace("/login");
     }
   }, [isAuthenticated, loading, router]);
 

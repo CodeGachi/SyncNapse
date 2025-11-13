@@ -7,26 +7,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { vi } from "vitest";
 import type { ReactNode } from "react";
-import * as filesApi from "@/lib/api/files.api";
 
-// Mock the uploadFilesParallel function
-vi.mock("@/lib/api/files.api", async () => {
-  const actual = await vi.importActual("@/lib/api/files.api");
+// Mock the saveMultipleFiles function from the correct path
+vi.mock("@/lib/api/services/files.api", async () => {
+  const actual = await vi.importActual("@/lib/api/services/files.api");
   return {
     ...actual,
-    uploadFilesParallel: vi.fn(async (files: File[]) => {
-      // Simulate successful upload for all files
+    saveMultipleFiles: vi.fn(async (noteId: string, files: File[]) => {
+      // Simulate successful save for all files to IndexedDB
       return files.map((file) => ({
-        file,
-        success: true,
-        result: {
-          id: `file-${Date.now()}-${Math.random()}`,
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          uploadedAt: new Date().toISOString(),
-          url: `https://example.com/files/${file.name}`,
-        },
+        id: `file-${Date.now()}-${Math.random()}`,
+        noteId,
+        fileName: file.name,
+        fileData: file,
+        fileType: file.type,
+        size: file.size,
+        createdAt: Date.now(),
       }));
     }),
   };
@@ -123,7 +119,10 @@ describe("useFileUpload", () => {
   });
 
   it("starts upload correctly", async () => {
-    const { result } = renderHook(() => useFileUpload({ maxConcurrent: 2 }), {
+    const { result } = renderHook(() => useFileUpload({
+      noteId: "test-note-123",
+      maxConcurrent: 2
+    }), {
       wrapper: createWrapper(),
     });
 
@@ -203,7 +202,10 @@ describe("useFileUpload", () => {
     const onAllComplete = vi.fn();
 
     const { result } = renderHook(
-      () => useFileUpload({ onAllComplete }),
+      () => useFileUpload({
+        noteId: "test-note-123",
+        onAllComplete
+      }),
       {
         wrapper: createWrapper(),
       }
@@ -237,7 +239,9 @@ describe("useFileUpload", () => {
   }, 15000);
 
   it("uploads PDF files correctly", async () => {
-    const { result } = renderHook(() => useFileUpload(), {
+    const { result } = renderHook(() => useFileUpload({
+      noteId: "test-note-123"
+    }), {
       wrapper: createWrapper(),
     });
 
@@ -272,7 +276,10 @@ describe("useFileUpload", () => {
   });
 
   it("uploads multiple PDF files correctly", async () => {
-    const { result } = renderHook(() => useFileUpload({ maxConcurrent: 3 }), {
+    const { result } = renderHook(() => useFileUpload({
+      noteId: "test-note-123",
+      maxConcurrent: 3
+    }), {
       wrapper: createWrapper(),
     });
 
@@ -307,7 +314,9 @@ describe("useFileUpload", () => {
   });
 
   it("handles mixed file types including PDF", async () => {
-    const { result } = renderHook(() => useFileUpload(), {
+    const { result } = renderHook(() => useFileUpload({
+      noteId: "test-note-123"
+    }), {
       wrapper: createWrapper(),
     });
 

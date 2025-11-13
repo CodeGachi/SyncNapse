@@ -25,7 +25,13 @@ export function useDashboard() {
         },
         {
           onSuccess: (newNote) => {
-            router.push(`/note?id=${newNote.id}`);
+            // 노트 타입에 따라 적절한 페이지로 이동
+            const noteType = newNote.type || "student";
+            const path =
+              noteType === "educator"
+                ? `/note/educator/${newNote.id}`
+                : `/note/student/${newNote.id}`;
+            router.push(path);
             resolve();
           },
           onError: (error) => {
@@ -36,8 +42,13 @@ export function useDashboard() {
     });
   };
 
-  const handleNoteClick = (noteId: string) => {
-    router.push(`/note?id=${noteId}`);
+  const handleNoteClick = (noteId: string, noteType: "student" | "educator" = "student") => {
+    // 노트 타입에 따라 적절한 페이지로 이동
+    const path =
+      noteType === "educator"
+        ? `/note/educator/${noteId}`
+        : `/note/student/${noteId}`;
+    router.push(path);
   };
 
   return {

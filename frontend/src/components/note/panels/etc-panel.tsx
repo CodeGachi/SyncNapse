@@ -1,49 +1,26 @@
 /**
  * etc 패널 컴포넌트 (리팩토링됨)
- * Exam, Summary, 질문 추가, 질문 리스트 기능
+ * Exam, Summary 기능
  */
 
 "use client";
 
 import { useState } from "react";
-import type { Question } from "@/lib/types";
 import { MenuButton } from "@/components/note/panels/etc-panel/menu-button";
-import { QuestionForm } from "@/components/note/panels/etc-panel/question-form";
-import { QuestionListView } from "@/components/note/panels/etc-panel/question-list-view";
+import { Panel } from "./panel";
 
 interface EtcPanelProps {
   isOpen: boolean;
-  questions: Question[];
-  onAddQuestion: (content: string, author: string) => void;
-  onDeleteQuestion?: (id: string) => void;
-  currentUser?: { name: string; email: string } | null;
 }
 
-type MenuType = "exam" | "summary" | "question" | "questionList" | null;
+type MenuType = "exam" | "summary" | null;
 
-export function EtcPanel({
-  isOpen,
-  questions,
-  onAddQuestion,
-  onDeleteQuestion,
-  currentUser,
-}: EtcPanelProps) {
+export function EtcPanel({ isOpen }: EtcPanelProps) {
   const [selectedMenu, setSelectedMenu] = useState<MenuType>(null);
 
-  if (!isOpen) return null;
-
-  const handleQuestionSubmit = async (content: string) => {
-    const authorName = currentUser?.name || "익명";
-    await onAddQuestion(content, authorName);
-  };
-
   return (
-    <div
-      className="flex flex-col items-center p-3 gap-2.5 w-full h-[380px] bg-[#2F2F2F] border-2 border-[#AFC02B] rounded-[10px] overflow-hidden transition-all duration-500 ease-out"
-      style={{
-        animation: isOpen ? "expandPanel 0.5s ease-out forwards" : "none",
-      }}
-    >
+    <Panel isOpen={isOpen} borderColor="green" height="h-[380px]">
+      <div className="flex flex-col items-center p-3 gap-2.5 w-full h-full">
       {/* 헤더 */}
       <div className="flex flex-row justify-center items-center w-full h-[15px] flex-shrink-0">
         <h3 className="font-bold text-xs leading-[15px] text-center text-white">
@@ -68,39 +45,9 @@ export function EtcPanel({
             />
           </div>
 
-          {/* 하단 버튼 그룹 */}
-          <div className="flex flex-row justify-center items-center gap-6 w-full">
-            <MenuButton
-              label="질문 추가"
-              onClick={() => setSelectedMenu("question")}
-              color="bg-[#4F6C6C]"
-            />
-            <MenuButton
-              label="질문 리스트"
-              onClick={() => setSelectedMenu("questionList")}
-              color="bg-[#6C5B4F]"
-              badge={questions.length}
-            />
-          </div>
         </div>
       )}
 
-      {/* 질문 입력 폼 */}
-      {selectedMenu === "question" && (
-        <QuestionForm
-          onSubmit={handleQuestionSubmit}
-          onClose={() => setSelectedMenu(null)}
-        />
-      )}
-
-      {/* 질문 리스트 */}
-      {selectedMenu === "questionList" && (
-        <QuestionListView
-          questions={questions}
-          onClose={() => setSelectedMenu(null)}
-          onDelete={onDeleteQuestion}
-        />
-      )}
 
       {/* Exam 컨텐츠 (추후 구현) */}
       {selectedMenu === "exam" && (
@@ -167,6 +114,7 @@ export function EtcPanel({
           }
         }
       `}</style>
-    </div>
+      </div>
+    </Panel>
   );
 }

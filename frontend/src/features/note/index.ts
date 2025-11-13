@@ -5,10 +5,10 @@
 export { useRecordingList, useRecording } from "./player";
 export type { RecordingData } from "./player";
 
-// Editor Module
-export { useNotePanel } from "./editor";
-export type { NoteBlock } from "./editor";
+// Text Notes Module (텍스트 필기)
+export { useNotePanel } from "./text-notes";
+export type { NoteBlock } from "./text-notes";
 
 // File Module
-export { useFilePanel } from "./file";
+export { useFilePanel, useFilePanelUI } from "./file";
 export type { FileItem } from "./file";

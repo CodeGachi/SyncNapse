@@ -45,7 +45,7 @@ describe('HomePage', () => {
 
   it('renders login button', () => {
     render(<HomePage />, { wrapper: createWrapper() });
-    expect(screen.getByText('Sign in with Google')).toBeInTheDocument();
+    expect(screen.getByText('시작하기')).toBeInTheDocument();
   });
 
   it('renders description text', () => {

@@ -1,84 +1,124 @@
 /**
- * Trash API Client 
- */ 
+ * Trash API Service V2 - IndexedDB 우선 저장 + 백엔드 동기화
+ *
+ * 새로운 구조:
+ * 1. 모든 변경사항은 IndexedDB에 즉시 저장 (오프라인 우선)
+ * 2. 동기화 큐에 추가
+ * 3. 백그라운드에서 백엔드와 동기화
+ *
+ * 이전 V1 API (trash.api.ts)는 deprecated됨
+ */
+
+import type { DBTrashItem } from "@/lib/db/trash";
 import {
   getAllTrashItems as getAllTrashItemsFromDB,
   restoreFromTrash as restoreFromTrashDB,
   permanentlyDeleteFromTrash as permanentlyDeleteFromTrashDB,
   cleanupExpiredItems as cleanupExpiredItemsDB,
   emptyTrash as emptyTrashDB,
-  type DBTrashItem,
 } from "@/lib/db/trash";
+import { useSyncStore } from "@/lib/sync/sync-store";
 
-const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
+export type { DBTrashItem };
 
 /**
- * Trash all Item Import 
- */ 
+ * 휴지통 모든 항목 조회
+ * - IndexedDB에서 즉시 반환
+ * - 오프라인에서도 사용 가능
+ */
 export async function fetchTrashItems(): Promise<DBTrashItem[]> {
-  if (USE_LOCAL) {
-    return await getAllTrashItemsFromDB();
-  } else {
-    const res = await fetch("/api/trash");
-    if (!res.ok) throw new Error("Failed to fetch trash items");
-    return await res.json();
-  }
+  return await getAllTrashItemsFromDB();
 }
 
 /**
- * Trash Item Restore 
- */ 
+ * 휴지통 항목 복원
+ * - IndexedDB에서 즉시 복원
+ * - 동기화 큐에 추가
+ * - 백그라운드에서 백엔드와 동기화
+ */
 export async function restoreTrashItem(itemId: string): Promise<void> {
-  if (USE_LOCAL) {
-    await restoreFromTrashDB(itemId);
-  } else {
-    const res = await fetch(`/api/trash/${itemId}/restore`, {
-      method: "POST",
-    });
-    if (!res.ok) throw new Error("Failed to restore item");
-  }
+  // 1. IndexedDB에서 즉시 복원
+  await restoreFromTrashDB(itemId);
+
+  // 2. 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "trash",
+    entityId: itemId,
+    operation: "restore",
+    data: {
+      item_id: itemId,
+    },
+  });
 }
 
 /**
- * Trash Permanent Delete
- */ 
+ * 휴지통 항목 영구 삭제
+ * - IndexedDB에서 즉시 삭제
+ * - 동기화 큐에 추가
+ * - 백그라운드에서 백엔드와 동기화
+ */
 export async function permanentlyDeleteTrashItem(itemId: string): Promise<void> {
-  if (USE_LOCAL) {
-    await permanentlyDeleteFromTrashDB(itemId);
-  } else {
-    const res = await fetch(`/api/trash/${itemId}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) throw new Error("Failed to permanently delete item");
-  }
+  // 1. IndexedDB에서 즉시 삭제
+  await permanentlyDeleteFromTrashDB(itemId);
+
+  // 2. 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "trash",
+    entityId: itemId,
+    operation: "delete",
+    data: {
+      item_id: itemId,
+    },
+  });
 }
 
 /**
- * onlylete Item Auto Delete 
- */ 
+ * 만료된 휴지통 항목 자동 삭제
+ * - IndexedDB에서 15일 초과 항목 삭제
+ * - 동기화 큐에 추가
+ * - 백그라운드에서 백엔드와 동기화
+ */
 export async function cleanupExpiredTrashItems(): Promise<number> {
-  if (USE_LOCAL) {
-    return await cleanupExpiredItemsDB();
-  } else {
-    const res = await fetch("/api/trash/cleanup", {
-      method: "POST",
+  // 1. IndexedDB에서 만료된 항목 삭제
+  const deletedCount = await cleanupExpiredItemsDB();
+
+  // 2. 동기화 큐에 추가 (개수만 동기화)
+  if (deletedCount > 0) {
+    const syncStore = useSyncStore.getState();
+    syncStore.addToSyncQueue({
+      entityType: "trash",
+      entityId: `cleanup-${Date.now()}`,
+      operation: "cleanup",
+      data: {
+        deleted_count: deletedCount,
+        cleaned_at: new Date().toISOString(),
+      },
     });
-    if (!res.ok) throw new Error("Failed to cleanup expired items");
-    const data = await res.json();
-    return data.deletedCount;
   }
+
+  return deletedCount;
 }
 
 /**
- * Trash Empty (all Item Permanent Delete) 
- */ 
+ * 휴지통 비우기 (모든 항목 삭제)
+ * - IndexedDB에서 모든 항목 삭제
+ * - 동기화 큐에 추가
+ * - 백그라운드에서 백엔드와 동기화
+ */
 export async function emptyTrash(): Promise<void> {
-  if (USE_LOCAL) {
-    await emptyTrashDB();
-  } else {
-    const res = await fetch("/api/trash/empty", {
-      method: "POST",
-    });
-    if (!res.ok) throw new Error("Failed to empty trash");
-  }
+  // 1. IndexedDB에서 즉시 비우기
+  await emptyTrashDB();
+
+  // 2. 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "trash",
+    entityId: `empty-${Date.now()}`,
+    operation: "empty",
+    data: {
+      emptied_at: new Date().toISOString(),
+    },
+  });
 }

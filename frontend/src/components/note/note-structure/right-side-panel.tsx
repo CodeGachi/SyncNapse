@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore } from "@/stores";
+import { useNote } from "@/lib/api/queries/notes.queries";
 import { useRecordingList } from "@/features/note/player";
 import {
   useRecordingControl,
@@ -27,15 +28,44 @@ import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
 import { TagsPanel } from "@/components/note/panels/tags-panel";
+import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
 interface RightSidePanelProps {
-  noteId?: string | null;
+  noteId: string | null;
+  isCollaborating?: boolean;
+  isSharedView?: boolean; // 공유 모드 여부
 }
 
-export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
-  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+export function RightSidePanel({ noteId, isCollaborating = false, isSharedView = false }: RightSidePanelProps) {
+  // Get note data to determine if it's an educator note
+  // 공유 모드에서는 로컬 DB 쿼리 비활성화
+  const { data: note } = useNote(noteId, { enabled: !isSharedView });
+  const isEducatorNote = note?.type === "educator" || isSharedView; // 공유 모드면 무조건 educator 노트
 
-  // Store states
+  // 사용자 정보 로드 (협업 기능용)
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    // localStorage에서 사용자 정보 가져오기
+    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
+    const storedUserName = localStorage.getItem("userName") || "사용자";
+
+    // 없으면 새로 생성하여 저장
+    if (!localStorage.getItem("userId")) {
+      localStorage.setItem("userId", storedUserId);
+    }
+    if (!localStorage.getItem("userName")) {
+      localStorage.setItem("userName", storedUserName);
+    }
+
+    setUserId(storedUserId);
+    setUserName(storedUserName);
+
+    console.log(`[RightSidePanel] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
+  }, []);
+
+  // Store states (useEffect 전에 먼저 선언)
   const {
     files: uploadedFiles,
     removeFile,
@@ -47,11 +77,14 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
     activeCategories,
     toggleCategory,
     isExpanded,
-    questions,
+    toggleExpand,
     currentTime,
   } = useNoteEditorStore();
 
   const { scriptSegments } = useScriptTranslationStore();
+
+  // Active segment tracking for transcript timeline
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
 
   const {
     isNotePanelOpen,
@@ -64,13 +97,33 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
     toggleEtcPanel,
     isTagsPanelOpen,
     toggleTagsPanel,
+    isCollaborationPanelOpen,
+    toggleCollaborationPanel,
   } = usePanelsStore();
+
+  // 공유 모드일 때 자동으로 사이드바 확장 및 협업 패널 열기
+  useEffect(() => {
+    if (isSharedView && isCollaborating) {
+      // 사이드바 자동 확장
+      if (!isExpanded) {
+        console.log('[RightSidePanel] 공유 모드 - 사이드바 자동 확장');
+        toggleExpand();
+      }
+      // 협업 패널 자동 열기
+      if (!isCollaborationPanelOpen) {
+        console.log('[RightSidePanel] 공유 모드 - 협업 패널 자동 열기');
+        toggleCollaborationPanel();
+      }
+    }
+  }, [isSharedView, isCollaborating, isExpanded, isCollaborationPanelOpen, toggleExpand, toggleCollaborationPanel]);
 
   // Recording list
   const {
     recordings: formattedRecordings,
     isExpanded: isRecordingExpanded,
     toggleExpanded: toggleRecordingExpanded,
+    refreshRecordings,
+    removeFromBackendList,
   } = useRecordingList();
 
   // Custom hooks for business logic
@@ -95,9 +148,10 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
     handleStopPlayback,
   } = useAudioPlayer();
 
-  const { handleAddFile } = useFileManagement();
+  // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
+  const { handleAddFile } = useFileManagement({ noteId });
 
-  const { handleAddQuestion, deleteQuestion } = useQuestionManagement();
+  const { handleAddQuestion, deleteQuestion } = useQuestionManagement({ noteId });
 
   const { isTranslating, translationSupported } = useTranscriptTranslation();
 
@@ -113,6 +167,55 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
     // 녹음 중이 아니면 정상적으로 재생
     handleRecordingSelectOriginal(sessionId);
   };
+  
+  // Handle recording deletion
+  const handleDeleteRecording = async (sessionId: string) => {
+    try {
+      console.log('[RightSidePanel] 🗑️ Deleting recording:', sessionId);
+      
+      // 1. Immediately remove from UI (optimistic update)
+      const { removeRecording } = useNoteEditorStore.getState();
+      removeRecording(sessionId);
+      removeFromBackendList(sessionId);
+      console.log('[RightSidePanel] ✅ Removed from UI immediately (optimistic)');
+      
+      // Import deleteSession dynamically
+      const { deleteSession } = await import('@/lib/api/transcription.api');
+      const { deleteSession: deleteLocalSession } = await import('@/lib/storage/transcription-storage');
+      
+      // 2. Delete from backend (soft delete with deletedAt)
+      try {
+        await deleteSession(sessionId);
+        console.log('[RightSidePanel] ✅ Recording deleted from backend (PostgreSQL)');
+      } catch (backendError: any) {
+        // If 404, it's already deleted - that's okay
+        if (backendError?.status === 404) {
+          console.log('[RightSidePanel] ⚠️ Recording already deleted from backend (404)');
+        } else {
+          // Rollback on error - refresh to restore UI
+          await refreshRecordings();
+          throw backendError;
+        }
+      }
+      
+      // 3. Delete from local IndexedDB
+      try {
+        await deleteLocalSession(sessionId);
+        console.log('[RightSidePanel] ✅ Recording deleted from IndexedDB');
+      } catch (localError) {
+        console.warn('[RightSidePanel] ⚠️ Failed to delete from IndexedDB:', localError);
+        // Continue even if local delete fails
+      }
+      
+      // 4. Confirm with backend (verify deletion)
+      await refreshRecordings();
+      console.log('[RightSidePanel] ✅ Deletion confirmed with backend');
+      
+    } catch (error) {
+      console.error('[RightSidePanel] ❌ Failed to delete recording:', error);
+      alert('녹음 삭제에 실패했습니다.');
+    }
+  };
 
   // User info (for question authorship)
   const currentUser = { name: "사용자", email: "user@example.com" };
@@ -123,10 +226,26 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
     if (!audio || scriptSegments.length === 0) return;
 
     const handleTimeUpdate = () => {
-      const currentTime = audio.currentTime;
+      const currentTime = audio.currentTime; // in seconds
+      
+      // Find the active segment - segment.timestamp is in milliseconds
       const activeSegment = scriptSegments.find(
-        (segment) => currentTime >= segment.timestamp && currentTime < segment.timestamp + 5 // 5 second window
+        (segment) => {
+          const segmentStartTime = (segment.timestamp || 0) / 1000; // Convert ms to seconds
+          const segmentEndTime = segmentStartTime + 5; // 5 second window
+          return currentTime >= segmentStartTime && currentTime < segmentEndTime;
+        }
       );
+      
+      if (activeSegment) {
+        console.log('[RightSidePanel] Active segment:', {
+          id: activeSegment.id,
+          text: activeSegment.originalText?.substring(0, 30),
+          segmentTime: ((activeSegment.timestamp || 0) / 1000).toFixed(2) + 's',
+          currentTime: currentTime.toFixed(2) + 's',
+        });
+      }
+      
       setActiveSegmentId(activeSegment?.id || null);
     };
 
@@ -229,6 +348,7 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
       className={`fixed right-0 top-0 h-full flex flex-col gap-2 pt-6 px-4 bg-[#1e1e1e] transition-all duration-300 ${
         isExpanded ? "translate-x-0 w-[500px]" : "translate-x-full w-0"
       }`}
+      style={{ zIndex: 20 }}
     >
       {isExpanded && (
         <>
@@ -245,6 +365,7 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
             onToggleScript={toggleScript}
             isRecording={isRecording}
             onRecordingSelect={handleRecordingSelect}
+            onDeleteRecording={handleDeleteRecording}
           />
 
           {/* 녹음 이름 설정 모달 */}
@@ -338,16 +459,20 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
           />
 
           {/* etc 패널 */}
-          <EtcPanel
-            isOpen={isEtcPanelOpen}
-            questions={questions}
-            onAddQuestion={handleAddQuestion}
-            onDeleteQuestion={deleteQuestion}
-            currentUser={currentUser}
-          />
+          <EtcPanel isOpen={isEtcPanelOpen} />
 
           {/* tags 패널 */}
           <TagsPanel isOpen={isTagsPanelOpen} />
+
+          {/* 협업 패널 (교육자 노트 + 협업 모드 활성화 시, Liveblocks 실시간) */}
+          {isCollaborationPanelOpen && isEducatorNote && isCollaborating && userId && userName && (
+            <CollaborationPanel
+              userId={userId}
+              userName={userName}
+              noteId={noteId || ""}
+              isEducator={!isSharedView} // 공유 모드에서는 학생
+            />
+          )}
 
           {/* 카테고리 버튼 */}
           <CategoryButtons
@@ -361,6 +486,9 @@ export function RightSidePanel({ noteId }: RightSidePanelProps = {}) {
             isEtcOpen={isEtcPanelOpen}
             onTagsToggle={toggleTagsPanel}
             isTagsOpen={isTagsPanelOpen}
+            onCollaborationToggle={toggleCollaborationPanel}
+            isCollaborationOpen={isCollaborationPanelOpen}
+            isEducator={isEducatorNote}
           />
         </>
       )}

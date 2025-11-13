@@ -241,8 +241,11 @@ async function syncSingleNoteInBackground(noteId: string, localNote: Note): Prom
 export async function createNote(
   title: string,
   folderId: string,
-  files: File[]
+  files: File[],
+  type: "student" | "educator" = "student"
 ): Promise<Note> {
+  console.log(`[notes.api] 📝 Creating note with type: ${type}`); // Debug log
+  
   // Check for duplicate title in the same folder
   const isDuplicate = await checkDuplicateNoteTitle(title, folderId);
   if (isDuplicate) {
@@ -257,7 +260,7 @@ export async function createNote(
     const { createNote: createNoteInDB } = await import("@/lib/db/notes");
     const { saveMultipleFiles } = await import("@/lib/db/files");
 
-    const dbNote = await createNoteInDB(title, folderId);
+    const dbNote = await createNoteInDB(title, folderId, type);
     noteId = dbNote.id; // Use this ID for both local and backend
 
     // 파일도 IndexedDB에 저장
@@ -266,7 +269,7 @@ export async function createNote(
     }
 
     localResult = dbToNote(dbNote);
-    console.log(`[notes.api] Note saved to IndexedDB with ID:`, noteId);
+    console.log(`[notes.api] Note saved to IndexedDB with ID: ${noteId}, type: ${type}`);
   } catch (error) {
     console.error("[notes.api] Failed to save to IndexedDB:", error);
   }
@@ -278,7 +281,18 @@ export async function createNote(
       formData.append("id", noteId!); // Send the same ID to backend
       formData.append("title", title);
       formData.append("folder_id", folderId);
+      formData.append("type", type); // Send note type to backend
       files.forEach((file) => formData.append("files", file));
+
+      console.log(`[notes.api] 🔄 Syncing to backend:`, {
+        url: `${API_BASE_URL}/api/notes`,
+        noteId,
+        title,
+        folderId,
+        type,
+        filesCount: files.length,
+        hasAuthToken: !!localStorage.getItem("authToken"),
+      });
 
       const res = await fetch(`${API_BASE_URL}/api/notes`, {
         method: "POST",
@@ -289,7 +303,13 @@ export async function createNote(
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Failed to create note on backend");
+      console.log(`[notes.api] Backend response status: ${res.status} ${res.statusText}`);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[notes.api] Backend error response:`, errorText);
+        throw new Error(`Failed to create note on backend: ${res.status} ${errorText}`);
+      }
       
       const backendNote: ApiNoteResponse = await res.json();
       console.log(`[notes.api] ✅ Note synced to backend:`, title, `ID: ${backendNote.id}`);
@@ -470,4 +490,80 @@ export async function fetchNoteContent(
     const data = await res.json();
     return data.blocks;
   }
+}
+
+/**
+ * Trash API - Get all trashed notes
+ */
+export async function fetchTrashedNotes(): Promise<Note[]> {
+  console.log('[notes.api] 🗑️ Fetching trashed notes');
+  
+  const res = await fetch(`${API_BASE_URL}/api/notes/trash/list`, {
+    credentials: "include",
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!res.ok) {
+    console.error('[notes.api] ❌ Failed to fetch trashed notes:', res.status);
+    throw new Error("Failed to fetch trashed notes");
+  }
+
+  const apiNotes: ApiNoteResponse[] = await res.json();
+  console.log('[notes.api] ✅ Fetched trashed notes:', apiNotes.length);
+  
+  return apiToNotes(apiNotes);
+}
+
+/**
+ * Trash API - Restore a trashed note
+ */
+export async function restoreNote(noteId: string): Promise<{ message: string; title?: string }> {
+  console.log('[notes.api] 🔄 Restoring note:', noteId);
+
+  const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/restore`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!res.ok) {
+    console.error('[notes.api] ❌ Failed to restore note:', res.status);
+    throw new Error("Failed to restore note");
+  }
+
+  const result = await res.json();
+  console.log('[notes.api] ✅ Note restored:', result);
+  
+  return result;
+}
+
+/**
+ * Trash API - Permanently delete a trashed note
+ */
+export async function permanentlyDeleteNote(noteId: string): Promise<{ message: string }> {
+  console.log('[notes.api] 🗑️ Permanently deleting note:', noteId);
+
+  const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/permanent`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!res.ok) {
+    console.error('[notes.api] ❌ Failed to permanently delete note:', res.status);
+    throw new Error("Failed to permanently delete note");
+  }
+
+  const result = await res.json();
+  console.log('[notes.api] ✅ Note permanently deleted:', result);
+  
+  return result;
 }

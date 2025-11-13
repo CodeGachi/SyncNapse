@@ -4,6 +4,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
@@ -13,6 +14,7 @@ import { RenameFolderModal } from "@/components/dashboard/folder-management/rena
 import { DeleteFolderModal } from "@/components/dashboard/folder-management/delete-folder-modal";
 import { NotificationCenter } from "@/components/notification/notification-center";
 import { FolderTree } from "@/components/dashboard/folder-management/folder-tree";
+import { RootNotes } from "@/components/dashboard/folder-management/root-notes";
 import { useDashboard } from "@/features/dashboard";
 import { useAuth } from "@/features/auth/use-auth";
 import { useGoogleLogin } from "@/features/auth/google-login";
@@ -32,11 +34,17 @@ export function DashboardSidebar({
   const { handleCreateNote } = useDashboard();
   const { user } = useAuth();
   const { handleLogout } = useGoogleLogin();
-  const { buildFolderTree } = useFolders();
+  const { buildFolderTree, folders } = useFolders();
+  
+  // Find the "Root" folder for querying root-level notes
+  const rootFolder = folders.find((f) => f.name === "Root" && f.parentId === null);
 
+  // 간단한 UI 상태 - 컴포넌트에서 직접 관리
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [currentNoteType, setCurrentNoteType] = useState<"student" | "educator">("student");
+
+  // 폴더 관련 상태와 핸들러 - use-dashboard-sidebar에서 관리
   const {
-    isSettingsModalOpen,
-    setIsSettingsModalOpen,
     isCreateFolderModalOpen,
     setIsCreateFolderModalOpen,
     createSubfolderParentId,
@@ -51,7 +59,11 @@ export function DashboardSidebar({
     handleRenameSubmit,
     handleDeleteFolder,
     handleDeleteSubmit,
-  } = useDashboardSidebar({ selectedFolderId, onSelectFolder });
+    handleDeleteNote,
+  } = useDashboardSidebar({
+    selectedFolderId,
+    onSelectFolder,
+  });
 
   return (
     <>
@@ -95,7 +107,14 @@ export function DashboardSidebar({
       {/* Create new menu */}
       <div className="mb-4">
         <CreateMenu
-          onCreateNote={() => setIsSettingsModalOpen(true)}
+          onCreatePersonalNote={() => {
+            setCurrentNoteType("student");
+            setIsSettingsModalOpen(true);
+          }}
+          onCreateLectureNote={() => {
+            setCurrentNoteType("educator");
+            setIsSettingsModalOpen(true);
+          }}
           onCreateFolder={() => setIsCreateFolderModalOpen(true)}
         />
       </div>
@@ -124,7 +143,7 @@ export function DashboardSidebar({
             <span className="text-sm">전체 노트</span>
           </button>
 
-          {/* Folder tree */}
+          {/* Folder tree (먼저 표시) */}
           <FolderTree
             tree={buildFolderTree()}
             selectedFolderId={selectedFolderId}
@@ -132,7 +151,16 @@ export function DashboardSidebar({
             onCreateSubFolder={handleCreateSubFolder}
             onRenameFolder={handleRenameFolder}
             onDeleteFolder={handleDeleteFolder}
+            onDeleteNote={handleDeleteNote}
           />
+
+          {/* Root-level notes (폴더 다음에 표시) */}
+          {rootFolder && (
+            <RootNotes
+              folderId={rootFolder.id}
+              onDeleteNote={handleDeleteNote}
+            />
+          )}
         </div>
       </nav>
 
@@ -168,6 +196,7 @@ export function DashboardSidebar({
         setIsSettingsModalOpen(false);
       }}
       defaultFolderId={selectedFolderId}
+      noteType={currentNoteType}
     />
 
     {/* Folder creation modal */}

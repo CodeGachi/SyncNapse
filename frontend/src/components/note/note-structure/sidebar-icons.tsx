@@ -5,12 +5,22 @@
 
 "use client";
 
-import { useNoteEditorStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore } from "@/stores";
+import { useNote } from "@/lib/api/queries/notes.queries";
 import { useSidebarIcons } from "@/features/note/note-structure/use-sidebar-icons";
 
-export function SidebarIcons() {
+interface SidebarIconsProps {
+  noteId?: string | null;
+}
+
+export function SidebarIcons({ noteId }: SidebarIconsProps) {
   const { isExpanded, toggleExpand } = useNoteEditorStore();
   const { isVisible } = useSidebarIcons();
+  const { toggleNotePanel, toggleFilePanel, toggleScript, toggleCollaborationPanel } = usePanelsStore();
+
+  // Get note data to determine if it's an educator note
+  const { data: note } = useNote(noteId || null);
+  const isEducatorNote = note?.type === "educator";
 
   if (isExpanded || !isVisible) return null;
 
@@ -31,7 +41,10 @@ export function SidebarIcons() {
 
       {/* 클립보드 아이콘 (Notes) */}
       <button
-        onClick={toggleExpand}
+        onClick={() => {
+          toggleExpand();
+          toggleNotePanel();
+        }}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="Notes"
       >
@@ -43,7 +56,10 @@ export function SidebarIcons() {
 
       {/* 파일 아이콘 (Files) */}
       <button
-        onClick={toggleExpand}
+        onClick={() => {
+          toggleExpand();
+          toggleFilePanel();
+        }}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
         title="Files"
       >
@@ -53,11 +69,14 @@ export function SidebarIcons() {
         </svg>
       </button>
 
-      {/* 눈 아이콘 (View) */}
+      {/* 눈 아이콘 (Script) */}
       <button
-        onClick={toggleExpand}
+        onClick={() => {
+          toggleExpand();
+          toggleScript();
+        }}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="View"
+        title="Script"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M1 10s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -65,11 +84,31 @@ export function SidebarIcons() {
         </svg>
       </button>
 
+      {/* 협업 아이콘 (Collaboration) - 교육자 노트만 */}
+      {isEducatorNote && (
+        <button
+          onClick={() => {
+            toggleExpand();
+            toggleCollaborationPanel();
+          }}
+          className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
+          title="협업"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="7" cy="6" r="2" stroke="white" strokeWidth="2" />
+            <circle cx="13" cy="6" r="2" stroke="white" strokeWidth="2" />
+            <path d="M7 8a3 3 0 100 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            <path d="M13 8a3 3 0 000 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            <path d="M10 12c1.5 0 2.5 1 2.5 2.5v1M10 12c-1.5 0-2.5 1-2.5 2.5v1" stroke="white" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+
       {/* 더보기 아이콘 (More) */}
       <button
         onClick={toggleExpand}
         className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="More"
+        title="Close Panel"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <circle cx="10" cy="4" r="1.5" fill="white" />

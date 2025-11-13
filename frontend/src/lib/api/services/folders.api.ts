@@ -272,12 +272,22 @@ export async function deleteFolder(folderId: string): Promise<void> {
         },
       });
 
-      if (!res.ok) throw new Error("Failed to delete folder on backend");
+      // DEBUG: Log response status
+      console.log(`[folders.api] Delete folder response status: ${res.status}`);
+      
+      // 404는 이미 삭제된 것으로 간주하고 에러로 처리하지 않음
+      if (!res.ok && res.status !== 404) {
+        throw new Error(`Failed to delete folder: ${res.statusText}`);
+      }
+      
       console.log(`[folders.api] Folder deletion synced to backend:`, folderId);
     } catch (error) {
       console.error("[folders.api] Failed to sync deletion to backend:", error);
-      // 재시도 큐에 추가
-      getSyncQueue().addTask('folder-delete', { id: folderId });
+      // 404 에러가 아닌 경우에만 재시도 큐에 추가
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.includes('404')) {
+        getSyncQueue().addTask('folder-delete', { id: folderId });
+      }
     }
   };
 

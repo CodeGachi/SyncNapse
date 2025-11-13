@@ -149,6 +149,34 @@ CREATE TABLE "MaterialPage" (
 );
 
 -- CreateTable
+CREATE TABLE "PageContent" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "pageId" TEXT NOT NULL,
+    "pageNumber" INTEGER NOT NULL,
+    "blocks" JSONB NOT NULL,
+    "storageKey" TEXT,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PageContent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NoteContent" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "content" JSONB NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "storageKey" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NoteContent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "AudioRecording" (
     "id" TEXT NOT NULL,
     "noteId" TEXT NOT NULL,
@@ -514,6 +542,21 @@ CREATE INDEX "MaterialPage_pageBlobId_idx" ON "MaterialPage"("pageBlobId");
 CREATE UNIQUE INDEX "MaterialPage_noteId_pageNumber_key" ON "MaterialPage"("noteId", "pageNumber");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PageContent_pageId_key" ON "PageContent"("pageId");
+
+-- CreateIndex
+CREATE INDEX "PageContent_noteId_pageNumber_idx" ON "PageContent"("noteId", "pageNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PageContent_noteId_pageNumber_key" ON "PageContent"("noteId", "pageNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NoteContent_noteId_key" ON "NoteContent"("noteId");
+
+-- CreateIndex
+CREATE INDEX "NoteContent_noteId_idx" ON "NoteContent"("noteId");
+
+-- CreateIndex
 CREATE INDEX "AudioRecording_noteId_idx" ON "AudioRecording"("noteId");
 
 -- CreateIndex
@@ -719,6 +762,15 @@ ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_canonicalPageId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_pageBlobId_fkey" FOREIGN KEY ("pageBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PageContent" ADD CONSTRAINT "PageContent_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PageContent" ADD CONSTRAINT "PageContent_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "MaterialPage"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NoteContent" ADD CONSTRAINT "NoteContent_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AudioRecording" ADD CONSTRAINT "AudioRecording_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

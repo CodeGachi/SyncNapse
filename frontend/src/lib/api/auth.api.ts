@@ -53,13 +53,20 @@ export async function exchangeCodeForToken(code: string, state: string): Promise
 }
 
 /**
-* token Validation * URL Include token Validationand User Information Return */ export async function verifyToken(token: string): Promise<LoginResponse> { return apiClient<LoginResponse>("/api/auth/verify", {    method: "POST",
+ * Token validation
+ * URL includes token validation and returns user information
+ */
+export async function verifyToken(token: string): Promise<LoginResponse> {
+  return apiClient<LoginResponse>("/api/auth/verify", {
+    method: "POST",
     body: JSON.stringify({ token }),
   });
 }
 
 /**
- * Current Login User Information Query */ export async function getCurrentUser(): Promise<User> {
+ * Current logged in user information query
+ */
+export async function getCurrentUser(): Promise<User> {
   return apiClient<User>("/api/auth/me", {
     headers: getAuthHeaders(),
   });
@@ -109,3 +116,4 @@ export async function logout(): Promise<void> {
     headers: getAuthHeaders(),
   });
 }
+

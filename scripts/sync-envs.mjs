@@ -56,6 +56,8 @@ const backendEnv = {
   PORT: rootEnv.PORT,
   DEBUG_LEVEL: rootEnv.DEBUG_LEVEL,
   DATABASE_URL: rootEnv.DATABASE_URL,
+  // Frontend URL (for CORS, OAuth callbacks, etc.)
+  FRONTEND_URL: rootEnv.FRONTEND_URL,
   // OAuth Configuration
   GOOGLE_CLIENT_ID: rootEnv.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: rootEnv.GOOGLE_CLIENT_SECRET,
@@ -101,6 +103,8 @@ const frontendEnv = {
   NEXT_PUBLIC_API_URL: rootEnv.NEXT_PUBLIC_API_URL,
   // Real-time Transcription Settings (Web Speech API)
   NEXT_PUBLIC_SPEECH_LANGUAGE: rootEnv.NEXT_PUBLIC_SPEECH_LANGUAGE,
+  // Real-time Collaboration (Liveblocks)
+  NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY: rootEnv.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY,
 };
 
 fs.mkdirSync(path.dirname(frontendEnvPath), { recursive: true });

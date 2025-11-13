@@ -30,11 +30,8 @@ export function RecordingNameModal({
   };
 
   const handleSave = () => {
-    if (!title.trim()) {
-      alert("녹음 제목을 입력해주세요");
-      return;
-    }
-    onSave(title);
+    // 제목이 비어있어도 OK - use-recording-control에서 자동으로 타임스탬프 생성
+    onSave(title.trim());
     setTitle("");
   };
 
@@ -53,13 +50,15 @@ export function RecordingNameModal({
         </div>
 
         <div className="mb-6">
-          <label className="text-white text-sm mb-2 block">녹음 제목</label>
+          <label className="text-white text-sm mb-2 block">
+            녹음 제목 <span className="text-gray-500 text-xs">(선택사항)</span>
+          </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="예: 수업 녹음 1"
-            className="w-full bg-[#1e1e1e] border border-[#444444] rounded px-3 py-2 text-white focus:outline-none focus:border-[#666666]"
+            placeholder="2025_01_15_14:30:45"
+            className="w-full bg-[#1e1e1e] border border-[#444444] rounded px-3 py-2 text-white focus:outline-none focus:border-[#666666] placeholder:text-gray-600"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -69,6 +68,9 @@ export function RecordingNameModal({
               }
             }}
           />
+          <p className="mt-1.5 text-xs text-gray-500">
+            💡 제목을 입력하지 않으면 녹음 시작 시간으로 자동 저장됩니다
+          </p>
         </div>
 
         <div className="flex gap-3 justify-end">

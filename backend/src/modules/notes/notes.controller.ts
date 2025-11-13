@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotesService } from './notes.service';
-import { CreateNoteDto, UpdateNoteDto } from './dto';
+import { CreateNoteDto, UpdateNoteDto, SavePageContentDto, SaveNoteContentDto, NoteBlock } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 
@@ -70,8 +70,9 @@ export class NotesController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     this.logger.debug(
-      `[createNote] userId=${userId} title=${dto.title} folderId=${dto.folder_id} filesCount=${files?.length || 0}`,
+      `[createNote] userId=${userId} title=${dto.title} folderId=${dto.folder_id} type=${dto.type || 'student'} filesCount=${files?.length || 0}`,
     );
+    this.logger.debug(`[createNote] DTO details:`, JSON.stringify(dto));
     return this.notesService.createNote(userId, dto, files || []);
   }
 
@@ -92,5 +93,109 @@ export class NotesController {
   ) {
     this.logger.debug(`[deleteNote] userId=${userId} noteId=${noteId}`);
     return this.notesService.deleteNote(userId, noteId);
+  }
+
+  // Page Content endpoints
+  @Post(':noteId/pages/:pageNumber/content')
+  async savePageContent(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('pageNumber') pageNumber: string,
+    @Body() dto: SavePageContentDto,
+  ) {
+    const pageNum = parseInt(pageNumber, 10);
+    this.logger.debug(`[savePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum} blocks=${dto.blocks.length}`);
+    return this.notesService.savePageContent(userId, noteId, pageNum, dto.blocks as NoteBlock[]);
+  }
+
+  @Get(':noteId/pages/:pageNumber/content')
+  async getPageContent(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('pageNumber') pageNumber: string,
+  ) {
+    const pageNum = parseInt(pageNumber, 10);
+    this.logger.debug(`[getPageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum}`);
+    return this.notesService.getPageContent(userId, noteId, pageNum);
+  }
+
+  @Delete(':noteId/pages/:pageNumber/content')
+  async deletePageContent(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('pageNumber') pageNumber: string,
+  ) {
+    const pageNum = parseInt(pageNumber, 10);
+    this.logger.debug(`[deletePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum}`);
+    return this.notesService.deletePageContent(userId, noteId, pageNum);
+  }
+
+  // Note-level content endpoints (NEW)
+  @Post(':noteId/content')
+  async saveNoteContent(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Body() dto: SaveNoteContentDto,
+  ) {
+    this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId} pages=${Object.keys(dto.pages || {}).length}`);
+    
+    // Debug: Log received DTO data
+    const firstPageKey = Object.keys(dto.pages || {})[0];
+    if (firstPageKey && dto.pages[firstPageKey]) {
+      const firstPage = dto.pages[firstPageKey];
+      this.logger.debug(`[saveNoteContent] 📥 Received DTO - First page (${firstPageKey}):`, {
+        hasBlocks: !!firstPage.blocks,
+        blocksIsArray: Array.isArray(firstPage.blocks),
+        blockCount: firstPage.blocks?.length || 0,
+        firstBlockContent: firstPage.blocks?.[0]?.content,
+        firstBlockType: firstPage.blocks?.[0]?.type,
+        allBlocks: JSON.stringify(firstPage.blocks),
+      });
+    }
+    
+    return this.notesService.saveNoteContent(userId, noteId, dto.pages);
+  }
+
+  @Get(':noteId/content')
+  async getNoteContent(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[getNoteContent] userId=${userId} noteId=${noteId}`);
+    return this.notesService.getNoteContent(userId, noteId);
+  }
+
+  @Delete(':noteId/content')
+  async deleteNoteContent(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[deleteNoteContent] userId=${userId} noteId=${noteId}`);
+    return this.notesService.deleteNoteContent(userId, noteId);
+  }
+
+  // Trash endpoints
+  @Get('trash/list')
+  async getTrashedNotes(@CurrentUser('id') userId: string) {
+    this.logger.debug(`[getTrashedNotes] userId=${userId}`);
+    return this.notesService.getTrashedNotes(userId);
+  }
+
+  @Post(':noteId/restore')
+  async restoreNote(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[restoreNote] userId=${userId} noteId=${noteId}`);
+    return this.notesService.restoreNote(userId, noteId);
+  }
+
+  @Delete(':noteId/permanent')
+  async permanentlyDeleteNote(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[permanentlyDeleteNote] userId=${userId} noteId=${noteId}`);
+    return this.notesService.permanentlyDeleteNote(userId, noteId);
   }
 }

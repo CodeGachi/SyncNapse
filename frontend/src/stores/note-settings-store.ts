@@ -15,6 +15,7 @@ interface NoteSettingsState {
   isDragActive: boolean;
   validationErrors: string[];
   autoExtractZip: boolean;
+  noteType: "student" | "educator"; // 새로 추가: 노트 타입
 
   // Actions
   setTitle: (title: string) => void;
@@ -26,6 +27,7 @@ interface NoteSettingsState {
   setIsDragActive: (active: boolean) => void;
   setValidationErrors: (errors: string[]) => void;
   setAutoExtractZip: (enabled: boolean) => void;
+  setNoteType: (type: "student" | "educator") => void; // 새로 추가
   reset: () => void;
 }
 
@@ -36,6 +38,7 @@ const initialState = {
   isDragActive: false,
   validationErrors: [],
   autoExtractZip: false,
+  noteType: "student" as const, // 기본값: student
 };
 
 export const useNoteSettingsStore = create<NoteSettingsState>()(
@@ -73,6 +76,8 @@ export const useNoteSettingsStore = create<NoteSettingsState>()(
       setValidationErrors: (errors) => set({ validationErrors: errors }),
 
       setAutoExtractZip: (enabled) => set({ autoExtractZip: enabled }),
+
+      setNoteType: (type) => set({ noteType: type }),
 
       reset: () => set(initialState),
     }),

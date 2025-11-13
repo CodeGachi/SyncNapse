@@ -1,5 +1,6 @@
 /**
  * Dashboard 기능 모듈 Barrel Export
+ * 기능 중심 구조: core, folders, notes, sidebar
  */
 
 // Core
@@ -7,21 +8,19 @@ export { useDashboard } from "./core/use-dashboard";
 export { useFolders } from "./core/use-folders";
 export type { FolderTreeNode } from "./core/use-folders";
 
-// Folder Management
-export { useFolderTree } from "./folder-management/use-folder-tree";
-export { useFolderSelectorModal } from "./folder-management/use-folder-selector-modal";
-export { useCreateFolderModal } from "./folder-management/use-create-folder-modal";
-export { useRenameFolderModal } from "./folder-management/use-rename-folder-modal";
-export { useDeleteFolderModal } from "./folder-management/use-delete-folder-modal";
-export { useFolderOptionsMenu } from "./folder-management/use-folder-options-menu";
+// Folders (폴더 관련 모든 기능)
+export { useFolderTree } from "./folders/use-folder-tree";
+export { useFolderSelectorModal } from "./folders/use-folder-selector-modal";
+export { useCreateFolderModal } from "./folders/use-create-folder-modal";
+export { useRenameFolderModal } from "./folders/use-rename-folder-modal";
+export { useDeleteFolderModal } from "./folders/use-delete-folder-modal";
+export { useFolderOptionsMenu } from "./folders/use-folder-options-menu";
+export { useFolderStructureSection } from "./folders/use-folder-structure-section";
 
-// Note Creation
-export { useCreateNoteModal } from "./note-creation/use-create-note-modal";
-export { useFileList } from "./note-creation/use-file-list";
+// Notes (노트 관련 모든 기능)
+export { useCreateNoteModal } from "./notes/use-create-note-modal";
+export { useFileList } from "./notes/use-file-list";
 
 // Sidebar
 export { useDashboardSidebar } from "./sidebar/use-dashboard-sidebar";
 export { useCreateMenu } from "./sidebar/use-create-menu";
-
-// Main View
-export { useFolderStructureSection } from "./main-view/use-folder-structure-section";
