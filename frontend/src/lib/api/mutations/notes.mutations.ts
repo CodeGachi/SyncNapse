@@ -42,6 +42,8 @@ export function useCreateNote(
     onSuccess: (newNote) => {
       // 노트 목록 캐시 무효화 (자동 재조회)
       queryClient.invalidateQueries({ queryKey: ["notes"] });
+      // 폴더 목록도 재검증 (noteCount 업데이트용)
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
 
       // 새 노트를 캐시에 즉시 추가 (선택적)
       queryClient.setQueryData(["notes", newNote.id], newNote);
@@ -127,6 +129,7 @@ export function useUpdateNote(
     onSuccess: () => {
       // 노트 목록 재검증
       queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
 
       options?.onSuccess?.();
     },
@@ -190,6 +193,8 @@ export function useDeleteNote(
     onSuccess: () => {
       // 노트 목록 재검증 (서버와 동기화)
       queryClient.invalidateQueries({ queryKey: ["notes"] });
+      // 폴더 목록도 재검증 (noteCount 업데이트용)
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
 
       options?.onSuccess?.();
     },
@@ -247,6 +252,7 @@ export function useDeleteManyNotes(
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
 
       options?.onSuccess?.();
     },
