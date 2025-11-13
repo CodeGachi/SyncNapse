@@ -8,12 +8,15 @@ import { useNoteEditorStore } from "@/stores";
 import { useFilesWithIdByNote } from "@/lib/api/queries/files.queries";
 import { useRecordingsByNote } from "@/lib/api/queries/recordings.queries";
 import { saveNoteContent } from "@/lib/api/services/notes.api"; // ✅ V2 API로 변경
+import { useQueryClient } from "@tanstack/react-query";
 
 interface UseNoteDataLoaderProps {
   noteId: string | null;
 }
 
 export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
+  const queryClient = useQueryClient();
+  
   const {
     loadFiles: loadFilesToStore,
     addRecording,
@@ -28,6 +31,22 @@ export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
 
   // TanStack Query로 녹음 목록 조회
   const { data: recordings = [] } = useRecordingsByNote(noteId);
+  
+  // 파일 동기화 이벤트 리스너
+  useEffect(() => {
+    const handleFilesSync = (event: Event) => {
+      const customEvent = event as CustomEvent<{ noteId: string }>;
+      if (customEvent.detail?.noteId === noteId) {
+        console.log('[NoteDataLoader] Files synced, refreshing...');
+        queryClient.invalidateQueries({ queryKey: ["files", "note", noteId, "withId"] });
+      }
+    };
+    
+    window.addEventListener('files-synced', handleFilesSync);
+    return () => {
+      window.removeEventListener('files-synced', handleFilesSync);
+    };
+  }, [noteId, queryClient]);
 
   // 자동저장 콜백
   const handleAutoSave = async () => {

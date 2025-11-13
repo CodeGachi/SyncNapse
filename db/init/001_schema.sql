@@ -46,6 +46,21 @@ CREATE TABLE "LectureNote" (
 );
 
 -- CreateTable
+CREATE TABLE "File" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "fileType" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "storageUrl" TEXT NOT NULL,
+    "storageKey" TEXT NOT NULL,
+    "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "File_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "FolderLectureNote" (
     "folderId" TEXT NOT NULL,
     "noteId" TEXT NOT NULL,
@@ -133,6 +148,34 @@ CREATE TABLE "MaterialPage" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "MaterialPage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PageContent" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "pageId" TEXT NOT NULL,
+    "pageNumber" INTEGER NOT NULL,
+    "blocks" JSONB NOT NULL,
+    "storageKey" TEXT,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PageContent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NoteContent" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "content" JSONB NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "storageKey" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NoteContent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -426,6 +469,88 @@ CREATE TABLE "FileBlob" (
     CONSTRAINT "FileBlob_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "TrustedDevice" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "deviceName" TEXT NOT NULL,
+    "deviceType" TEXT NOT NULL,
+    "fingerprint" TEXT NOT NULL,
+    "publicKey" TEXT,
+    "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TrustedDevice_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TranscriptionSession" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "title" TEXT NOT NULL DEFAULT 'Untitled Session',
+    "noteId" TEXT,
+    "startTime" DECIMAL(10,3) NOT NULL DEFAULT 0,
+    "endTime" DECIMAL(10,3),
+    "duration" DECIMAL(10,3) NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'recording',
+    "fullAudioUrl" TEXT,
+    "fullAudioKey" TEXT,
+    "fullAudioSize" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "TranscriptionSession_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AudioChunk" (
+    "id" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "chunkIndex" INTEGER NOT NULL,
+    "startTime" DECIMAL(10,3) NOT NULL,
+    "endTime" DECIMAL(10,3) NOT NULL,
+    "duration" DECIMAL(10,3) NOT NULL,
+    "sampleRate" INTEGER NOT NULL DEFAULT 16000,
+    "storageUrl" TEXT NOT NULL,
+    "storageKey" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AudioChunk_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TranscriptionSegment" (
+    "id" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "startTime" DECIMAL(10,3) NOT NULL,
+    "endTime" DECIMAL(10,3) NOT NULL,
+    "confidence" DECIMAL(5,4) NOT NULL DEFAULT 0,
+    "isPartial" BOOLEAN NOT NULL DEFAULT false,
+    "language" TEXT NOT NULL DEFAULT 'ko',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TranscriptionSegment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TranscriptionWord" (
+    "id" TEXT NOT NULL,
+    "segmentId" TEXT NOT NULL,
+    "word" TEXT NOT NULL,
+    "startTime" DECIMAL(10,3) NOT NULL,
+    "confidence" DECIMAL(5,4) NOT NULL DEFAULT 0,
+    "wordIndex" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TranscriptionWord_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -440,6 +565,12 @@ CREATE INDEX "LectureNote_sourceBlobId_idx" ON "LectureNote"("sourceBlobId");
 
 -- CreateIndex
 CREATE INDEX "LectureNote_audioBlobId_idx" ON "LectureNote"("audioBlobId");
+
+-- CreateIndex
+CREATE INDEX "File_noteId_idx" ON "File"("noteId");
+
+-- CreateIndex
+CREATE INDEX "File_storageKey_idx" ON "File"("storageKey");
 
 -- CreateIndex
 CREATE INDEX "TranscriptSegment_noteId_startSec_idx" ON "TranscriptSegment"("noteId", "startSec");
@@ -476,6 +607,21 @@ CREATE INDEX "MaterialPage_pageBlobId_idx" ON "MaterialPage"("pageBlobId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "MaterialPage_noteId_pageNumber_key" ON "MaterialPage"("noteId", "pageNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PageContent_pageId_key" ON "PageContent"("pageId");
+
+-- CreateIndex
+CREATE INDEX "PageContent_noteId_pageNumber_idx" ON "PageContent"("noteId", "pageNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PageContent_noteId_pageNumber_key" ON "PageContent"("noteId", "pageNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NoteContent_noteId_key" ON "NoteContent"("noteId");
+
+-- CreateIndex
+CREATE INDEX "NoteContent_noteId_idx" ON "NoteContent"("noteId");
 
 -- CreateIndex
 CREATE INDEX "AudioRecording_noteId_idx" ON "AudioRecording"("noteId");
@@ -615,6 +761,45 @@ CREATE INDEX "FileBlob_mimeType_idx" ON "FileBlob"("mimeType");
 -- CreateIndex
 CREATE INDEX "FileBlob_createdAt_idx" ON "FileBlob"("createdAt");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "TrustedDevice_fingerprint_key" ON "TrustedDevice"("fingerprint");
+
+-- CreateIndex
+CREATE INDEX "TrustedDevice_userId_idx" ON "TrustedDevice"("userId");
+
+-- CreateIndex
+CREATE INDEX "TrustedDevice_fingerprint_idx" ON "TrustedDevice"("fingerprint");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionSession_userId_idx" ON "TranscriptionSession"("userId");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionSession_createdAt_idx" ON "TranscriptionSession"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionSession_status_idx" ON "TranscriptionSession"("status");
+
+-- CreateIndex
+CREATE INDEX "AudioChunk_sessionId_idx" ON "AudioChunk"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "AudioChunk_storageKey_idx" ON "AudioChunk"("storageKey");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AudioChunk_sessionId_chunkIndex_key" ON "AudioChunk"("sessionId", "chunkIndex");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionSegment_sessionId_startTime_idx" ON "TranscriptionSegment"("sessionId", "startTime");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionSegment_sessionId_isPartial_idx" ON "TranscriptionSegment"("sessionId", "isPartial");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionWord_segmentId_wordIndex_idx" ON "TranscriptionWord"("segmentId", "wordIndex");
+
+-- CreateIndex
+CREATE INDEX "TranscriptionWord_segmentId_startTime_idx" ON "TranscriptionWord"("segmentId", "startTime");
+
 -- AddForeignKey
 ALTER TABLE "Folder" ADD CONSTRAINT "Folder_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -626,6 +811,9 @@ ALTER TABLE "LectureNote" ADD CONSTRAINT "LectureNote_sourceBlobId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "LectureNote" ADD CONSTRAINT "LectureNote_audioBlobId_fkey" FOREIGN KEY ("audioBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "File" ADD CONSTRAINT "File_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "FolderLectureNote" ADD CONSTRAINT "FolderLectureNote_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "Folder"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -683,6 +871,15 @@ ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_canonicalPageId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "MaterialPage" ADD CONSTRAINT "MaterialPage_pageBlobId_fkey" FOREIGN KEY ("pageBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PageContent" ADD CONSTRAINT "PageContent_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PageContent" ADD CONSTRAINT "PageContent_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "MaterialPage"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NoteContent" ADD CONSTRAINT "NoteContent_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AudioRecording" ADD CONSTRAINT "AudioRecording_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -773,3 +970,18 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TrustedDevice" ADD CONSTRAINT "TrustedDevice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TranscriptionSession" ADD CONSTRAINT "TranscriptionSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AudioChunk" ADD CONSTRAINT "AudioChunk_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "TranscriptionSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TranscriptionSegment" ADD CONSTRAINT "TranscriptionSegment_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "TranscriptionSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TranscriptionWord" ADD CONSTRAINT "TranscriptionWord_segmentId_fkey" FOREIGN KEY ("segmentId") REFERENCES "TranscriptionSegment"("id") ON DELETE CASCADE ON UPDATE CASCADE;

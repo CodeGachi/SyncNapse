@@ -3,42 +3,34 @@ import {
   useQueryClient,
   UseMutationOptions,
 } from "@tanstack/react-query";
-import { logout as logoutApi } from "../services/auth.api";
+import { exchangeCodeForToken, logout as logoutApi, getCurrentUser, type OAuthTokenResponse } from "../auth.api";
 
 export function useLogin(
   options?: UseMutationOptions<
-    { accessToken: string; refreshToken: string; user: any },
+    OAuthTokenResponse,
     Error,
-    { accessToken: string; refreshToken: string }
+    { code: string; state: string }
   >
 ) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ accessToken, refreshToken }: { accessToken: string; refreshToken: string }) => {
-      localStorage.setItem("syncnapse_access_token", accessToken);
-      localStorage.setItem("syncnapse_refresh_token", refreshToken);
-
-      try {
-        const parts = accessToken.split(".");
-        const decoded = JSON.parse(
-          atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
-        );
-        return {
-          accessToken,
-          refreshToken,
-          user: {
-            id: decoded.sub || decoded.id,
-            email: decoded.email || "",
-            name: decoded.name || "User",
-          },
-        };
-      } catch {
-        return { accessToken, refreshToken, user: {} };
-      }
+    mutationFn: async ({ code, state }: { code: string; state: string }) => {
+      const response = await exchangeCodeForToken(code, state);
+      return response;
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(["auth", "currentUser"], data.user);
+    onSuccess: async (data) => {
+      // Store tokens in localStorage
+      localStorage.setItem("authToken", data.accessToken);
+      localStorage.setItem("refreshToken", data.refreshToken);
+      
+      // Fetch user info
+      try {
+        const user = await getCurrentUser();
+        queryClient.setQueryData(["auth", "currentUser"], user);
+      } catch (error) {
+        console.error("Failed to fetch user info:", error);
+      }
     },
     ...options,
   });
@@ -52,7 +44,16 @@ export function useLogout(options?: UseMutationOptions<void, Error, void>) {
       await logoutApi();
     },
     onSuccess: () => {
+      // Clear tokens from localStorage
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
       
+      // Clear cookies
+      document.cookie = "authToken=; path=/; max-age=0";
+      document.cookie = "refreshToken=; path=/; max-age=0";
+      
+      // Clear React Query cache
       queryClient.clear();
     },
     ...options,

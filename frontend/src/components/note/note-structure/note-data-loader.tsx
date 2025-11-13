@@ -16,10 +16,19 @@ interface NoteDataLoaderProps {
 }
 
 export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteDataLoaderProps) {
-  const { data: note, isLoading } = useNote(noteId);
+  const { data: note, isLoading, error } = useNote(noteId, { enabled: !isSharedView });
   const { handleAutoSave } = useNoteDataLoader({ noteId });
 
-  // 자동저장 훅 (공유 모드에서는 비활성화)
+  // Debug logs
+  console.log('[NoteDataLoader] Current state:', {
+    noteId,
+    hasNote: !!note,
+    isLoading,
+    error: error?.message,
+    noteData: note
+  });
+
+  // 자동저장 훅
   useAutoSave({
     noteId: noteId || "",
     enabled: !!noteId && !isSharedView, // 공유 모드에서는 자동저장 비활성화
@@ -35,6 +44,7 @@ export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteD
 
   // 로딩 상태 처리 (로컬 모드만)
   if (isLoading) {
+    console.log('[NoteDataLoader] Still loading note with ID:', noteId);
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-white text-xl">로딩 중...</div>
@@ -44,9 +54,15 @@ export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteD
 
   // 노트가 없는 경우 (로컬 모드만)
   if (!note && noteId) {
+    console.error('[NoteDataLoader] Note not found for ID:', noteId);
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-white text-xl">노트를 찾을 수 없습니다.</div>
+        <div className="text-white text-xl">
+          노트를 찾을 수 없습니다.
+          <div className="text-sm text-gray-400 mt-2">
+            Note ID: {noteId}
+          </div>
+        </div>
       </div>
     );
   }

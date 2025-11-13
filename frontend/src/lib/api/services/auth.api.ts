@@ -1,9 +1,6 @@
 /**
- * Authentication API V2 - HTTP Client 통합
- * 새로운 구조:
- * - apiClient 사용 (interceptor, retry, timeout, caching 등)
- * - Request interceptor로 Authorization 헤더 자동 주입
- * - 동기화 큐 미필요 (상태성 없는 인증)
+ * Authentication API
+ * Handles authentication-related API calls
  */
 
 import { apiClient } from "../client";
@@ -26,14 +23,14 @@ export interface LoginResponse {
  * Redirects to the backend Google OAuth endpoint
  */
 export function getGoogleLoginUrl(): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  return `${baseUrl}/api/auth/google`;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const url = `${baseUrl}/api/auth/google`;
+  console.log("[Auth] Google OAuth URL:", url, "API_URL:", baseUrl);
+  return url;
 }
 
 /**
  * Check authentication status
- * - HTTP Client V2 사용 (timeout, retry, cache 등)
- * - Request interceptor에서 Authorization 헤더 자동 주입
  */
 export async function checkAuthStatus(): Promise<{ ok: boolean }> {
   return apiClient<{ ok: boolean }>("/api/auth/check", {
@@ -42,42 +39,73 @@ export async function checkAuthStatus(): Promise<{ ok: boolean }> {
 }
 
 /**
+ * Get current user info from backend
+ * Fetches user information from the backend API
+ */
+export async function getCurrentUserFromAPI(): Promise<User> {
+  const response = await apiClient<{
+    id: string;
+    email: string;
+    name: string;
+    picture: null;
+    createdAt: string;
+  }>("/api/auth/me", {
+    method: "GET",
+  });
+  
+  // Backend returns { name, email, ... } but we need to map it
+  return {
+    id: response.id,
+    email: response.email,
+    name: response.name,
+    picture: response.picture || undefined,
+    createdAt: response.createdAt,
+  };
+}
+
+/**
  * Get current user info from JWT token
  * Decodes the JWT token stored in localStorage
- * Mock 모드일 때는 localStorage의 user 직접 반환
+ * Returns user info from token payload (fast, no API call)
  */
 export async function getCurrentUser(): Promise<User | null> {
   const token = localStorage.getItem("syncnapse_access_token");
-  if (!token) return null;
+  if (!token) {
+    localStorage.removeItem("user");
+    return null;
+  }
 
   try {
-    // Mock 토큰인 경우 (JWT 형식이 아님)
-    if (token.startsWith("mock-jwt-token-")) {
-      const userStr = localStorage.getItem("user");
-      if (!userStr) return null;
-
-      const user = JSON.parse(userStr);
-
-      // 구버전 데이터 마이그레이션: via.placeholder.com URL 제거
-      if (user.picture?.includes("via.placeholder.com")) {
-        user.picture = undefined;
-        localStorage.setItem("user", JSON.stringify(user));
-      }
-
-      return user;
+    // JWT 토큰 형식 검증 (3 parts: header.payload.signature)
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      console.warn("[Auth] Invalid JWT token format, removing...");
+      localStorage.removeItem("syncnapse_access_token");
+      localStorage.removeItem("syncnapse_refresh_token");
+      localStorage.removeItem("user");
+      return null;
     }
 
-    // JWT 토큰 디코드 (간단한 방식: payload 부분만 추출)
-    const parts = token.split(".");
-    if (parts.length !== 3) throw new Error("Invalid token format");
-
+    // JWT 토큰 디코드
     const decoded = JSON.parse(
       atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
 
+    // 필수 필드 확인
+    if (!decoded || (!decoded.sub && !decoded.id)) {
+      console.warn("[Auth] Token missing user ID, removing...");
+      localStorage.removeItem("syncnapse_access_token");
+      localStorage.removeItem("syncnapse_refresh_token");
+      localStorage.removeItem("user");
+      return null;
+    }
+
     // 토큰 만료 확인
     if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+      console.warn("[Auth] Token expired, removing...");
       localStorage.removeItem("syncnapse_access_token");
+      localStorage.removeItem("syncnapse_refresh_token");
+      localStorage.removeItem("user");
       return null;
     }
 
@@ -94,6 +122,8 @@ export async function getCurrentUser(): Promise<User | null> {
   } catch (error) {
     console.error("[Auth] getCurrentUser 실패:", error);
     localStorage.removeItem("syncnapse_access_token");
+    localStorage.removeItem("syncnapse_refresh_token");
+    localStorage.removeItem("user");
     return null;
   }
 }

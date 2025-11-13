@@ -20,7 +20,8 @@ import type { NoteData } from "@/lib/types";
 
 export function useCreateNoteModal(
   onSubmit: (noteData: NoteData) => Promise<void> | void,
-  defaultFolderId?: string | null
+  defaultFolderId?: string | null,
+  initialNoteType: "student" | "educator" = "student"
 ) {
   const {
     title,
@@ -53,6 +54,11 @@ export function useCreateNoteModal(
     }
   }, [defaultFolderId, setSelectedLocation]);
 
+  // Set initial note type when modal opens
+  useEffect(() => {
+    setNoteType(initialNoteType);
+  }, [initialNoteType, setNoteType]);
+
   // File upload Management
   const uploadQueue = useFileUpload({
     maxConcurrent: 2,
@@ -82,6 +88,10 @@ export function useCreateNoteModal(
   const getSelectedFolderName = () => {
     if (selectedLocation === "root") return "루트";
     const folder = dbFolders.find((f) => f.id === selectedLocation);
+    // If the folder is the "Root" system folder, display it as "루트" instead
+    if (folder && folder.name === "Root" && folder.parentId === null) {
+      return "루트";
+    }
     return folder?.name || "루트";
   };
 
@@ -186,8 +196,20 @@ export function useCreateNoteModal(
   const handleSubmit = async () => {
     if (isCreating) return;
 
+    // 제목이 비어있으면 첫 번째 파일의 이름을 사용 (확장자 제외)
+    let finalTitle = title.trim();
+    if (!finalTitle && uploadedFiles.length > 0) {
+      const firstFileName = uploadedFiles[0].file.name;
+      // 확장자 제거
+      finalTitle = firstFileName.replace(/\.[^/.]+$/, "");
+      console.log('[useCreateNoteModal] Using first file name as title:', finalTitle);
+    }
+    if (!finalTitle) {
+      finalTitle = "제목 없음";
+    }
+
     const noteData: NoteData = {
-      title: title || "제목 없음",
+      title: finalTitle,
       location: selectedLocation,
       files: uploadedFiles.map((uf) => uf.file),
       type: noteType,
@@ -199,7 +221,8 @@ export function useCreateNoteModal(
       reset();
     } catch (error) {
       console.error("Failed to create note:", error);
-      alert("노트 생성에 실패했습니다.");
+      const errorMessage = error instanceof Error ? error.message : "노트 생성에 실패했습니다.";
+      alert(errorMessage);
     } finally {
       setIsCreating(false);
     }

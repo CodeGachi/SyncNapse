@@ -105,24 +105,26 @@ export const PDFDrawingOverlay = forwardRef<
 
       fabricCanvasRef.current = canvas;
 
+      // 캔버스 경계 체크 이벤트 추가 (펜/형광펜 모드에서도 적용)
+      canvas.on('mouse:down', (e: any) => {
+        if (!canvas.isDrawingMode) return; // 자유 그리기 모드가 아니면 무시
+
+        const pointer = canvas.getPointer(e.e);
+        // 캔버스 경계 밖이면 드로잉 방지
+        if (pointer.x < 0 || pointer.x > containerWidth || pointer.y < 0 || pointer.y > adjustedHeight) {
+          canvas.isDrawingMode = false; // 일시적으로 비활성화
+          // 다음 프레임에 다시 활성화 (이벤트 처리 후)
+          setTimeout(() => {
+            if (canvas) canvas.isDrawingMode = true;
+          }, 0);
+        }
+      });
+
       // 캔버스 크기 정보 콘솔 출력
       const renderedWidth = containerWidth * pdfScale;
       const renderedHeight = adjustedHeight * pdfScale;
 
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🎨 드로잉 캔버스 초기화');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📐 캔버스 원본 크기 (PDF 원본 기준):');
-      console.log(`   Width: ${containerWidth.toFixed(2)}px`);
-      console.log(`   Height: ${adjustedHeight.toFixed(2)}px`);
-      console.log(`   중심 좌표: (${(containerWidth / 2).toFixed(2)}, ${(adjustedHeight / 2).toFixed(2)})`);
-      console.log('');
-      console.log('🔍 현재 렌더링 크기:');
-      console.log(`   Width: ${renderedWidth.toFixed(2)}px`);
-      console.log(`   Height: ${renderedHeight.toFixed(2)}px`);
-      console.log(`   Scale: ${pdfScale.toFixed(3)} (${(pdfScale * 100).toFixed(1)}%)`);
-      console.log(`   중심 좌표: (${(renderedWidth / 2).toFixed(2)}, ${(renderedHeight / 2).toFixed(2)})`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // Canvas initialization debug logs disabled for performance
 
       // 초기 히스토리 저장
       useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
@@ -154,24 +156,7 @@ export const PDFDrawingOverlay = forwardRef<
       canvas.setHeight(adjustedHeight);
       canvas.renderAll();
 
-      // 캔버스 리사이즈 정보 출력
-      const renderedWidth = containerWidth * pdfScale;
-      const renderedHeight = adjustedHeight * pdfScale;
-
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🔄 드로잉 캔버스 크기 업데이트');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📐 캔버스 원본 크기 (PDF 원본 기준):');
-      console.log(`   Width: ${containerWidth.toFixed(2)}px`);
-      console.log(`   Height: ${adjustedHeight.toFixed(2)}px`);
-      console.log(`   중심 좌표: (${(containerWidth / 2).toFixed(2)}, ${(adjustedHeight / 2).toFixed(2)})`);
-      console.log('');
-      console.log('🔍 현재 렌더링 크기:');
-      console.log(`   Width: ${renderedWidth.toFixed(2)}px`);
-      console.log(`   Height: ${renderedHeight.toFixed(2)}px`);
-      console.log(`   Scale: ${pdfScale.toFixed(3)} (${(pdfScale * 100).toFixed(1)}%)`);
-      console.log(`   중심 좌표: (${(renderedWidth / 2).toFixed(2)}, ${(renderedHeight / 2).toFixed(2)})`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // Canvas resize debug logs disabled for performance
     }, [containerWidth, containerHeight, pdfScale]);
 
     // 펜 모드 설정 (펜/형광펜 자유 그리기)
@@ -191,7 +176,12 @@ export const PDFDrawingOverlay = forwardRef<
         // Fabric.js 브러시 생성 및 설정
         canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
         canvas.freeDrawingBrush.color = drawStore.lineColor;
-        canvas.freeDrawingBrush.width = drawStore.lineWidth;
+
+        // pdfScale을 고려한 브러시 크기 설정
+        // CSS transform: scale(pdfScale)이 적용되므로 브러시 크기를 pdfScale로 나눔
+        // 그릴 때: (lineWidth / pdfScale) → transform 적용 후: lineWidth
+        // 그려진 후: (lineWidth / pdfScale) × pdfScale = lineWidth (일관된 크기)
+        canvas.freeDrawingBrush.width = drawStore.lineWidth / pdfScale;
 
         // 형광펜은 투명도 설정
         if (drawStore.type === 'highlighter') {
@@ -216,7 +206,7 @@ export const PDFDrawingOverlay = forwardRef<
           obj.evented = true;
         }
       });
-    }, [drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode]);
+    }, [drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode, pdfScale]);
 
     // 미리보기 선 렌더링
     const renderPreviewLine = useCallback(
@@ -363,8 +353,15 @@ export const PDFDrawingOverlay = forwardRef<
         const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
         if (isFreeDrawingMode) return;
 
-        setIsDrawing(true);
         const pos = fabricCanvasRef.current.getPointer(event.e as MouseEvent);
+
+        // 캔버스 경계 체크: 캔버스 영역 내에서만 드로잉 시작
+        const adjustedHeight = Math.max(containerHeight, 100);
+        if (pos.x < 0 || pos.x > containerWidth || pos.y < 0 || pos.y > adjustedHeight) {
+          return; // 캔버스 밖이면 드로잉 시작 안 함
+        }
+
+        setIsDrawing(true);
         setStartPos(pos);
 
         // 히스토리 저장
@@ -372,7 +369,7 @@ export const PDFDrawingOverlay = forwardRef<
           JSON.stringify(fabricCanvasRef.current.toJSON())
         );
       },
-      [isEnabled, isDrawingMode, drawStore.type]
+      [isEnabled, isDrawingMode, drawStore.type, containerWidth, containerHeight]
     );
 
     // 마우스 이동 이벤트
@@ -541,19 +538,8 @@ export const PDFDrawingOverlay = forwardRef<
       };
     }, [isDrawingMode, triggerAutoSave]);
 
-    // Update canvas dimensions on container size change
-    useEffect(() => {
-      const canvas = fabricCanvasRef.current;
-      if (!canvas) return;
-
-      // PDF 컨트롤 바 높이를 고려하여 조정
-      const controlBarHeight = isPdf ? 56 : 0;
-      const adjustedHeight = Math.max(containerHeight - controlBarHeight, 100);
-
-      canvas.setWidth(containerWidth);
-      canvas.setHeight(adjustedHeight);
-      canvas.renderAll();
-    }, [containerWidth, containerHeight, isPdf]);
+    // 이 useEffect는 위의 "Canvas 크기 업데이트"와 중복되어 제거됨
+    // containerWidth, containerHeight가 변경될 때 이미 위에서 처리됨
 
     // Cleanup on unmount
     useEffect(() => {
@@ -623,8 +609,8 @@ export const PDFDrawingOverlay = forwardRef<
           height={canvasHeight}
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
+            top: "0.5rem",     // PDF canvas의 m-2 (8px) 마진과 일치
+            left: "0.5rem",    // PDF canvas의 m-2 (8px) 마진과 일치
             // CSS transform으로 PDF 줌 레벨 적용
             // 캔버스는 항상 원본 크기, 시각적으로만 확대/축소
             transform: `scale(${pdfScale})`,

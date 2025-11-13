@@ -26,11 +26,8 @@ export default function NotePage({ searchParams }: NotePageProps) {
     redirect("/dashboard/main");
   }
 
-  // 노트 타입에 따라 적절한 페이지로 리다이렉트
-  const targetUrl =
-    noteType === "educator"
-      ? `/note/educator/${noteId}`
-      : `/note/student/${noteId}`;
+  // 새로운 URL 경로 생성
+  const targetUrl = `/note/${noteType}/${noteId}`;
 
   // 제목이 있으면 쿼리 파라미터로 전달
   const urlWithTitle = noteTitle

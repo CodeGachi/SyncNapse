@@ -19,12 +19,28 @@ export function FolderStructureSection({
   onSelectFolder,
 }: FolderStructureSectionProps) {
   const router = useRouter();
-  const { subFolders, folderPath, formatDate } = useFolderStructureSection({
+  const { subFolders, folderPath, formatDate, rootFolder } = useFolderStructureSection({
     selectedFolderId,
   });
+  
+  // When at root level (selectedFolderId === null), query notes from the "Root" system folder
+  // This ensures we only show notes in the root folder, not all notes
+  const queryFolderId = selectedFolderId 
+    ? selectedFolderId 
+    : (rootFolder?.id || "root");
+  
   const { data: notes = [], isLoading: notesLoading } = useNotes(
-    selectedFolderId ? { folderId: selectedFolderId } : { folderId: "root" }
+    { folderId: queryFolderId }
   );
+
+  // Debug logs
+  console.log('[FolderStructureSection] Current state:', {
+    selectedFolderId,
+    notesCount: notes.length,
+    notes: notes.map(n => ({ id: n.id, title: n.title, folderId: n.folderId })),
+    isLoading: notesLoading,
+    subFoldersCount: subFolders.length
+  });
 
   return (
     <section className="mb-12">

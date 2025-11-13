@@ -6,8 +6,12 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
 import { LiveSessionsModule } from './modules/live-sessions/live-sessions.module';
+import { ExportsModule } from './modules/exports/exports.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const portFromEnv = process.env.PORT;
@@ -15,7 +19,13 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
+    bodyParser: true,
+    rawBody: true,
   });
+
+  // Increase body size limit for audio chunks (50MB)
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
 
   app.setGlobalPrefix('api');
 
@@ -52,7 +62,7 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config, {
-    include: [AuthModule, UsersModule, BookmarksModule, LiveSessionsModule],
+    include: [AuthModule, UsersModule, BookmarksModule, LiveSessionsModule, ExportsModule, UploadsModule, StorageModule],
   });
   SwaggerModule.setup('docs', app, document);
 

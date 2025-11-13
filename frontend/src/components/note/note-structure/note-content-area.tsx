@@ -17,6 +17,7 @@ import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
+import { EducatorNoteLayout } from "@/components/note/educator/educator-note-layout";
 
 interface NoteContentAreaProps {
   noteId: string | null;
@@ -41,7 +42,7 @@ export function NoteContentArea({
   const actualTitle = note?.title || noteTitle;
   const isEducatorNote = note?.type === "educator";
 
-  // 공유 설정 관리
+  // 공유 설정 관리 (Hooks must be called before any early returns)
   const [isSharingOpen, setIsSharingOpen] = useState(false);
   const [sharingSettings, setSharingSettings] = useState(
     note?.accessControl || {
@@ -88,6 +89,49 @@ export function NoteContentArea({
   // Undo/Redo 상태 업데이트 - useEffect로 처리
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+
+  // Store states
+  const editorStore = useNoteEditorStore();
+  const panelsStore = usePanelsStore();
+  
+  const {
+    files: uploadedFiles,
+    openedTabs,
+    removeFile,
+    selectedFileId,
+    selectFile,
+    activeTab,
+    setActiveTab,
+    isExpanded,
+    toggleExpand,
+    autoSaveStatus,
+    lastSavedAt,
+    closeTab,
+    getOpenedFiles,
+  } = editorStore;
+
+  const { isNotePanelOpen } = panelsStore;
+
+  // 열린 파일들 가져오기
+  const openedFiles = getOpenedFiles();
+
+  const noteContentAreaHook = useNoteContentArea({
+    openedFiles,
+    setActiveTab,
+    selectFile,
+    closeTab,
+  });
+
+  const {
+    showExpandButton,
+    viewerHeight,
+    isDragging,
+    containerRef,
+    setIsDragging,
+    handleTabChange,
+    handleTabClose,
+    convertFilesForTabs,
+  } = noteContentAreaHook;
 
   useEffect(() => {
     setCanUndo(toolsStore.getCanUndo());
@@ -184,42 +228,16 @@ export function NoteContentArea({
     }
   };
 
-  const {
-    files: uploadedFiles,
-    openedTabs,
-    removeFile,
-    selectedFileId,
-    selectFile,
-    activeTab,
-    setActiveTab,
-    isExpanded,
-    toggleExpand,
-    autoSaveStatus,
-    lastSavedAt,
-    closeTab,
-    getOpenedFiles,
-  } = useNoteEditorStore();
-
-  const { isNotePanelOpen } = usePanelsStore();
-
-  // 열린 파일들 가져오기
-  const openedFiles = getOpenedFiles();
-
-  const {
-    showExpandButton,
-    viewerHeight,
-    isDragging,
-    containerRef,
-    setIsDragging,
-    handleTabChange,
-    handleTabClose,
-    convertFilesForTabs,
-  } = useNoteContentArea({
-    openedFiles,
-    setActiveTab,
-    selectFile,
-    closeTab,
-  });
+  // Educator 노트는 전용 레이아웃 사용 (after all hooks)
+  if (isEducatorNote && noteId) {
+    return (
+      <EducatorNoteLayout
+        noteId={noteId}
+        noteTitle={actualTitle}
+        isCollaborating={isCollaborating}
+      />
+    );
+  }
 
   // 탭용 파일 형식으로 변환
   const files = convertFilesForTabs();
@@ -364,32 +382,37 @@ export function NoteContentArea({
               </div>
 
               {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
-              {isEducatorNote && selectedFile && pdfRenderInfo && (
-                <PDFDrawingOverlay
-                  ref={drawingOverlayRef}
-                  isEnabled={true}
-                  isDrawingMode={isDrawingMode}
-                  isCollaborative={isCollaborating ?? false}
-                  noteId={noteId || ""}
-                  fileId={selectedFile.id.toString()}
-                  pageNum={currentPdfPage}
-                  containerWidth={pdfRenderInfo.baseWidth}
-                  containerHeight={pdfRenderInfo.baseHeight}
-                  pdfScale={pdfRenderInfo.scale}
-                  currentTool={currentTool}
-                  penColor={penColor}
-                  penSize={penSize}
-                  isPdf={selectedFile.type?.includes("pdf")}
-                  onSave={async (data) => {
-                    try {
-                      await saveDrawing(data);
-                      console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
-                    } catch (error) {
-                      console.error("Failed to save drawing:", error);
-                    }
-                  }}
-                />
-              )}
+              {isEducatorNote && selectedFile && pdfRenderInfo && (() => {
+                // PDF Debug logs disabled for performance
+
+                return (
+                  <PDFDrawingOverlay
+                    ref={drawingOverlayRef}
+                    isEnabled={true}
+                    isDrawingMode={isDrawingMode}
+                    isCollaborative={isCollaborating ?? false}
+                    noteId={noteId || ""}
+                    fileId={selectedFile.id.toString()}
+                    pageNum={currentPdfPage}
+                    containerWidth={pdfRenderInfo.baseWidth}
+                    containerHeight={pdfRenderInfo.baseHeight}
+                    pdfScale={pdfRenderInfo.scale}
+                    currentTool={currentTool}
+                    penColor={penColor}
+                    penSize={penSize}
+                    isPdf={selectedFile.type?.includes("pdf")}
+                    onSave={async (data) => {
+                      try {
+                        await saveDrawing(data);
+                        console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
+                      } catch (error) {
+                        console.error("Failed to save drawing:", error);
+                      }
+                    }}
+                  />
+                );
+
+              })()}
             </div>
 
             {/* 필기 도구 사이드바 - 우측 */}

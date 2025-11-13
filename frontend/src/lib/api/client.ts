@@ -11,7 +11,7 @@
  */
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // 재시도 설정
 const DEFAULT_RETRY_ATTEMPTS = 3;
@@ -435,4 +435,13 @@ export function clearCacheByPattern(pattern: RegExp | string): void {
   }
 
   console.debug(`[API] Cache cleared for pattern: ${pattern}`);
+}
+
+/**
+ * Get authorization headers
+ * Returns Bearer token header if token exists
+ */
+export function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem("authToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }

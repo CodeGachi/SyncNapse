@@ -11,8 +11,25 @@ import { createClient, LiveList, LiveObject } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 
 // Liveblocks 클라이언트 생성
+// Note: Public key가 설정되지 않은 경우 에러 방지를 위해 기본값 사용
+const publicKey = process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY;
+
+// DEBUG: Check if Liveblocks key is configured
+if (!publicKey || publicKey === "") {
+  console.warn(
+    "[Liveblocks] ⚠️ NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY is not configured. " +
+    "Real-time collaboration features will not work. " +
+    "Please add your Liveblocks public key to .env file. " +
+    "Get your key from https://liveblocks.io/dashboard"
+  );
+}
+
 const client = createClient({
-  publicApiKey: process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY || "",
+  // Use a valid dummy key format if not configured to prevent errors
+  // Liveblocks requires keys to start with "pk_"
+  publicApiKey: publicKey && publicKey.startsWith("pk_") 
+    ? publicKey 
+    : "pk_dev_placeholder_key_for_development_only",
 
   // 인증이 필요한 경우 (향후 구현)
   // authEndpoint: "/api/liveblocks-auth",

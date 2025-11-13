@@ -30,6 +30,7 @@ export interface Recording {
   createdAt: Date;
   audioUrl: string; // Blob URL
   audioBlob?: Blob; // 실제 오디오 데이터
+  sessionId?: string; // Backend transcription session ID
 }
 
 interface NoteEditorState {
@@ -321,14 +322,33 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         // BlockNote의 Block[]을 NoteBlock[]으로 변환
         const convertedBlocks: NoteBlock[] = blocks.map((block, index) => {
           const blockType = mapBlockNoteTypeToNoteBlock(block.type);
+          const content = getBlockContent(block);
+          
+          // Debug: Log block structure for troubleshooting
+          if (index === 0) {
+            console.log('[updatePageBlocksFromBlockNote] First block structure:', {
+              blockType: block.type,
+              blockId: block.id,
+              rawBlock: block,
+              extractedContent: content,
+              contentLength: content.length,
+            });
+          }
 
           return {
             id: block.id || `${pageKey}-${index}`,
             type: blockType,
-            content: getBlockContent(block),
+            content,
             checked: block.type === "checkListItem" ? (block.props as any)?.checked : undefined,
             indent: 0, // BlockNote는 기본적으로 들여쓰기를 자체적으로 관리
           };
+        });
+
+        console.log('[updatePageBlocksFromBlockNote] Converted blocks:', {
+          pageKey,
+          blockCount: convertedBlocks.length,
+          firstBlockContent: convertedBlocks[0]?.content,
+          allContents: convertedBlocks.map(b => ({ id: b.id, content: b.content })),
         });
 
         set({
@@ -513,14 +533,15 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       removeRecording: (id) =>
         set((state) => {
-          // Blob URL 정리
-          const recording = state.recordings.find((r) => r.id === id);
+          // Blob URL 정리 (id 또는 sessionId로 찾기)
+          const recording = state.recordings.find((r) => r.id === id || r.sessionId === id);
           if (recording?.audioUrl) {
             URL.revokeObjectURL(recording.audioUrl);
           }
 
           return {
-            recordings: state.recordings.filter((r) => r.id !== id),
+            // id 또는 sessionId가 일치하는 항목 제거
+            recordings: state.recordings.filter((r) => r.id !== id && r.sessionId !== id),
             currentRecordingId: state.currentRecordingId === id ? null : state.currentRecordingId,
           };
         }),
@@ -642,21 +663,37 @@ function mapBlockNoteTypeToNoteBlock(type: string): NoteBlock["type"] {
 function getBlockContent(block: Block): string {
   const content = (block as any).content;
 
+  console.log('[getBlockContent] Extracting content:', {
+    hasContent: !!content,
+    contentType: Array.isArray(content) ? 'array' : typeof content,
+    content: content,
+  });
+
   if (!content) return "";
 
   // content가 InlineContent[] 형태인 경우
   if (Array.isArray(content)) {
-    return content
+    const extracted = content
       .map((item: any) => {
         if (typeof item === "string") return item;
-        if (item.type === "text") return item.text || "";
+        if (item.type === "text" && item.text) return item.text;
+        if (item.type === "link" && item.content) {
+          // Handle links - extract text from link content
+          return Array.isArray(item.content) 
+            ? item.content.map((c: any) => c.text || '').join('')
+            : '';
+        }
         return "";
       })
       .join("");
+    
+    console.log('[getBlockContent] Extracted from array:', extracted);
+    return extracted;
   }
 
   // content가 문자열인 경우
   if (typeof content === "string") {
+    console.log('[getBlockContent] Content is string:', content);
     return content;
   }
 

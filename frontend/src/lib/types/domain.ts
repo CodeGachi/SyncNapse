@@ -68,6 +68,10 @@ export interface Note {
 
   // 새로 추가: Educator 노트 전용 설정
   accessControl?: NoteAccessControl;
+
+  // Trash-related fields
+  deletedAt?: string; // ISO string timestamp when note was deleted
+  folderName?: string; // Folder name for trashed notes display
 }
 
 /**

@@ -20,13 +20,44 @@ export function usePdfLoader(fileUrl?: string | null, fileType?: string | null) 
   const isPdf = fileType?.includes("pdf");
   const isImage = fileType?.includes("image");
 
-  // PDF.js 동적 로드
+  // PDF.js CDN에서 직접 로드 (Webpack 번들링 문제 우회)
   useEffect(() => {
     const loadPdfJs = async () => {
       try {
-        const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-        setPdfjsLib(pdfjs);
+        // 이미 로드되어 있는지 확인
+        if (typeof window !== "undefined" && (window as any).pdfjsLib) {
+          setPdfjsLib((window as any).pdfjsLib);
+          return;
+        }
+
+        // CDN에서 로드
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+        script.async = true;
+        
+        script.onload = () => {
+          const pdfjs = (window as any).pdfjsLib;
+          if (pdfjs) {
+            // Worker 경로 설정
+            pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+            setPdfjsLib(pdfjs);
+          } else {
+            throw new Error("PDF.js library not found");
+          }
+        };
+
+        script.onerror = () => {
+          setError("PDF 뷰어를 로드할 수 없습니다");
+        };
+
+        document.head.appendChild(script);
+
+        // Cleanup
+        return () => {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        };
       } catch (err) {
         console.error("PDF.js 로드 실패:", err);
         setError("PDF 뷰어를 로드할 수 없습니다");

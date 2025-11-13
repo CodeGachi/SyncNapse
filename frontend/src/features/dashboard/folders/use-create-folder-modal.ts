@@ -55,11 +55,15 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
   };
 
   const getSelectedLocationText = () => {
-    if (selectedParentId === null) return "Root";
+    if (selectedParentId === null) return "루트";
 
     const findFolder = (nodes: FolderTreeNode[]): string | null => {
       for (const node of nodes) {
         if (node.folder.id === selectedParentId) {
+          // If the folder is the "Root" system folder, display it as "루트" instead
+          if (node.folder.name === "Root" && node.folder.parentId === null) {
+            return "루트";
+          }
           return node.folder.name;
         }
         if (node.children.length > 0) {
@@ -69,7 +73,7 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
       }
       return null;
     };
-    return findFolder(folderTree) || "Root";
+    return findFolder(folderTree) || "루트";
   };
 
   return {

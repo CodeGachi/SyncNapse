@@ -19,7 +19,7 @@ services:
       MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
     command: server /data --console-address ":9001"
     volumes:
-      - minio-data:/data
+      - ./data/minio:/data  # Use local directory instead of named volume
     networks:
       - default
     healthcheck:
@@ -28,7 +28,7 @@ services:
       timeout: 20s
       retries: 3
 
-  # MinIO 클라이언트 (버킷 자동 생성)
+  # MinIO 클라이언트 (버킷 자동 생성 및 CORS 설정)
   minio-mc:
     image: minio/mc:latest
     container_name: syncnapse-minio-mc
@@ -42,15 +42,28 @@ services:
       mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
       mc mb local/${STORAGE_BUCKET:-syncnapse-files} --ignore-existing;
       mc anonymous set download local/${STORAGE_BUCKET:-syncnapse-files};
-      echo '✅ MinIO bucket created: ${STORAGE_BUCKET:-syncnapse-files}';
+      cat <<EOF > /tmp/cors.json
+      {
+        \"CORSRules\": [
+          {
+            \"AllowedOrigins\": [\"http://localhost:3000\", \"http://127.0.0.1:3000\"],
+            \"AllowedMethods\": [\"GET\", \"HEAD\", \"PUT\", \"POST\", \"DELETE\"],
+            \"AllowedHeaders\": [\"*\"],
+            \"ExposeHeaders\": [\"ETag\", \"Content-Length\", \"Content-Type\"]
+          }
+        ]
+      }
+      EOF
+      mc cors set /tmp/cors.json local/${STORAGE_BUCKET:-syncnapse-files};
+      echo '✅ MinIO bucket created with CORS: ${STORAGE_BUCKET:-syncnapse-files}';
       exit 0;
       "
     networks:
       - default
 
-volumes:
-  minio-data:
-    driver: local
+# volumes: # No longer needed - using bind mounts instead
+#   minio-data:
+#     driver: local
 
 networks:
   default:

@@ -5,28 +5,41 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNoteEditorStore } from "@/stores";
 import { useRecording, type RecordingData } from "@/features/note/player";
 
-export function useRecordingControl() {
+export function useRecordingControl(noteId?: string | null) {
   const { addRecording } = useNoteEditorStore();
 
   const {
     isRecording,
     isPaused,
+    recordingTime: recordingTimeSeconds, // Raw seconds
+    recordingStartTime, // Recording start timestamp
     formattedTime: recordingTime,
     error: recordingError,
-    startRecording,
+    startRecording: startBasicRecording,
     pauseRecording,
     resumeRecording,
-    stopRecording,
+    stopRecording: stopBasicRecording,
     cancelRecording,
-  } = useRecording();
+  } = useRecording(noteId);
 
-  // 녹음 이름 모달 상태
+  // Recording name modal state
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
-  const [pendingRecordingData, setPendingRecordingData] = useState<RecordingData | null>(null);
+  const [isSavingRecording, setIsSavingRecording] = useState(false);
+
+  /**
+   * Start recording
+   */
+  const startRecording = useCallback(async () => {
+    try {
+      await startBasicRecording();
+    } catch (error) {
+      console.error('[RecordingControl] Failed to start recording:', error);
+    }
+  }, [startBasicRecording]);
 
   // 녹음 재생/일시정지 토글
   const handlePlayPause = (isPlaying: boolean, audioRef: HTMLAudioElement | null) => {
@@ -49,48 +62,77 @@ export function useRecordingControl() {
     }
   };
 
-  // 녹음 종료 (모달 열기)
-  const handleStopRecording = async () => {
+  // 녹음 종료 버튼 클릭 (모달 먼저 열기)
+  const handleStopRecording = () => {
     if (isRecording) {
-      try {
-        const recordingData = await stopRecording();
-        setPendingRecordingData(recordingData);
-        setIsNameModalOpen(true);
-      } catch (error) {
-        console.error("녹음 종료 실패:", error);
-        alert("녹음 저장에 실패했습니다");
-      }
+      // 녹음 중이면 모달 열기 (아직 stopRecording 호출 안함!)
+      setIsNameModalOpen(true);
     }
   };
 
-  // 녹음 저장 (이름과 함께)
-  const handleSaveRecording = (title: string) => {
-    if (!pendingRecordingData) return;
+  // 녹음 저장 (제목 입력 후 실제로 stopRecording 호출)
+  const handleSaveRecording = async (title: string) => {
+    if (!isRecording) return;
 
-    addRecording({
-      title,
-      duration: pendingRecordingData.duration,
-      createdAt: pendingRecordingData.createdAt,
-      audioBlob: pendingRecordingData.audioBlob,
-    });
+    try {
+      setIsSavingRecording(true);
+      
+      // 제목이 비어있으면 타임스탬프 기반 제목 생성
+      let finalTitle = title.trim();
+      if (!finalTitle && recordingStartTime) {
+        // Format: YYYY_MM_DD_HH:MM:SS (with leading zeros)
+        const year = recordingStartTime.getFullYear();
+        const month = String(recordingStartTime.getMonth() + 1).padStart(2, '0');
+        const day = String(recordingStartTime.getDate()).padStart(2, '0');
+        const hours = String(recordingStartTime.getHours()).padStart(2, '0');
+        const minutes = String(recordingStartTime.getMinutes()).padStart(2, '0');
+        const seconds = String(recordingStartTime.getSeconds()).padStart(2, '0');
+        
+        finalTitle = `${year}_${month}_${day}_${hours}:${minutes}:${seconds}`;
+        console.log('[RecordingControl] Generated default title:', finalTitle);
+      }
+      
+      console.log('[RecordingControl] Saving recording with title:', finalTitle);
+      
+      // 이제 제목과 함께 stopRecording 호출
+      const recordingData = await stopBasicRecording(finalTitle);
+      
+      console.log('[RecordingControl] Recording saved:', recordingData);
 
-    setIsNameModalOpen(false);
-    setPendingRecordingData(null);
+      // Store에 추가 (로컬 참조용)
+      addRecording({
+        title: recordingData.title,
+        duration: recordingData.duration,
+        createdAt: recordingData.createdAt,
+        audioBlob: recordingData.audioBlob,
+        sessionId: recordingData.sessionId,
+      });
+
+      setIsNameModalOpen(false);
+    } catch (error) {
+      console.error('[RecordingControl] Failed to save recording:', error);
+      alert("녹음 저장에 실패했습니다");
+    } finally {
+      setIsSavingRecording(false);
+    }
   };
 
-  // 녹음 저장 취소
+  // 녹음 저장 취소 (녹음은 일시정지 상태로 유지, 모달만 닫기)
   const handleCancelSave = () => {
+    // 녹음을 삭제하지 않고 모달만 닫음 (일시정지 상태 유지)
+    // 사용자는 다시 재생 버튼을 눌러 녹음을 재개할 수 있음
     setIsNameModalOpen(false);
-    setPendingRecordingData(null);
+    console.log('[RecordingControl] Save cancelled, recording remains paused');
   };
 
   return {
     isRecording,
     isPaused,
     recordingTime,
+    recordingTimeSeconds,
     recordingError,
     isNameModalOpen,
-    pendingRecordingData,
+    isSavingRecording,
     handlePlayPause,
     handleStopRecording,
     handleSaveRecording,
