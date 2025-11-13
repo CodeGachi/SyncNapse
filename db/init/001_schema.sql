@@ -34,6 +34,7 @@ CREATE TABLE "Folder" (
 CREATE TABLE "LectureNote" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'student',
     "sourceFileUrl" TEXT,
     "audioFileUrl" TEXT,
     "sourceBlobId" TEXT,
