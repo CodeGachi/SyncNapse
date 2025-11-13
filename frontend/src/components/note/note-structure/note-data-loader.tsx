@@ -11,11 +11,12 @@ import { useNoteDataLoader } from "@/features/note/note-structure/use-note-data-
 
 interface NoteDataLoaderProps {
   noteId: string | null;
+  isSharedView?: boolean; // 공유 모드 여부
   children: React.ReactNode;
 }
 
-export function NoteDataLoader({ noteId, children }: NoteDataLoaderProps) {
-  const { data: note, isLoading, error } = useNote(noteId);
+export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteDataLoaderProps) {
+  const { data: note, isLoading, error } = useNote(noteId, { enabled: !isSharedView });
   const { handleAutoSave } = useNoteDataLoader({ noteId });
 
   // Debug logs
@@ -30,11 +31,18 @@ export function NoteDataLoader({ noteId, children }: NoteDataLoaderProps) {
   // 자동저장 훅
   useAutoSave({
     noteId: noteId || "",
-    enabled: !!noteId,
+    enabled: !!noteId && !isSharedView, // 공유 모드에서는 자동저장 비활성화
     onSave: handleAutoSave,
   });
 
-  // 로딩 상태 처리
+  // 공유 모드일 때는 로컬 DB 체크 건너뛰기
+  // (Liveblocks에서 노트 정보를 가져옴)
+  if (isSharedView) {
+    console.log("[NoteDataLoader] 공유 모드 - 로컬 DB 체크 건너뛰기");
+    return <>{children}</>;
+  }
+
+  // 로딩 상태 처리 (로컬 모드만)
   if (isLoading) {
     console.log('[NoteDataLoader] Still loading note with ID:', noteId);
     return (
@@ -44,7 +52,7 @@ export function NoteDataLoader({ noteId, children }: NoteDataLoaderProps) {
     );
   }
 
-  // 노트가 없는 경우
+  // 노트가 없는 경우 (로컬 모드만)
   if (!note && noteId) {
     console.error('[NoteDataLoader] Note not found for ID:', noteId);
     return (

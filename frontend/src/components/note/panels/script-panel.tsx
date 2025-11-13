@@ -1,10 +1,13 @@
 /**
- * Script Panel Component * Record Script Display and Translation feature
+ * Script Panel Component
+ * Record Script Display and Translation feature
  */
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useScriptTranslationStore } from "@/stores";
+import { Panel } from "./panel";
 import type { SupportedLanguage, LanguageOption, WordWithTime } from "@/lib/types";
 
 interface ScriptPanelProps {
@@ -113,9 +116,10 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
   };
 
   return (
-    <div className="mt-3 bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-6 w-full">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
+    <Panel isOpen={isOpen} borderColor="gray">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <h3 className="text-white text-lg font-bold">Script</h3>
 
@@ -294,6 +298,7 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
           )}
         </div>
       )}
-    </div>
+      </div>
+    </Panel>
   );
 }

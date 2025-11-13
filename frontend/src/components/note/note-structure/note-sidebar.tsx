@@ -1,42 +1,29 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useNoteEditorStore } from "@/stores";
-import { useNoteSidebar } from "@/features/note/note-structure/use-note-sidebar";
 
 /**
  * Note left sidebar UI component
  */
 export function NoteSidebar() {
   const router = useRouter();
-  const autoSaveStatus = useNoteEditorStore((state) => state.autoSaveStatus);
-  const { isNavigating, showWarning, setShowWarning, handleLogoClick } =
-    useNoteSidebar({ autoSaveStatus });
 
-  const onLogoClick = () => {
-    handleLogoClick(autoSaveStatus, router);
+  const handleLogoClick = () => {
+    router.push("/dashboard/main");
   };
 
   return (
-    <>
-      <aside className="bg-[#101013] border-r border-[#2f2f2f] flex flex-col items-center py-4 w-[66px] flex-shrink-0 h-full">
+    <aside className="bg-[#101013] border-r border-[#2f2f2f] flex flex-col items-center py-4 w-[66px] flex-shrink-0 h-full">
         <button
-          onClick={onLogoClick}
-          disabled={isNavigating}
-          className="mb-6 cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50"
+          onClick={handleLogoClick}
+          className="mb-6 cursor-pointer hover:opacity-80 transition-opacity"
         >
-          {isNavigating ? (
-            <div className="w-7 h-8 flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-[#5E5E67] border-t-white rounded-full animate-spin" />
-            </div>
-          ) : (
-            <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
-              <path
-                d="M14 0L0 8V24L14 32L28 24V8L14 0Z"
-                fill="#5E5E67"
-              />
-            </svg>
-          )}
+          <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
+            <path
+              d="M14 0L0 8V24L14 32L28 24V8L14 0Z"
+              fill="#5E5E67"
+            />
+          </svg>
         </button>
 
         <div className="flex-1 flex flex-col gap-2 items-center">
@@ -84,26 +71,5 @@ export function NoteSidebar() {
           </div>
         </div>
       </aside>
-
-      {/* 저장 중 경고 모달 */}
-      {showWarning && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#2f2f2f] border border-[#666666] rounded-lg p-6 max-w-md">
-            <h3 className="text-white text-lg font-bold mb-3">저장 중입니다</h3>
-            <p className="text-[#b9b9b9] text-sm mb-4">
-              현재 노트를 저장하고 있습니다. 저장이 완료될 때까지 기다려주세요.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowWarning(false)}
-                className="px-4 py-2 bg-[#444444] hover:bg-[#555555] text-white rounded-lg transition-colors"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   );
 }

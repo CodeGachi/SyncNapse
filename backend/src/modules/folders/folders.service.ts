@@ -565,22 +565,26 @@ export class FoldersService {
 
       if (!folder) break;
 
-      // URL encode folder name to support Korean and other unicode characters
-      // Only encode special characters that are problematic in URLs/paths
-      const sanitizedName = encodeURIComponent(folder.name)
-        .replace(/%20/g, ' ')  // Keep spaces as spaces
-        .replace(/%2F/g, '_')  // Replace / with _
-        .replace(/%5C/g, '_'); // Replace \ with _
-      
-      // Build path with folder name only (no ID)
-      pathParts.unshift(sanitizedName);
+      // Skip "Root" folder - don't include it in path
+      // Root folder contents go directly in users/{email}/
+      if (folder.name !== 'Root' || folder.parentId !== null) {
+        // URL encode folder name to support Korean and other unicode characters
+        // Only encode special characters that are problematic in URLs/paths
+        const sanitizedName = encodeURIComponent(folder.name)
+          .replace(/%20/g, ' ')  // Keep spaces as spaces
+          .replace(/%2F/g, '_')  // Replace / with _
+          .replace(/%5C/g, '_'); // Replace \ with _
+        
+        // Build path with folder name only (no ID)
+        pathParts.unshift(sanitizedName);
+      }
 
       currentFolderId = folder.parentId;
     }
 
     // Build final path: users/{email}/{folder1}/{folder2}/...
     const folderPath = pathParts.length > 0 ? pathParts.join('/') : '';
-    const storagePath = `users/${userEmail}/${folderPath}`;
+    const storagePath = folderPath ? `users/${userEmail}/${folderPath}` : `users/${userEmail}`;
 
     this.logger.debug(`[buildFolderStoragePath] Built path: ${storagePath}`);
     return storagePath;

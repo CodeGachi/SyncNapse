@@ -1,5 +1,10 @@
 /**
- * Records API - Backend and IndexedDB abstraction
+ * Recordings API V2 - IndexedDB 우선 저장 + 백엔드 동기화
+ *
+ * 새로운 구조:
+ * 1. 모든 변경사항은 IndexedDB에 즉시 저장 (오프라인 우선)
+ * 2. 동기화 큐에 추가
+ * 3. 백그라운드에서 백엔드와 동기화
  */
 
 import type { DBRecording } from "@/lib/db/recordings";
@@ -10,27 +15,23 @@ import {
   deleteRecording as deleteRecordingInDB,
   renameRecording as renameRecordingInDB,
 } from "@/lib/db/recordings";
-
-const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
+import { useSyncStore } from "@/lib/sync/sync-store";
 
 /**
  * Fetch all recordings for a note
+ * - IndexedDB에서 즉시 반환
+ * - 백엔드 동기화는 백그라운드에서 처리
  */
 export async function fetchRecordingsByNote(
   noteId: string
 ): Promise<DBRecording[]> {
-  if (USE_LOCAL) {
-    return await getRecordingsByNoteFromDB(noteId);
-  } else {
-    // Backend API Call
-    const res = await fetch(`/api/notes/${noteId}/records`);
-    if (!res.ok) throw new Error("Failed to fetch recordings");
-    return await res.json();
-  }
+  return await getRecordingsByNoteFromDB(noteId);
 }
 
 /**
  * Save recording
+ * - IndexedDB에 즉시 저장
+ * - 동기화 큐에 추가
  */
 export async function saveRecording(
   noteId: string,
@@ -38,58 +39,82 @@ export async function saveRecording(
   recordingBlob: Blob,
   duration: number
 ): Promise<DBRecording> {
-  if (USE_LOCAL) {
-    return await saveRecordingInDB(noteId, name, recordingBlob, duration);
-  } else {
-    // Backend API Call
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("recording", recordingBlob);
-    formData.append("duration", duration.toString());
+  // 1. IndexedDB에 즉시 저장
+  const dbRecording = await saveRecordingInDB(
+    noteId,
+    name,
+    recordingBlob,
+    duration
+  );
 
-    const res = await fetch(`/api/notes/${noteId}/recordings`, {
-      method: "POST",
-      body: formData,
-    });
+  // 2. 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "recording",
+    entityId: dbRecording.id,
+    operation: "create",
+    data: {
+      noteId,
+      name,
+      duration,
+      recordingSize: recordingBlob.size,
+      recordingType: recordingBlob.type,
+    },
+  });
 
-    if (!res.ok) throw new Error("Failed to save recording");
-    return await res.json();
-  }
+  return dbRecording;
 }
 
 /**
  * Delete recording
+ * - IndexedDB에서 즉시 삭제
+ * - 동기화 큐에 추가
  */
 export async function deleteRecording(recordingId: string): Promise<void> {
-  if (USE_LOCAL) {
-    await deleteRecordingInDB(recordingId);
-  } else {
-    // Backend API Call
-    const res = await fetch(`/api/records/${recordingId}`, {
-      method: "DELETE",
-    });
+  // 1. IndexedDB에서 삭제
+  await deleteRecordingInDB(recordingId);
 
-    if (!res.ok) throw new Error("Failed to delete recording");
-  }
+  // 2. 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "recording",
+    entityId: recordingId,
+    operation: "delete",
+    data: null,
+  });
 }
 
 /**
  * Rename recording
+ * - IndexedDB에서 즉시 업데이트
+ * - 동기화 큐에 추가
  */
 export async function renameRecording(
   recordingId: string,
   newName: string
 ): Promise<void> {
-  if (USE_LOCAL) {
-    await renameRecordingInDB(recordingId, newName);
-  } else {
-    // Backend API Call
-    const res = await fetch(`/api/records/${recordingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName }),
-    });
+  // 1. IndexedDB에서 업데이트
+  await renameRecordingInDB(recordingId, newName);
 
-    if (!res.ok) throw new Error("Failed to rename recording");
-  }
+  // 2. 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "recording",
+    entityId: recordingId,
+    operation: "update",
+    data: {
+      name: newName,
+    },
+  });
+}
+
+/**
+ * Fetch a single recording
+ * - IndexedDB에서 즉시 반환
+ */
+export async function fetchRecording(
+  recordingId: string
+): Promise<DBRecording | null> {
+  const recording = await getRecordingFromDB(recordingId);
+  return recording || null;
 }

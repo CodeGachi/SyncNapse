@@ -212,10 +212,23 @@ export function useRecordingWithTranscription() {
         console.log('[RecordingWithTranscription] Starting recording with Web Speech API...');
         console.log(`[RecordingWithTranscription] Language: ${language}, Auto-detect: ${autoDetect}`);
 
-        // Create transcription session
-        const session = await createSessionMutation.mutateAsync(
-          title || `Recording ${new Date().toLocaleString('ko-KR')}`
-        );
+        // Create transcription session with timestamp-based title if not provided
+        let sessionTitle = title;
+        if (!sessionTitle) {
+          // Format: YYYY_MM_DD_HH:MM:SS (with leading zeros)
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const day = String(now.getDate()).padStart(2, '0');
+          const hours = String(now.getHours()).padStart(2, '0');
+          const minutes = String(now.getMinutes()).padStart(2, '0');
+          const seconds = String(now.getSeconds()).padStart(2, '0');
+          
+          sessionTitle = `${year}_${month}_${day}_${hours}:${minutes}:${seconds}`;
+          console.log('[RecordingWithTranscription] Generated default title:', sessionTitle);
+        }
+        
+        const session = await createSessionMutation.mutateAsync(sessionTitle);
 
         setSessionId(session.id);
         startTimeRef.current = Date.now();

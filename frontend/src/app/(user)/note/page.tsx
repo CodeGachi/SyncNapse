@@ -1,40 +1,38 @@
-import { NoteSidebar } from "@/components/note/note-structure/note-sidebar";
-import { NoteContentArea } from "@/components/note/note-structure/note-content-area";
-import { RightSidePanel } from "@/components/note/note-structure/right-side-panel";
-import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
-import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
-import { NoteLayoutWrapper } from "@/components/note/note-structure/note-layout-wrapper";
+import { redirect } from "next/navigation";
 
 interface NotePageProps {
   searchParams: {
     id?: string;
     title?: string;
+    type?: "student" | "educator";
   };
 }
 
+/**
+ * 레거시 노트 페이지 리다이렉션
+ *
+ * /note?id=xxx&type=student → /note/student/xxx
+ * /note?id=xxx&type=educator → /note/educator/xxx
+ *
+ * type이 없으면 기본값은 student
+ */
 export default function NotePage({ searchParams }: NotePageProps) {
-  const noteId = searchParams.id || null;
-  const noteTitle = searchParams.title || "제목 없음";
+  const noteId = searchParams.id;
+  const noteType = searchParams.type || "student";
+  const noteTitle = searchParams.title;
 
-  return (
-    <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
-      {/* Left Sidebar - Server Component */}
-      <NoteSidebar />
+  // noteId가 없으면 대시보드로 리다이렉트
+  if (!noteId) {
+    redirect("/dashboard/main");
+  }
 
-      {/* Data Loader - Client Component (TanStack Query + AutoSave) */}
-      <NoteDataLoader noteId={noteId}>
-        {/* Main Layout Wrapper - Client Component (isExpanded Status Management) */}
-        <NoteLayoutWrapper>
-          {/* Main Content Area - Client Component */}
-          <NoteContentArea noteTitle={noteTitle} />
+  // 새로운 URL 경로 생성
+  const targetUrl = `/note/${noteType}/${noteId}`;
 
-          {/* Right Side Panel - Client Component */}
-          <RightSidePanel noteId={noteId} />
+  // 제목이 있으면 쿼리 파라미터로 전달
+  const urlWithTitle = noteTitle
+    ? `${targetUrl}?title=${encodeURIComponent(noteTitle)}`
+    : targetUrl;
 
-          {/* Right Sidebar Icon (When closed When) - Client Component */}
-          <SidebarIcons />
-        </NoteLayoutWrapper>
-      </NoteDataLoader>
-    </div>
-  );
+  redirect(urlWithTitle);
 }

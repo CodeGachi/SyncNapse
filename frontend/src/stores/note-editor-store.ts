@@ -6,9 +6,10 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { NoteBlock } from "@/features/note/editor/use-note-panel";
+import type { NoteBlock } from "@/features/note/text-notes/use-note-panel"; // ✅ text-notes
 import type { FileItem } from "@/features/note/file/use-file-panel";
 import type { Question, AutoSaveStatus } from "@/lib/types";
+import type { Block } from "@blocknote/core";
 
 /**
  * PDF 페이지별 노트 데이터 구조
@@ -78,16 +79,20 @@ interface NoteEditorState {
   getPageKey: (fileId: string, page: number) => string;
   getCurrentPageBlocks: () => NoteBlock[];
   setCurrentPage: (page: number) => void;
+  setPageNotes: (pageNotes: PageNotes) => void; // 공유 모드용
   addPageBlock: (afterId: string, type?: NoteBlock["type"]) => string;
   updatePageBlock: (id: string, updates: Partial<NoteBlock>) => void;
   deletePageBlock: (id: string) => void;
   initializePageNotes: (fileId: string, totalPages: number) => void;
+  updatePageBlocksFromBlockNote: (blocks: Block[]) => void; // BlockNote 통합
 
   // File Actions
   addFile: (file: FileItem) => void;
   removeFile: (id: string) => void; // files 목록에서 완전히 삭제
   selectFile: (id: string) => void;
+  setSelectedFileId: (id: string | null) => void; // 공유 모드용
   loadFiles: (files: FileItem[]) => void;
+  setFiles: (files: FileItem[]) => void; // 공유 모드용
   renameFile: (id: string, newName: string) => void;
   copyFile: (id: string) => void;
 
@@ -224,6 +229,8 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       setCurrentPage: (page) => set({ currentPage: page }),
 
+      setPageNotes: (pageNotes) => set({ pageNotes }),
+
       addPageBlock: (afterId, type = "text") => {
         const state = get();
         if (!state.selectedFileId) return "";
@@ -306,6 +313,52 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         set({ pageNotes: newPageNotes, currentPage: 1 });
       },
 
+      updatePageBlocksFromBlockNote: (blocks) => {
+        const state = get();
+        if (!state.selectedFileId) return;
+
+        const pageKey = state.getPageKey(state.selectedFileId, state.currentPage);
+
+        // BlockNote의 Block[]을 NoteBlock[]으로 변환
+        const convertedBlocks: NoteBlock[] = blocks.map((block, index) => {
+          const blockType = mapBlockNoteTypeToNoteBlock(block.type);
+          const content = getBlockContent(block);
+          
+          // Debug: Log block structure for troubleshooting
+          if (index === 0) {
+            console.log('[updatePageBlocksFromBlockNote] First block structure:', {
+              blockType: block.type,
+              blockId: block.id,
+              rawBlock: block,
+              extractedContent: content,
+              contentLength: content.length,
+            });
+          }
+
+          return {
+            id: block.id || `${pageKey}-${index}`,
+            type: blockType,
+            content,
+            checked: block.type === "checkListItem" ? (block.props as any)?.checked : undefined,
+            indent: 0, // BlockNote는 기본적으로 들여쓰기를 자체적으로 관리
+          };
+        });
+
+        console.log('[updatePageBlocksFromBlockNote] Converted blocks:', {
+          pageKey,
+          blockCount: convertedBlocks.length,
+          firstBlockContent: convertedBlocks[0]?.content,
+          allContents: convertedBlocks.map(b => ({ id: b.id, content: b.content })),
+        });
+
+        set({
+          pageNotes: {
+            ...state.pageNotes,
+            [pageKey]: convertedBlocks,
+          },
+        });
+      },
+
       // File Actions
       addFile: (file) =>
         set((state) => {
@@ -337,6 +390,10 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         }),
 
       selectFile: (id) => set({ selectedFileId: id }),
+
+      setSelectedFileId: (id) => set({ selectedFileId: id }),
+
+      setFiles: (files) => set({ files }),
 
       loadFiles: (files) =>
         set((state) => ({
@@ -476,14 +533,15 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       removeRecording: (id) =>
         set((state) => {
-          // Blob URL 정리
-          const recording = state.recordings.find((r) => r.id === id);
+          // Blob URL 정리 (id 또는 sessionId로 찾기)
+          const recording = state.recordings.find((r) => r.id === id || r.sessionId === id);
           if (recording?.audioUrl) {
             URL.revokeObjectURL(recording.audioUrl);
           }
 
           return {
-            recordings: state.recordings.filter((r) => r.id !== id),
+            // id 또는 sessionId가 일치하는 항목 제거
+            recordings: state.recordings.filter((r) => r.id !== id && r.sessionId !== id),
             currentRecordingId: state.currentRecordingId === id ? null : state.currentRecordingId,
           };
         }),
@@ -582,3 +640,62 @@ export const useNoteEditorStore = create<NoteEditorState>()(
     }
   )
 );
+
+/**
+ * BlockNote 타입을 NoteBlock 타입으로 변환
+ */
+function mapBlockNoteTypeToNoteBlock(type: string): NoteBlock["type"] {
+  const typeMap: Record<string, NoteBlock["type"]> = {
+    paragraph: "text",
+    heading: "heading1", // 기본값, level에 따라 구분 필요
+    bulletListItem: "bullet",
+    numberedListItem: "numbered",
+    checkListItem: "checkbox",
+    code: "code",
+  };
+
+  return typeMap[type] || "text";
+}
+
+/**
+ * BlockNote Block에서 텍스트 콘텐츠 추출
+ */
+function getBlockContent(block: Block): string {
+  const content = (block as any).content;
+
+  console.log('[getBlockContent] Extracting content:', {
+    hasContent: !!content,
+    contentType: Array.isArray(content) ? 'array' : typeof content,
+    content: content,
+  });
+
+  if (!content) return "";
+
+  // content가 InlineContent[] 형태인 경우
+  if (Array.isArray(content)) {
+    const extracted = content
+      .map((item: any) => {
+        if (typeof item === "string") return item;
+        if (item.type === "text" && item.text) return item.text;
+        if (item.type === "link" && item.content) {
+          // Handle links - extract text from link content
+          return Array.isArray(item.content) 
+            ? item.content.map((c: any) => c.text || '').join('')
+            : '';
+        }
+        return "";
+      })
+      .join("");
+    
+    console.log('[getBlockContent] Extracted from array:', extracted);
+    return extracted;
+  }
+
+  // content가 문자열인 경우
+  if (typeof content === "string") {
+    console.log('[getBlockContent] Content is string:', content);
+    return content;
+  }
+
+  return "";
+}

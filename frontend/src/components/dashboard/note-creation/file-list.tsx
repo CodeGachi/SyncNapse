@@ -7,7 +7,7 @@
 
 import type { UploadedFile } from "@/lib/types";
 import type { useFileUpload } from "@/hooks/use-file-upload";
-import { useFileList } from "@/features/dashboard/note-creation/use-file-list";
+import { useFileList } from "@/features/dashboard/notes/use-file-list";
 
 interface FileListProps {
   uploadedFiles: UploadedFile[];

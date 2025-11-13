@@ -19,6 +19,7 @@ export function dbToNote(dbNote: DBNote): Note {
     id: dbNote.id,
     title: dbNote.title,
     folderId: dbNote.folderId,
+    type: dbNote.type, // student or educator
     createdAt: dbNote.createdAt,
     updatedAt: dbNote.updatedAt,
     thumbnail: dbNote.thumbnail,
@@ -40,6 +41,7 @@ export function noteToDb(note: Note): DBNote {
     id: note.id,
     title: note.title,
     folderId: note.folderId,
+    type: note.type, // student or educator
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
     thumbnail: note.thumbnail,
@@ -58,6 +60,7 @@ export function apiToNote(apiNote: ApiNoteResponse): Note {
     id: apiNote.id,
     title: apiNote.title,
     folderId: apiNote.folder_id,
+    type: (apiNote.type as "student" | "educator") || "student", // Default to student if not provided
     createdAt: new Date(apiNote.created_at).getTime(),
     updatedAt: new Date(apiNote.updated_at).getTime(),
     thumbnail: apiNote.thumbnail,
@@ -87,3 +90,4 @@ export function toApiNoteCreateRequest(
     folder_id: folderId,
   };
 }
+

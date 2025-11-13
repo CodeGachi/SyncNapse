@@ -3,7 +3,7 @@
  */
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchAllFolders } from "../services/folders.api";
+import { fetchAllFolders } from "../services/folders.api"; // ✅ V2 API로 변경
 import type { Folder } from "@/lib/types";
 
 /**
