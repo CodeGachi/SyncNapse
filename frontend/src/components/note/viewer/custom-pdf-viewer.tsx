@@ -159,23 +159,7 @@ export function CustomPdfViewer({
           // 원본 크기 계산 (scale=1.0, rotation=0 기준)
           const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
 
-          // PDF 크기 정보 콘솔 출력
-          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          console.log('📄 PDF 렌더링 정보');
-          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          console.log('📐 PDF 원본 크기 (scale=1.0):');
-          console.log(`   Width: ${baseViewport.width.toFixed(2)}px`);
-          console.log(`   Height: ${baseViewport.height.toFixed(2)}px`);
-          console.log(`   오른쪽 아래 모서리: (${baseViewport.width.toFixed(2)}, ${baseViewport.height.toFixed(2)})`);
-          console.log('');
-          console.log('🔍 현재 렌더링 크기:');
-          console.log(`   Width: ${scaledViewport.width.toFixed(2)}px`);
-          console.log(`   Height: ${scaledViewport.height.toFixed(2)}px`);
-          console.log(`   Scale: ${finalScale.toFixed(3)} (${(finalScale * 100).toFixed(1)}%)`);
-          console.log(`   오른쪽 아래 모서리: (${scaledViewport.width.toFixed(2)}, ${scaledViewport.height.toFixed(2)})`);
-          console.log('');
-          console.log(`📄 페이지: ${currentPage}`);
-          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          // PDF Debug logs disabled for performance
 
           onPdfRenderInfo({
             width: scaledViewport.width,

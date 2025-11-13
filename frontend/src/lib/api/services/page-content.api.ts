@@ -143,7 +143,7 @@ export async function saveNoteContent(
     noteId,
     pageCount: Object.keys(pages).length,
   });
-  
+
   // Debug: Log the actual data being sent
   const firstPageKey = Object.keys(pages)[0];
   if (firstPageKey && pages[firstPageKey]) {

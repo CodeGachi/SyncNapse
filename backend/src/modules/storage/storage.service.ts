@@ -332,6 +332,78 @@ export class StorageService {
     }
   }
 
+  //  Check if a file exists in storage
+  async fileExists(storageKey: string): Promise<boolean> {
+    this.logger.debug(`[fileExists] provider=${this.config.provider} key=${storageKey}`);
+
+    switch (this.config.provider) {
+      case 'local':
+        const localPath = join(this.localBasePath, storageKey);
+        return existsSync(localPath);
+      case 's3':
+        return this.existsInS3(storageKey);
+      case 'gcs':
+        // TODO: Implement GCS file exists check
+        throw new Error(`fileExists not supported for provider: ${this.config.provider}`);
+      case 'azure':
+        // TODO: Implement Azure file exists check
+        throw new Error(`fileExists not supported for provider: ${this.config.provider}`);
+      default:
+        throw new Error(`Unsupported storage provider: ${this.config.provider}`);
+    }
+  }
+
+  //  List folders (directories) in a given path
+  async listFolders(prefix: string): Promise<string[]> {
+    this.logger.debug(`[listFolders] provider=${this.config.provider} prefix=${prefix}`);
+
+    if (this.config.provider === 's3' && this.s3Client) {
+      try {
+        const command = new ListObjectsV2Command({
+          Bucket: this.config.bucket,
+          Prefix: prefix,
+          Delimiter: '/',
+        });
+
+        const response = await this.s3Client.send(command);
+        
+        // CommonPrefixes contains the "subdirectories"
+        const folders = (response.CommonPrefixes || [])
+          .map(p => {
+            if (!p.Prefix) return null;
+            // Extract folder name from prefix
+            const folderName = p.Prefix.replace(prefix, '').replace(/\/$/, '');
+            return folderName;
+          })
+          .filter((name): name is string => name !== null && name !== '');
+
+        this.logger.debug(`[listFolders] Found ${folders.length} folders in ${prefix}`);
+        return folders;
+      } catch (error) {
+        this.logger.error(`[listFolders] Failed to list folders:`, error);
+        return [];
+      }
+    } else if (this.config.provider === 'local') {
+      const { readdirSync, statSync } = await import('node:fs');
+      const fullPath = join(this.localBasePath, prefix);
+      
+      if (!existsSync(fullPath)) {
+        return [];
+      }
+
+      const entries = readdirSync(fullPath);
+      const folders = entries.filter(entry => {
+        const entryPath = join(fullPath, entry);
+        return statSync(entryPath).isDirectory();
+      });
+
+      this.logger.debug(`[listFolders] Found ${folders.length} folders in ${prefix}`);
+      return folders;
+    } else {
+      throw new Error(`listFolders not supported for provider: ${this.config.provider}`);
+    }
+  }
+
   //  Delete a file from storage
   async deleteFile(storageKey: string): Promise<void> {
     this.logger.debug(`[deleteFile] provider=${this.config.provider} key=${storageKey}`);
@@ -840,6 +912,66 @@ export class StorageService {
       } else {
         this.logger.warn(`[renameFile] Local file not found: ${oldFullPath}`);
       }
+    }
+  }
+
+  //  Delete a folder and all its contents recursively
+  async deleteFolderRecursively(folderPath: string): Promise<void> {
+    this.logger.debug(`[deleteFolderRecursively] Deleting folder: ${folderPath}`);
+
+    if (this.config.provider === 's3' && this.s3Client) {
+      try {
+        const folderPrefix = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
+        
+        this.logger.debug(`[deleteFolderRecursively] Listing objects with prefix: ${folderPrefix}`);
+        
+        // List all objects with this prefix
+        const listCommand = new ListObjectsV2Command({
+          Bucket: this.config.bucket,
+          Prefix: folderPrefix,
+        });
+        
+        const listResponse = await this.s3Client.send(listCommand);
+        const objects = listResponse.Contents || [];
+        
+        if (objects.length === 0) {
+          this.logger.warn(`[deleteFolderRecursively] No objects found with prefix: ${folderPrefix}`);
+          return;
+        }
+        
+        this.logger.debug(`[deleteFolderRecursively] Found ${objects.length} objects to delete`);
+        
+        // Delete each object
+        for (const obj of objects) {
+          if (!obj.Key) continue;
+          
+          this.logger.debug(`[deleteFolderRecursively] Deleting: ${obj.Key}`);
+          
+          const deleteCommand = new DeleteObjectCommand({
+            Bucket: this.config.bucket,
+            Key: obj.Key,
+          });
+          
+          await this.s3Client.send(deleteCommand);
+        }
+        
+        this.logger.log(`[deleteFolderRecursively] ✅ Successfully deleted ${objects.length} objects from ${folderPath}`);
+      } catch (error) {
+        this.logger.error(`[deleteFolderRecursively] ❌ Failed to delete folder:`, error);
+        throw error;
+      }
+    } else if (this.config.provider === 'local') {
+      const { rmSync } = await import('node:fs');
+      const fullPath = join(this.localBasePath, folderPath);
+      
+      if (existsSync(fullPath)) {
+        rmSync(fullPath, { recursive: true, force: true });
+        this.logger.log(`[deleteFolderRecursively] ✅ Deleted local folder: ${fullPath}`);
+      } else {
+        this.logger.warn(`[deleteFolderRecursively] Local folder not found: ${fullPath}`);
+      }
+    } else {
+      throw new Error(`deleteFolderRecursively not supported for provider: ${this.config.provider}`);
     }
   }
 

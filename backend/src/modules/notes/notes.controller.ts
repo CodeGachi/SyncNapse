@@ -173,4 +173,29 @@ export class NotesController {
     this.logger.debug(`[deleteNoteContent] userId=${userId} noteId=${noteId}`);
     return this.notesService.deleteNoteContent(userId, noteId);
   }
+
+  // Trash endpoints
+  @Get('trash/list')
+  async getTrashedNotes(@CurrentUser('id') userId: string) {
+    this.logger.debug(`[getTrashedNotes] userId=${userId}`);
+    return this.notesService.getTrashedNotes(userId);
+  }
+
+  @Post(':noteId/restore')
+  async restoreNote(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[restoreNote] userId=${userId} noteId=${noteId}`);
+    return this.notesService.restoreNote(userId, noteId);
+  }
+
+  @Delete(':noteId/permanent')
+  async permanentlyDeleteNote(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[permanentlyDeleteNote] userId=${userId} noteId=${noteId}`);
+    return this.notesService.permanentlyDeleteNote(userId, noteId);
+  }
 }
