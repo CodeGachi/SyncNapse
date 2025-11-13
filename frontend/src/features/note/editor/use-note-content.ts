@@ -1,241 +1,231 @@
-/**
- * Hook for managing entire note content (all pages)
- * Handles auto-save, loading, and syncing with backend
- * NEW: Saves all pages in a single document
- */
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNoteEditorStore } from '@/stores/note-editor-store';
+import { saveNoteContent as saveNoteContentAPI, getNoteContent as getNoteContentAPI } from '@/lib/api/services/page-content.api';
+import { saveNoteContent as saveToIndexedDB, getAllNoteContent, cleanDuplicateNoteContent } from '@/lib/db/notes';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNoteEditorStore } from '@/stores';
-import * as pageContentApi from '@/lib/api/services/page-content.api';
-import { saveNoteContent as saveToIndexedDB, getAllNoteContent } from '@/lib/db/notes';
-import { initDB } from '@/lib/db';
-
-interface UseNoteContentOptions {
-  noteId?: string | null;
-  enabled?: boolean;
-  autoSaveDelay?: number; // milliseconds
+interface UseNoteContentProps {
+  noteId: string | null | undefined;
+  enabled: boolean;
 }
 
-export function useNoteContent({
-  noteId,
-  enabled = true,
-  autoSaveDelay = 2000,
-}: UseNoteContentOptions) {
+export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedPagesRef = useRef<string>('');
+  const isLoadedRef = useRef(false);
 
   /**
-   * Load entire note content from IndexedDB or backend
+   * Save to IndexedDB and Backend
    */
-  const loadNoteContent = useCallback(async () => {
-    if (!noteId || !enabled) return;
+  const saveNoteContent = useCallback(async () => {
+    if (!noteId || !isLoadedRef.current) {
+      console.log('[useNoteContent] ⏸️ Skip save:', { noteId, isLoaded: isLoadedRef.current });
+      return;
+    }
 
-    setIsLoading(true);
-    setError(null);
+    console.log('[useNoteContent] 💾 Starting save...');
+    setIsSaving(true);
 
     try {
-      // Try IndexedDB first - get all pages for this note
-      const allPages = await getAllNoteContent(noteId);
+      const { pageNotes, selectedFileId } = useNoteEditorStore.getState();
+
+      if (!selectedFileId) {
+        console.log('[useNoteContent] ⏸️ No selectedFileId');
+        setIsSaving(false);
+        return;
+      }
+
+      // Collect all pages for this note
+      const pages: Record<string, { blocks: any[] }> = {};
+      const fileIdPrefix = selectedFileId + '-';
+      
+      Object.entries(pageNotes).forEach(([pageKey, blocks]) => {
+        if (pageKey.startsWith(fileIdPrefix)) {
+          // Extract page number: it's after the last '-'
+          const pageNumber = pageKey.substring(fileIdPrefix.length);
+          console.log('[useNoteContent] 📄 Page:', { pageKey, selectedFileId, pageNumber, blockCount: blocks.length });
+          pages[pageNumber] = { blocks };
+        }
+      });
+
+      const pageCount = Object.keys(pages).length;
+      console.log('[useNoteContent] 📦 Saving', pageCount, 'pages');
+
+      if (pageCount === 0) {
+        console.log('[useNoteContent] ⏸️ No pages to save');
+        setIsSaving(false);
+        return;
+      }
+
+      // 1. Save to IndexedDB
+      for (const [pageNumber, pageData] of Object.entries(pages)) {
+        await saveToIndexedDB(noteId, String(pageNumber), pageData.blocks);
+      }
+      console.log('[useNoteContent] ✅ Saved to IndexedDB');
+
+      // 2. Save to Backend (PostgreSQL + MinIO)
+      await saveNoteContentAPI(noteId, pages);
+      console.log('[useNoteContent] ✅ Saved to Backend');
+
+      setLastSavedAt(new Date());
+    } catch (err) {
+      console.error('[useNoteContent] ❌ Save failed:', err);
+      setError('저장 실패');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [noteId]);
+
+  /**
+   * Schedule auto-save (2 seconds after typing stops)
+   */
+  const scheduleAutoSave = useCallback(() => {
+    if (!isLoadedRef.current) {
+      console.log('[useNoteContent] ⏸️ Not loaded yet - skip auto-save');
+      return;
+    }
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Schedule new save
+    console.log('[useNoteContent] ⏰ Auto-save scheduled (2 seconds)');
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('[useNoteContent] ⏰ Auto-save triggered');
+      saveNoteContent();
+    }, 2000);
+  }, [saveNoteContent]);
+
+  /**
+   * Force save immediately (on page change)
+   */
+  const forceSave = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    console.log('[useNoteContent] 🚀 Force save (page change)');
+    await saveNoteContent();
+  }, [saveNoteContent]);
+
+  /**
+   * Load content from IndexedDB (priority) or Backend
+   */
+  const loadNoteContent = useCallback(async () => {
+    if (!noteId || !enabled) {
+      console.log('[useNoteContent] ⏭️ Skip load:', { noteId, enabled });
+      return;
+    }
+
+    console.log('[useNoteContent] 📂 Loading content for:', noteId);
+    setIsLoading(true);
+    setError(null);
+    isLoadedRef.current = false;
+
+    try {
+      const { selectedFileId } = useNoteEditorStore.getState();
+      
+      if (!selectedFileId) {
+        console.log('[useNoteContent] ⏸️ No selectedFileId - waiting...');
+        setIsLoading(false);
+        return;
+      }
+
+      // 1. Try IndexedDB first
+      let allPages = await getAllNoteContent(noteId);
       
       if (allPages && allPages.length > 0) {
-        console.log('[useNoteContent] ✅ Loaded from IndexedDB:', allPages.length, 'pages');
+        console.log('[useNoteContent] ✅ Found in IndexedDB:', allPages.length, 'pages');
         
-        // Update store with all loaded pages
-        const { selectedFileId, pageNotes } = useNoteEditorStore.getState();
-        if (selectedFileId) {
-          const updatedPageNotes = { ...pageNotes };
-          
-          for (const page of allPages) {
-            const pageNumber = parseInt(page.pageId, 10);
-            if (!isNaN(pageNumber)) {
-              const pageKey = `${selectedFileId}-${pageNumber}`;
-              updatedPageNotes[pageKey] = page.blocks;
-            }
-          }
-          
-          useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
-          console.log('[useNoteContent] ✅ Updated store with IndexedDB pages');
+        // Clean duplicates
+        const duplicatesRemoved = await cleanDuplicateNoteContent(noteId);
+        if (duplicatesRemoved > 0) {
+          console.log('[useNoteContent] 🧹 Cleaned', duplicatesRemoved, 'duplicates');
+          allPages = await getAllNoteContent(noteId);
         }
+      } else {
+        // 2. Load from Backend (PostgreSQL + MinIO)
+        console.log('[useNoteContent] 📥 Loading from Backend...');
+        const backendData = await getNoteContentAPI(noteId);
         
-        return { pages: allPages };
-      }
-
-      // Fallback to backend
-      const backendContent = await pageContentApi.getNoteContent(noteId);
-      
-      if (backendContent && backendContent.pages) {
-        console.log('[useNoteContent] ✅ Loaded from backend:', Object.keys(backendContent.pages).length, 'pages');
-        
-        // Save to IndexedDB
-        for (const [pageNumber, pageData] of Object.entries(backendContent.pages)) {
-          await saveToIndexedDB(noteId, pageNumber, pageData.blocks);
-        }
-        console.log('[useNoteContent] ✅ Cached to IndexedDB');
-        
-        // Update store with all loaded pages
-        const { selectedFileId, pageNotes } = useNoteEditorStore.getState();
-        if (selectedFileId) {
-          const updatedPageNotes = { ...pageNotes };
+        if (backendData && backendData.pages) {
+          console.log('[useNoteContent] ✅ Loaded from Backend');
           
-          for (const [pageNumber, pageData] of Object.entries(backendContent.pages)) {
-            const pageNum = parseInt(pageNumber, 10);
-            if (!isNaN(pageNum)) {
-              const pageKey = `${selectedFileId}-${pageNum}`;
-              updatedPageNotes[pageKey] = pageData.blocks;
-            }
+          // Save to IndexedDB for next time
+          for (const [pageNumber, pageData] of Object.entries(backendData.pages)) {
+            const typedPageData = pageData as { blocks: any[] };
+            await saveToIndexedDB(noteId, pageNumber, typedPageData.blocks);
           }
+          console.log('[useNoteContent] ✅ Cached to IndexedDB');
           
-          useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
-          console.log('[useNoteContent] ✅ Updated store with backend pages');
+          // Reload from IndexedDB
+          allPages = await getAllNoteContent(noteId);
         }
       }
 
-      return backendContent;
+      // Update store with loaded data
+      if (allPages && allPages.length > 0) {
+        const updatedPageNotes: Record<string, any[]> = {};
+        
+        for (const page of allPages) {
+          const pageNumber = parseInt(page.pageId, 10);
+          if (!isNaN(pageNumber)) {
+            const pageKey = `${selectedFileId}-${pageNumber}`;
+            updatedPageNotes[pageKey] = page.blocks;
+          }
+        }
+
+        useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
+        console.log('[useNoteContent] ✅ Loaded to store:', Object.keys(updatedPageNotes).length, 'pages');
+      }
+
+      isLoadedRef.current = true;
     } catch (err) {
-      console.error('[useNoteContent] Failed to load note content:', err);
-      setError('노트 내용을 불러올 수 없습니다');
-      return null;
+      console.error('[useNoteContent] ❌ Load failed:', err);
+      setError('로드 실패');
+      isLoadedRef.current = true; // Allow saves even if load failed
     } finally {
       setIsLoading(false);
     }
   }, [noteId, enabled]);
 
   /**
-   * Save entire note content to IndexedDB and backend
+   * Subscribe to selectedFileId
    */
-  const saveNoteContent = useCallback(
-    async (immediate = false) => {
-      if (!noteId || !enabled) return;
-
-      const { pageNotes, selectedFileId } = useNoteEditorStore.getState();
-      if (!selectedFileId) return;
-
-      // Build pages object from store
-      const pages: { [pageNumber: string]: { blocks: any[] } } = {};
-      
-      for (const [pageKey, blocks] of Object.entries(pageNotes)) {
-        if (pageKey.startsWith(selectedFileId + '-')) {
-          const pageNumber = pageKey.substring(selectedFileId.length + 1);
-          if (blocks && blocks.length > 0) {
-            pages[pageNumber] = { blocks };
-          }
-        }
-      }
-
-      // Check if pages have actually changed
-      const currentPagesJson = JSON.stringify(pages);
-      if (currentPagesJson === lastSavedPagesRef.current && !immediate) {
-        return;
-      }
-
-      setIsSaving(true);
-      setError(null);
-
-      try {
-        // Save to IndexedDB immediately
-        for (const [pageNumber, pageData] of Object.entries(pages)) {
-          await saveToIndexedDB(noteId, pageNumber, pageData.blocks);
-        }
-        console.log('[useNoteContent] ✅ Saved to IndexedDB (SyncNapseDB)');
-
-        // Save to backend
-        await pageContentApi.saveNoteContent(noteId, pages);
-
-        lastSavedPagesRef.current = currentPagesJson;
-        setLastSavedAt(new Date());
-        console.log('[useNoteContent] ✅ Saved to backend');
-      } catch (err) {
-        console.error('[useNoteContent] Failed to save note content:', err);
-        setError('노트 내용을 저장할 수 없습니다');
-        // Content is still in IndexedDB, will be synced later
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [noteId, enabled],
-  );
+  const selectedFileId = useNoteEditorStore(state => state.selectedFileId);
 
   /**
-   * Auto-save with debounce
+   * Load when noteId, enabled, or selectedFileId changes
    */
-  const scheduleAutoSave = useCallback(() => {
-    if (!noteId || !enabled) return;
-
-    // Clear any existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+  useEffect(() => {
+    console.log('[useNoteContent] 🔄 Conditions:', { noteId, enabled, selectedFileId });
+    
+    if (noteId && enabled && selectedFileId) {
+      console.log('[useNoteContent] ✅ Loading...');
+      loadNoteContent();
     }
 
-    // Schedule save
-    saveTimeoutRef.current = setTimeout(() => {
-      console.log('[useNoteContent] Auto-save triggered');
-      saveNoteContent(false);
-    }, autoSaveDelay);
-  }, [noteId, enabled, autoSaveDelay, saveNoteContent]);
-
-  /**
-   * Force immediate save
-   */
-  const forceSave = useCallback(async () => {
-    if (!noteId || !enabled) return;
-
-    // Cancel any pending auto-save
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-
-    await saveNoteContent(true);
-  }, [noteId, enabled, saveNoteContent]);
-
-  /**
-   * Delete entire note content
-   */
-  const deleteNoteContent = useCallback(async () => {
-    if (!noteId || !enabled) return;
-
-    try {
-      // Delete from IndexedDB
-      const db = await initDB();
-      const transaction = db.transaction(['noteContent'], 'readwrite');
-      const store = transaction.objectStore('noteContent');
-      const index = store.index('noteId');
-      
-      // Wrap getAll in a promise
-      const allContent = await new Promise<any[]>((resolve, reject) => {
-        const request = index.getAll(noteId);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      
-      for (const content of allContent) {
-        await new Promise<void>((resolve, reject) => {
-          const deleteRequest = store.delete(content.id);
-          deleteRequest.onsuccess = () => resolve();
-          deleteRequest.onerror = () => reject(deleteRequest.error);
-        });
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-      console.log('[useNoteContent] ✅ Deleted from IndexedDB');
+    };
+  }, [noteId, enabled, selectedFileId, loadNoteContent]);
 
-      // Delete from backend
-      await pageContentApi.deleteNoteContent(noteId);
-      console.log('[useNoteContent] ✅ Deleted from backend');
-    } catch (err) {
-      console.error('[useNoteContent] Failed to delete note content:', err);
-      setError('노트 내용을 삭제할 수 없습니다');
-    }
-  }, [noteId, enabled]);
-
-  // Cleanup timeout on unmount
+  /**
+   * Cleanup on unmount
+   */
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
       }
     };
   }, []);
@@ -245,10 +235,7 @@ export function useNoteContent({
     isSaving,
     error,
     lastSavedAt,
-    loadNoteContent,
     scheduleAutoSave,
     forceSave,
-    deleteNoteContent,
   };
 }
-

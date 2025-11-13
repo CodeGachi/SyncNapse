@@ -122,6 +122,8 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     recordings: formattedRecordings,
     isExpanded: isRecordingExpanded,
     toggleExpanded: toggleRecordingExpanded,
+    refreshRecordings,
+    removeFromBackendList,
   } = useRecordingList();
 
   // Custom hooks for business logic
@@ -165,6 +167,55 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     // 녹음 중이 아니면 정상적으로 재생
     handleRecordingSelectOriginal(sessionId);
   };
+  
+  // Handle recording deletion
+  const handleDeleteRecording = async (sessionId: string) => {
+    try {
+      console.log('[RightSidePanel] 🗑️ Deleting recording:', sessionId);
+      
+      // 1. Immediately remove from UI (optimistic update)
+      const { removeRecording } = useNoteEditorStore.getState();
+      removeRecording(sessionId);
+      removeFromBackendList(sessionId);
+      console.log('[RightSidePanel] ✅ Removed from UI immediately (optimistic)');
+      
+      // Import deleteSession dynamically
+      const { deleteSession } = await import('@/lib/api/transcription.api');
+      const { deleteSession: deleteLocalSession } = await import('@/lib/storage/transcription-storage');
+      
+      // 2. Delete from backend (soft delete with deletedAt)
+      try {
+        await deleteSession(sessionId);
+        console.log('[RightSidePanel] ✅ Recording deleted from backend (PostgreSQL)');
+      } catch (backendError: any) {
+        // If 404, it's already deleted - that's okay
+        if (backendError?.status === 404) {
+          console.log('[RightSidePanel] ⚠️ Recording already deleted from backend (404)');
+        } else {
+          // Rollback on error - refresh to restore UI
+          await refreshRecordings();
+          throw backendError;
+        }
+      }
+      
+      // 3. Delete from local IndexedDB
+      try {
+        await deleteLocalSession(sessionId);
+        console.log('[RightSidePanel] ✅ Recording deleted from IndexedDB');
+      } catch (localError) {
+        console.warn('[RightSidePanel] ⚠️ Failed to delete from IndexedDB:', localError);
+        // Continue even if local delete fails
+      }
+      
+      // 4. Confirm with backend (verify deletion)
+      await refreshRecordings();
+      console.log('[RightSidePanel] ✅ Deletion confirmed with backend');
+      
+    } catch (error) {
+      console.error('[RightSidePanel] ❌ Failed to delete recording:', error);
+      alert('녹음 삭제에 실패했습니다.');
+    }
+  };
 
   // User info (for question authorship)
   const currentUser = { name: "사용자", email: "user@example.com" };
@@ -175,10 +226,26 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     if (!audio || scriptSegments.length === 0) return;
 
     const handleTimeUpdate = () => {
-      const currentTime = audio.currentTime;
+      const currentTime = audio.currentTime; // in seconds
+      
+      // Find the active segment - segment.timestamp is in milliseconds
       const activeSegment = scriptSegments.find(
-        (segment) => currentTime >= segment.timestamp && currentTime < segment.timestamp + 5 // 5 second window
+        (segment) => {
+          const segmentStartTime = (segment.timestamp || 0) / 1000; // Convert ms to seconds
+          const segmentEndTime = segmentStartTime + 5; // 5 second window
+          return currentTime >= segmentStartTime && currentTime < segmentEndTime;
+        }
       );
+      
+      if (activeSegment) {
+        console.log('[RightSidePanel] Active segment:', {
+          id: activeSegment.id,
+          text: activeSegment.originalText?.substring(0, 30),
+          segmentTime: ((activeSegment.timestamp || 0) / 1000).toFixed(2) + 's',
+          currentTime: currentTime.toFixed(2) + 's',
+        });
+      }
+      
       setActiveSegmentId(activeSegment?.id || null);
     };
 
@@ -298,6 +365,7 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
             onToggleScript={toggleScript}
             isRecording={isRecording}
             onRecordingSelect={handleRecordingSelect}
+            onDeleteRecording={handleDeleteRecording}
           />
 
           {/* 녹음 이름 설정 모달 */}

@@ -133,11 +133,13 @@ export function useRecording(noteId?: string | null) {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      // 데이터 수집
+      // 데이터 수집 - continuous collection for seamless audio
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
-          console.log('[useRecording] Audio chunk collected:', event.data.size, 'bytes');
+          console.log('[useRecording] Audio chunk collected:', event.data.size, 'bytes', 
+                      '| Total chunks:', audioChunksRef.current.length,
+                      '| Total size:', audioChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0), 'bytes');
         }
       };
 
@@ -242,10 +244,11 @@ export function useRecording(noteId?: string | null) {
         // Continue recording even if speech recognition fails
       }
 
-      // 녹음 시작 (timeslice 없이 - 가장 안정적)
-      // timeslice를 지정하지 않으면 stop() 호출 시 전체 데이터가 한 번에 수집됨
-      // 이 방식이 가장 안정적이고 끊김이 없음
+      // 녹음 시작 (timeslice 없이 - /transcription 페이지와 동일한 방식)
+      // timeslice 없이 시작하여 stop() 호출 시 모든 데이터를 한 번에 수집
+      // 이 방식이 가장 안정적이고 끊김이 없음 (webm 파일 무결성 보장)
       mediaRecorder.start();
+      console.log('[useRecording] MediaRecorder started without timeslice (following /transcription pattern)');
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(0);
@@ -264,15 +267,15 @@ export function useRecording(noteId?: string | null) {
   // 녹음 일시정지
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      // 현재까지의 데이터를 수집 (끊김 방지)
+      // Request current data before pause to prevent data loss
       mediaRecorderRef.current.requestData();
-      
       mediaRecorderRef.current.pause();
       setIsPaused(true);
       
       // Track pause start time
       pauseStartTimeRef.current = Date.now();
-      console.log('[useRecording] Paused at:', pauseStartTimeRef.current);
+      console.log('[useRecording] Paused at:', pauseStartTimeRef.current, 
+                  '| Chunks collected so far:', audioChunksRef.current.length);
 
       // Stop speech recognition during pause
       if (speechRecognitionRef.current) {
@@ -392,10 +395,13 @@ export function useRecording(noteId?: string | null) {
 
       mediaRecorderRef.current.onstop = async () => {
         try {
-          // Blob 생성
+          // Blob 생성 - 모든 chunk를 순서대로 병합
+          console.log('[useRecording] Creating final audio blob from', audioChunksRef.current.length, 'chunks');
           const audioBlob = new Blob(audioChunksRef.current, {
             type: mediaRecorderRef.current?.mimeType || "audio/webm",
           });
+          console.log('[useRecording] Final audio blob size:', audioBlob.size, 'bytes', 
+                      '| Type:', audioBlob.type);
 
           // Stop speech recognition
           if (speechRecognitionRef.current) {
@@ -424,13 +430,28 @@ export function useRecording(noteId?: string | null) {
             timerRef.current = null;
           }
 
-          // Generate default title if not provided
-          const recordingTitle = title || `Recording ${new Date().toLocaleString('ko-KR', {
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}`;
+          // Generate default title if not provided (using recording start time)
+          let recordingTitle = title;
+          if (!recordingTitle && recordingStartTime) {
+            // Format: YYYY_MM_DD_HH:MM:SS (with leading zeros)
+            const year = recordingStartTime.getFullYear();
+            const month = String(recordingStartTime.getMonth() + 1).padStart(2, '0');
+            const day = String(recordingStartTime.getDate()).padStart(2, '0');
+            const hours = String(recordingStartTime.getHours()).padStart(2, '0');
+            const minutes = String(recordingStartTime.getMinutes()).padStart(2, '0');
+            const seconds = String(recordingStartTime.getSeconds()).padStart(2, '0');
+            
+            recordingTitle = `${year}_${month}_${day}_${hours}:${minutes}:${seconds}`;
+            console.log('[useRecording] Generated default title from start time:', recordingTitle);
+          } else if (!recordingTitle) {
+            // Fallback if recordingStartTime is not available
+            recordingTitle = `Recording ${new Date().toLocaleString('ko-KR', {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}`;
+          }
 
           // Save to backend (create session, upload audio, save segments)
           setIsSaving(true);
@@ -524,10 +545,9 @@ export function useRecording(noteId?: string | null) {
         }
       };
 
-      // 마지막 데이터를 수집한 후 종료 (끊김 방지)
-      if (mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.requestData();
-      }
+      // 녹음 종료 - /transcription 패턴 따라 stop()만 호출
+      // ondataavailable에서 자동으로 마지막 데이터를 수집함
+      console.log('[useRecording] Stopping recording... Current chunks:', audioChunksRef.current.length);
       mediaRecorderRef.current.stop();
     });
   }, [recordingTime, setScriptSegments]);
@@ -535,9 +555,9 @@ export function useRecording(noteId?: string | null) {
   // 녹음 취소
   const cancelRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      // 현재까지의 데이터 수집
-      mediaRecorderRef.current.requestData();
+      // Stop without requesting data - we're discarding anyway
       mediaRecorderRef.current.stop();
+      console.log('[useRecording] Recording cancelled');
     }
 
     // Stop speech recognition

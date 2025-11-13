@@ -469,3 +469,61 @@ export async function deleteNoteContentByNote(noteId: string): Promise<void> {
     }
   });
 }
+
+/**
+ * Clean duplicate note content entries
+ * Keeps only the latest version of each page
+ */
+export async function cleanDuplicateNoteContent(noteId: string): Promise<number> {
+  const allContents = await getAllNoteContent(noteId);
+  
+  if (allContents.length === 0) {
+    return 0;
+  }
+
+  // Group by pageId and keep only the latest
+  const pageMap = new Map<string, DBNoteContent>();
+  for (const content of allContents) {
+    const existing = pageMap.get(content.pageId);
+    if (!existing || content.updatedAt > existing.updatedAt) {
+      pageMap.set(content.pageId, content);
+    }
+  }
+
+  const toKeep = Array.from(pageMap.values());
+  const toDelete = allContents.filter(
+    content => !toKeep.find(keep => keep.id === content.id)
+  );
+
+  if (toDelete.length === 0) {
+    console.log(`[cleanDuplicateNoteContent] No duplicates found for note: ${noteId}`);
+    return 0;
+  }
+
+  console.log(`[cleanDuplicateNoteContent] Removing ${toDelete.length} duplicate entries for note: ${noteId}`);
+
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["noteContent"], "readwrite");
+    const store = transaction.objectStore("noteContent");
+
+    let completed = 0;
+    const total = toDelete.length;
+
+    for (const content of toDelete) {
+      const request = store.delete(content.id);
+
+      request.onsuccess = () => {
+        completed++;
+        if (completed === total) {
+          console.log(`[cleanDuplicateNoteContent] Removed ${total} duplicates`);
+          resolve(total);
+        }
+      };
+
+      request.onerror = () => {
+        reject(new Error("중복 항목 삭제 실패"));
+      };
+    }
+  });
+}

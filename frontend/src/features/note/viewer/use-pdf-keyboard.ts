@@ -26,6 +26,19 @@ export function usePdfKeyboard({
     if (!isPdf || !numPages) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in an input field or editor
+      const target = e.target as HTMLElement;
+      const isTyping = 
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.contentEditable === 'true' ||
+        target.closest('[contenteditable="true"]') !== null;
+
+      // Disable arrow key navigation when typing
+      if (isTyping && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return; // Let the editor handle arrow keys
+      }
+
       switch (e.key) {
         case "ArrowLeft":
         case "PageUp":

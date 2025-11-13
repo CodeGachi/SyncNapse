@@ -143,15 +143,32 @@ export async function saveNoteContent(
     noteId,
     pageCount: Object.keys(pages).length,
   });
+  
+  // Debug: Log the actual data being sent
+  const firstPageKey = Object.keys(pages)[0];
+  if (firstPageKey && pages[firstPageKey]) {
+    const firstPage = pages[firstPageKey];
+    console.log(`[PageContentAPI] 📤 Sending to backend - First page (${firstPageKey}):`, {
+      blockCount: firstPage.blocks?.length || 0,
+      firstBlock: firstPage.blocks?.[0],
+      firstBlockContent: firstPage.blocks?.[0]?.content,
+      firstBlockType: firstPage.blocks?.[0]?.type,
+      allBlocks: firstPage.blocks,
+    });
+  }
+  
+  const bodyData = {
+    noteId,
+    pages,
+  };
+  
+  console.log('[PageContentAPI] 📤 Full request body:', JSON.stringify(bodyData, null, 2));
 
   const response = await apiClient<NoteContent>(
     `/api/notes/${noteId}/content`,
     {
       method: 'POST',
-      body: JSON.stringify({
-        noteId,
-        pages,
-      }),
+      body: JSON.stringify(bodyData),
     },
   );
 
@@ -177,6 +194,20 @@ export async function getNoteContent(
   console.log('[PageContentAPI] ✅ Note content loaded:', {
     pageCount: Object.keys(response.pages || {}).length,
   });
+  
+  // Debug: Log the loaded data
+  const firstPageKey = Object.keys(response.pages || {})[0];
+  if (firstPageKey && response.pages[firstPageKey]) {
+    const firstPage = response.pages[firstPageKey];
+    console.log(`[PageContentAPI] 📥 Received from backend - First page (${firstPageKey}):`, {
+      blockCount: firstPage.blocks?.length || 0,
+      firstBlock: firstPage.blocks?.[0],
+      firstBlockContent: firstPage.blocks?.[0]?.content,
+      firstBlockType: firstPage.blocks?.[0]?.type,
+      allBlocks: firstPage.blocks,
+    });
+  }
+  
   return response;
 }
 

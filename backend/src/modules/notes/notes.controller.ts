@@ -138,6 +138,21 @@ export class NotesController {
     @Body() dto: SaveNoteContentDto,
   ) {
     this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId} pages=${Object.keys(dto.pages || {}).length}`);
+    
+    // Debug: Log received DTO data
+    const firstPageKey = Object.keys(dto.pages || {})[0];
+    if (firstPageKey && dto.pages[firstPageKey]) {
+      const firstPage = dto.pages[firstPageKey];
+      this.logger.debug(`[saveNoteContent] 📥 Received DTO - First page (${firstPageKey}):`, {
+        hasBlocks: !!firstPage.blocks,
+        blocksIsArray: Array.isArray(firstPage.blocks),
+        blockCount: firstPage.blocks?.length || 0,
+        firstBlockContent: firstPage.blocks?.[0]?.content,
+        firstBlockType: firstPage.blocks?.[0]?.type,
+        allBlocks: JSON.stringify(firstPage.blocks),
+      });
+    }
+    
     return this.notesService.saveNoteContent(userId, noteId, dto.pages);
   }
 
