@@ -6,6 +6,8 @@ import { LoggingModule } from './logging/logging.module';
 import { HypermediaModule } from './hypermedia/hypermedia.module';
 import { RootController } from './root.controller';
 import { ExportsModule } from './exports/exports.module';
+import { BookmarksModule } from './bookmarks/bookmarks.module';
+import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 import { DevicesModule } from './devices/devices.module';
 import { WebrtcModule } from './webrtc/webrtc.module';
 import { TranscriptionModule } from './transcription/transcription.module';
@@ -22,6 +24,8 @@ import { UploadsModule } from './uploads/uploads.module';
     LoggingModule,
     HypermediaModule,
     ExportsModule,
+    BookmarksModule,
+    LiveSessionsModule,
     DevicesModule,
     WebrtcModule,
     FoldersModule,
