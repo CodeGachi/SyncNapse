@@ -28,6 +28,7 @@ interface RecordingBarProps {
   onToggleScript?: () => void;
   isRecording?: boolean;
   onRecordingSelect?: (sessionId: string) => void;
+  onDeleteRecording?: (sessionId: string) => void;
 }
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -55,6 +56,7 @@ export function RecordingBar({
   onToggleScript,
   isRecording = false,
   onRecordingSelect,
+  onDeleteRecording,
 }: RecordingBarProps) {
   const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
 
@@ -179,17 +181,48 @@ export function RecordingBar({
           {recordings.map((recording) => (
             <div
               key={recording.sessionId || recording.id}
-              onClick={() => recording.sessionId && onRecordingSelect?.(recording.sessionId)}
-              className="flex items-center justify-between py-2 px-3 hover:bg-[#444444] rounded-lg cursor-pointer transition-colors"
+              className="flex items-center justify-between py-2 px-3 hover:bg-[#444444] rounded-lg transition-colors group"
             >
-              <div className="flex items-center gap-3">
+              <div 
+                className="flex items-center gap-3 flex-1 cursor-pointer"
+                onClick={() => recording.sessionId && onRecordingSelect?.(recording.sessionId)}
+              >
                 <p className="text-white text-xs font-bold">{recording.title}</p>
                 <div className="flex items-center gap-2">
                   <p className="text-[#b9b9b9] text-[10px] font-bold">{recording.time}</p>
                   <p className="text-[#b9b9b9] text-[10px] font-bold">{recording.date}</p>
                 </div>
               </div>
-              <p className="text-[#b9b9b9] text-[10px] font-bold px-3 py-1">{recording.duration}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[#b9b9b9] text-[10px] font-bold px-3 py-1">{recording.duration}</p>
+                {/* Delete button */}
+                {onDeleteRecording && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (recording.sessionId && confirm(`"${recording.title}" 녹음을 삭제하시겠습니까?`)) {
+                        onDeleteRecording(recording.sessionId);
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/20 rounded"
+                    title="삭제"
+                  >
+                    <svg
+                      className="w-4 h-4 text-red-400 hover:text-red-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

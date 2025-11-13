@@ -196,8 +196,20 @@ export function useCreateNoteModal(
   const handleSubmit = async () => {
     if (isCreating) return;
 
+    // 제목이 비어있으면 첫 번째 파일의 이름을 사용 (확장자 제외)
+    let finalTitle = title.trim();
+    if (!finalTitle && uploadedFiles.length > 0) {
+      const firstFileName = uploadedFiles[0].file.name;
+      // 확장자 제거
+      finalTitle = firstFileName.replace(/\.[^/.]+$/, "");
+      console.log('[useCreateNoteModal] Using first file name as title:', finalTitle);
+    }
+    if (!finalTitle) {
+      finalTitle = "제목 없음";
+    }
+
     const noteData: NoteData = {
-      title: title || "제목 없음",
+      title: finalTitle,
       location: selectedLocation,
       files: uploadedFiles.map((uf) => uf.file),
       type: noteType,

@@ -1023,6 +1023,21 @@ export class NotesService {
     pages: NoteContentPages,
   ) {
     this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId} pages=${Object.keys(pages).length}`);
+    
+    // Debug: Log the first page's structure and content
+    const firstPageKey = Object.keys(pages)[0];
+    if (firstPageKey && pages[firstPageKey]) {
+      const firstPage = pages[firstPageKey];
+      this.logger.debug(`[saveNoteContent] 🔍 First page (${firstPageKey}) structure:`, {
+        hasBlocks: !!firstPage.blocks,
+        blocksIsArray: Array.isArray(firstPage.blocks),
+        blockCount: firstPage.blocks?.length || 0,
+        firstBlock: firstPage.blocks?.[0],
+        firstBlockContent: firstPage.blocks?.[0]?.content,
+        firstBlockType: firstPage.blocks?.[0]?.type,
+        allBlocks: firstPage.blocks,
+      });
+    }
 
     // Verify note ownership
     const folderNote = await this.prisma.folderLectureNote.findFirst({
@@ -1057,6 +1072,18 @@ export class NotesService {
         version: 1,
         savedAt: new Date().toISOString(),
       };
+      
+      // Debug: Log what we're about to save to MinIO
+      const firstPageKeyForMinIO = Object.keys(contentData.pages)[0];
+      if (firstPageKeyForMinIO && contentData.pages[firstPageKeyForMinIO]) {
+        const firstPageForMinIO = contentData.pages[firstPageKeyForMinIO];
+        this.logger.debug(`[saveNoteContent] 💾 About to save to MinIO - First page (${firstPageKeyForMinIO}):`, {
+          blockCount: firstPageForMinIO.blocks?.length || 0,
+          firstBlockContent: firstPageForMinIO.blocks?.[0]?.content,
+          firstBlockType: firstPageForMinIO.blocks?.[0]?.type,
+          allBlocks: firstPageForMinIO.blocks,
+        });
+      }
 
       await this.storageService.uploadBuffer(
         Buffer.from(JSON.stringify(contentData, null, 2)),
@@ -1133,8 +1160,20 @@ export class NotesService {
     }
 
     const content = noteContent.content as unknown as { pages: NoteContentPages };
+    
+    // Debug: Log what we loaded from DB
+    const firstPageKeyFromDB = Object.keys(content.pages || {})[0];
+    if (firstPageKeyFromDB && content.pages[firstPageKeyFromDB]) {
+      const firstPageFromDB = content.pages[firstPageKeyFromDB];
+      this.logger.debug(`[getNoteContent] 📖 Loaded from DB - First page (${firstPageKeyFromDB}):`, {
+        blockCount: firstPageFromDB.blocks?.length || 0,
+        firstBlockContent: firstPageFromDB.blocks?.[0]?.content,
+        firstBlockType: firstPageFromDB.blocks?.[0]?.type,
+        allBlocks: firstPageFromDB.blocks,
+      });
+    }
 
-    return {
+    const result = {
       id: noteContent.id,
       noteId: noteContent.noteId,
       pages: content.pages || {},
@@ -1143,6 +1182,20 @@ export class NotesService {
       createdAt: noteContent.createdAt,
       updatedAt: noteContent.updatedAt,
     };
+    
+    // Debug: Log what we're returning
+    const firstPageKeyResult = Object.keys(result.pages || {})[0];
+    if (firstPageKeyResult && result.pages[firstPageKeyResult]) {
+      const firstPageResult = result.pages[firstPageKeyResult];
+      this.logger.debug(`[getNoteContent] 📤 Returning - First page (${firstPageKeyResult}):`, {
+        blockCount: firstPageResult.blocks?.length || 0,
+        firstBlockContent: firstPageResult.blocks?.[0]?.content,
+        firstBlockType: firstPageResult.blocks?.[0]?.type,
+        allBlocks: firstPageResult.blocks,
+      });
+    }
+    
+    return result;
   }
 
   /**

@@ -1,15 +1,16 @@
 /**
  * Note panel component (BlockNote-based editor)
- * Per-page note functionality for PDF
+ * Clean implementation with auto-save on typing and page change
  */
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import type { Block, BlockNoteEditor, PartialBlock } from "@blocknote/core";
 import { useNoteEditorStore } from "@/stores";
+import { useNoteContent } from "@/features/note/editor/use-note-content";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
@@ -20,29 +21,71 @@ interface NotePanelProps {
 
 export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   const {
-    getCurrentPageBlocks,
+    pageNotes,
     updatePageBlocksFromBlockNote,
     currentPage,
     selectedFileId,
   } = useNoteEditorStore();
 
-  // 페이지별 블록 데이터를 BlockNote 형식으로 변환
-  const blocknoteContent = useMemo(() => {
-    const blocks = getCurrentPageBlocks();
-    if (!blocks || blocks.length === 0) {
-      return [
-        {
-          type: "paragraph",
-          content: "",
-        },
-      ] as PartialBlock[];
+  // Auto-save hook
+  const { scheduleAutoSave, forceSave, isSaving, lastSavedAt, isLoading } = useNoteContent({
+    noteId,
+    enabled: !!noteId && isOpen,
+  });
+
+  // Track initial mount and previous page
+  const isInitialMountRef = useRef(true);
+  const prevPageRef = useRef<number>(currentPage);
+
+  /**
+   * Handle page change - save immediately
+   */
+  useEffect(() => {
+    // Skip on initial mount
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      prevPageRef.current = currentPage;
+      console.log('[NotePanel] ⏭️ Initial mount - skipping save');
+      return;
     }
 
-    // 기존 NoteBlock을 BlockNote 형식으로 변환
-    return blocks.map((block) => {
+    // Only save if page actually changed
+    if (prevPageRef.current !== currentPage) {
+      console.log('[NotePanel] 📄 Page changed:', prevPageRef.current, '->', currentPage);
+      prevPageRef.current = currentPage;
+
+      // Don't save while loading
+      if (!isLoading) {
+        forceSave();
+      }
+    }
+  }, [currentPage, isLoading, forceSave]);
+
+  /**
+   * Convert NoteBlock to BlockNote format
+   */
+  const blocknoteContent = useMemo(() => {
+    // Get current page key
+    const pageKey = selectedFileId ? `${selectedFileId}-${currentPage}` : null;
+    const blocks = pageKey ? pageNotes[pageKey] : null;
+    
+    console.log('[NotePanel] 📋 blocknoteContent computed:', { 
+      pageKey, 
+      hasBlocks: !!blocks, 
+      blockCount: blocks?.length || 0,
+      firstBlockContent: blocks && blocks.length > 0 ? (blocks[0] as any)?.content : 'N/A'
+    });
+    
+    if (!blocks || blocks.length === 0) {
+      return [{
+        type: "paragraph",
+        content: "",
+      }] as PartialBlock[];
+    }
+
+    return blocks.map((block: any) => {
       const blockType = mapTypeToBlockNote(block.type);
 
-      // 체크박스 타입 처리
       if (block.type === "checkbox") {
         return {
           type: "checkListItem" as const,
@@ -53,88 +96,149 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
         } as PartialBlock;
       }
 
-      // 제목 타입 처리 (level 추가)
-      if (block.type === "heading1" || block.type === "heading2" || block.type === "heading3") {
-        const level = block.type === "heading1" ? 1 : block.type === "heading2" ? 2 : 3;
-        return {
-          type: "heading" as const,
-          content: block.content || "",
-          props: {
-            level,
-          },
-        } as PartialBlock;
-      }
-
       return {
-        type: blockType as any,
+        type: blockType,
         content: block.content || "",
       } as PartialBlock;
-    }) as PartialBlock[];
-  }, [getCurrentPageBlocks, selectedFileId, currentPage]);
+    });
+  }, [currentPage, selectedFileId, pageNotes]);
 
-  // BlockNote 에디터 생성
+  /**
+   * Create BlockNote editor
+   */
   const editor: BlockNoteEditor = useCreateBlockNote({
     initialContent: blocknoteContent,
   });
 
-  // 에디터 콘텐츠 업데이트
+  /**
+   * Track previous content to prevent infinite loop
+   */
+  const prevContentRef = useRef<string>('');
+  const hasLoadedRef = useRef<boolean>(false);
+
+  /**
+   * Update editor content when loading completes (initial load)
+   */
   useEffect(() => {
-    if (editor && blocknoteContent) {
+    if (!isLoading && !hasLoadedRef.current && editor && blocknoteContent) {
+      console.log('[NotePanel] ✅ Initial load complete - updating editor');
+      hasLoadedRef.current = true;
+      prevContentRef.current = JSON.stringify(blocknoteContent);
       editor.replaceBlocks(editor.document, blocknoteContent);
     }
-  }, [selectedFileId, currentPage]);
+  }, [isLoading, editor, blocknoteContent]);
 
-  // 에디터 변경사항을 store에 반영
-  const handleChange = () => {
-    if (!editor) return;
+  /**
+   * Update editor content when page changes
+   */
+  useEffect(() => {
+    if (editor && blocknoteContent && hasLoadedRef.current) {
+      const contentString = JSON.stringify(blocknoteContent);
+      
+      // Only update if content actually changed
+      if (contentString !== prevContentRef.current) {
+        console.log('[NotePanel] 🔄 Updating editor content for page:', currentPage);
+        prevContentRef.current = contentString;
+        editor.replaceBlocks(editor.document, blocknoteContent);
+      }
+    }
+  }, [blocknoteContent, currentPage]);
 
-    const blocks = editor.document;
+  /**
+   * Handle editor change - schedule auto-save
+   */
+  const handleEditorChange = () => {
+    if (!editor) {
+      return;
+    }
+
+    // Don't update store during initial load
+    if (isLoading || !hasLoadedRef.current) {
+      console.log('[NotePanel] ⏸️ Skipping update during load');
+      return;
+    }
+
+    const blocks = editor.document as Block[];
+    console.log('[NotePanel] ✏️ Content changed');
+    
+    // Update store
     updatePageBlocksFromBlockNote(blocks);
+    
+    // Schedule auto-save (2 seconds after typing stops)
+    scheduleAutoSave();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <div className="w-full h-full bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-3 flex flex-col">
-      {/* Page info header */}
-      <div className="flex-shrink-0 mb-2 pb-1 border-b border-[#444444] flex items-center gap-2">
-        <h3 className="text-white text-xs">P{currentPage}</h3>
-
-        {/* Help icon */}
-        <div className="relative group">
-          <button className="w-4 h-4 rounded-full bg-[#444444] hover:bg-[#555555] flex items-center justify-center transition-colors">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-              <circle cx="6" cy="6" r="5" stroke="#b9b9b9" strokeWidth="1" />
-              <path d="M6 8.5V8M6 4.5a1 1 0 011 1" stroke="#b9b9b9" strokeWidth="1" strokeLinecap="round" />
-            </svg>
-          </button>
-
-          {/* Tooltip displayed on hover */}
-          <div className="absolute left-0 top-6 hidden group-hover:block z-10 w-[420px] bg-[#2a2a2a] border border-[#444444] rounded-lg p-3 shadow-xl">
-            <p className="text-[#b9b9b9] text-xs leading-relaxed mb-2">
-              <span className="font-bold text-[#888888]">단축키:</span> / 슬래시 메뉴 | Ctrl+B 굵게 | Ctrl+I 기울임 | Ctrl+U 밑줄
-            </p>
-            <p className="text-[#b9b9b9] text-xs leading-relaxed mb-1">
-              <span className="font-bold text-[#888888]">제목:</span> # 제목1 | ## 제목2 | ### 제목3
-            </p>
-            <p className="text-[#b9b9b9] text-xs leading-relaxed mb-1">
-              <span className="font-bold text-[#888888]">리스트:</span> - 글머리 | 1. 번호 | [] 체크박스
-            </p>
-            <p className="text-[#b9b9b9] text-xs leading-relaxed">
-              <span className="font-bold text-[#888888]">기타:</span> ``` 코드 | &gt; 인용 | --- 구분선
-            </p>
-          </div>
+    <div className="h-full flex flex-col rounded-lg shadow-sm mt-4" style={{ backgroundColor: '#252525' }}>
+      {/* Header with save status */}
+      <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#3a3a3a' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-white">
+            Page {currentPage}
+          </span>
+          {isSaving && (
+            <span className="text-xs text-blue-400 flex items-center gap-1">
+              <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              저장 중...
+            </span>
+          )}
+          {!isSaving && lastSavedAt && (
+            <span className="text-xs text-gray-400">
+              저장됨 {lastSavedAt.toLocaleTimeString()}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* BlockNote Editor */}
-      <div className="flex-1 overflow-y-auto blocknote-container">
-        {editor && (
-          <BlockNoteView
-            editor={editor}
-            theme="dark"
-            onChange={handleChange}
-          />
+      {/* Editor */}
+      <div className="flex-1 overflow-auto p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-gray-400">로딩 중...</div>
+          </div>
+        ) : (
+          <div 
+            className="h-full rounded-md p-4" 
+            style={{ 
+              backgroundColor: '#1a1a1a',
+            }}
+          >
+            <style dangerouslySetInnerHTML={{
+              __html: `
+                .bn-container .bn-editor {
+                  background-color: #1a1a1a !important;
+                  color: #ffffff !important;
+                }
+                .bn-container .bn-block-content {
+                  color: #ffffff !important;
+                }
+                .bn-container [data-content-type] {
+                  color: #ffffff !important;
+                }
+                .bn-container .ProseMirror {
+                  color: #ffffff !important;
+                }
+                .bn-container .bn-inline-content {
+                  color: #ffffff !important;
+                }
+                .bn-container p {
+                  color: #ffffff !important;
+                }
+              `
+            }} />
+            <BlockNoteView
+              editor={editor}
+              onChange={handleEditorChange}
+              theme="light"
+            />
+          </div>
         )}
       </div>
     </div>
@@ -142,23 +246,20 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
 }
 
 /**
- * 기존 NoteBlock 타입을 BlockNote 타입으로 매핑
+ * Map internal type to BlockNote type
  */
 function mapTypeToBlockNote(type: string): string {
-  const typeMap: Record<string, string> = {
+  const mapping: Record<string, string> = {
     text: "paragraph",
     heading1: "heading",
     heading2: "heading",
     heading3: "heading",
     bullet: "bulletListItem",
-    numbered: "numberedListItem",
-    code: "code",
+    number: "numberedListItem",
     checkbox: "checkListItem",
-    quote: "paragraph", // BlockNote에는 quote가 없으므로 paragraph로
-    divider: "paragraph",
-    strikethrough: "paragraph",
-    toggle: "paragraph",
+    quote: "paragraph",
+    code: "paragraph",
   };
 
-  return typeMap[type] || "paragraph";
+  return mapping[type] || "paragraph";
 }

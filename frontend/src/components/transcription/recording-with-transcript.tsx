@@ -69,7 +69,8 @@ export function RecordingWithTranscript() {
   });
 
   const handleStart = async () => {
-    const recordingTitle = title.trim() || `Recording ${new Date().toLocaleString('ko-KR')}`;
+    // 제목이 비어있어도 OK - startRecording에서 자동으로 YYYY_MM_DD_HH:MM:SS 형식으로 생성됨
+    const recordingTitle = title.trim() || ''; // Empty string will trigger auto-generation
     
     try {
       await startRecording(recordingTitle, {
@@ -126,9 +127,12 @@ export function RecordingWithTranscript() {
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="예: 영어 수업 2025-01-15"
+                      placeholder="비워두면 자동으로 시간 기반 제목 생성 (예: 2025_01_15_14:30:45)"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      💡 제목을 입력하지 않으면 자동으로 녹음 시작 시간으로 저장됩니다
+                    </p>
                   </div>
 
                   <div>

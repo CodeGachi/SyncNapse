@@ -74,11 +74,21 @@ export function TranscriptTimeline({
   };
 
   // Estimate duration from segments if audio duration is not available
+  // Use actual segment max time + small buffer for last segment duration (2-3 seconds)
   const estimatedDuration = segments.length > 0 
-    ? Math.max(...segments.map(s => (s.timestamp || 0) / 1000)) + 10 // Add 10s buffer
+    ? Math.max(...segments.map(s => (s.timestamp || 0) / 1000)) + 3 // Add 3s buffer for last segment
     : 0;
   
+  // Prefer actual audio duration over estimated duration from segments
   const effectiveDuration = duration > 0 ? duration : estimatedDuration;
+  
+  console.log('[TranscriptTimeline] Duration calculation:', {
+    audioDuration: duration,
+    estimatedDuration,
+    effectiveDuration,
+    segmentCount: segments.length,
+    maxSegmentTime: segments.length > 0 ? Math.max(...segments.map(s => (s.timestamp || 0) / 1000)) : 0,
+  });
 
   // Handle timeline click to seek
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -144,9 +154,11 @@ export function TranscriptTimeline({
     const durationToUse = effectiveDuration || duration;
     if (durationToUse === 0 || !isFinite(durationToUse)) return { left: "0%", width: "0%" };
 
-    // Validate segment timestamp
-    const timestamp = segment.timestamp || 0;
-    if (!isFinite(timestamp) || timestamp < 0) return { left: "0%", width: "0%" };
+    // Validate segment timestamp (in milliseconds, need to convert to seconds)
+    const timestampMs = segment.timestamp || 0;
+    if (!isFinite(timestampMs) || timestampMs < 0) return { left: "0%", width: "0%" };
+    
+    const timestamp = timestampMs / 1000; // Convert milliseconds to seconds
 
     const left = Math.max(0, Math.min(100, (timestamp / durationToUse) * 100));
     // Assume each segment lasts 5 seconds or until next segment
@@ -197,7 +209,7 @@ export function TranscriptTimeline({
                 isActive ? "bg-blue-500 opacity-80" : "bg-blue-600 opacity-40 hover:opacity-60"
               }`}
               style={style}
-              title={`${formatTime(segment.timestamp || 0)}: ${(segment.originalText || '').substring(0, 50)}...`}
+              title={`${formatTime((segment.timestamp || 0) / 1000)}: ${(segment.originalText || '').substring(0, 50)}...`}
             />
           );
         })}

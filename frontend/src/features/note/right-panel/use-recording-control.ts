@@ -80,7 +80,7 @@ export function useRecordingControl(noteId?: string | null) {
       // 제목이 비어있으면 타임스탬프 기반 제목 생성
       let finalTitle = title.trim();
       if (!finalTitle && recordingStartTime) {
-        // Format: YYYY.MM.DD_HH:MM:SS (with leading zeros)
+        // Format: YYYY_MM_DD_HH:MM:SS (with leading zeros)
         const year = recordingStartTime.getFullYear();
         const month = String(recordingStartTime.getMonth() + 1).padStart(2, '0');
         const day = String(recordingStartTime.getDate()).padStart(2, '0');
@@ -88,7 +88,7 @@ export function useRecordingControl(noteId?: string | null) {
         const minutes = String(recordingStartTime.getMinutes()).padStart(2, '0');
         const seconds = String(recordingStartTime.getSeconds()).padStart(2, '0');
         
-        finalTitle = `${year}.${month}.${day}_${hours}:${minutes}:${seconds}`;
+        finalTitle = `${year}_${month}_${day}_${hours}:${minutes}:${seconds}`;
         console.log('[RecordingControl] Generated default title:', finalTitle);
       }
       

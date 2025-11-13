@@ -108,9 +108,15 @@ export function useRecordingList() {
       try {
         const sessions = await transcriptionApi.getSessions();
         setBackendSessions(sessions);
+        console.log('[useRecordingList] ✅ Backend sessions refreshed:', sessions.length);
       } catch (error) {
         console.error('[useRecordingList] Failed to refresh recordings:', error);
       }
+    },
+    // Immediately remove from backend sessions list (optimistic update)
+    removeFromBackendList: (sessionId: string) => {
+      setBackendSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      console.log('[useRecordingList] ✅ Removed from backend list:', sessionId);
     },
   };
 }

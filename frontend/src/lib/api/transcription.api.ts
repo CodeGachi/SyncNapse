@@ -183,3 +183,14 @@ export async function saveFullAudio(
     body: JSON.stringify(dto),
   });
 }
+
+// Delete transcription session (soft delete with deletedAt timestamp)
+// Removes from backend and local IndexedDB
+export async function deleteSession(sessionId: string): Promise<{ success: boolean }> {
+  return apiClient<{ success: boolean }>(
+    `/api/transcription/sessions/${sessionId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
