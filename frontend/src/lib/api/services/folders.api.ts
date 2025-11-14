@@ -32,12 +32,22 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
  */
 export async function fetchAllFolders(): Promise<Folder[]> {
   // 1. 로컬 데이터 우선 반환 (빠른 응답)
-  const dbFolders = await getAllFoldersFromDB();
+  let dbFolders = await getAllFoldersFromDB();
+
+  // 2. "Root" 폴더가 없으면 자동 생성
+  const hasRootFolder = dbFolders.some(f => f.name === "Root" && f.parentId === null);
+  if (!hasRootFolder) {
+    console.log('[folders.api] Root folder not found, creating...');
+    const rootFolder = await createFolderInDB("Root", null);
+    dbFolders = await getAllFoldersFromDB(); // 다시 가져오기
+    console.log('[folders.api] Root folder created:', rootFolder.id);
+  }
+
   const localFolders = dbToFolders(dbFolders);
-  
-  // 2. 백그라운드에서 서버 동기화
+
+  // 3. 백그라운드에서 서버 동기화
   syncFoldersInBackground(localFolders);
-  
+
   return localFolders;
 }
 

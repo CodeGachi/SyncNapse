@@ -25,8 +25,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Restore selected folder from localStorage on mount
   useEffect(() => {
+    console.log('[DashboardProvider] Initializing...');
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
+      console.log('[DashboardProvider] Saved folder ID:', saved);
       if (saved !== null) {
         setSelectedFolderIdState(saved === "null" ? null : saved);
       }
@@ -34,6 +36,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       console.error("Failed to load selected folder from localStorage:", error);
     } finally {
       setIsInitialized(true);
+      console.log('[DashboardProvider] Initialization complete');
     }
   }, []);
 
@@ -47,9 +50,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Don't render until we've restored from localStorage
+  // Show loading indicator while initializing
   if (!isInitialized) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#1E1E1E]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-400">대시보드 로딩 중...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

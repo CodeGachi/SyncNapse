@@ -1,10 +1,12 @@
 /**
  * 우측 사이드바 아이콘 버튼들 - Client Component
  * 우측 패널이 닫혀있을 때 표시되는 아이콘들
+ * Figma 디자인 기반 2중 원형 구조
  */
 
 "use client";
 
+import Image from "next/image";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useSidebarIcons } from "@/features/note/note-structure/use-sidebar-icons";
@@ -24,98 +26,103 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
 
   if (isExpanded || !isVisible) return null;
 
+  // 아이콘 버튼 공통 스타일
+  const buttonWrapperClass = "flex flex-col items-center w-[53px] h-[67px]";
+  const buttonClass = "flex flex-col items-start p-2.5 gap-2 w-[53px] h-[53px] bg-[#363636] border-2 border-white rounded-[30px] hover:bg-[#3a3a3a] transition-colors";
+  const iconContainerClass = "flex items-center justify-center w-[33px] h-[33px] bg-[#444444] rounded-[16.5px]";
+  const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[8px] leading-[10px]";
+
   return (
-    <div className="fixed right-0 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-[#2f2f2f] rounded-l-lg p-2">
+    <div className="fixed right-0 top-1/2 -translate-y-1/2 flex flex-col items-center px-3 py-6 gap-[5px] w-[70px] bg-transparent">
       {/* 마이크 아이콘 (녹음) */}
-      <button
-        onClick={toggleExpand}
-        className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="녹음"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="7" y="2" width="6" height="10" rx="3" stroke="white" strokeWidth="2" />
-          <path d="M4 10c0 3.314 2.686 6 6 6s6-2.686 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          <path d="M10 16v4M7 20h6" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
+      <div className={buttonWrapperClass}>
+        <button onClick={toggleExpand} className={buttonClass} title="녹음">
+          <div className={iconContainerClass}>
+            <Image src="/record.svg" alt="Record" width={13} height={17} />
+          </div>
+        </button>
+        <div className={labelClass}>Record</div>
+      </div>
 
-      {/* 클립보드 아이콘 (Notes) */}
-      <button
-        onClick={() => {
-          toggleExpand();
-          toggleNotePanel();
-        }}
-        className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="Notes"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="4" y="2" width="12" height="16" rx="1" stroke="white" strokeWidth="2" />
-          <path d="M7 6h6M7 10h6M7 14h4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
-
-      {/* 파일 아이콘 (Files) */}
-      <button
-        onClick={() => {
-          toggleExpand();
-          toggleFilePanel();
-        }}
-        className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="Files"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M11 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-6-5z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M11 2v5h6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {/* 눈 아이콘 (Script) */}
-      <button
-        onClick={() => {
-          toggleExpand();
-          toggleScript();
-        }}
-        className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="Script"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M1 10s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="10" cy="10" r="3" stroke="white" strokeWidth="2" />
-        </svg>
-      </button>
-
-      {/* 협업 아이콘 (Collaboration) - 교육자 노트만 */}
-      {isEducatorNote && (
+      {/* 노트 아이콘 (Notes) */}
+      <div className={buttonWrapperClass}>
         <button
           onClick={() => {
             toggleExpand();
-            toggleCollaborationPanel();
+            toggleNotePanel();
           }}
-          className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-          title="협업"
+          className={buttonClass}
+          title="Notes"
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <circle cx="7" cy="6" r="2" stroke="white" strokeWidth="2" />
-            <circle cx="13" cy="6" r="2" stroke="white" strokeWidth="2" />
-            <path d="M7 8a3 3 0 100 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            <path d="M13 8a3 3 0 000 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            <path d="M10 12c1.5 0 2.5 1 2.5 2.5v1M10 12c-1.5 0-2.5 1-2.5 2.5v1" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <div className={iconContainerClass}>
+            <Image src="/notebook.svg" alt="Notes" width={24} height={24} />
+          </div>
         </button>
-      )}
+        <div className={labelClass}>Notes</div>
+      </div>
 
-      {/* 더보기 아이콘 (More) */}
-      <button
-        onClick={toggleExpand}
-        className="w-12 h-12 flex items-center justify-center rounded-lg hover:bg-[#3f3f3f] transition-colors"
-        title="Close Panel"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="4" r="1.5" fill="white" />
-          <circle cx="10" cy="10" r="1.5" fill="white" />
-          <circle cx="10" cy="16" r="1.5" fill="white" />
-        </svg>
-      </button>
+      {/* 스크립트 아이콘 (Script) */}
+      <div className={buttonWrapperClass}>
+        <button
+          onClick={() => {
+            toggleExpand();
+            toggleScript();
+          }}
+          className={buttonClass}
+          title="Script"
+        >
+          <div className={iconContainerClass}>
+            <Image src="/subtitles.svg" alt="Script" width={20} height={20} />
+          </div>
+        </button>
+        <div className={labelClass}>Script</div>
+      </div>
+
+      {/* 파일 아이콘 (Files) */}
+      <div className={buttonWrapperClass}>
+        <button
+          onClick={() => {
+            toggleExpand();
+            toggleFilePanel();
+          }}
+          className={buttonClass}
+          title="Files"
+        >
+          <div className={iconContainerClass}>
+            <Image src="/file.svg" alt="Files" width={24} height={24} />
+          </div>
+        </button>
+        <div className={labelClass}>Files</div>
+      </div>
+
+      {/* 더보기 아이콘 (etc) */}
+      <div className={buttonWrapperClass}>
+        <button onClick={toggleExpand} className={buttonClass} title="More">
+          <div className={iconContainerClass}>
+            <Image src="/overflow-menu.svg" alt="More" width={24} height={24} />
+          </div>
+        </button>
+        <div className={labelClass}>etc</div>
+      </div>
+
+      {/* 협업 아이콘 (Collaboration) - 교육자 노트만 */}
+      {isEducatorNote && (
+        <div className={buttonWrapperClass}>
+          <button
+            onClick={() => {
+              toggleExpand();
+              toggleCollaborationPanel();
+            }}
+            className={buttonClass}
+            title="협업"
+          >
+            <div className={iconContainerClass}>
+              <Image src="/collaborate.svg" alt="Collaborate" width={24} height={24} />
+            </div>
+          </button>
+          <div className={labelClass}>협업</div>
+        </div>
+      )}
     </div>
   );
 }
