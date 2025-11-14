@@ -53,7 +53,7 @@ export function EducatorNoteLayout({
 
   // Selected audio for subtitle display
   const [selectedAudioId, setSelectedAudioId] = useState<string | null>(null);
-  
+
   // Get opened files for tabs
   const openedFiles = files.filter(f => openedTabs.includes(f.id));
   

@@ -344,37 +344,42 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
   };
 
   return (
-    <div
-      className={`fixed right-0 top-0 h-full flex flex-col gap-2 pt-6 px-4 bg-[#1e1e1e] transition-all duration-300 ${
-        isExpanded ? "translate-x-0 w-[500px]" : "translate-x-full w-0"
-      }`}
-      style={{ zIndex: 20 }}
-    >
-      {isExpanded && (
-        <>
-          {/* 녹음바 - 녹음 전용 */}
-          <RecordingBar
-            isPlaying={isRecording && !isPaused}
-            time={recordingTime}
-            onPlayToggle={onPlayToggle}
-            onStop={onStop}
-            isExpanded={isRecordingExpanded}
-            onToggleExpand={toggleRecordingExpanded}
-            recordings={formattedRecordings}
-            isScriptOpen={isScriptOpen}
-            onToggleScript={toggleScript}
-            isRecording={isRecording}
-            onRecordingSelect={handleRecordingSelect}
-            onDeleteRecording={handleDeleteRecording}
-          />
+    <>
+      {/* 녹음바 - 항상 오른쪽 상단에 표시 */}
+      <div className="fixed right-4 top-4 z-50">
+        <RecordingBar
+          isPlaying={isRecording && !isPaused}
+          time={recordingTime}
+          onPlayToggle={onPlayToggle}
+          onStop={onStop}
+          isExpanded={isRecordingExpanded}
+          onToggleExpand={toggleRecordingExpanded}
+          recordings={formattedRecordings}
+          isScriptOpen={isScriptOpen}
+          onToggleScript={toggleScript}
+          isRecording={isRecording}
+          onRecordingSelect={handleRecordingSelect}
+          onDeleteRecording={handleDeleteRecording}
+        />
+      </div>
 
-          {/* 녹음 이름 설정 모달 */}
-          <RecordingNameModal
-            isOpen={isNameModalOpen}
-            duration={recordingTimeSeconds}
-            onSave={handleSaveRecording}
-            onCancel={handleCancelSave}
-          />
+      {/* 녹음 이름 설정 모달 */}
+      <RecordingNameModal
+        isOpen={isNameModalOpen}
+        duration={recordingTimeSeconds}
+        onSave={handleSaveRecording}
+        onCancel={handleCancelSave}
+      />
+
+      {/* 사이드 패널 - 확장시에만 표시 */}
+      <div
+        className={`fixed right-0 top-0 h-full flex flex-col gap-2 pt-6 px-4 bg-[#1e1e1e] transition-all duration-300 ${
+          isExpanded ? "translate-x-0 w-[500px]" : "translate-x-full w-0"
+        }`}
+        style={{ zIndex: 20 }}
+      >
+        {isExpanded && (
+          <>
 
           {/* 스크립트 패널 */}
           <ScriptPanel 
@@ -493,5 +498,6 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
         </>
       )}
     </div>
+    </>
   );
 }

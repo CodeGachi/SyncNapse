@@ -33,10 +33,14 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
   const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[8px] leading-[10px]";
 
   return (
-    <div className="fixed right-0 top-1/2 -translate-y-1/2 flex flex-col items-center px-3 py-6 gap-[5px] w-[70px] bg-transparent">
-      {/* 마이크 아이콘 (녹음) */}
+    <div className="fixed right-0 top-4 flex flex-col items-center px-3 py-6 gap-[5px] w-[70px] bg-transparent z-50">
+      {/* 녹음 아이콘 (Record) */}
       <div className={buttonWrapperClass}>
-        <button onClick={toggleExpand} className={buttonClass} title="녹음">
+        <button
+          onClick={toggleExpand}
+          className={buttonClass}
+          title="Record"
+        >
           <div className={iconContainerClass}>
             <Image src="/record.svg" alt="Record" width={13} height={17} />
           </div>
