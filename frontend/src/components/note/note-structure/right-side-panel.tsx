@@ -217,7 +217,7 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     <>
       {/* 사이드 패널 - 확장시에만 표시 */}
       <div
-        className={`flex flex-col bg-[#1e1e1e] transition-all duration-300 overflow-hidden ${
+        className={`flex flex-col bg-[#1e1e1e] overflow-hidden ${
           isExpanded ? "flex-shrink-0 w-[370px] gap-2 pt-6 px-3" : "w-0 p-0"
         }`}
       >

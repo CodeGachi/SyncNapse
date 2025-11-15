@@ -62,7 +62,7 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
       isActive ? 'border-[#afc02b]' : 'border-white'
     } rounded-[30px] hover:bg-[#3a3a3a] transition-colors`;
   const iconContainerClass = "flex items-center justify-center w-[33px] h-[33px] bg-[#444444] rounded-[16.5px]";
-  const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[8px] leading-[10px]";
+  const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[10px] leading-[12px]";
 
   return (
     <div className="flex flex-col items-center flex-shrink-0 px-1 py-6 gap-[5px] w-[60px] bg-[#1e1e1e]">

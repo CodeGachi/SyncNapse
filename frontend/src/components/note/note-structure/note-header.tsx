@@ -74,29 +74,29 @@ export function NoteHeader({
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-[#1e1e1e] border-b border-[#2f2f2f]">
-      <div className="flex items-center justify-between px-6 py-4 relative">
+      <div className="flex items-center justify-between px-4 py-2 relative">
         {/* 왼쪽: 아이콘 + 제목 영역 */}
         <div className="flex items-center gap-3">
           {/* 홈 아이콘 */}
           <button
             onClick={handleHomeClick}
-            className="w-6 h-6 flex items-center justify-center text-white hover:text-[#AFC02B] transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center transition-colors cursor-pointer hover:bg-[#2f2f2f] rounded"
             title="대시보드로 이동"
           >
-            <Image src="/home.svg" alt="Home" width={24} height={24} />
+            <Image src="/home.svg" alt="Home" width={22} height={22} />
           </button>
 
           {/* 메뉴 아이콘 */}
           <button
             onClick={handleMenuClick}
-            className="w-6 h-6 flex items-center justify-center text-white hover:text-[#AFC02B] transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center transition-colors cursor-pointer hover:bg-[#2f2f2f] rounded"
             title="메뉴"
           >
-            <Image src="/menu.svg" alt="Menu" width={24} height={24} />
+            <Image src="/menu.svg" alt="Menu" width={22} height={22} />
           </button>
 
           {/* 제목 */}
-          <h1 className="text-[24px] font-bold text-white leading-[29px]">
+          <h1 className="text-[18px] font-bold text-white leading-[22px]">
             {actualTitle}
           </h1>
 
@@ -158,7 +158,7 @@ export function NoteHeader({
         </div>
 
         {/* 오른쪽: 녹음바 */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 min-w-[440px]">
           <RecordingBarContainer noteId={noteId} />
         </div>
 

@@ -18,15 +18,23 @@ export function HeaderMenu({ isOpen, onClose }: HeaderMenuProps) {
   // 외부 클릭 감지
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+
+      // 메뉴 버튼 클릭은 무시 (버튼이 토글 처리함)
+      if (target.closest('button[title="메뉴"]')) {
+        return;
+      }
+
+      if (menuRef.current && !menuRef.current.contains(target)) {
         onClose();
       }
     }
 
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      // mousedown 대신 click 사용하여 버튼 클릭과 타이밍 분리
+      document.addEventListener("click", handleClickOutside);
       return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("click", handleClickOutside);
       };
     }
   }, [isOpen, onClose]);

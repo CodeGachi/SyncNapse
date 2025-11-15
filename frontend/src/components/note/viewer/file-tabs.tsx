@@ -18,7 +18,7 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
   };
 
   return (
-    <div className="flex items-end w-full">
+    <div className="flex items-end w-full h-[38px]">
       {files.map((file, index) => (
         <div
           key={file.id}
@@ -27,7 +27,7 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
             activeTab === index
               ? "bg-[#2f2f2f] border-t border-x border-[#3c3c3c]"
               : "bg-[#1e1e1e] border-t border-r border-[#3c3c3c] border-b"
-          } h-[39px] w-[130px] flex items-center justify-between gap-1 px-2.5 cursor-pointer hover:bg-[#2f2f2f] transition-colors group`}
+          } h-full w-[130px] flex items-center justify-between gap-1 px-2 cursor-pointer hover:bg-[#2f2f2f] transition-colors group`}
         >
           <div className="flex items-center gap-1 flex-1 min-w-0">
             {/* 파일 아이콘 */}

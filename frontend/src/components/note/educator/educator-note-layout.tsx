@@ -81,16 +81,14 @@ export function EducatorNoteLayout({
         {/* PDF Viewer Section */}
         <div className="flex-1 flex items-center justify-center overflow-auto bg-[#2a2a2a]">
           <div className="w-full h-full flex flex-col">
-            {/* File Tabs */}
-            {openedFiles.length > 0 && (
-              <FileTabs 
-                files={openedFiles.map(f => ({ id: parseInt(f.id), name: f.name }))}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-                onTabClose={handleTabClose}
-              />
-            )}
-            
+            {/* File Tabs - 항상 표시 */}
+            <FileTabs
+              files={openedFiles.map(f => ({ id: parseInt(f.id), name: f.name }))}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onTabClose={handleTabClose}
+            />
+
             {/* PDF Viewer with Drawing Overlay */}
             <div className="flex-1 relative">
               {selectedFileId ? (
