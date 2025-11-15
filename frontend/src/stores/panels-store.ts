@@ -44,21 +44,32 @@ export const usePanelsStore = create<PanelsState>()(
         set((state) => ({
           isFilePanelOpen: !state.isFilePanelOpen,
           isEtcPanelOpen: false,
+          isScriptOpen: false,
+          isCollaborationPanelOpen: false,
         })),
 
       toggleEtcPanel: () =>
         set((state) => ({
           isEtcPanelOpen: !state.isEtcPanelOpen,
           isFilePanelOpen: false,
+          isScriptOpen: false,
+          isCollaborationPanelOpen: false,
         })),
 
-      toggleScript: () => set((state) => ({ isScriptOpen: !state.isScriptOpen })),
+      toggleScript: () =>
+        set((state) => ({
+          isScriptOpen: !state.isScriptOpen,
+          isFilePanelOpen: false,
+          isEtcPanelOpen: false,
+          isCollaborationPanelOpen: false,
+        })),
 
       toggleCollaborationPanel: () =>
         set((state) => ({
           isCollaborationPanelOpen: !state.isCollaborationPanelOpen,
           isFilePanelOpen: false,
           isEtcPanelOpen: false,
+          isScriptOpen: false,
         })),
 
       reset: () => set(initialState),

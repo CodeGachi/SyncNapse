@@ -6,11 +6,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useNote } from "@/lib/api/queries/notes.queries";
-import { RecordingBar } from "@/components/note/recording/recording-bar";
+import { RecordingBarContainer } from "@/components/note/recording/recording-bar-container";
 import { AutoSaveBadge } from "@/components/note/text-notes/auto-save-badge";
 import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
+import { HeaderMenu } from "@/components/note/note-structure/header-menu";
 import { useNoteEditorStore } from "@/stores";
+import Image from "next/image";
 
 interface NoteHeaderProps {
   noteId: string | null;
@@ -21,14 +24,6 @@ interface NoteHeaderProps {
   onStopCollaboration?: () => void;
   autoSaveStatus?: "idle" | "saving" | "saved" | "error";
   lastSavedAt?: Date | null;
-  // 녹음바 props
-  isRecording?: boolean;
-  isPaused?: boolean;
-  recordingTime?: string;
-  onPlayToggle?: () => void;
-  onStopRecording?: () => void;
-  isScriptOpen?: boolean;
-  onToggleScript?: () => void;
   // 공유 설정 props (educator만)
   sharingSettings?: any;
   newUserEmail?: string;
@@ -50,13 +45,6 @@ export function NoteHeader({
   onStopCollaboration,
   autoSaveStatus = "idle",
   lastSavedAt = null,
-  isRecording = false,
-  isPaused = false,
-  recordingTime = "00:00",
-  onPlayToggle = () => {},
-  onStopRecording,
-  isScriptOpen = false,
-  onToggleScript,
   sharingSettings,
   newUserEmail = "",
   onNewUserEmailChange = () => {},
@@ -67,19 +55,48 @@ export function NoteHeader({
   onToggleRealTimeInteraction = () => {},
   onCopyShareLink = () => {},
 }: NoteHeaderProps) {
+  const router = useRouter();
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
   const actualTitle = note?.title || noteTitle;
   const isEducatorNote = note?.type === "educator";
 
   const { isExpanded, toggleExpand } = useNoteEditorStore();
   const [isSharingOpen, setIsSharingOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const handleHomeClick = () => {
+    router.push("/dashboard/main");
+  };
+
+  const handleMenuClick = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-[#1e1e1e] border-b border-[#2f2f2f]">
-      <div className="flex items-center justify-between px-6 py-4">
-        {/* 왼쪽: 제목 영역 */}
-        <div className="flex items-center gap-4">
-          <h1 className="text-[32px] font-bold text-white leading-[39px]">
+      <div className="flex items-center justify-between px-6 py-4 relative">
+        {/* 왼쪽: 아이콘 + 제목 영역 */}
+        <div className="flex items-center gap-3">
+          {/* 홈 아이콘 */}
+          <button
+            onClick={handleHomeClick}
+            className="w-6 h-6 flex items-center justify-center text-white hover:text-[#AFC02B] transition-colors cursor-pointer"
+            title="대시보드로 이동"
+          >
+            <Image src="/home.svg" alt="Home" width={24} height={24} />
+          </button>
+
+          {/* 메뉴 아이콘 */}
+          <button
+            onClick={handleMenuClick}
+            className="w-6 h-6 flex items-center justify-center text-white hover:text-[#AFC02B] transition-colors cursor-pointer"
+            title="메뉴"
+          >
+            <Image src="/menu.svg" alt="Menu" width={24} height={24} />
+          </button>
+
+          {/* 제목 */}
+          <h1 className="text-[24px] font-bold text-white leading-[29px]">
             {actualTitle}
           </h1>
 
@@ -142,16 +159,11 @@ export function NoteHeader({
 
         {/* 오른쪽: 녹음바 */}
         <div className="flex-shrink-0">
-          <RecordingBar
-            isPlaying={isRecording && !isPaused}
-            time={recordingTime}
-            onPlayToggle={onPlayToggle}
-            onStop={onStopRecording}
-            isScriptOpen={isScriptOpen}
-            onToggleScript={onToggleScript}
-            isRecording={isRecording}
-          />
+          <RecordingBarContainer noteId={noteId} />
         </div>
+
+        {/* 헤더 메뉴 */}
+        <HeaderMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
       </div>
     </div>
   );

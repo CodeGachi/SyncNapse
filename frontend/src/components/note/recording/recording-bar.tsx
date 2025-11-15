@@ -12,9 +12,9 @@ interface RecordingBarProps {
   time: string;
   onPlayToggle: () => void;
   onStop?: () => void;
-  isScriptOpen?: boolean;
-  onToggleScript?: () => void;
   isRecording?: boolean;
+  onToggleRecordingList?: () => void;
+  recordingCount?: number;
 }
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -35,9 +35,9 @@ export function RecordingBar({
   time,
   onPlayToggle,
   onStop,
-  isScriptOpen = false,
-  onToggleScript,
   isRecording = false,
+  onToggleRecordingList,
+  recordingCount = 0,
 }: RecordingBarProps) {
   const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
 
@@ -118,19 +118,22 @@ export function RecordingBar({
         {/* 구분선 */}
         <div className="w-px h-5 bg-white" />
 
-        {/* 스크립트 버튼 */}
-        {onToggleScript && (
+        {/* 녹음 목록 버튼 */}
+        {onToggleRecordingList && (
           <button
-            onClick={onToggleScript}
-            className="cursor-pointer hover:opacity-80 transition-opacity px-2 py-1"
+            onClick={onToggleRecordingList}
+            className="flex items-center gap-1 px-2 py-1 cursor-pointer hover:opacity-80 transition-opacity relative"
+            title="저장된 녹음"
           >
-            <svg width="19" height="19" viewBox="0 0 19 19" fill="white">
-              <path
-                d="M2 9.5h15M9.5 2v15"
-                stroke="white"
-                strokeWidth="2"
-              />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
+              <path d="M2 2h12v12H2V2z" stroke="white" strokeWidth="2" fill="none" />
+              <circle cx="8" cy="8" r="2" fill="white" />
             </svg>
+            {recordingCount > 0 && (
+              <span className="text-white text-[10px] font-bold bg-[#AFC02B] rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                {recordingCount}
+              </span>
+            )}
           </button>
         )}
       </div>
