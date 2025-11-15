@@ -123,7 +123,6 @@ export function NoteContentArea({
   });
 
   const {
-    showExpandButton,
     viewerHeight,
     isDragging,
     containerRef,
@@ -247,102 +246,7 @@ export function NoteContentArea({
 
   return (
     <div className="flex flex-col gap-3 flex-1">
-      {/* 제목 영역 */}
-      <div className="flex justify-between items-center px-2.5 min-h-[39px]">
-        <div className="flex items-center gap-4">
-          <h1 className="text-[32px] font-bold text-white leading-[39px]">
-            {actualTitle}
-          </h1>
-
-          {/* 자동저장 배지 */}
-          <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
-
-          {/* 강의 노트 버튼들 (Educator만, 공유 모드 제외) */}
-          {isEducatorNote && !isSharedView && (
-            <div className="flex items-center gap-2">
-              {/* 공유 설정 버튼 (아이콘만) */}
-              <button
-                onClick={() => setIsSharingOpen(!isSharingOpen)}
-                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
-                title="공유 설정"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-              </button>
-
-              {/* 공유 설정 모달 */}
-              <SharingSettingsModal
-                isOpen={isSharingOpen}
-                onClose={() => setIsSharingOpen(false)}
-                settings={sharingSettings}
-                newUserEmail={newUserEmail}
-                onNewUserEmailChange={setNewUserEmail}
-                onAddUser={addUser}
-                onRemoveUser={removeUser}
-                onTogglePublic={togglePublic}
-                onToggleComments={toggleComments}
-                onToggleRealTimeInteraction={toggleRealTimeInteraction}
-                onCopyShareLink={copyShareLink}
-                shareLink={sharingSettings.shareLink}
-                noteId={noteId || ""}
-                noteTitle={actualTitle}
-                isCollaborating={isCollaborating ?? false}
-                onStartCollaboration={onStartCollaboration ?? (() => {})}
-                onStopCollaboration={onStopCollaboration ?? (() => {})}
-              />
-            </div>
-          )}
-
-          {/* 공유 모드 뱃지 표시 */}
-          {isSharedView && (
-            <div className="px-3 py-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded-full text-sm font-medium">
-              공유 노트 보기
-            </div>
-          )}
-        </div>
-
-        {/* 사이드바 확장 버튼 (화면이 충분히 클 때만 표시) */}
-        {showExpandButton && (
-          <button
-            onClick={toggleExpand}
-            className="w-6 h-6 cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M4 4h16v16H4V4z"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9 4v16"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d={isExpanded ? "M14 10l3 2-3 2" : "M14 10l-3 2 3 2"}
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
-      </div>
+      {/* 제목 영역 제거 - NoteHeader로 이동 */}
 
       {/* 탭 + PDF 뷰어 + 노트 패널 */}
       <div className="flex flex-col flex-1 overflow-hidden">

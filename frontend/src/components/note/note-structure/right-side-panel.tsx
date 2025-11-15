@@ -22,12 +22,10 @@ import {
 // UI Components
 import { RecordingBar } from "@/components/note/recording/recording-bar";
 import { RecordingNameModal } from "@/components/note/recording/recording-name-modal";
-import { CategoryButtons } from "@/components/note/note-structure/category-buttons";
 import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
-import { TagsPanel } from "@/components/note/panels/tags-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
 interface RightSidePanelProps {
@@ -95,8 +93,6 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     toggleScript,
     isEtcPanelOpen,
     toggleEtcPanel,
-    isTagsPanelOpen,
-    toggleTagsPanel,
     isCollaborationPanelOpen,
     toggleCollaborationPanel,
   } = usePanelsStore();
@@ -117,11 +113,19 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
     }
   }, [isSharedView, isCollaborating, isExpanded, isCollaborationPanelOpen, toggleExpand, toggleCollaborationPanel]);
 
+  // 모든 개별 패널이 닫히면 500px 패널도 자동으로 닫기
+  useEffect(() => {
+    const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen && !isCollaborationPanelOpen;
+
+    if (allPanelsClosed && isExpanded) {
+      console.log('[RightSidePanel] 모든 패널 닫힘 - 500px 패널 자동 닫기');
+      toggleExpand();
+    }
+  }, [isScriptOpen, isFilePanelOpen, isEtcPanelOpen, isCollaborationPanelOpen, isExpanded, toggleExpand]);
+
   // Recording list
   const {
     recordings: formattedRecordings,
-    isExpanded: isRecordingExpanded,
-    toggleExpanded: toggleRecordingExpanded,
     refreshRecordings,
     removeFromBackendList,
   } = useRecordingList();
@@ -345,23 +349,7 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
 
   return (
     <>
-      {/* 녹음바 - 항상 오른쪽 상단에 표시 */}
-      <div className="fixed right-4 top-4 z-50">
-        <RecordingBar
-          isPlaying={isRecording && !isPaused}
-          time={recordingTime}
-          onPlayToggle={onPlayToggle}
-          onStop={onStop}
-          isExpanded={isRecordingExpanded}
-          onToggleExpand={toggleRecordingExpanded}
-          recordings={formattedRecordings}
-          isScriptOpen={isScriptOpen}
-          onToggleScript={toggleScript}
-          isRecording={isRecording}
-          onRecordingSelect={handleRecordingSelect}
-          onDeleteRecording={handleDeleteRecording}
-        />
-      </div>
+      {/* 녹음바 제거 - NoteHeader로 이동 */}
 
       {/* 녹음 이름 설정 모달 */}
       <RecordingNameModal
@@ -373,10 +361,9 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
 
       {/* 사이드 패널 - 확장시에만 표시 */}
       <div
-        className={`fixed right-0 top-0 h-full flex flex-col gap-2 pt-6 px-4 bg-[#1e1e1e] transition-all duration-300 ${
-          isExpanded ? "translate-x-0 w-[500px]" : "translate-x-full w-0"
+        className={`flex flex-col bg-[#1e1e1e] transition-all duration-300 overflow-hidden ${
+          isExpanded ? "flex-shrink-0 w-[500px] gap-2 pt-6 px-4" : "w-0 p-0"
         }`}
-        style={{ zIndex: 20 }}
       >
         {isExpanded && (
           <>
@@ -461,13 +448,11 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
             onOpenFileInTab={openFileInTab}
             onRenameFile={renameFile}
             onCopyFile={copyFile}
+            onClose={toggleFilePanel}
           />
 
           {/* etc 패널 */}
-          <EtcPanel isOpen={isEtcPanelOpen} />
-
-          {/* tags 패널 */}
-          <TagsPanel isOpen={isTagsPanelOpen} />
+          <EtcPanel isOpen={isEtcPanelOpen} onClose={toggleEtcPanel} />
 
           {/* 협업 패널 (교육자 노트 + 협업 모드 활성화 시, Liveblocks 실시간) */}
           {isCollaborationPanelOpen && isEducatorNote && isCollaborating && userId && userName && (
@@ -478,23 +463,6 @@ export function RightSidePanel({ noteId, isCollaborating = false, isSharedView =
               isEducator={!isSharedView} // 공유 모드에서는 학생
             />
           )}
-
-          {/* 카테고리 버튼 */}
-          <CategoryButtons
-            activeCategories={activeCategories}
-            onCategoryToggle={toggleCategory}
-            onNotesToggle={toggleNotePanel}
-            isNotesOpen={isNotePanelOpen}
-            onFilesToggle={toggleFilePanel}
-            isFilesOpen={isFilePanelOpen}
-            onEtcToggle={toggleEtcPanel}
-            isEtcOpen={isEtcPanelOpen}
-            onTagsToggle={toggleTagsPanel}
-            isTagsOpen={isTagsPanelOpen}
-            onCollaborationToggle={toggleCollaborationPanel}
-            isCollaborationOpen={isCollaborationPanelOpen}
-            isEducator={isEducatorNote}
-          />
         </>
       )}
     </div>

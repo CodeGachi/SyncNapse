@@ -9,12 +9,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { NoteSidebar } from "./note-sidebar";
 import { NoteContentArea } from "./note-content-area";
 import { RightSidePanel } from "./right-side-panel";
 import { SidebarIcons } from "./sidebar-icons";
 import { NoteDataLoader } from "./note-data-loader";
 import { NoteLayoutWrapper } from "./note-layout-wrapper";
+import { NoteHeader } from "./note-header";
 import { LiveblocksProvider } from "@/providers/liveblocks-provider";
 import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
 import { EmojiReactions } from "@/components/note/collaboration/emoji-reactions";
@@ -101,8 +101,15 @@ export function EducatorNoteClient({
   // 노트 컴포넌트
   const noteContent = (
     <div className="flex items-start bg-[#1e1e1e] h-screen w-full relative">
-      {/* Left Sidebar - Server Component */}
-      <NoteSidebar />
+      {/* Header - 제목 + 녹음바 */}
+      <NoteHeader
+        noteId={noteId}
+        noteTitle={noteTitle}
+        isSharedView={isSharedView}
+        isCollaborating={isCollaborating}
+        onStartCollaboration={handleStartCollaboration}
+        onStopCollaboration={handleStopCollaboration}
+      />
 
       {/* Data Loader - Client Component (TanStack Query + AutoSave) */}
       <NoteDataLoader noteId={noteId} isSharedView={isSharedView}>

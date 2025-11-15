@@ -18,6 +18,7 @@ interface FilePanelProps {
   onOpenFileInTab: (id: string) => void;
   onRenameFile?: (id: string, newName: string) => void;
   onCopyFile?: (id: string) => void;
+  onClose?: () => void;
 }
 
 export function FilePanel({
@@ -29,7 +30,8 @@ export function FilePanel({
   onSelectFile,
   onOpenFileInTab,
   onRenameFile,
-  onCopyFile
+  onCopyFile,
+  onClose
 }: FilePanelProps) {
   const {
     fileInputRef,
@@ -56,14 +58,9 @@ export function FilePanel({
   });
 
   return (
-    <Panel isOpen={isOpen} borderColor="gray">
-      {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-[#444444]">
-        <h3 className="text-white text-sm font-bold">files</h3>
-      </div>
-
+    <Panel isOpen={isOpen} borderColor="gray" title="files" onClose={onClose}>
       {/* 파일 목록 */}
-      <div className="px-4 py-3 max-h-[240px] overflow-y-auto">
+      <div className="px-4 py-3 flex-1 overflow-y-auto">
         {files.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-[#666666] text-sm">업로드된 파일이 없습니다</p>
@@ -203,8 +200,9 @@ export function FilePanel({
         </div>
       )}
 
-      {/* 파일 추가 버튼 */}
-      <div className="px-4 py-3 border-t border-[#444444]">
+
+      {/* 파일 추가 버튼 - sticky footer */}
+      <div className="px-4 py-3 border-t border-[#444444] flex-shrink-0 sticky bottom-0 bg-[#2f2f2f]">
         <input
           ref={fileInputRef}
           type="file"
@@ -231,22 +229,6 @@ export function FilePanel({
           <span className="text-white text-xs font-medium">추가</span>
         </label>
       </div>
-
-      <style jsx>{`
-        @keyframes expandPanel {
-          0% {
-            max-height: 0;
-            opacity: 0;
-            transform: scaleY(0.8);
-            transform-origin: top;
-          }
-          100% {
-            max-height: 500px;
-            opacity: 1;
-            transform: scaleY(1);
-          }
-        }
-      `}</style>
     </Panel>
   );
 }

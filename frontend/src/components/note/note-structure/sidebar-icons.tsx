@@ -9,7 +9,6 @@
 import Image from "next/image";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
-import { useSidebarIcons } from "@/features/note/note-structure/use-sidebar-icons";
 
 interface SidebarIconsProps {
   noteId?: string | null;
@@ -17,45 +16,61 @@ interface SidebarIconsProps {
 
 export function SidebarIcons({ noteId }: SidebarIconsProps) {
   const { isExpanded, toggleExpand } = useNoteEditorStore();
-  const { isVisible } = useSidebarIcons();
-  const { toggleNotePanel, toggleFilePanel, toggleScript, toggleCollaborationPanel } = usePanelsStore();
+  const {
+    toggleNotePanel,
+    toggleFilePanel,
+    toggleScript,
+    toggleEtcPanel,
+    toggleCollaborationPanel,
+    isNotePanelOpen,
+    isFilePanelOpen,
+    isScriptOpen,
+    isEtcPanelOpen,
+    isCollaborationPanelOpen
+  } = usePanelsStore();
 
   // Get note data to determine if it's an educator note
   const { data: note } = useNote(noteId || null);
   const isEducatorNote = note?.type === "educator";
 
-  if (isExpanded || !isVisible) return null;
+  // Helper to open panel and expand sidebar if needed
+  const handlePanelToggle = (toggleFn: () => void, isCurrentlyActive: boolean) => {
+    // 패널이 닫혀있으면 열기
+    if (!isExpanded) {
+      toggleExpand();
+    }
+
+    // 개별 패널 토글
+    toggleFn();
+
+    // 활성화된 패널을 다시 클릭한 경우 -> 패널 닫고, 다른 패널도 모두 닫혀있으면 500px 패널도 닫기
+    if (isCurrentlyActive && isExpanded) {
+      // 토글 후 상태 확인을 위해 setTimeout 사용
+      setTimeout(() => {
+        const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen && !isCollaborationPanelOpen;
+        if (allPanelsClosed) {
+          toggleExpand(); // 500px 패널 닫기
+        }
+      }, 0);
+    }
+  };
 
   // 아이콘 버튼 공통 스타일
   const buttonWrapperClass = "flex flex-col items-center w-[53px] h-[67px]";
-  const buttonClass = "flex flex-col items-start p-2.5 gap-2 w-[53px] h-[53px] bg-[#363636] border-2 border-white rounded-[30px] hover:bg-[#3a3a3a] transition-colors";
+  const getButtonClass = (isActive: boolean) =>
+    `flex flex-col items-start p-2.5 gap-2 w-[53px] h-[53px] bg-[#363636] border-2 ${
+      isActive ? 'border-[#afc02b]' : 'border-white'
+    } rounded-[30px] hover:bg-[#3a3a3a] transition-colors`;
   const iconContainerClass = "flex items-center justify-center w-[33px] h-[33px] bg-[#444444] rounded-[16.5px]";
   const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[8px] leading-[10px]";
 
   return (
-    <div className="fixed right-0 top-4 flex flex-col items-center px-3 py-6 gap-[5px] w-[70px] bg-transparent z-50">
-      {/* 녹음 아이콘 (Record) */}
+    <div className="flex flex-col items-center flex-shrink-0 px-3 py-6 gap-[5px] w-[70px] bg-[#1e1e1e]">
+      {/* 노트 아이콘 (Notes) - 뷰어 하단 노트만 토글, 사이드바 확장 안 함 */}
       <div className={buttonWrapperClass}>
         <button
-          onClick={toggleExpand}
-          className={buttonClass}
-          title="Record"
-        >
-          <div className={iconContainerClass}>
-            <Image src="/record.svg" alt="Record" width={13} height={17} />
-          </div>
-        </button>
-        <div className={labelClass}>Record</div>
-      </div>
-
-      {/* 노트 아이콘 (Notes) */}
-      <div className={buttonWrapperClass}>
-        <button
-          onClick={() => {
-            toggleExpand();
-            toggleNotePanel();
-          }}
-          className={buttonClass}
+          onClick={toggleNotePanel}
+          className={getButtonClass(isNotePanelOpen)}
           title="Notes"
         >
           <div className={iconContainerClass}>
@@ -68,11 +83,8 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
       {/* 스크립트 아이콘 (Script) */}
       <div className={buttonWrapperClass}>
         <button
-          onClick={() => {
-            toggleExpand();
-            toggleScript();
-          }}
-          className={buttonClass}
+          onClick={() => handlePanelToggle(toggleScript, isScriptOpen)}
+          className={getButtonClass(isScriptOpen)}
           title="Script"
         >
           <div className={iconContainerClass}>
@@ -85,11 +97,8 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
       {/* 파일 아이콘 (Files) */}
       <div className={buttonWrapperClass}>
         <button
-          onClick={() => {
-            toggleExpand();
-            toggleFilePanel();
-          }}
-          className={buttonClass}
+          onClick={() => handlePanelToggle(toggleFilePanel, isFilePanelOpen)}
+          className={getButtonClass(isFilePanelOpen)}
           title="Files"
         >
           <div className={iconContainerClass}>
@@ -101,7 +110,11 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
 
       {/* 더보기 아이콘 (etc) */}
       <div className={buttonWrapperClass}>
-        <button onClick={toggleExpand} className={buttonClass} title="More">
+        <button
+          onClick={() => handlePanelToggle(toggleEtcPanel, isEtcPanelOpen)}
+          className={getButtonClass(isEtcPanelOpen)}
+          title="More"
+        >
           <div className={iconContainerClass}>
             <Image src="/overflow-menu.svg" alt="More" width={24} height={24} />
           </div>
@@ -113,11 +126,8 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
       {isEducatorNote && (
         <div className={buttonWrapperClass}>
           <button
-            onClick={() => {
-              toggleExpand();
-              toggleCollaborationPanel();
-            }}
-            className={buttonClass}
+            onClick={() => handlePanelToggle(toggleCollaborationPanel, isCollaborationPanelOpen)}
+            className={getButtonClass(isCollaborationPanelOpen)}
             title="협업"
           >
             <div className={iconContainerClass}>

@@ -1,5 +1,5 @@
 /**
- * 녹음바 UI 컴포넌트 (확장 가능)
+ * 녹음바 UI 컴포넌트
  */
 
 "use client";
@@ -7,28 +7,14 @@
 import { useScriptTranslationStore } from "@/stores";
 import type { SupportedLanguage } from "@/lib/types";
 
-interface Recording {
-  id: number;
-  title: string;
-  time: string;
-  date: string;
-  duration: string;
-  sessionId?: string;
-}
-
 interface RecordingBarProps {
   isPlaying: boolean;
   time: string;
   onPlayToggle: () => void;
   onStop?: () => void;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
-  recordings?: Recording[];
   isScriptOpen?: boolean;
   onToggleScript?: () => void;
   isRecording?: boolean;
-  onRecordingSelect?: (sessionId: string) => void;
-  onDeleteRecording?: (sessionId: string) => void;
 }
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -49,14 +35,9 @@ export function RecordingBar({
   time,
   onPlayToggle,
   onStop,
-  isExpanded = false,
-  onToggleExpand,
-  recordings = [],
   isScriptOpen = false,
   onToggleScript,
   isRecording = false,
-  onRecordingSelect,
-  onDeleteRecording,
 }: RecordingBarProps) {
   const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
 
@@ -65,12 +46,8 @@ export function RecordingBar({
     : LANGUAGE_NAMES[originalLanguage];
 
   return (
-    <div className={`w-full bg-[#363636] border-2 border-white rounded-[30px] transition-all duration-300 ${
-      isExpanded ? 'h-[190px] p-[10px] px-6' : 'px-6 py-2.5'
-    }`}>
+    <div className="w-full bg-[#363636] border-2 border-white rounded-[30px] px-6 py-2.5">
       {/* 녹음바 컨트롤 */}
-      <div className={`flex ${isExpanded ? 'flex-col gap-3' : 'items-center gap-2'} w-full`}>
-      {/* 컨트롤 바 */}
       <div className="flex items-center gap-2 w-full">
         {/* 재생/일시정지 버튼 */}
         <button
@@ -141,92 +118,21 @@ export function RecordingBar({
         {/* 구분선 */}
         <div className="w-px h-5 bg-white" />
 
-        {/* 확대 아이콘들 */}
-        <div className="flex items-center gap-3 px-2 py-1">
-          {/* 녹음 목록 확장 버튼 */}
-          {onToggleExpand && (
-            <button
-              onClick={onToggleExpand}
-              className="cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <svg width="19" height="18" viewBox="0 0 19 18" fill="white">
-                <rect x="2" y="2" width="6" height="6" fill="white" />
-                <rect x="11" y="2" width="6" height="6" fill="white" />
-                <rect x="2" y="10" width="6" height="6" fill="white" />
-                <rect x="11" y="10" width="6" height="6" fill="white" />
-              </svg>
-            </button>
-          )}
-          {/* 스크립트 버튼 (두 번째 버튼) */}
-          {onToggleScript && (
-            <button
-              onClick={onToggleScript}
-              className="cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <svg width="19" height="19" viewBox="0 0 19 19" fill="white">
-                <path
-                  d="M2 9.5h15M9.5 2v15"
-                  stroke="white"
-                  strokeWidth="2"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 녹음 목록 (확장 시 - 녹음바 내부) */}
-      {isExpanded && recordings.length > 0 && (
-        <div className="flex flex-col gap-1 w-full max-h-[120px] overflow-y-auto">
-          {recordings.map((recording) => (
-            <div
-              key={recording.sessionId || recording.id}
-              className="flex items-center justify-between py-2 px-3 hover:bg-[#444444] rounded-lg transition-colors group"
-            >
-              <div 
-                className="flex items-center gap-3 flex-1 cursor-pointer"
-                onClick={() => recording.sessionId && onRecordingSelect?.(recording.sessionId)}
-              >
-                <p className="text-white text-xs font-bold">{recording.title}</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-[#b9b9b9] text-[10px] font-bold">{recording.time}</p>
-                  <p className="text-[#b9b9b9] text-[10px] font-bold">{recording.date}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <p className="text-[#b9b9b9] text-[10px] font-bold px-3 py-1">{recording.duration}</p>
-                {/* Delete button */}
-                {onDeleteRecording && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (recording.sessionId && confirm(`"${recording.title}" 녹음을 삭제하시겠습니까?`)) {
-                        onDeleteRecording(recording.sessionId);
-                      }
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/20 rounded"
-                    title="삭제"
-                  >
-                    <svg
-                      className="w-4 h-4 text-red-400 hover:text-red-300"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* 스크립트 버튼 */}
+        {onToggleScript && (
+          <button
+            onClick={onToggleScript}
+            className="cursor-pointer hover:opacity-80 transition-opacity px-2 py-1"
+          >
+            <svg width="19" height="19" viewBox="0 0 19 19" fill="white">
+              <path
+                d="M2 9.5h15M9.5 2v15"
+                stroke="white"
+                strokeWidth="2"
+              />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
