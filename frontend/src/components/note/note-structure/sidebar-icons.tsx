@@ -65,7 +65,7 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
   const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[8px] leading-[10px]";
 
   return (
-    <div className="flex flex-col items-center flex-shrink-0 px-3 py-6 gap-[5px] w-[70px] bg-[#1e1e1e]">
+    <div className="flex flex-col items-center flex-shrink-0 px-1 py-6 gap-[5px] w-[60px] bg-[#1e1e1e]">
       {/* 노트 아이콘 (Notes) - 뷰어 하단 노트만 토글, 사이드바 확장 안 함 */}
       <div className={buttonWrapperClass}>
         <button

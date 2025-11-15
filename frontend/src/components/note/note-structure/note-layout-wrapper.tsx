@@ -15,7 +15,7 @@ export function NoteLayoutWrapper({ children }: NoteLayoutWrapperProps) {
   return (
     <main className="flex-1 h-full">
       {/* 뷰어 + 패널 + 아이콘바를 flex로 배치, 뷰어는 fill */}
-      <div className="flex gap-3 h-full pt-20 px-6 pb-6">
+      <div className="flex gap-1 h-full pt-20 px-2 pb-6">
         {children}
       </div>
     </main>
