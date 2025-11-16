@@ -58,7 +58,7 @@ export function ColorPickerPopup({
     const rect = buttonRef.current.getBoundingClientRect();
     return {
       position: "fixed" as const,
-      right: `${window.innerWidth - rect.left + 8}px`,
+      right: `${window.innerWidth - rect.left + 24}px`,
       top: `${rect.top}px`,
     };
   };

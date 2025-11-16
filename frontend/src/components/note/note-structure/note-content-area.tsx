@@ -295,7 +295,10 @@ export function NoteContentArea({
           {isNotePanelOpen && (
             <div
               className="overflow-y-auto bg-[#1e1e1e]"
-              style={{ height: `${100 - viewerHeight}%` }}
+              style={{
+                height: `${100 - viewerHeight}%`,
+                marginRight: isEducatorNote ? '72px' : '0' // 필기바 너비(56px) + gap(16px)
+              }}
             >
               <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />
             </div>

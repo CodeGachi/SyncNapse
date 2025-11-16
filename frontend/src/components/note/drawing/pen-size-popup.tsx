@@ -49,7 +49,7 @@ export function PenSizePopup({
     const popupWidth = 120; // w-24 + padding + border
     return {
       position: "fixed" as const,
-      right: `${window.innerWidth - rect.left + 8}px`,
+      right: `${window.innerWidth - rect.left + 24}px`,
       top: `${rect.top}px`,
     };
   };
