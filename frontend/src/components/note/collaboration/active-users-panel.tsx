@@ -31,32 +31,32 @@ export function ActiveUsersPanel() {
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-2 border-b border-[#444444]">
         <div className="flex items-center gap-2">
-          <Users size={16} className="text-[#AFC02B]" />
-          <h4 className="text-white text-sm font-bold">
+          <Users size={18} className="text-[#AFC02B]" />
+          <h4 className="text-white text-base font-bold">
             접속자 ({allUsers.length}명)
           </h4>
         </div>
       </div>
 
       {/* 사용자 목록 */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {allUsers.length === 0 ? (
-          <p className="text-gray-400 text-xs text-center py-4">
+          <p className="text-gray-400 text-sm text-center py-8">
             접속자가 없습니다
           </p>
         ) : (
           allUsers.map((user) => (
             <div
               key={user.connectionId}
-              className="flex items-center gap-3 p-2 bg-[#3C3C3C] rounded-lg hover:bg-[#4A4A4A] transition-colors"
+              className="flex items-center gap-3 p-3 bg-[#3C3C3C] rounded-lg hover:bg-[#4A4A4A] transition-colors"
             >
               {/* 아바타 */}
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0"
                 style={{ backgroundColor: user.color }}
               >
                 {user.userName.charAt(0).toUpperCase()}
@@ -77,7 +77,7 @@ export function ActiveUsersPanel() {
                     className="text-green-400 fill-green-400 flex-shrink-0"
                   />
                 </div>
-                <p className="text-gray-400 text-xs">
+                <p className="text-gray-400 text-xs mt-1">
                   ID: {String(user.connectionId).slice(0, 8)}...
                 </p>
               </div>

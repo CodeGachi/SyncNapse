@@ -50,33 +50,33 @@ export function CollaborationPanel({
     <Panel
       isOpen={true}
       borderColor="green"
-      height="h-[380px]"
+      height="h-[560px]"
       title="실시간 협업"
     >
       <div className="flex flex-col h-full">
         {/* 탭 네비게이션 */}
-        <div className="flex gap-1 px-3 py-2 border-b border-[#444444] flex-shrink-0">
+        <div className="flex gap-2 px-4 py-3 border-b border-[#444444] flex-shrink-0">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded text-xs font-medium transition-all ${
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 px-2 rounded text-xs font-medium transition-all ${
                   activeTab === tab.id
                     ? "bg-[#AFC02B] text-black"
                     : "bg-[#3f3f3f] text-white hover:bg-[#4f4f4f]"
                 }`}
               >
-                <Icon size={14} />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <Icon size={16} />
+                <span className="text-[10px]">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* 탭 콘텐츠 */}
-        <div className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="flex-1 overflow-y-auto px-4 py-4">
           {activeTab === "users" && <ActiveUsersPanel />}
 
           {activeTab === "handRaise" && (
