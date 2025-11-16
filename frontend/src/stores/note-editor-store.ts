@@ -396,13 +396,21 @@ export const useNoteEditorStore = create<NoteEditorState>()(
       setFiles: (files) => set({ files }),
 
       loadFiles: (files) =>
-        set((state) => ({
-          files,
-          selectedFileId:
-            files.length > 0 && !state.selectedFileId
-              ? files[0].id
-              : state.selectedFileId,
-        })),
+        set((state) => {
+          // 파일이 있고 현재 선택된 파일이 없으면 첫 번째 파일 선택
+          const shouldSelectFirst = files.length > 0 && !state.selectedFileId;
+          const newSelectedFileId = shouldSelectFirst ? files[0].id : state.selectedFileId;
+
+          // 파일이 있고 탭이 비어있으면 첫 번째 파일을 탭에 열기
+          const shouldOpenTab = files.length > 0 && state.openedTabs.length === 0;
+          const newOpenedTabs = shouldOpenTab ? [files[0].id] : state.openedTabs;
+
+          return {
+            files,
+            selectedFileId: newSelectedFileId,
+            openedTabs: newOpenedTabs,
+          };
+        }),
 
       renameFile: (id, newName) =>
         set((state) => ({

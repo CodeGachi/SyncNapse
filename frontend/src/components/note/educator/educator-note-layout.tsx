@@ -56,7 +56,16 @@ export function EducatorNoteLayout({
 
   // Get opened files for tabs
   const openedFiles = files.filter(f => openedTabs.includes(f.id));
-  
+
+  // 초기 마운트 시에만 파일이 있는데 탭이 비어있으면 자동으로 첫 번째 파일 열기
+  useEffect(() => {
+    if (files.length > 0 && openedTabs.length === 0) {
+      console.log('[EducatorNoteLayout] Auto-opening first file on mount:', files[0].id);
+      openFileInTab(files[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files.length]); // files.length만 의존성으로 추가 - 파일 개수가 변경될 때만 실행
+
   // Handle tab change
   const handleTabChange = (index: number) => {
     const fileId = openedTabs[index];

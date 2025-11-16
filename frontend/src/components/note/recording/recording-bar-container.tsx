@@ -38,6 +38,12 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     handleRecordingSelect,
   } = useAudioPlayer();
 
+  // 오디오 재생 위치 (초 단위)
+  const { currentTime } = useNoteEditorStore();
+
+  // 오디오 길이 (초 단위)
+  const duration = audioRef.current?.duration || 0;
+
   // 녹음 목록
   const {
     recordings,
@@ -48,7 +54,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   // 녹음 목록 드롭다운 상태
   const [isRecordingListOpen, setIsRecordingListOpen] = useState(false);
 
-  // Recording control - ONLY for starting/pausing/resuming recording
+  // Recording/Playback control - Handle both recording and audio playback
   const onPlayToggle = () => {
     if (isRecording) {
       // 녹음 중: 일시정지/재개
@@ -57,21 +63,23 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
       } else {
         handlePlayPause(isPlaying, audioRef.current); // Pause recording
       }
-    } else {
-      // 녹음 시작 전: 현재 재생 중인 오디오를 멈춤
-      if (audioRef.current && audioRef.current.src && isPlaying) {
-        console.log('[RecordingBarContainer] Stopping audio playback before recording');
+    } else if (audioRef.current && audioRef.current.src && duration > 0) {
+      // 녹음본 재생 중: 재생/일시정지
+      console.log('[RecordingBarContainer] Toggle audio playback');
+      if (isPlaying) {
         audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-        if (isPlaying) togglePlay(); // Update isPlaying state
+      } else {
+        audioRef.current.play();
       }
-
+      togglePlay();
+    } else {
       // 녹음 시작
+      console.log('[RecordingBarContainer] Starting new recording');
       handlePlayPause(isPlaying, audioRef.current);
     }
   };
 
-  // Stop handler - Stops recording immediately and opens save modal
+  // Stop handler - Stops recording or playback
   const onStop = () => {
     if (isRecording) {
       // 녹음을 즉시 멈추고 모달 열기
@@ -80,9 +88,13 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
         handlePlayPause(isPlaying, audioRef.current); // Pause recording first
       }
       handleStopRecording();
+    } else if (audioRef.current && audioRef.current.src && duration > 0) {
+      // 재생 중: 정지 (재생 위치를 처음으로 리셋)
+      console.log('[RecordingBarContainer] Stopping audio playback');
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      if (isPlaying) togglePlay();
     }
-    // 재생 중에는 RecordingBar의 stop 버튼이 작동하지 않음
-    // 재생 종료는 timeline 아래 플레이어에서 처리
   };
 
   // 녹음 삭제 핸들러
@@ -139,17 +151,49 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     setIsRecordingListOpen(!isRecordingListOpen);
   };
 
+  // 재생 위치 변경 핸들러
+  const handleSeek = (time: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  // 저장 핸들러 (녹음 중일 때만)
+  const handleSave = () => {
+    if (isRecording) {
+      console.log('[RecordingBarContainer] Save recording');
+      // 녹음을 일시정지하고 저장 모달 열기
+      if (!isPaused) {
+        handlePlayPause(isPlaying, audioRef.current);
+      }
+      handleStopRecording();
+    }
+  };
+
+  // 맨앞으로 가기 핸들러 (재생 모드에서만)
+  const handleSkipBack = () => {
+    if (audioRef.current && duration > 0) {
+      console.log('[RecordingBarContainer] Skip back to beginning');
+      audioRef.current.currentTime = 0;
+    }
+  };
+
   return (
     <>
       <div className="relative">
         <RecordingBar
-          isPlaying={isRecording && !isPaused}
+          isPlaying={isRecording ? !isPaused : isPlaying}
           time={recordingTime}
           onPlayToggle={onPlayToggle}
           onStop={onStop}
+          onSave={handleSave}
+          onSkipBack={handleSkipBack}
           isRecording={isRecording}
           onToggleRecordingList={handleToggleRecordingList}
           recordingCount={recordings.length}
+          currentTime={currentTime}
+          duration={duration}
+          onSeek={handleSeek}
         />
 
         {/* 녹음 목록 드롭다운 */}

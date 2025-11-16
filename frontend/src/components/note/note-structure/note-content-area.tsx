@@ -137,6 +137,16 @@ export function NoteContentArea({
     setCanRedo(toolsStore.getCanRedo());
   }, [toolsStore]);
 
+  // 초기 마운트 시에만 파일이 있는데 탭이 비어있으면 자동으로 첫 번째 파일 열기
+  useEffect(() => {
+    if (uploadedFiles.length > 0 && openedTabs.length === 0) {
+      console.log('[NoteContentArea] Auto-opening first file on mount:', uploadedFiles[0].id);
+      const openFileInTab = editorStore.openFileInTab;
+      openFileInTab(uploadedFiles[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedFiles.length]); // uploadedFiles.length만 의존성으로 추가 - 파일 개수가 변경될 때만 실행
+
   // PDF 컨테이너 크기 변화 감지
   useEffect(() => {
     const container = pdfViewerContainerRef.current;

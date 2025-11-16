@@ -5,128 +5,178 @@
 "use client";
 
 import Image from "next/image";
-import { useScriptTranslationStore } from "@/stores";
-import type { SupportedLanguage } from "@/lib/types";
 
 interface RecordingBarProps {
   isPlaying: boolean;
   time: string;
   onPlayToggle: () => void;
   onStop?: () => void;
+  onSave?: () => void;
+  onSkipBack?: () => void;
   isRecording?: boolean;
   onToggleRecordingList?: () => void;
   recordingCount?: number;
+  // 재생 위치 제어 (녹음본 재생 시)
+  currentTime?: number;
+  duration?: number;
+  onSeek?: (time: number) => void;
 }
-
-const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
-  ko: "한국어",
-  en: "English",
-  ja: "日本語",
-  zh: "中文",
-  es: "Español",
-  fr: "Français",
-  de: "Deutsch",
-  ru: "Русский",
-  ar: "العربية",
-  pt: "Português",
-};
 
 export function RecordingBar({
   isPlaying,
   time,
   onPlayToggle,
   onStop,
+  onSave,
+  onSkipBack,
   isRecording = false,
   onToggleRecordingList,
   recordingCount = 0,
+  currentTime = 0,
+  duration = 0,
+  onSeek,
 }: RecordingBarProps) {
-  const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
-
-  const displayLanguage = isTranslationEnabled
-    ? `${LANGUAGE_NAMES[originalLanguage]} → ${LANGUAGE_NAMES[targetLanguage]}`
-    : LANGUAGE_NAMES[originalLanguage];
+  // 재생 중인 녹음본이 있는지 확인 (duration > 0이면 재생 모드)
+  const isPlaybackMode = duration > 0 && !isRecording;
 
   return (
-    <div className="w-full bg-[#363636] border-2 border-white rounded-[30px] px-4 py-2">
+    <div className="w-full bg-[#363636] border-2 border-[#b9b9b9] rounded-[30px] px-6 py-2.5">
       {/* 녹음바 컨트롤 */}
-      <div className="flex items-center gap-1.5 w-full">
-        {/* 재생/일시정지 버튼 */}
+      <div className="flex items-center gap-2 w-full">
+        {/* 버튼 1: 녹음/재생 */}
         <button
           onClick={onPlayToggle}
-          className="w-[28px] h-[28px] bg-[#444444] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+          className="w-[33px] h-[33px] bg-[#444444] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+          title={isRecording ? "녹음 정지" : isPlaybackMode ? "재생/일시정지" : "녹음 시작"}
         >
-          {isPlaying ? (
-            /* 일시정지 아이콘 */
+          {isPlaybackMode ? (
+            /* 재생 모드: Player Play 아이콘 */
+            isPlaying ? (
+              /* 일시정지 */
+              <svg width="10" height="12" viewBox="0 0 12 14" fill="white">
+                <rect x="0" y="0" width="4" height="14" fill="white" />
+                <rect x="8" y="0" width="4" height="14" fill="white" />
+              </svg>
+            ) : (
+              /* 재생 */
+              <Image src="/iconstack.io - (Player Play).svg" alt="Play" width={20} height={20} />
+            )
+          ) : (
+            /* 녹음 모드: 녹음 아이콘 (크기 축소) */
+            <Image src="/record.svg" alt="Record" width={16} height={16} />
+          )}
+        </button>
+
+        {/* 버튼 2: 저장 (Player Stop 아이콘, 녹음 중에만 활성화) */}
+        <button
+          onClick={isRecording && onSave ? onSave : undefined}
+          disabled={!isRecording}
+          className={`w-[33px] h-[33px] bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0 transition-opacity ${
+            isRecording
+              ? "cursor-pointer hover:opacity-80"
+              : "opacity-50 cursor-not-allowed"
+          }`}
+          title="저장"
+        >
+          <Image
+            src="/iconstack.io - (Player Stop).svg"
+            alt="Save"
+            width={16}
+            height={16}
+            className={!isRecording ? "opacity-50" : ""}
+          />
+        </button>
+
+        {/* 시간 표시 */}
+        <div className="bg-[#363636] rounded px-3 py-1 flex-shrink-0">
+          <p className="text-[#b9b9b9] text-[11px] font-bold whitespace-nowrap">{time}</p>
+        </div>
+
+        {/* 재생 위치 바 (Figma Line 8: 208px 흰색 선) */}
+        <div className="w-[208px] h-[1px] flex-shrink-0 relative bg-[#ffffff]">
+          {/* 재생 진행 표시 (재생 모드에서만) */}
+          {isPlaybackMode && duration > 0 && (
+            <div
+              className="absolute left-0 top-0 h-full bg-[#AFC02B]"
+              style={{
+                width: `${(currentTime / duration) * 100}%`,
+              }}
+            />
+          )}
+          {/* 클릭 가능한 투명 오버레이 (재생 모드에서만) */}
+          {isPlaybackMode && (
+            <div
+              className="absolute inset-0 cursor-pointer"
+              onClick={(e) => {
+                if (onSeek) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const percentage = x / rect.width;
+                  const newTime = percentage * duration;
+                  onSeek(newTime);
+                }
+              }}
+            />
+          )}
+        </div>
+
+        {/* 버튼 3: 재생본 재생/일시정지 (Player Play/일시정지, 재생 모드에서만 활성화) */}
+        <button
+          onClick={isPlaybackMode && onStop ? onStop : undefined}
+          disabled={!isPlaybackMode}
+          className={`w-[33px] h-[33px] bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0 transition-opacity ${
+            isPlaybackMode
+              ? "cursor-pointer hover:opacity-80"
+              : "opacity-50 cursor-not-allowed"
+          }`}
+          title={isPlaying ? "일시정지" : "재생"}
+        >
+          {isPlaybackMode && isPlaying ? (
+            /* 재생 중: 일시정지 SVG */
             <svg width="10" height="12" viewBox="0 0 12 14" fill="white">
               <rect x="0" y="0" width="4" height="14" fill="white" />
               <rect x="8" y="0" width="4" height="14" fill="white" />
             </svg>
           ) : (
-            /* 재생 아이콘 */
-            <svg width="8" height="10" viewBox="0 0 10 12" fill="white">
-              <path d="M0 0L10 6L0 12V0Z" fill="white" />
-            </svg>
+            /* 기본: Player Play 아이콘 */
+            <Image
+              src="/iconstack.io - (Player Play).svg"
+              alt="Play"
+              width={20}
+              height={20}
+              className={!isPlaybackMode ? "opacity-50" : ""}
+            />
           )}
         </button>
 
-        {/* 시간 표시 */}
-        <div className="px-2 py-0.5">
-          <p className="text-[#b9b9b9] text-[11px] font-bold">{time}</p>
-        </div>
-
-        {/* 언어 표시 */}
-        <div className="flex items-center gap-0.5 px-1 py-0.5">
-          <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
-            <circle cx="9" cy="9" r="8" stroke="white" strokeWidth="2" />
-            <path
-              d="M1 9h16M9 1c-2.5 3-2.5 13 0 16M9 1c2.5 3 2.5 13 0 16"
-              stroke="white"
-              strokeWidth="2"
-            />
-          </svg>
-          <span
-            className={`text-white text-[10px] font-bold ${isTranslationEnabled ? 'text-blue-400' : ''}`}
-            title={isTranslationEnabled ? "번역 활성화됨" : ""}
-          >
-            {displayLanguage}
-          </span>
-        </div>
-
-        {/* 북마크 */}
-        <button className="flex items-center gap-0.5 px-1 py-0.5 cursor-pointer hover:opacity-80 transition-opacity">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="white">
-            <path
-              d="M3 2h10v12l-5-3-5 3V2z"
-              fill="white"
-            />
-          </svg>
-          <span className="text-white text-[10px] font-bold">북마크</span>
+        {/* Skip Back: 맨앞으로 가기 (Player Skip Back 아이콘, 재생 모드에서만 활성화) */}
+        <button
+          onClick={isPlaybackMode && onSkipBack ? onSkipBack : undefined}
+          disabled={!isPlaybackMode}
+          className={`w-[23px] h-[23px] flex items-center justify-center flex-shrink-0 transition-opacity ${
+            isPlaybackMode
+              ? "cursor-pointer hover:opacity-80"
+              : "opacity-50 cursor-not-allowed"
+          }`}
+          title="맨앞으로"
+        >
+          <Image
+            src="/iconstack.io - (Player Skip Back).svg"
+            alt="Skip Back"
+            width={23}
+            height={23}
+            className={!isPlaybackMode ? "opacity-50" : ""}
+          />
         </button>
-
-        {/* 구분선 */}
-        <div className="w-px h-5 bg-white" />
-
-        {/* 종료 버튼 */}
-        {onStop && (
-          <button
-            onClick={onStop}
-            className="px-2 py-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-white text-[10px] font-bold">종료</span>
-          </button>
-        )}
-
-        {/* 구분선 */}
-        <div className="w-px h-4 bg-white" />
 
         {/* 녹음 목록 버튼 */}
         {onToggleRecordingList && (
           <button
             onClick={onToggleRecordingList}
-            className="flex items-center gap-0.5 px-1.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity relative"
+            className="flex items-center gap-0.5 px-1.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity relative flex-shrink-0"
             title="저장된 녹음"
           >
-            <Image src="/menu.svg" alt="Recording List" width={12} height={12} />
+            <Image src="/menu.svg" alt="Recording List" width={19} height={18} />
             {recordingCount > 0 && (
               <span className="text-white text-[9px] font-bold bg-[#AFC02B] rounded-full px-1 py-0.5 min-w-[16px] text-center">
                 {recordingCount}

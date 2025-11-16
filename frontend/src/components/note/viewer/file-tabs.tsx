@@ -18,7 +18,7 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
   };
 
   return (
-    <div className="flex items-end w-full h-[38px]">
+    <div className="flex items-end w-full h-[32px]">
       {files.map((file, index) => (
         <div
           key={file.id}
