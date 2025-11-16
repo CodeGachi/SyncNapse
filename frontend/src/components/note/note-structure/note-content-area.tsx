@@ -17,13 +17,13 @@ import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
-import { EducatorNoteLayout } from "@/components/note/educator/educator-note-layout";
 
 interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
   isCollaborating?: boolean;
   isSharedView?: boolean; // 공유 링크로 접속한 경우
+  isEducator?: boolean; // 교육자 노트 여부 (prop으로 명시적 전달)
   onStartCollaboration?: () => void;
   onStopCollaboration?: () => void;
 }
@@ -33,6 +33,7 @@ export function NoteContentArea({
   noteTitle,
   isCollaborating,
   isSharedView = false,
+  isEducator,
   onStartCollaboration,
   onStopCollaboration,
 }: NoteContentAreaProps) {
@@ -40,7 +41,19 @@ export function NoteContentArea({
   // 공유 모드에서는 로컬 DB 쿼리 비활성화 (Liveblocks Storage에서 가져옴)
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
   const actualTitle = note?.title || noteTitle;
-  const isEducatorNote = note?.type === "educator";
+  // 교육자 노트 여부: prop으로 명시적 전달되면 절대 우선 (|| 연산자 사용)
+  // isEducator={true}가 전달되면 DB의 type과 무관하게 educator로 처리
+  const isEducatorNote = isEducator === true || note?.type === "educator";
+
+  // 디버깅: isEducatorNote 값 추적
+  useEffect(() => {
+    console.log('[NoteContentArea] 렌더링 체크:', {
+      isEducator,
+      noteType: note?.type,
+      isEducatorNote,
+      noteId,
+    });
+  }, [isEducator, note?.type, isEducatorNote, noteId]);
 
   // 공유 설정 관리 (Hooks must be called before any early returns)
   const [isSharingOpen, setIsSharingOpen] = useState(false);
@@ -237,17 +250,6 @@ export function NoteContentArea({
     }
   };
 
-  // Educator 노트는 전용 레이아웃 사용 (after all hooks)
-  if (isEducatorNote && noteId) {
-    return (
-      <EducatorNoteLayout
-        noteId={noteId}
-        noteTitle={actualTitle}
-        isCollaborating={isCollaborating}
-      />
-    );
-  }
-
   // 탭용 파일 형식으로 변환
   const files = convertFilesForTabs();
 
@@ -272,9 +274,10 @@ export function NoteContentArea({
           {/* PDF 뷰어와 필기 사이드바를 가로로 배치 */}
           <div
             ref={pdfViewerContainerRef}
-            className="flex-1 flex flex-row overflow-hidden transition-all duration-300"
+            className="flex-1 flex flex-row transition-all duration-300"
             style={{
               height: isNotePanelOpen ? `${viewerHeight}%` : 'auto',
+              overflow: 'visible',
             }}
           >
             {/* PDF 뷰어 - 왼쪽 (필기 오버레이 포함) */}
@@ -329,30 +332,29 @@ export function NoteContentArea({
               })()}
             </div>
 
-            {/* 필기 도구 사이드바 - 우측 */}
-            {isEducatorNote && selectedFile && (
-              <DrawingSidebar
-                isEnabled={selectedFile.type?.includes("pdf") || false}
-                isDrawingMode={isDrawingMode}
-                currentTool={{
-                  type: currentTool,
-                  color: penColor,
-                  strokeWidth: penSize,
-                  opacity: currentTool === "highlighter" ? 0.3 : 1,
-                }}
-                penColor={penColor}
-                penSize={penSize}
-                canUndo={canUndo}
-                canRedo={canRedo}
-                onDrawingModeChange={setIsDrawingMode}
-                onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
-                onColorChange={(color) => drawStore.setLineColor(color)}
-                onSizeChange={(size) => drawStore.setLineWidth(size)}
-                onUndo={() => drawingOverlayRef.current?.handleUndo()}
-                onRedo={() => drawingOverlayRef.current?.handleRedo()}
-                onClear={() => drawingOverlayRef.current?.handleClear()}
-              />
-            )}
+            {/* 필기 도구 사이드바 - 우측 (교육자 노트는 항상 표시) */}
+            {/* 디버깅: 조건 제거하고 항상 렌더링 */}
+            <DrawingSidebar
+              isEnabled={true}
+              isDrawingMode={isDrawingMode}
+              currentTool={{
+                type: currentTool,
+                color: penColor,
+                strokeWidth: penSize,
+                opacity: currentTool === "highlighter" ? 0.3 : 1,
+              }}
+              penColor={penColor}
+              penSize={penSize}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onDrawingModeChange={setIsDrawingMode}
+              onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
+              onColorChange={(color) => drawStore.setLineColor(color)}
+              onSizeChange={(size) => drawStore.setLineWidth(size)}
+              onUndo={() => drawingOverlayRef.current?.handleUndo()}
+              onRedo={() => drawingOverlayRef.current?.handleRedo()}
+              onClear={() => drawingOverlayRef.current?.handleClear()}
+            />
           </div>
 
           {/* 드래그 가능한 디바이더 */}

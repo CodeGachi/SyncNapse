@@ -12,9 +12,10 @@ import { useNote } from "@/lib/api/queries/notes.queries";
 
 interface SidebarIconsProps {
   noteId?: string | null;
+  isEducator?: boolean; // 교육자 노트 여부 (prop으로 명시적 전달)
 }
 
-export function SidebarIcons({ noteId }: SidebarIconsProps) {
+export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
   const { isExpanded, toggleExpand } = useNoteEditorStore();
   const {
     toggleNotePanel,
@@ -31,7 +32,8 @@ export function SidebarIcons({ noteId }: SidebarIconsProps) {
 
   // Get note data to determine if it's an educator note
   const { data: note } = useNote(noteId || null);
-  const isEducatorNote = note?.type === "educator";
+  // 교육자 노트 여부: prop으로 명시적 전달되면 우선 사용, 아니면 note 데이터에서 가져오기
+  const isEducatorNote = isEducator ?? (note?.type === "educator");
 
   // Helper to open panel and expand sidebar if needed
   const handlePanelToggle = (toggleFn: () => void, isCurrentlyActive: boolean) => {

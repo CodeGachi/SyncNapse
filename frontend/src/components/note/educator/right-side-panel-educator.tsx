@@ -1,8 +1,6 @@
 /**
- * 개인 노트 우측 사이드 패널 - Student Only
- * 스크립트, 파일, etc 패널
- *
- * Refactored: Business logic separated to features/note/right-panel/
+ * 강의 노트 우측 사이드 패널 - Educator Only
+ * 스크립트, 파일, etc 패널 + 협업 패널
  */
 
 "use client";
@@ -21,14 +19,37 @@ import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
+import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
-interface RightSidePanelProps {
-  noteId: string | null;
+interface RightSidePanelEducatorProps {
+  noteId: string;
 }
 
-export function RightSidePanel({ noteId }: RightSidePanelProps) {
+export function RightSidePanelEducator({ noteId }: RightSidePanelEducatorProps) {
+  // 사용자 정보 로드 (협업 기능용)
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
 
-  // Store states (useEffect 전에 먼저 선언)
+  useEffect(() => {
+    // localStorage에서 사용자 정보 가져오기
+    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
+    const storedUserName = localStorage.getItem("userName") || "사용자";
+
+    // 없으면 새로 생성하여 저장
+    if (!localStorage.getItem("userId")) {
+      localStorage.setItem("userId", storedUserId);
+    }
+    if (!localStorage.getItem("userName")) {
+      localStorage.setItem("userName", storedUserName);
+    }
+
+    setUserId(storedUserId);
+    setUserName(storedUserName);
+
+    console.log(`[RightSidePanelEducator] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
+  }, []);
+
+  // Store states
   const {
     files: uploadedFiles,
     removeFile,
@@ -37,8 +58,6 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
     openFileInTab,
     renameFile,
     copyFile,
-    activeCategories,
-    toggleCategory,
     isExpanded,
     toggleExpand,
     currentTime,
@@ -56,17 +75,19 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
     toggleScript,
     isEtcPanelOpen,
     toggleEtcPanel,
+    isCollaborationPanelOpen,
+    toggleCollaborationPanel,
   } = usePanelsStore();
 
   // 모든 개별 패널이 닫히면 500px 패널도 자동으로 닫기
   useEffect(() => {
-    const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen;
+    const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen && !isCollaborationPanelOpen;
 
     if (allPanelsClosed && isExpanded) {
-      console.log('[RightSidePanel] 모든 패널 닫힘 - 500px 패널 자동 닫기');
+      console.log('[RightSidePanelEducator] 모든 패널 닫힘 - 500px 패널 자동 닫기');
       toggleExpand();
     }
-  }, [isScriptOpen, isFilePanelOpen, isEtcPanelOpen, isExpanded, toggleExpand]);
+  }, [isScriptOpen, isFilePanelOpen, isEtcPanelOpen, isCollaborationPanelOpen, isExpanded, toggleExpand]);
 
   // Audio player for playback (used by ScriptPanel)
   const {
@@ -75,7 +96,6 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
     togglePlay,
   } = useAudioPlayer();
 
-  // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
   const { handleAddFile } = useFileManagement({ noteId });
 
   const { handleAddQuestion, deleteQuestion } = useQuestionManagement({ noteId });
@@ -89,7 +109,7 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
 
     const handleTimeUpdate = () => {
       const currentTime = audio.currentTime; // in seconds
-      
+
       // Find the active segment - segment.timestamp is in milliseconds
       const activeSegment = scriptSegments.find(
         (segment) => {
@@ -98,16 +118,16 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
           return currentTime >= segmentStartTime && currentTime < segmentEndTime;
         }
       );
-      
+
       if (activeSegment) {
-        console.log('[RightSidePanel] Active segment:', {
+        console.log('[RightSidePanelEducator] Active segment:', {
           id: activeSegment.id,
           text: activeSegment.originalText?.substring(0, 30),
           segmentTime: ((activeSegment.timestamp || 0) / 1000).toFixed(2) + 's',
           currentTime: currentTime.toFixed(2) + 's',
         });
       }
-      
+
       setActiveSegmentId(activeSegment?.id || null);
     };
 
@@ -149,16 +169,16 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
     if (audioRef.current) {
       // Validate time value
       if (!isFinite(time) || time < 0) {
-        console.warn('[RightSidePanel] Invalid seek time:', time);
+        console.warn('[RightSidePanelEducator] Invalid seek time:', time);
         return;
       }
-      
+
       // Clamp time to valid range
       const maxTime = audioRef.current.duration || 0;
       const validTime = Math.max(0, Math.min(time, maxTime));
-      
+
       audioRef.current.currentTime = validTime;
-      console.log('[RightSidePanel] Seek to:', validTime);
+      console.log('[RightSidePanelEducator] Seek to:', validTime);
     }
   };
 
@@ -193,7 +213,7 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
                 onSeek={handleSeek}
                 className="mt-3"
               />
-              
+
               {/* 오디오 재생 컨트롤 */}
               {audioRef.current && audioRef.current.src && (
                 <div className="mt-3 bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-4">
@@ -257,6 +277,16 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
 
           {/* etc 패널 */}
           <EtcPanel isOpen={isEtcPanelOpen} onClose={toggleEtcPanel} />
+
+          {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
+          {isCollaborationPanelOpen && userId && userName && (
+            <CollaborationPanel
+              userId={userId}
+              userName={userName}
+              noteId={noteId}
+              isEducator={true}
+            />
+          )}
         </>
       )}
     </div>
