@@ -10,6 +10,7 @@
 "use client";
 
 import { useState } from "react";
+import { Panel } from "@/components/note/panels/panel";
 import { ActiveUsersPanel } from "./active-users-panel";
 import { QAPanel } from "./qa-panel";
 import { PollPanel } from "./poll-panel";
@@ -46,76 +47,73 @@ export function CollaborationPanel({
   const [activeTab, setActiveTab] = useState<TabId>("users");
 
   return (
-    <div
-      className={`flex flex-col w-full h-[380px] bg-[#2F2F2F] border-2 border-[#AFC02B] rounded-[10px] overflow-hidden transition-all duration-500 ease-out ${className}`}
-      style={{
-        animation: "expandPanel 0.5s ease-out forwards",
-      }}
+    <Panel
+      isOpen={true}
+      borderColor="green"
+      height="h-[380px]"
+      title="실시간 협업"
     >
-      {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-[#444444]">
-        <h3 className="text-white text-sm font-bold">실시간 협업</h3>
+      <div className="flex flex-col h-full">
+        {/* 탭 네비게이션 */}
+        <div className="flex gap-1 px-3 py-2 border-b border-[#444444] flex-shrink-0">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded text-xs font-medium transition-all ${
+                  activeTab === tab.id
+                    ? "bg-[#AFC02B] text-black"
+                    : "bg-[#3f3f3f] text-white hover:bg-[#4f4f4f]"
+                }`}
+              >
+                <Icon size={14} />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 탭 콘텐츠 */}
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          {activeTab === "users" && <ActiveUsersPanel />}
+
+          {activeTab === "handRaise" && (
+            <HandRaisePanel
+              userId={userId}
+              userName={userName}
+              isEducator={isEducator}
+            />
+          )}
+
+          {activeTab === "qa" && (
+            <QAPanel
+              userId={userId}
+              userName={userName}
+              noteId={noteId}
+              isEducator={isEducator}
+            />
+          )}
+
+          {activeTab === "poll" && (
+            <PollPanel
+              userId={userId}
+              noteId={noteId}
+              isEducator={isEducator}
+            />
+          )}
+
+          {activeTab === "emoji" && (
+            <EmojiPanel
+              userId={userId}
+              userName={userName}
+              noteId={noteId}
+            />
+          )}
+        </div>
       </div>
-
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-1 px-3 py-2 border-b border-[#444444] flex-shrink-0">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded text-xs font-medium transition-all ${
-                activeTab === tab.id
-                  ? "bg-[#AFC02B] text-black"
-                  : "bg-[#3f3f3f] text-white hover:bg-[#4f4f4f]"
-              }`}
-            >
-              <Icon size={14} />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 탭 콘텐츠 */}
-      <div className="flex-1 overflow-y-auto px-3 py-3">
-        {activeTab === "users" && <ActiveUsersPanel />}
-
-        {activeTab === "handRaise" && (
-          <HandRaisePanel
-            userId={userId}
-            userName={userName}
-            isEducator={isEducator}
-          />
-        )}
-
-        {activeTab === "qa" && (
-          <QAPanel
-            userId={userId}
-            userName={userName}
-            noteId={noteId}
-            isEducator={isEducator}
-          />
-        )}
-
-        {activeTab === "poll" && (
-          <PollPanel
-            userId={userId}
-            noteId={noteId}
-            isEducator={isEducator}
-          />
-        )}
-
-        {activeTab === "emoji" && (
-          <EmojiPanel
-            userId={userId}
-            userName={userName}
-            noteId={noteId}
-          />
-        )}
-      </div>
-    </div>
+    </Panel>
   );
 }
 

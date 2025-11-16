@@ -39,6 +39,17 @@ export default function EducatorNotePage({
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
 
+  // 공유 설정 관리
+  const [sharingSettings, setSharingSettings] = useState({
+    isPublic: false,
+    allowedUsers: [] as string[],
+    allowComments: true,
+    realTimeInteraction: true,
+    shareLink: undefined as string | undefined,
+    expiresAt: undefined as number | undefined,
+  });
+  const [newUserEmail, setNewUserEmail] = useState("");
+
   useEffect(() => {
     // localStorage에서 사용자 정보 가져오기
     const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
@@ -58,12 +69,85 @@ export default function EducatorNotePage({
     console.log(`[EducatorNotePage] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
   }, []);
 
+  // 공유 설정 핸들러
+  const togglePublic = () => {
+    setSharingSettings((prev) => ({ ...prev, isPublic: !prev.isPublic }));
+  };
+
+  const addUser = () => {
+    if (!newUserEmail || !newUserEmail.includes("@")) return;
+    const updatedUsers = [...sharingSettings.allowedUsers];
+    if (!updatedUsers.includes(newUserEmail)) {
+      updatedUsers.push(newUserEmail);
+      setSharingSettings((prev) => ({ ...prev, allowedUsers: updatedUsers }));
+      setNewUserEmail("");
+    }
+  };
+
+  const removeUser = (email: string) => {
+    setSharingSettings((prev) => ({
+      ...prev,
+      allowedUsers: prev.allowedUsers.filter((u) => u !== email),
+    }));
+  };
+
+  const toggleComments = () => {
+    setSharingSettings((prev) => ({ ...prev, allowComments: !prev.allowComments }));
+  };
+
+  const toggleRealTimeInteraction = () => {
+    setSharingSettings((prev) => ({
+      ...prev,
+      realTimeInteraction: !prev.realTimeInteraction,
+    }));
+  };
+
+  const copyShareLink = async () => {
+    if (!sharingSettings.shareLink) {
+      // 토큰 형식: {noteId}-{timestamp}-{randomString}
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
+      const token = `${noteId}-${timestamp}-${randomString}`;
+      const shareLink = `${window.location.origin}/shared/${token}`;
+
+      setSharingSettings((prev) => ({
+        ...prev,
+        shareLink,
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30일
+      }));
+
+      try {
+        await navigator.clipboard.writeText(shareLink);
+        console.log("공유 링크가 복사되었습니다:", shareLink);
+      } catch (error) {
+        console.error("링크 복사 실패:", error);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(sharingSettings.shareLink);
+        console.log("공유 링크가 복사되었습니다:", sharingSettings.shareLink);
+      } catch (error) {
+        console.error("링크 복사 실패:", error);
+      }
+    }
+  };
+
   return (
     <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
       {/* Header - 제목 + 녹음바 */}
       <NoteHeader
         noteId={noteId}
         noteTitle={noteTitle}
+        isCollaborating={true}
+        sharingSettings={sharingSettings}
+        newUserEmail={newUserEmail}
+        onNewUserEmailChange={setNewUserEmail}
+        onAddUser={addUser}
+        onRemoveUser={removeUser}
+        onTogglePublic={togglePublic}
+        onToggleComments={toggleComments}
+        onToggleRealTimeInteraction={toggleRealTimeInteraction}
+        onCopyShareLink={copyShareLink}
       />
 
       {/* Data Loader - Client Component (TanStack Query + AutoSave) */}

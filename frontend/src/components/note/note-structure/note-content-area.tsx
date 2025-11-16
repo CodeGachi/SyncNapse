@@ -12,8 +12,6 @@ import { useNoteContentArea } from "@/features/note/note-structure/use-note-cont
 import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/text-notes/note-panel"; // ✅ text-notes (텍스트 필기)
-import { AutoSaveBadge } from "@/components/note/text-notes/auto-save-badge"; // ✅ text-notes
-import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
@@ -54,18 +52,6 @@ export function NoteContentArea({
       noteId,
     });
   }, [isEducator, note?.type, isEducatorNote, noteId]);
-
-  // 공유 설정 관리 (Hooks must be called before any early returns)
-  const [isSharingOpen, setIsSharingOpen] = useState(false);
-  const [sharingSettings, setSharingSettings] = useState(
-    note?.accessControl || {
-      isPublic: false,
-      allowedUsers: [],
-      allowComments: true,
-      realTimeInteraction: true,
-    }
-  );
-  const [newUserEmail, setNewUserEmail] = useState("");
 
   // PDF 컨테이너 크기 추적
   const [pdfContainerSize, setPdfContainerSize] = useState({ width: 0, height: 0 });
@@ -185,71 +171,6 @@ export function NoteContentArea({
     };
   }, []);
 
-  const togglePublic = () => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      isPublic: !prev.isPublic,
-    }));
-  };
-
-  const addUser = (email: string) => {
-    if (!email || !email.includes("@")) return;
-    const updatedUsers = [...(sharingSettings.allowedUsers || [])];
-    if (!updatedUsers.includes(email)) {
-      updatedUsers.push(email);
-      setSharingSettings((prev) => ({
-        ...prev,
-        allowedUsers: updatedUsers,
-      }));
-      setNewUserEmail("");
-    }
-  };
-
-  const removeUser = (email: string) => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      allowedUsers: (prev.allowedUsers || []).filter((u) => u !== email),
-    }));
-  };
-
-  const toggleComments = () => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      allowComments: !prev.allowComments,
-    }));
-  };
-
-  const toggleRealTimeInteraction = () => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      realTimeInteraction: !prev.realTimeInteraction,
-    }));
-  };
-
-  const copyShareLink = async () => {
-    if (!sharingSettings.shareLink) {
-      // 토큰 형식: {noteId}-{timestamp}-{randomString}
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const token = `${noteId}-${timestamp}-${randomString}`;
-      const shareLink = `${window.location.origin}/shared/${token}`;
-
-      setSharingSettings((prev) => ({
-        ...prev,
-        shareLink,
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30일
-      }));
-    }
-    if (sharingSettings.shareLink) {
-      try {
-        await navigator.clipboard.writeText(sharingSettings.shareLink);
-        console.log("공유 링크가 복사되었습니다:", sharingSettings.shareLink);
-      } catch (error) {
-        console.error("링크 복사 실패:", error);
-      }
-    }
-  };
-
   // 탭용 파일 형식으로 변환
   const files = convertFilesForTabs();
 
@@ -274,7 +195,7 @@ export function NoteContentArea({
           {/* PDF 뷰어와 필기 사이드바를 가로로 배치 */}
           <div
             ref={pdfViewerContainerRef}
-            className="flex-1 flex flex-row transition-all duration-300"
+            className="flex-1 flex flex-row gap-4 transition-all duration-300"
             style={{
               height: isNotePanelOpen ? `${viewerHeight}%` : 'auto',
               overflow: 'visible',
@@ -332,29 +253,30 @@ export function NoteContentArea({
               })()}
             </div>
 
-            {/* 필기 도구 사이드바 - 우측 (교육자 노트는 항상 표시) */}
-            {/* 디버깅: 조건 제거하고 항상 렌더링 */}
-            <DrawingSidebar
-              isEnabled={true}
-              isDrawingMode={isDrawingMode}
-              currentTool={{
-                type: currentTool,
-                color: penColor,
-                strokeWidth: penSize,
-                opacity: currentTool === "highlighter" ? 0.3 : 1,
-              }}
-              penColor={penColor}
-              penSize={penSize}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onDrawingModeChange={setIsDrawingMode}
-              onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
-              onColorChange={(color) => drawStore.setLineColor(color)}
-              onSizeChange={(size) => drawStore.setLineWidth(size)}
-              onUndo={() => drawingOverlayRef.current?.handleUndo()}
-              onRedo={() => drawingOverlayRef.current?.handleRedo()}
-              onClear={() => drawingOverlayRef.current?.handleClear()}
-            />
+            {/* 필기 도구 사이드바 - 우측 (교육자 노트만 표시) */}
+            {isEducatorNote && (
+              <DrawingSidebar
+                isEnabled={true}
+                isDrawingMode={isDrawingMode}
+                currentTool={{
+                  type: currentTool,
+                  color: penColor,
+                  strokeWidth: penSize,
+                  opacity: currentTool === "highlighter" ? 0.3 : 1,
+                }}
+                penColor={penColor}
+                penSize={penSize}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onDrawingModeChange={setIsDrawingMode}
+                onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
+                onColorChange={(color) => drawStore.setLineColor(color)}
+                onSizeChange={(size) => drawStore.setLineWidth(size)}
+                onUndo={() => drawingOverlayRef.current?.handleUndo()}
+                onRedo={() => drawingOverlayRef.current?.handleRedo()}
+                onClear={() => drawingOverlayRef.current?.handleClear()}
+              />
+            )}
           </div>
 
           {/* 드래그 가능한 디바이더 */}
