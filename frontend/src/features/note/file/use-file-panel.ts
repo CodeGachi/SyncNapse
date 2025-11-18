@@ -49,9 +49,14 @@ export function useFilePanel() {
 
   const removeFile = (id: string) => {
     const fileToRemove = files.find((f) => f.id === id);
+
+    // URL 해제를 지연시켜 React DOM 업데이트 완료 후 실행
+    // 이렇게 하면 removeChild 에러를 방지할 수 있음
+    // PDF 뷰어의 경우 언마운트가 복잡하므로 더 긴 지연 시간 사용
     if (fileToRemove?.url) {
-      // Blob URL 메모리 해제
-      URL.revokeObjectURL(fileToRemove.url);
+      setTimeout(() => {
+        URL.revokeObjectURL(fileToRemove.url);
+      }, 500);
     }
 
     setFiles((prev) => prev.filter((file) => file.id !== id));

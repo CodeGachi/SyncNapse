@@ -18,6 +18,7 @@ import { RightSidePanelEducator } from "@/components/note/educator/right-side-pa
 import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
 import { EmojiReactions } from "@/components/note/collaboration/emoji-reactions";
+import { useScriptTranslationStore } from "@/stores";
 
 interface EducatorNotePageProps {
   params: {
@@ -35,6 +36,9 @@ export default function EducatorNotePage({
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
 
+  // 자막 스토어 초기화
+  const { reset: resetScriptTranslation } = useScriptTranslationStore();
+
   // 사용자 정보 로드 (협업 기능용)
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
@@ -49,6 +53,12 @@ export default function EducatorNotePage({
     expiresAt: undefined as number | undefined,
   });
   const [newUserEmail, setNewUserEmail] = useState("");
+
+  // 노트 변경 시 자막 초기화
+  useEffect(() => {
+    console.log(`[EducatorNotePage] 📝 Note changed to: ${noteId} - resetting script segments`);
+    resetScriptTranslation();
+  }, [noteId, resetScriptTranslation]);
 
   useEffect(() => {
     // localStorage에서 사용자 정보 가져오기

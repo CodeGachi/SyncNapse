@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { CreateMenu } from "@/components/dashboard/sidebar/create-menu";
@@ -69,12 +70,12 @@ export function DashboardSidebar({
     <>
     <aside className="w-[214px] h-screen bg-[#191919] flex flex-col p-4 border-r border-[#2F2F2F]">
       <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={() => router.push("/dashboard/main")}
+        <Link
+          href="/dashboard/main"
           className="text-white text-xl font-bold flex items-center gap-2 hover:text-[#AFC02B] transition-colors"
         >
           SyncNapse
-        </button>
+        </Link>
         {/* Notification center */}
         <NotificationCenter />
       </div>

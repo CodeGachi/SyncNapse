@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { SpeechRecognitionService, type SpeechSegment } from "@/lib/speech/speech-recognition";
 import { useScriptTranslationStore } from "@/stores";
 import type { WordWithTime } from "@/lib/types";
@@ -481,11 +481,13 @@ export function useRecording(noteId?: string | null) {
             });
             console.log('[useRecording] Full audio uploaded');
 
-            // 4. Save transcription segments
+            // 4. Save transcription segments (병렬 처리로 성능 개선)
             if (finalSegments.length > 0) {
-              console.log('[useRecording] Saving', finalSegments.length, 'transcription segments...');
-              
-              for (const segment of finalSegments) {
+              console.log('[useRecording] Saving', finalSegments.length, 'transcription segments in parallel...');
+              const startTime = Date.now();
+
+              // Promise.all로 병렬 처리 - 훨씬 빠름!
+              const savePromises = finalSegments.map(async (segment) => {
                 try {
                   await transcriptionApi.saveTranscript({
                     sessionId,
@@ -506,9 +508,14 @@ export function useRecording(noteId?: string | null) {
                   console.error('[useRecording] Failed to save segment:', segmentError);
                   // Continue with other segments
                 }
-              }
-              
-              console.log('[useRecording] All segments saved');
+              });
+
+              // 모든 세그먼트 저장 대기
+              await Promise.all(savePromises);
+
+              const elapsed = Date.now() - startTime;
+              console.log('[useRecording] All segments saved in', elapsed + 'ms',
+                          '(avg:', (elapsed / finalSegments.length).toFixed(0) + 'ms per segment)');
             }
 
             // 5. End session
@@ -595,6 +602,100 @@ export function useRecording(noteId?: string | null) {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }, []);
+
+  // ✅ 페이지 이동 시 경고 + 자동 저장
+  useEffect(() => {
+    if (!isRecording) return;
+
+    console.log('[useRecording] 🎤 Recording active - setting up beforeunload handler');
+
+    let isSavingOnExit = false; // 중복 저장 방지 플래그
+
+    // 1. beforeunload 이벤트로 경고 표시
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ''; // Chrome requires returnValue to be set
+
+      // 페이지를 떠나기 전 자동 저장 시도 (visibilitychange가 먼저 처리될 수도 있음)
+      if (!isSavingOnExit && mediaRecorderRef.current?.state !== 'inactive') {
+        isSavingOnExit = true;
+        console.log('[useRecording] ⚠️ beforeunload: Attempting to save recording...');
+
+        // 자동 저장 제목 생성
+        const autoSaveTitle = recordingStartTime
+          ? `자동저장_${recordingStartTime.getFullYear()}_${String(recordingStartTime.getMonth() + 1).padStart(2, '0')}_${String(recordingStartTime.getDate()).padStart(2, '0')}_${String(recordingStartTime.getHours()).padStart(2, '0')}:${String(recordingStartTime.getMinutes()).padStart(2, '0')}:${String(recordingStartTime.getSeconds()).padStart(2, '0')}`
+          : `자동저장_${new Date().toISOString()}`;
+
+        // 녹음 중단 및 저장 (비동기지만 최선의 노력)
+        stopRecording(autoSaveTitle).catch((err) => {
+          console.error('[useRecording] Failed to auto-save on beforeunload:', err);
+        });
+      }
+
+      return ''; // For other browsers
+    };
+
+    // 2. visibilitychange 이벤트로 페이지 숨김 시 자동 저장
+    const handleVisibilityChange = async () => {
+      // 페이지가 숨겨지고(hidden) 녹음 중이면 자동 저장
+      if (document.hidden && isRecording && !isSavingOnExit && mediaRecorderRef.current?.state !== 'inactive') {
+        isSavingOnExit = true;
+        console.log('[useRecording] 👁️ Page hidden - auto-saving recording...');
+
+        try {
+          // 자동 저장 제목 생성
+          const autoSaveTitle = recordingStartTime
+            ? `자동저장_${recordingStartTime.getFullYear()}_${String(recordingStartTime.getMonth() + 1).padStart(2, '0')}_${String(recordingStartTime.getDate()).padStart(2, '0')}_${String(recordingStartTime.getHours()).padStart(2, '0')}:${String(recordingStartTime.getMinutes()).padStart(2, '0')}:${String(recordingStartTime.getSeconds()).padStart(2, '0')}`
+            : `자동저장_${new Date().toISOString()}`;
+
+          await stopRecording(autoSaveTitle);
+          console.log('[useRecording] ✅ Recording auto-saved successfully');
+        } catch (error) {
+          console.error('[useRecording] ❌ Failed to auto-save on visibility change:', error);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 3. Cleanup: 컴포넌트 unmount 시 리소스 정리
+    return () => {
+      console.log('[useRecording] 🧹 Component unmounting...');
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+      // 녹음 중이면 리소스 정리 (저장은 beforeunload/visibilitychange에서 처리됨)
+      if (isRecording && !isSavingOnExit) {
+        console.log('[useRecording] ⚠️ Recording still active during unmount - cleaning up resources');
+
+        // 음성 인식 중단
+        if (speechRecognitionRef.current) {
+          speechRecognitionRef.current.abort();
+          speechRecognitionRef.current = null;
+          console.log('[useRecording] 🗣️ Speech recognition stopped');
+        }
+
+        // 스트림 정리 (마이크 끄기)
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => {
+            console.log('[useRecording] 🎤 Stopping microphone track:', track.label);
+            track.stop();
+          });
+          streamRef.current = null;
+        }
+
+        // 타이머 정리
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          console.log('[useRecording] ⏱️ Timer cleared');
+        }
+
+        console.log('[useRecording] ✅ Resources cleaned up');
+      }
+    };
+  }, [isRecording, recordingStartTime, noteId, stopRecording]);
 
   return {
     isRecording,
