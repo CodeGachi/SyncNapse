@@ -1,9 +1,10 @@
-import { DashboardMainContent } from "@/components/dashboard/pages/main/dashboard-main-content";
+"use client";
+
+import { NewMainContent } from "@/components/dashboard/new-main-content";
+import { useDashboardContext } from "@/providers/dashboard-context";
 
 export default function DashboardPage() {
-  return (
-    <main className="flex-1 overflow-y-auto p-8">
-      <DashboardMainContent />
-    </main>
-  );
+  const { selectedFolderId } = useDashboardContext();
+
+  return <NewMainContent selectedFolderId={selectedFolderId} />;
 }
