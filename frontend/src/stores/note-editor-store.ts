@@ -6,8 +6,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { NoteBlock } from "@/features/note/text-notes/use-note-panel"; // ✅ text-notes
-import type { FileItem, Question, AutoSaveStatus } from "@/lib/types";
+import type { NoteBlock, FileItem, Question, AutoSaveStatus } from "@/lib/types";
 import type { Block } from "@blocknote/core";
 
 /**

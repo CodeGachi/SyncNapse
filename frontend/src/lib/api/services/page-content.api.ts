@@ -4,9 +4,9 @@
  */
 
 import { apiClient } from '../client';
-import type { NoteBlock as NoteBlockType } from '@/features/note/text-notes/use-note-panel';
+import type { NoteBlock as NoteBlockType } from '@/lib/types';
 
-// Re-export NoteBlock from use-note-panel to ensure type consistency
+// Extend NoteBlock with API-specific fields
 export type NoteBlock = NoteBlockType & {
   // Additional fields for API compatibility
   listType?: string;

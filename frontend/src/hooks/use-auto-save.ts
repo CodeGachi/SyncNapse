@@ -7,7 +7,6 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useNoteEditorStore } from "@/stores";
-import { notify } from "@/stores/notification-store";
 
 interface UseAutoSaveOptions {
   noteId: string;
@@ -36,7 +35,7 @@ export function useAutoSave({
     } catch (error) {
       console.error("자동저장 실패:", error);
       setAutoSaveStatus("error");
-      notify.error("자동저장 실패", "변경사항을 저장하지 못했습니다", { duration: 3000 });
+      // 알림 제거됨 - console.error로 대체
     }
   }, [enabled, onSave, setAutoSaveStatus, updateLastSavedAt]);
 

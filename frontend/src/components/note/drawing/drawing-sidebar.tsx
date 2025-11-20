@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { type DrawingTool } from "@/lib/types/drawing";
+import { useDrawStore, useToolsStore } from "@/stores";
 import { PenSizePopup } from "./pen-size-popup";
 import { ColorPickerPopup } from "./color-picker-popup";
 import Image from "next/image";
@@ -13,15 +13,7 @@ import Image from "next/image";
 interface DrawingSidebarProps {
   isEnabled: boolean;
   isDrawingMode: boolean;
-  currentTool: DrawingTool;
-  penColor: string;
-  penSize: number;
-  canUndo: boolean;
-  canRedo: boolean;
   onDrawingModeChange: (enabled: boolean) => void;
-  onToolChange: (toolType: string) => void;
-  onColorChange: (color: string) => void;
-  onSizeChange: (size: number) => void;
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
@@ -73,18 +65,20 @@ const ColorPaletteIcon = ({ color }: { color: string }) => (
 export function DrawingSidebar({
   isEnabled,
   isDrawingMode,
-  currentTool,
-  penColor,
-  penSize,
-  canUndo,
-  canRedo,
   onDrawingModeChange,
-  onToolChange,
-  onColorChange,
-  onSizeChange,
   onUndo,
   onRedo,
 }: DrawingSidebarProps) {
+  // 도구 상태 직접 구독
+  const drawStore = useDrawStore();
+  const currentTool = drawStore.type;
+  const penColor = drawStore.lineColor;
+  const penSize = drawStore.lineWidth;
+
+  // Undo/Redo 상태 직접 구독
+  const canUndo = useToolsStore((state) => state.undoArr.length > 0);
+  const canRedo = useToolsStore((state) => state.redoArr.length > 0);
+
   const [showPenSizePopup, setShowPenSizePopup] = useState(false);
   const [showColorPopup, setShowColorPopup] = useState(false);
 
@@ -96,7 +90,7 @@ export function DrawingSidebar({
     if (!isDrawingMode) {
       // 뷰어 모드 → 필기 모드로 전환
       onDrawingModeChange(true);
-      onToolChange("hand");
+      drawStore.setDrawType("hand");
     } else {
       // 필기 모드 → 뷰어 모드로 전환
       onDrawingModeChange(false);
@@ -107,7 +101,7 @@ export function DrawingSidebar({
     if (!isDrawingMode) {
       onDrawingModeChange(true);
     }
-    onToolChange(toolType);
+    drawStore.setDrawType(toolType as any);
   };
 
   if (!isEnabled) return null;
@@ -136,7 +130,7 @@ export function DrawingSidebar({
       <button
         onClick={handleCursorClick}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          isDrawingMode && currentTool.type === "hand"
+          isDrawingMode && currentTool === "hand"
         )}`}
         title={isDrawingMode ? "뷰어 모드로 전환" : "필기 모드로 전환"}
       >
@@ -145,7 +139,7 @@ export function DrawingSidebar({
           alt="커서"
           width={24}
           height={24}
-          className={isDrawingMode && currentTool.type === "hand" ? "brightness-0" : ""}
+          className={isDrawingMode && currentTool === "hand" ? "brightness-0" : ""}
         />
       </button>
 
@@ -153,7 +147,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("pen")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "pen"
+          currentTool === "pen"
         )}`}
         title="펜"
       >
@@ -162,7 +156,7 @@ export function DrawingSidebar({
           alt="펜"
           width={24}
           height={24}
-          className={currentTool.type === "pen" ? "brightness-0" : ""}
+          className={currentTool === "pen" ? "brightness-0" : ""}
         />
       </button>
 
@@ -170,7 +164,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("highlighter")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "highlighter"
+          currentTool === "highlighter"
         )}`}
         title="형광펜"
       >
@@ -179,7 +173,7 @@ export function DrawingSidebar({
           alt="형광펜"
           width={24}
           height={24}
-          className={currentTool.type === "highlighter" ? "brightness-0" : ""}
+          className={currentTool === "highlighter" ? "brightness-0" : ""}
         />
       </button>
 
@@ -187,7 +181,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("eraser")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "eraser"
+          currentTool === "eraser"
         )}`}
         title="지우개"
       >
@@ -196,7 +190,7 @@ export function DrawingSidebar({
           alt="지우개"
           width={24}
           height={24}
-          className={currentTool.type === "eraser" ? "brightness-0" : ""}
+          className={currentTool === "eraser" ? "brightness-0" : ""}
         />
       </button>
 
@@ -216,7 +210,7 @@ export function DrawingSidebar({
       {showPenSizePopup && (
         <PenSizePopup
           currentSize={penSize}
-          onSizeSelect={onSizeChange}
+          onSizeSelect={(size) => drawStore.setLineWidth(size)}
           onClose={() => setShowPenSizePopup(false)}
           buttonRef={penSizeButtonRef}
         />
@@ -238,7 +232,7 @@ export function DrawingSidebar({
       {showColorPopup && (
         <ColorPickerPopup
           currentColor={penColor}
-          onColorSelect={onColorChange}
+          onColorSelect={(color) => drawStore.setLineColor(color)}
           onClose={() => setShowColorPopup(false)}
           buttonRef={colorButtonRef}
         />
@@ -248,7 +242,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("solidLine")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "solidLine"
+          currentTool === "solidLine"
         )}`}
         title="직선"
       >
@@ -259,7 +253,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("rect")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "rect"
+          currentTool === "rect"
         )}`}
         title="사각형"
       >
@@ -270,7 +264,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("circle")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "circle"
+          currentTool === "circle"
         )}`}
         title="원"
       >
@@ -281,7 +275,7 @@ export function DrawingSidebar({
       <button
         onClick={() => handleToolClick("arrowLine")}
         className={`w-full h-10 rounded-md transition-all flex items-center justify-center ${getButtonStyle(
-          currentTool.type === "arrowLine"
+          currentTool === "arrowLine"
         )}`}
         title="화살표"
       >

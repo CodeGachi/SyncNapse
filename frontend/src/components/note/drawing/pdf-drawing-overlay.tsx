@@ -17,7 +17,7 @@ import * as fabric from "fabric";
 import { useDrawStore } from "@/stores/draw-store";
 import { useToolsStore } from "@/stores/tools-store";
 import type { DrawingData } from "@/lib/types/drawing";
-import { drawShape, type DrawInfo } from "@/lib/utils/shapes";
+import { createShapeByClick, type ClickShapeInfo, type ShapeType } from "@/lib/utils/shapes";
 import { CollaborativeCanvasWrapper } from "./collaborative-canvas-wrapper";
 
 export interface PDFDrawingOverlayHandle {
@@ -35,9 +35,6 @@ interface PDFDrawingOverlayProps {
   containerWidth: number;   // PDF 원본 크기 (baseWidth)
   containerHeight: number;  // PDF 원본 크기 (baseHeight)
   pdfScale: number;         // PDF 현재 스케일 (CSS transform용)
-  currentTool: string;
-  penColor: string;
-  penSize: number;
   isPdf?: boolean;
   onSave?: (data: DrawingData) => Promise<void>;
   isCollaborative?: boolean;
@@ -57,9 +54,6 @@ export const PDFDrawingOverlay = forwardRef<
       containerWidth,
       containerHeight,
       pdfScale,
-      currentTool,
-      penColor,
-      penSize,
       isPdf,
       onSave,
       isCollaborative = false,
@@ -69,11 +63,13 @@ export const PDFDrawingOverlay = forwardRef<
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
     const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
 
+    // 도구 상태 직접 구독
     const drawStore = useDrawStore();
     const toolsStore = useToolsStore();
+    const currentTool = drawStore.type;
+    const penColor = drawStore.lineColor;
+    const penSize = drawStore.lineWidth;
 
     // syncToStorage 함수 ref (협업 래퍼에서 설정됨)
     const syncToStorageRef = useRef<((canvas: fabric.Canvas) => void) | null>(null);
@@ -208,103 +204,7 @@ export const PDFDrawingOverlay = forwardRef<
       });
     }, [drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode, pdfScale]);
 
-    // 미리보기 선 렌더링
-    const renderPreviewLine = useCallback(
-      (start: { x: number; y: number }, end: { x: number; y: number }) => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
-
-        // 기존 미리보기 제거
-        canvas.forEachObject((obj: any) => {
-          if (obj.isPreview) {
-            canvas.remove(obj);
-          }
-        });
-
-        // 새 미리보기 선 추가
-        const line = new fabric.Line(
-          [start.x, start.y, end.x, end.y],
-          {
-            stroke: drawStore.lineColor,
-            strokeWidth: drawStore.lineWidth,
-            selectable: false,
-            evented: false,
-          }
-        );
-        (line as any).isPreview = true;
-        canvas.add(line);
-        canvas.renderAll();
-      },
-      [drawStore.lineColor, drawStore.lineWidth]
-    );
-
-    // 미리보기 사각형 렌더링
-    const renderPreviewRect = useCallback(
-      (start: { x: number; y: number }, end: { x: number; y: number }) => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
-
-        // 기존 미리보기 제거
-        canvas.forEachObject((obj: any) => {
-          if (obj.isPreview) {
-            canvas.remove(obj);
-          }
-        });
-
-        // 새 미리보기 사각형 추가
-        const rect = new fabric.Rect({
-          left: Math.min(start.x, end.x),
-          top: Math.min(start.y, end.y),
-          width: Math.abs(end.x - start.x),
-          height: Math.abs(end.y - start.y),
-          fill: 'rgba(255, 255, 255, 0)',
-          stroke: drawStore.lineColor,
-          strokeWidth: drawStore.lineWidth,
-          selectable: false,
-          evented: false,
-        });
-        (rect as any).isPreview = true;
-        canvas.add(rect);
-        canvas.renderAll();
-      },
-      [drawStore.lineColor, drawStore.lineWidth]
-    );
-
-    // 미리보기 원 렌더링
-    const renderPreviewCircle = useCallback(
-      (start: { x: number; y: number }, end: { x: number; y: number }) => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
-
-        // 기존 미리보기 제거
-        canvas.forEachObject((obj: any) => {
-          if (obj.isPreview) {
-            canvas.remove(obj);
-          }
-        });
-
-        // 새 미리보기 원 추가
-        const radius = Math.sqrt(
-          (end.x - start.x) ** 2 + (end.y - start.y) ** 2
-        ) / 2;
-        const circle = new fabric.Circle({
-          left: start.x,
-          top: start.y,
-          radius,
-          fill: 'rgba(255, 255, 255, 0)',
-          stroke: drawStore.lineColor,
-          strokeWidth: drawStore.lineWidth,
-          selectable: false,
-          evented: false,
-        });
-        (circle as any).isPreview = true;
-        canvas.add(circle);
-        canvas.renderAll();
-      },
-      [drawStore.lineColor, drawStore.lineWidth]
-    );
-
-    // Auto-save drawing data to database (debounced) - 반드시 먼저 정의
+    // Auto-save drawing data to database (debounced)
     const triggerAutoSave = useCallback(() => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
@@ -344,181 +244,105 @@ export const PDFDrawingOverlay = forwardRef<
       }, 1000);
     }, [onSave, noteId, fileId, pageNum, isCollaborative]);
 
-    // 마우스 다운 이벤트
-    const handleMouseDown = useCallback(
+    // 클릭 이벤트로 도형 생성 (드래그 불필요)
+    const handleClick = useCallback(
       (event: any) => {
         if (!isEnabled || !isDrawingMode || !fabricCanvasRef.current) return;
 
-        // 펜/형광펜 모드는 자동으로 처리되므로 이벤트 핸들러 제외
-        const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
-        if (isFreeDrawingMode) return;
+        const canvas = fabricCanvasRef.current;
+        const toolType = drawStore.type as ShapeType;
 
-        const pos = fabricCanvasRef.current.getPointer(event.e as MouseEvent);
+        // 펜/형광펜/지우개/hand 모드는 별도 처리
+        if (toolType === 'pen' || toolType === 'highlighter' || toolType === 'eraser' || toolType === 'hand') {
+          return;
+        }
 
-        // 캔버스 경계 체크: 캔버스 영역 내에서만 드로잉 시작
+        const pos = canvas.getPointer(event.e as MouseEvent);
+
+        // 캔버스 경계 체크
         const adjustedHeight = Math.max(containerHeight, 100);
         if (pos.x < 0 || pos.x > containerWidth || pos.y < 0 || pos.y > adjustedHeight) {
-          return; // 캔버스 밖이면 드로잉 시작 안 함
+          return;
         }
 
-        setIsDrawing(true);
-        setStartPos(pos);
+        // 히스토리 저장 (도형 추가 전)
+        useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
-        // 히스토리 저장
-        useToolsStore.getState().saveSnapshot(
-          JSON.stringify(fabricCanvasRef.current.toJSON())
-        );
-      },
-      [isEnabled, isDrawingMode, drawStore.type, containerWidth, containerHeight]
-    );
+        // 클릭한 위치에 고정 크기 도형 생성
+        const shapeInfo: ClickShapeInfo = {
+          x: pos.x,
+          y: pos.y,
+          lineColor: drawStore.lineColor,
+          lineWidth: drawStore.lineWidth,
+        };
 
-    // 마우스 이동 이벤트
-    const handleMouseMove = useCallback(
-      (event: any) => {
-        if (
-          !isDrawing ||
-          !isEnabled ||
-          !fabricCanvasRef.current ||
-          !startPos
-        ) return;
+        const shape = createShapeByClick(shapeInfo, toolType);
 
-        const canvas = fabricCanvasRef.current;
-        const pos = canvas.getPointer(event.e as MouseEvent);
-
-        // 도구별 미리보기 렌더링
-        const toolType = drawStore.type;
-
-        if (toolType === 'eraser') {
-          // 지우개 미리보기: 지울 영역을 사각형으로 표시
-          renderPreviewRect(startPos, pos);
-        } else if (
-          toolType === 'free' ||
-          toolType === 'solidLine' ||
-          toolType === 'dashedLine'
-        ) {
-          renderPreviewLine(startPos, pos);
-        } else if (toolType === 'rect') {
-          renderPreviewRect(startPos, pos);
-        } else if (toolType === 'circle') {
-          renderPreviewCircle(startPos, pos);
-        }
-      },
-      [
-        isDrawing,
-        isEnabled,
-        startPos,
-        drawStore.type,
-        renderPreviewLine,
-        renderPreviewRect,
-        renderPreviewCircle,
-      ]
-    );
-
-    // 마우스 업 이벤트
-    const handleMouseUp = useCallback(
-      (event: any) => {
-        if (!isDrawing || !fabricCanvasRef.current || !startPos) return;
-
-        const canvas = fabricCanvasRef.current;
-        const pos = canvas.getPointer(event.e as MouseEvent);
-
-        // 미리보기 제거
-        canvas.forEachObject((obj: any) => {
-          if (obj.isPreview) {
-            canvas.remove(obj);
-          }
-        });
-
-        const toolType = drawStore.type;
-
-        // 지우개 처리: 지우개 영역에 겹치는 모든 객체 삭제
-        if (toolType === 'eraser') {
-          const objectsToRemove: fabric.Object[] = [];
-
-          canvas.forEachObject((obj) => {
-            // 지우개 영역과 객체의 충돌 감지
-            const objBounds = obj.getBoundingRect();
-            const eraserX = Math.min(startPos.x, pos.x);
-            const eraserY = Math.min(startPos.y, pos.y);
-            const eraserWidth = Math.abs(pos.x - startPos.x) || drawStore.lineWidth;
-            const eraserHeight = Math.abs(pos.y - startPos.y) || drawStore.lineWidth;
-
-            // 간단한 충돌 감지: 지우개 영역과 객체 바운딩박스가 겹치는지 확인
-            if (
-              objBounds.left < eraserX + eraserWidth &&
-              objBounds.left + objBounds.width > eraserX &&
-              objBounds.top < eraserY + eraserHeight &&
-              objBounds.top + objBounds.height > eraserY
-            ) {
-              objectsToRemove.push(obj);
-            }
-          });
-
-          // 겹친 객체 모두 삭제
-          objectsToRemove.forEach((obj) => canvas.remove(obj));
+        if (shape) {
+          canvas.add(shape);
+          canvas.setActiveObject(shape); // 생성 후 바로 선택 상태로
           canvas.renderAll();
-
-          // 히스토리 업데이트
-          useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
           // 자동 저장 트리거
           triggerAutoSave();
-        } else {
-          // 도형 생성
-          const drawInfo: DrawInfo = {
-            lineColor: drawStore.lineColor,
-            lineWidth: drawStore.lineWidth,
-            mouseFrom: startPos,
-            mouseTo: pos,
-          };
-
-          const shape = drawShape(drawInfo, toolType as any);
-
-          if (shape) {
-            canvas.add(shape);
-            canvas.renderAll();
-
-            // 히스토리 업데이트
-            useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
-
-            // 자동 저장 트리거
-            triggerAutoSave();
-          }
         }
-
-        setIsDrawing(false);
-        setStartPos(null);
       },
-      [isDrawing, startPos, drawStore.type, drawStore.lineColor, drawStore.lineWidth, triggerAutoSave]
+      [isEnabled, isDrawingMode, drawStore.type, drawStore.lineColor, drawStore.lineWidth, containerWidth, containerHeight, triggerAutoSave]
     );
 
-    // Canvas 이벤트 핸들러 바인딩 (도형/지우개용, 펜 제외)
+    // 지우개 기능 (클릭한 객체 삭제)
+    const handleEraserClick = useCallback(
+      (event: any) => {
+        if (!isEnabled || !isDrawingMode || !fabricCanvasRef.current) return;
+        if (drawStore.type !== 'eraser') return;
+
+        const canvas = fabricCanvasRef.current;
+        const target = canvas.findTarget(event.e as MouseEvent, false);
+
+        if (target && !target.isPreview) {
+          // 히스토리 저장
+          useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
+
+          canvas.remove(target);
+          canvas.renderAll();
+
+          // 자동 저장 트리거
+          triggerAutoSave();
+        }
+      },
+      [isEnabled, isDrawingMode, drawStore.type, triggerAutoSave]
+    );
+
+    // Canvas 클릭 이벤트 핸들러 바인딩
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas || !isDrawingMode) return;
 
-      // 펜/형광펜은 Fabric의 자동 처리를 사용하므로 이벤트 핸들러 등록 안 함
+      // 펜/형광펜은 Fabric의 자동 처리를 사용
       const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
 
       if (isFreeDrawingMode) {
-        // 펜 모드로 전환 시 기존 이벤트 핸들러 제거
-        canvas.off('mouse:down', handleMouseDown);
-        canvas.off('mouse:move', handleMouseMove);
-        canvas.off('mouse:up', handleMouseUp);
+        // 펜 모드: 클릭 핸들러 제거
+        canvas.off('mouse:down', handleClick);
+        canvas.off('mouse:down', handleEraserClick);
         return;
       }
 
-      // 도형 모드: 이벤트 핸들러 등록
-      canvas.on('mouse:down', handleMouseDown);
-      canvas.on('mouse:move', handleMouseMove);
-      canvas.on('mouse:up', handleMouseUp);
+      // 지우개 모드
+      if (drawStore.type === 'eraser') {
+        canvas.off('mouse:down', handleClick);
+        canvas.on('mouse:down', handleEraserClick);
+      } else {
+        // 도형 모드
+        canvas.off('mouse:down', handleEraserClick);
+        canvas.on('mouse:down', handleClick);
+      }
 
       return () => {
-        canvas.off('mouse:down', handleMouseDown);
-        canvas.off('mouse:move', handleMouseMove);
-        canvas.off('mouse:up', handleMouseUp);
+        canvas.off('mouse:down', handleClick);
+        canvas.off('mouse:down', handleEraserClick);
       };
-    }, [handleMouseDown, handleMouseMove, handleMouseUp, drawStore.type, isDrawingMode]);
+    }, [handleClick, handleEraserClick, drawStore.type, isDrawingMode]);
 
     // Fabric.js 자유 그리기 이벤트 처리 (펜/형광펜 모드용)
     useEffect(() => {

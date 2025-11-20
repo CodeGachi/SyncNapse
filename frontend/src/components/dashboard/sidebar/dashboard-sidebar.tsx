@@ -13,7 +13,6 @@ import { CreateMenu } from "@/components/dashboard/sidebar/create-menu";
 import { CreateFolderModal } from "@/components/dashboard/folder-management/create-folder-modal";
 import { RenameFolderModal } from "@/components/dashboard/folder-management/rename-folder-modal";
 import { DeleteFolderModal } from "@/components/dashboard/folder-management/delete-folder-modal";
-import { NotificationCenter } from "@/components/notification/notification-center";
 import { FolderTree } from "@/components/dashboard/folder-management/folder-tree";
 import { RootNotes } from "@/components/dashboard/folder-management/root-notes";
 import { useDashboard } from "@/features/dashboard";
@@ -69,15 +68,13 @@ export function DashboardSidebar({
   return (
     <>
     <aside className="w-[214px] h-screen bg-[#191919] flex flex-col p-4 border-r border-[#2F2F2F]">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6">
         <Link
           href="/dashboard/main"
           className="text-white text-xl font-bold flex items-center gap-2 hover:text-[#AFC02B] transition-colors"
         >
           SyncNapse
         </Link>
-        {/* Notification center */}
-        <NotificationCenter />
       </div>
 
       {/* User profile */}

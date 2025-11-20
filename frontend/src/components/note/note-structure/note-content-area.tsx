@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useNoteEditorStore, usePanelsStore, useDrawStore, useToolsStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
@@ -76,19 +76,6 @@ export function NoteContentArea({
   // 필기 모드 상태 (필기/뷰어)
   const [isDrawingMode, setIsDrawingMode] = useState(true);
 
-  // Zustand 스토어에서 필기 도구 상태 가져오기
-  const drawStore = useDrawStore();
-  const toolsStore = useToolsStore();
-
-  // 현재 도구 타입
-  const currentTool = drawStore.type;
-  const penColor = drawStore.lineColor;
-  const penSize = drawStore.lineWidth;
-
-  // Undo/Redo 상태 업데이트 - useEffect로 처리
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-
   // Store states
   const editorStore = useNoteEditorStore();
   const panelsStore = usePanelsStore();
@@ -130,11 +117,6 @@ export function NoteContentArea({
     handleTabClose,
     convertFilesForTabs,
   } = noteContentAreaHook;
-
-  useEffect(() => {
-    setCanUndo(toolsStore.getCanUndo());
-    setCanRedo(toolsStore.getCanRedo());
-  }, [toolsStore]);
 
   // 초기 마운트 시에만 파일이 있는데 탭이 비어있으면 자동으로 첫 번째 파일 열기
   useEffect(() => {
@@ -235,9 +217,6 @@ export function NoteContentArea({
                     containerWidth={pdfRenderInfo.baseWidth}
                     containerHeight={pdfRenderInfo.baseHeight}
                     pdfScale={pdfRenderInfo.scale}
-                    currentTool={currentTool}
-                    penColor={penColor}
-                    penSize={penSize}
                     isPdf={selectedFile.type?.includes("pdf")}
                     onSave={async (data) => {
                       try {
@@ -258,20 +237,7 @@ export function NoteContentArea({
               <DrawingSidebar
                 isEnabled={true}
                 isDrawingMode={isDrawingMode}
-                currentTool={{
-                  type: currentTool,
-                  color: penColor,
-                  strokeWidth: penSize,
-                  opacity: currentTool === "highlighter" ? 0.3 : 1,
-                }}
-                penColor={penColor}
-                penSize={penSize}
-                canUndo={canUndo}
-                canRedo={canRedo}
                 onDrawingModeChange={setIsDrawingMode}
-                onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
-                onColorChange={(color) => drawStore.setLineColor(color)}
-                onSizeChange={(size) => drawStore.setLineWidth(size)}
                 onUndo={() => drawingOverlayRef.current?.handleUndo()}
                 onRedo={() => drawingOverlayRef.current?.handleRedo()}
                 onClear={() => drawingOverlayRef.current?.handleClear()}
