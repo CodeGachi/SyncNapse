@@ -12,9 +12,8 @@
 import { useState, useEffect } from "react";
 import { NoteHeader } from "@/components/note/note-structure/note-header";
 import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
-import { NoteLayoutWrapper } from "@/components/note/note-structure/note-layout-wrapper";
 import { NoteContentArea } from "@/components/note/note-structure/note-content-area";
-import { RightSidePanelEducator } from "@/components/note/educator/right-side-panel-educator";
+import { RightSidePanel } from "@/components/note/note-structure/right-side-panel";
 import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
 import { EmojiReactions } from "@/components/note/collaboration/emoji-reactions";
@@ -36,7 +35,7 @@ export default function EducatorNotePage({
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
 
-  // 사용자 정보 로드 (협업 기능용)
+  // 사용자 정보 로드 (협업 이모지용)
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
 
@@ -71,7 +70,7 @@ export default function EducatorNotePage({
       {/* 공유 설정 모달 - Zustand로 관리 */}
       <SharingSettingsModal />
 
-      {/* Data Loader - Client Component (TanStack Query + AutoSave) */}
+      {/* Data Loader - Client Component (파일 목록 로드 + 노트 검증) */}
       <NoteDataLoader noteId={noteId}>
         {/* Collaboration Data Handler - Liveblocks 데이터 동기화 */}
         <CollaborationDataHandler
@@ -79,31 +78,33 @@ export default function EducatorNotePage({
           isCollaborating={true}
           isSharedView={false}
         >
-          {/* Main Layout Wrapper - Client Component (isExpanded Status Management) */}
-          <NoteLayoutWrapper>
-            {/* Main Content Area - Student와 동일 (PDF + Note) */}
-            <NoteContentArea
-              noteId={noteId}
-              noteTitle={noteTitle}
-              isCollaborating={true}
-              isEducator={true}
-            />
-
-            {/* Right Side Panel - Educator (Script, File, Etc, Collaboration) */}
-            <RightSidePanelEducator noteId={noteId} />
-
-            {/* Right Sidebar Icons (When closed) */}
-            <SidebarIcons noteId={noteId} isEducator={true} />
-
-            {/* 협업 이모지 반응 오버레이 */}
-            {userId && userName && (
-              <EmojiReactions
+          {/* Main Layout - 뷰어 + 패널 + 아이콘 Flexbox 배치 */}
+          <main className="flex-1 h-full">
+            <div className="flex gap-1 h-full pt-20 px-2 pb-4">
+              {/* Main Content Area - PDF 뷰어 + BlockNote 에디터 (협업) */}
+              <NoteContentArea
                 noteId={noteId}
-                userId={userId}
-                userName={userName}
+                noteTitle={noteTitle}
+                isCollaborating={true}
+                isEducator={true}
               />
-            )}
-          </NoteLayoutWrapper>
+
+              {/* Right Side Panel - 통합 (Script, File, Etc, Collaboration) */}
+              <RightSidePanel noteId={noteId} isEducator={true} />
+
+              {/* Right Sidebar Icons (패널 닫혔을 때) */}
+              <SidebarIcons noteId={noteId} isEducator={true} />
+
+              {/* 협업 이모지 반응 오버레이 */}
+              {userId && userName && (
+                <EmojiReactions
+                  noteId={noteId}
+                  userId={userId}
+                  userName={userName}
+                />
+              )}
+            </div>
+          </main>
         </CollaborationDataHandler>
       </NoteDataLoader>
     </div>

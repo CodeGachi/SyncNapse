@@ -1,6 +1,6 @@
 /**
- * 개인 노트 우측 사이드 패널 - Student Only
- * 스크립트, 파일, etc 패널
+ * 우측 사이드 패널 (통합) - Student & Educator
+ * 스크립트, 파일, etc 패널 + 협업 패널(Educator 전용)
  *
  * Refactored: Business logic separated to features/note/right-panel/
  */
@@ -21,12 +21,38 @@ import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
+import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
 interface RightSidePanelProps {
   noteId: string | null;
+  isEducator?: boolean; // 교육자 노트 여부
 }
 
-export function RightSidePanel({ noteId }: RightSidePanelProps) {
+export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelProps) {
+  // Educator 전용: 사용자 정보 로드 (협업 기능용)
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    if (!isEducator) return; // Student는 건너뜀
+
+    // localStorage에서 사용자 정보 가져오기
+    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
+    const storedUserName = localStorage.getItem("userName") || "사용자";
+
+    // 없으면 새로 생성하여 저장
+    if (!localStorage.getItem("userId")) {
+      localStorage.setItem("userId", storedUserId);
+    }
+    if (!localStorage.getItem("userName")) {
+      localStorage.setItem("userName", storedUserName);
+    }
+
+    setUserId(storedUserId);
+    setUserName(storedUserName);
+
+    console.log(`[RightSidePanel] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
+  }, [isEducator]);
 
   // Store states (useEffect 전에 먼저 선언)
   const {
@@ -57,17 +83,21 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
     toggleScript,
     isEtcPanelOpen,
     toggleEtcPanel,
+    isCollaborationPanelOpen,
+    toggleCollaborationPanel,
   } = usePanelsStore();
 
   // 모든 개별 패널이 닫히면 500px 패널도 자동으로 닫기
   useEffect(() => {
-    const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen;
+    const allPanelsClosed = isEducator
+      ? !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen && !isCollaborationPanelOpen
+      : !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen;
 
     if (allPanelsClosed && isExpanded) {
       console.log('[RightSidePanel] 모든 패널 닫힘 - 500px 패널 자동 닫기');
       toggleExpand();
     }
-  }, [isScriptOpen, isFilePanelOpen, isEtcPanelOpen, isExpanded, toggleExpand]);
+  }, [isScriptOpen, isFilePanelOpen, isEtcPanelOpen, isCollaborationPanelOpen, isExpanded, toggleExpand, isEducator]);
 
   // Audio player for playback (used by ScriptPanel)
   const {
@@ -259,6 +289,16 @@ export function RightSidePanel({ noteId }: RightSidePanelProps) {
 
           {/* etc 패널 */}
           <EtcPanel isOpen={isEtcPanelOpen} onClose={toggleEtcPanel} />
+
+          {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
+          {isEducator && isCollaborationPanelOpen && userId && userName && (
+            <CollaborationPanel
+              userId={userId}
+              userName={userName}
+              noteId={noteId!}
+              isEducator={true}
+            />
+          )}
         </>
       )}
     </div>
