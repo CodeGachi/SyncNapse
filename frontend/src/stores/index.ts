@@ -7,3 +7,7 @@ export { useScriptTranslationStore } from "./script-translation-store";
 export { useCollaborationStore } from "./collaboration-store";
 export { useDrawStore } from "./draw-store";
 export { useToolsStore } from "./tools-store";
+
+// UI Stores
+export { useNoteUIStore } from "./ui/note-ui-store";
+export { useEducatorUIStore } from "./ui/educator-ui-store";

@@ -491,9 +491,9 @@ export function useRecording(noteId?: string | null) {
                 try {
                   await transcriptionApi.saveTranscript({
                     sessionId,
-                    text: segment.originalText,
+                    text: segment.originalText || '',
                     startTime: segment.timestamp / 1000, // Convert ms to seconds
-                    endTime: (segment.timestamp / 1000) + (segment.originalText.split(/\s+/).length / 2.5),
+                    endTime: (segment.timestamp / 1000) + ((segment.originalText || '').split(/\s+/).length / 2.5),
                     confidence: 1.0,
                     isPartial: false,
                     language: 'ko',

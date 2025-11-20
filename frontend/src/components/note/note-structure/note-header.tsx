@@ -1,67 +1,32 @@
 /**
- * 노트 헤더 - Client Component
- * 제목 + 녹음바를 포함하는 상단 고정 헤더
+ * 노트 헤더 - 제목 + 녹음바
  */
 
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useNote } from "@/lib/api/queries/notes.queries";
 import { RecordingBarContainer } from "@/components/note/recording/recording-bar-container";
-import { AutoSaveBadge } from "@/components/note/text-notes/auto-save-badge";
-import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
 import { HeaderMenu } from "@/components/note/note-structure/header-menu";
-import { useNoteEditorStore } from "@/stores";
+import { useEducatorUIStore } from "@/stores";
 import Image from "next/image";
 
 interface NoteHeaderProps {
   noteId: string | null;
   noteTitle: string;
+  isEducatorNote?: boolean;
   isSharedView?: boolean;
-  isCollaborating?: boolean;
-  onStartCollaboration?: () => void;
-  onStopCollaboration?: () => void;
-  autoSaveStatus?: "idle" | "saving" | "saved" | "error";
-  lastSavedAt?: Date | null;
-  // 공유 설정 props (educator만)
-  sharingSettings?: any;
-  newUserEmail?: string;
-  onNewUserEmailChange?: (email: string) => void;
-  onAddUser?: () => void;
-  onRemoveUser?: (email: string) => void;
-  onTogglePublic?: () => void;
-  onToggleComments?: () => void;
-  onToggleRealTimeInteraction?: () => void;
-  onCopyShareLink?: () => void;
 }
 
 export function NoteHeader({
   noteId,
   noteTitle,
+  isEducatorNote = false,
   isSharedView = false,
-  isCollaborating = false,
-  onStartCollaboration,
-  onStopCollaboration,
-  autoSaveStatus = "idle",
-  lastSavedAt = null,
-  sharingSettings,
-  newUserEmail = "",
-  onNewUserEmailChange = () => {},
-  onAddUser = () => {},
-  onRemoveUser = () => {},
-  onTogglePublic = () => {},
-  onToggleComments = () => {},
-  onToggleRealTimeInteraction = () => {},
-  onCopyShareLink = () => {},
 }: NoteHeaderProps) {
   const router = useRouter();
-  const { data: note } = useNote(noteId, { enabled: !isSharedView });
-  const actualTitle = note?.title || noteTitle;
-  const isEducatorNote = note?.type === "educator";
+  const { openSharingModal } = useEducatorUIStore();
 
-  const { isExpanded, toggleExpand } = useNoteEditorStore();
-  const [isSharingOpen, setIsSharingOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleHomeClick = () => {
@@ -97,63 +62,29 @@ export function NoteHeader({
 
           {/* 제목 */}
           <h1 className="text-[18px] font-bold text-white leading-[22px]">
-            {actualTitle}
+            {noteTitle}
           </h1>
 
-          {/* 자동저장 배지 */}
-          <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
-
           {/* 강의 노트 버튼들 (Educator만, 공유 모드 제외) */}
-          {isEducatorNote && !isSharedView && sharingSettings && (
-            <div className="flex items-center gap-2">
-              {/* 공유 설정 버튼 */}
-              <button
-                onClick={() => setIsSharingOpen(!isSharingOpen)}
-                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
-                title="공유 설정"
+          {isEducatorNote && !isSharedView && (
+            <button
+              onClick={() => openSharingModal(noteId || "", noteTitle)}
+              className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
+              title="공유 설정"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-              </button>
-
-              {/* 공유 설정 모달 */}
-              <SharingSettingsModal
-                isOpen={isSharingOpen}
-                onClose={() => setIsSharingOpen(false)}
-                settings={sharingSettings}
-                newUserEmail={newUserEmail}
-                onNewUserEmailChange={onNewUserEmailChange}
-                onAddUser={onAddUser}
-                onRemoveUser={onRemoveUser}
-                onTogglePublic={onTogglePublic}
-                onToggleComments={onToggleComments}
-                onToggleRealTimeInteraction={onToggleRealTimeInteraction}
-                onCopyShareLink={onCopyShareLink}
-                shareLink={sharingSettings.shareLink}
-                noteId={noteId || ""}
-                noteTitle={actualTitle}
-                isCollaborating={isCollaborating}
-                onStartCollaboration={onStartCollaboration ?? (() => {})}
-                onStopCollaboration={onStopCollaboration ?? (() => {})}
-              />
-            </div>
-          )}
-
-          {/* 공유 모드 뱃지 */}
-          {isSharedView && (
-            <div className="px-3 py-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded-full text-sm font-medium">
-              공유 노트 보기
-            </div>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
           )}
         </div>
 

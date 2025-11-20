@@ -6,24 +6,22 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { useNoteEditorStore, useScriptTranslationStore } from "@/stores";
+import { useScriptTranslationStore } from "@/stores";
 import * as transcriptionApi from "@/lib/api/transcription.api";
 import type { WordWithTime } from "@/lib/types";
 
 export function useAudioPlayer() {
-  const {
-    isPlaying,
-    togglePlay,
-    setCurrentTime,
-    recordings,
-    currentRecordingId,
-    selectRecording,
-  } = useNoteEditorStore();
-
   const { setScriptSegments } = useScriptTranslationStore();
+
+  // 오디오 플레이어 로컬 state (Zustand에서 제거됨)
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Play/Pause 토글
+  const togglePlay = () => setIsPlaying((prev) => !prev);
 
   // audio Initialize and Event listeners
   useEffect(() => {
@@ -33,23 +31,17 @@ export function useAudioPlayer() {
 
     const audio = audioRef.current;
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(Math.floor(audio.currentTime));
-    };
-
     const handleEnded = () => {
-      if (isPlaying) togglePlay();
-      setCurrentTime(0);
+      setIsPlaying(false);
+      audio.currentTime = 0;
     };
 
-    audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
 
     return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("ended", handleEnded);
     };
-  }, [isPlaying, setCurrentTime, togglePlay]);
+  }, []);
 
   // Recording Select Handler - Load session data and play audio
   const handleRecordingSelect = async (sessionIdParam: string) => {
@@ -57,13 +49,7 @@ export function useAudioPlayer() {
       setIsLoadingSession(true);
       console.log('[useAudioPlayer] Loading recording with sessionId:', sessionIdParam);
 
-      // Try to find in local recordings first
-      const localRecording = recordings.find(
-        (r) => r.sessionId === sessionIdParam
-      );
-
       const sessionId = sessionIdParam;
-      const audioUrl = localRecording?.audioUrl;
 
       console.log('[useAudioPlayer] Fetching session:', sessionId);
 
@@ -99,7 +85,7 @@ export function useAudioPlayer() {
       }
 
       // Play audio
-      const audioSource = audioUrl || sessionData.fullAudioUrl;
+      const audioSource = sessionData.fullAudioUrl;
       
       if (!audioSource) {
         console.error('[useAudioPlayer] No audio URL found');
@@ -146,8 +132,8 @@ export function useAudioPlayer() {
         }
       }
 
-      selectRecording(sessionId);
-      
+      setCurrentRecordingId(sessionId);
+
     } catch (error) {
       console.error('[useAudioPlayer] Failed to load recording:', error);
     } finally {
@@ -160,7 +146,7 @@ export function useAudioPlayer() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-      if (isPlaying) togglePlay();
+      setIsPlaying(false);
     }
   };
 
@@ -171,5 +157,6 @@ export function useAudioPlayer() {
     handleRecordingSelect,
     handleStopPlayback,
     isLoadingSession,
+    currentRecordingId,
   };
 }

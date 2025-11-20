@@ -9,65 +9,106 @@
 import { useState } from "react";
 import { Modal } from "@/components/common/modal";
 import { Copy, Check, ExternalLink, Users } from "lucide-react";
-import type { NoteAccessControl } from "@/lib/types/domain";
+import { useEducatorUIStore } from "@/stores";
 
-interface SharingSettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  settings: NoteAccessControl;
-  newUserEmail: string;
-  onNewUserEmailChange: (email: string) => void;
-  onAddUser: (email: string) => void;
-  onRemoveUser: (email: string) => void;
-  onTogglePublic: () => void;
-  onToggleComments: () => void;
-  onToggleRealTimeInteraction: () => void;
-  onCopyShareLink: () => void;
-  shareLink?: string;
-  // Collaboration features
-  noteId: string;
-  noteTitle: string;
-  isCollaborating: boolean;
-  onStartCollaboration: () => void;
-  onStopCollaboration: () => void;
-}
+export function SharingSettingsModal() {
+  const {
+    isSharingModalOpen,
+    sharingModalNoteId,
+    sharingModalNoteTitle,
+    closeSharingModal
+  } = useEducatorUIStore();
 
-export function SharingSettingsModal({
-  isOpen,
-  onClose,
-  settings,
-  newUserEmail,
-  onNewUserEmailChange,
-  onAddUser,
-  onRemoveUser,
-  onTogglePublic,
-  onToggleComments,
-  onToggleRealTimeInteraction,
-  onCopyShareLink,
-  shareLink,
-  noteId,
-  noteTitle,
-  isCollaborating,
-  onStartCollaboration,
-  onStopCollaboration,
-}: SharingSettingsModalProps) {
+  // 공유 설정 상태 (내부에서 관리)
+  const [settings, setSettings] = useState({
+    isPublic: false,
+    allowedUsers: [] as string[],
+    allowComments: true,
+    realTimeInteraction: true,
+    shareLink: undefined as string | undefined,
+  });
+
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [isCollaborating, setIsCollaborating] = useState(false);
+
   // Collaboration link state
   const [collaborativeLink, setCollaborativeLink] = useState<string | null>(null);
   const [isCopiedCollab, setIsCopiedCollab] = useState(false);
   const [isGeneratingCollab, setIsGeneratingCollab] = useState(false);
 
+  // 공유 설정 핸들러들 (내부에서 처리)
+  const handleTogglePublic = () => {
+    setSettings(prev => ({ ...prev, isPublic: !prev.isPublic }));
+  };
+
+  const handleAddUser = () => {
+    if (!newUserEmail || !newUserEmail.includes("@")) return;
+    if (settings.allowedUsers.includes(newUserEmail)) return;
+
+    setSettings(prev => ({
+      ...prev,
+      allowedUsers: [...prev.allowedUsers, newUserEmail]
+    }));
+    setNewUserEmail("");
+  };
+
+  const handleRemoveUser = (email: string) => {
+    setSettings(prev => ({
+      ...prev,
+      allowedUsers: prev.allowedUsers.filter(u => u !== email)
+    }));
+  };
+
+  const handleToggleComments = () => {
+    setSettings(prev => ({ ...prev, allowComments: !prev.allowComments }));
+  };
+
+  const handleToggleRealTimeInteraction = () => {
+    setSettings(prev => ({ ...prev, realTimeInteraction: !prev.realTimeInteraction }));
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!sharingModalNoteId) return;
+
+    if (!settings.shareLink) {
+      // 공유 링크 생성
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
+      const token = `${sharingModalNoteId}-${timestamp}-${randomString}`;
+      const shareLink = `${window.location.origin}/shared/${token}`;
+
+      setSettings(prev => ({ ...prev, shareLink }));
+
+      try {
+        await navigator.clipboard.writeText(shareLink);
+        console.log("공유 링크가 복사되었습니다:", shareLink);
+      } catch (error) {
+        console.error("링크 복사 실패:", error);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(settings.shareLink);
+        console.log("공유 링크가 복사되었습니다:", settings.shareLink);
+      } catch (error) {
+        console.error("링크 복사 실패:", error);
+      }
+    }
+  };
+
   // Generate collaboration link (Share Token for Students)
   const handleGenerateCollaborativeLink = async () => {
+    if (!sharingModalNoteId) return;
+
     setIsGeneratingCollab(true);
 
     try {
       // Generate random share token for student access
       // Token format: {noteId}-{timestamp}-{randomString}
-      const token = `${noteId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const token = `${sharingModalNoteId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
       const link = `${window.location.origin}/shared/${token}`;
 
       setCollaborativeLink(link);
-      onStartCollaboration();
+      setIsCollaborating(true);
 
       console.log(`[Share Link] 생성 완료: ${link}`);
       console.log(`[Share Link] Token: ${token}`);
@@ -98,10 +139,13 @@ export function SharingSettingsModal({
     if (!collaborativeLink) return;
     window.open(collaborativeLink, "_blank");
   };
+
+  if (!isSharingModalOpen) return null;
+
   return (
     <Modal
-      isOpen={isOpen}
-      onClose={onClose}
+      isOpen={isSharingModalOpen}
+      onClose={closeSharingModal}
       overlayClassName="fixed inset-0 z-40 transition-opacity"
       overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -112,7 +156,7 @@ export function SharingSettingsModal({
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">공유 설정</h2>
         <button
-          onClick={onClose}
+          onClick={closeSharingModal}
           className="text-gray-400 hover:text-white transition-colors"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -135,7 +179,7 @@ export function SharingSettingsModal({
             <input
               type="radio"
               checked={!settings.isPublic}
-              onChange={onTogglePublic}
+              onChange={handleTogglePublic}
               className="w-4 h-4 accent-[#AFC02B]"
             />
             <div>
@@ -152,7 +196,7 @@ export function SharingSettingsModal({
             <input
               type="radio"
               checked={settings.isPublic}
-              onChange={onTogglePublic}
+              onChange={handleTogglePublic}
               className="w-4 h-4 accent-[#AFC02B]"
             />
             <div>
@@ -176,17 +220,17 @@ export function SharingSettingsModal({
             <input
               type="email"
               value={newUserEmail}
-              onChange={(e) => onNewUserEmailChange(e.target.value)}
+              onChange={(e) => setNewUserEmail(e.target.value)}
               placeholder="이메일 주소"
               className="flex-1 bg-[#575757] text-white px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-[#AFC02B] placeholder-gray-400 text-sm"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  onAddUser(newUserEmail);
+                  handleAddUser();
                 }
               }}
             />
             <button
-              onClick={() => onAddUser(newUserEmail)}
+              onClick={handleAddUser}
               className="px-4 py-2 bg-[#AFC02B] text-white rounded-lg font-medium text-sm hover:bg-[#9DB025] transition-colors"
             >
               추가
@@ -202,7 +246,7 @@ export function SharingSettingsModal({
               >
                 <span className="text-sm text-gray-200">{email}</span>
                 <button
-                  onClick={() => onRemoveUser(email)}
+                  onClick={() => handleRemoveUser(email)}
                   className="text-gray-400 hover:text-red-400 transition-colors text-sm"
                 >
                   제거
@@ -235,7 +279,7 @@ export function SharingSettingsModal({
             <input
               type="checkbox"
               checked={settings.allowComments}
-              onChange={onToggleComments}
+              onChange={handleToggleComments}
               className="w-4 h-4 accent-[#AFC02B]"
             />
           </label>
@@ -252,7 +296,7 @@ export function SharingSettingsModal({
             <input
               type="checkbox"
               checked={settings.realTimeInteraction}
-              onChange={onToggleRealTimeInteraction}
+              onChange={handleToggleRealTimeInteraction}
               className="w-4 h-4 accent-[#AFC02B]"
             />
           </label>
@@ -269,12 +313,12 @@ export function SharingSettingsModal({
           <div className="flex gap-2">
             <input
               type="text"
-              value={shareLink || "링크 생성 중..."}
+              value={settings.shareLink || "링크 생성 중..."}
               readOnly
               className="flex-1 bg-[#4C4C4C] text-gray-300 px-3 py-2 rounded-lg text-sm truncate"
             />
             <button
-              onClick={onCopyShareLink}
+              onClick={handleCopyShareLink}
               className="px-4 py-2 bg-[#AFC02B] text-white rounded-lg font-medium text-sm hover:bg-[#9DB025] transition-colors"
             >
               복사
@@ -362,7 +406,7 @@ export function SharingSettingsModal({
             {isCollaborating && (
               <button
                 onClick={() => {
-                  onStopCollaboration();
+                  setIsCollaborating(false);
                   setCollaborativeLink(null);
                 }}
                 className="w-full px-4 py-2 text-red-400 hover:text-red-300 transition-colors text-sm font-medium"
@@ -377,7 +421,7 @@ export function SharingSettingsModal({
       {/* 닫기 버튼 */}
       <div className="flex justify-end gap-3 pt-4 border-t border-[#575757]">
         <button
-          onClick={onClose}
+          onClick={closeSharingModal}
           className="px-6 py-2 bg-[#575757] text-white rounded-lg font-medium hover:bg-[#666666] transition-colors"
         >
           완료

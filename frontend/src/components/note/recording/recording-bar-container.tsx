@@ -6,9 +6,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRecordingControl, useAudioPlayer } from "@/features/note/right-panel";
-import { useRecordingList } from "@/features/note/player";
-import { useNoteEditorStore } from "@/stores";
+import {
+  useRecordingControl,
+  useAudioPlayer,
+  useRecordingList,
+} from "@/features/note/recording";
 import { RecordingBar } from "./recording-bar";
 import { RecordingNameModal } from "./recording-name-modal";
 import { RecordingListDropdown } from "./recording-list-dropdown";
@@ -38,17 +40,14 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     handleRecordingSelect,
   } = useAudioPlayer();
 
-  // 오디오 재생 위치 (초 단위)
-  const { currentTime } = useNoteEditorStore();
-
-  // 오디오 길이 (초 단위)
+  // 오디오 재생 위치 및 길이 (audioRef에서 직접 가져옴)
+  const currentTime = audioRef.current?.currentTime || 0;
   const duration = audioRef.current?.duration || 0;
 
   // 녹음 목록
   const {
     recordings,
-    refreshRecordings,
-    removeFromBackendList,
+    removeRecording,
   } = useRecordingList();
 
   // 녹음 목록 드롭다운 상태
@@ -97,38 +96,17 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     }
   };
 
-  // 녹음 삭제 핸들러
+  // 녹음 삭제 핸들러 (React Query가 Optimistic Update 처리)
   const handleDeleteRecording = async (sessionId: string) => {
     try {
       console.log('[RecordingBarContainer] 🗑️ Deleting recording:', sessionId);
 
-      // 1. Immediately remove from UI (optimistic update)
-      const { removeRecording } = useNoteEditorStore.getState();
+      // React Query의 Optimistic Update 사용 (즉시 UI 업데이트 + 자동 롤백)
       removeRecording(sessionId);
-      removeFromBackendList(sessionId);
-      console.log('[RecordingBarContainer] ✅ Removed from UI immediately (optimistic)');
 
-      // Import deleteSession dynamically
-      const { deleteSession } = await import('@/lib/api/transcription.api');
-      const { deleteSession: deleteLocalSession } = await import('@/lib/storage/transcription-storage');
-
-      // 2. Delete from backend (soft delete with deletedAt)
+      // IndexedDB에서도 삭제 (선택적)
       try {
-        await deleteSession(sessionId);
-        console.log('[RecordingBarContainer] ✅ Recording deleted from backend (PostgreSQL)');
-      } catch (backendError: any) {
-        // If 404, it's already deleted - that's okay
-        if (backendError?.status === 404) {
-          console.log('[RecordingBarContainer] ⚠️ Recording already deleted from backend (404)');
-        } else {
-          // Rollback on error - refresh to restore UI
-          await refreshRecordings();
-          throw backendError;
-        }
-      }
-
-      // 3. Delete from local IndexedDB
-      try {
+        const { deleteSession: deleteLocalSession } = await import('@/lib/storage/transcription-storage');
         await deleteLocalSession(sessionId);
         console.log('[RecordingBarContainer] ✅ Recording deleted from IndexedDB');
       } catch (localError) {
@@ -136,13 +114,10 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
         // Continue even if local delete fails
       }
 
-      // 4. Confirm with backend (verify deletion)
-      await refreshRecordings();
-      console.log('[RecordingBarContainer] ✅ Deletion confirmed with backend');
-
+      console.log('[RecordingBarContainer] ✅ Deletion complete');
     } catch (error) {
       console.error('[RecordingBarContainer] ❌ Failed to delete recording:', error);
-      alert('녹음 삭제에 실패했습니다.');
+      alert('녹음본 삭제에 실패했습니다.');
     }
   };
 

@@ -7,7 +7,7 @@
 "use client";
 
 import Image from "next/image";
-import { useNoteEditorStore, usePanelsStore } from "@/stores";
+import { usePanelsStore, useNoteUIStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 
 interface SidebarIconsProps {
@@ -16,7 +16,7 @@ interface SidebarIconsProps {
 }
 
 export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
-  const { isExpanded, toggleExpand } = useNoteEditorStore();
+  const { isExpanded, toggleExpand } = useNoteUIStore();
   const {
     toggleNotePanel,
     toggleFilePanel,

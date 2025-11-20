@@ -6,11 +6,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useNoteEditorStore } from "@/stores";
-import { useRecording, type RecordingData } from "@/features/note/player";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRecording, type RecordingData } from "./use-recording";
 
 export function useRecordingControl(noteId?: string | null) {
-  const { addRecording } = useNoteEditorStore();
+  const queryClient = useQueryClient();
 
   const {
     isRecording,
@@ -99,14 +99,9 @@ export function useRecordingControl(noteId?: string | null) {
       
       console.log('[RecordingControl] Recording saved:', recordingData);
 
-      // Store에 추가 (로컬 참조용)
-      addRecording({
-        title: recordingData.title,
-        duration: recordingData.duration,
-        createdAt: recordingData.createdAt,
-        audioBlob: recordingData.audioBlob,
-        sessionId: recordingData.sessionId,
-      });
+      // React Query 캐시 무효화하여 녹음 목록 새로고침
+      queryClient.invalidateQueries({ queryKey: ["recordings"] });
+      console.log('[RecordingControl] ✅ Invalidated recordings cache');
 
       setIsNameModalOpen(false);
     } catch (error) {
@@ -117,12 +112,12 @@ export function useRecordingControl(noteId?: string | null) {
     }
   };
 
-  // 녹음 저장 취소 (녹음은 일시정지 상태로 유지, 모달만 닫기)
+  // 녹음 저장 취소 (녹음 완전히 폐기)
   const handleCancelSave = () => {
-    // 녹음을 삭제하지 않고 모달만 닫음 (일시정지 상태 유지)
-    // 사용자는 다시 재생 버튼을 눌러 녹음을 재개할 수 있음
+    // 녹음 완전히 취소: MediaRecorder 중지, 스트림 해제, 메모리 정리
+    cancelRecording();
     setIsNameModalOpen(false);
-    console.log('[RecordingControl] Save cancelled, recording remains paused');
+    console.log('[RecordingControl] Recording cancelled and discarded');
   };
 
   return {

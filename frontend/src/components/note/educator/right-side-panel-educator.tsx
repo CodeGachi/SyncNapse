@@ -6,13 +6,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteUIStore } from "@/stores";
 import {
-  useAudioPlayer,
   useFileManagement,
   useQuestionManagement,
   useTranscriptTranslation,
 } from "@/features/note/right-panel";
+import { useAudioPlayer } from "@/features/note/recording";
 
 // UI Components
 import { ScriptPanel } from "@/components/note/panels/script-panel";
@@ -58,12 +58,13 @@ export function RightSidePanelEducator({ noteId }: RightSidePanelEducatorProps) 
     openFileInTab,
     renameFile,
     copyFile,
-    isExpanded,
-    toggleExpand,
     currentTime,
   } = useNoteEditorStore();
 
   const { scriptSegments } = useScriptTranslationStore();
+
+  // UI Store
+  const { isExpanded, toggleExpand } = useNoteUIStore();
 
   // Active segment tracking for transcript timeline
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
@@ -195,6 +196,7 @@ export function RightSidePanelEducator({ noteId }: RightSidePanelEducatorProps) 
 
           {/* 스크립트 패널 */}
           <ScriptPanel
+            noteId={noteId}
             isOpen={isScriptOpen}
             onClose={toggleScript}
             audioRef={audioRef}

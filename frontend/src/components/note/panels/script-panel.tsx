@@ -11,6 +11,7 @@ import { Panel } from "./panel";
 import type { SupportedLanguage, LanguageOption, WordWithTime } from "@/lib/types";
 
 interface ScriptPanelProps {
+  noteId: string | null;
   isOpen: boolean;
   onClose: () => void;
   audioRef?: React.RefObject<HTMLAudioElement>;
@@ -33,7 +34,7 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "pt", name: "Portuguese", nativeName: "Português" },
 ];
 
-export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTranslating, translationSupported, isRecording = false }: ScriptPanelProps) {
+export function ScriptPanel({ noteId, isOpen, onClose, audioRef, activeSegmentId, isTranslating, translationSupported, isRecording = false }: ScriptPanelProps) {
   const {
     scriptSegments,
     isTranslationEnabled,
@@ -41,11 +42,18 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
     originalLanguage,
     toggleTranslation,
     setTargetLanguage,
+    reset: resetScriptTranslation,
   } = useScriptTranslationStore();
 
   // Track current playback time for word-level highlighting
   const [currentTime, setCurrentTime] = useState(0);
-  
+
+  // Reset script segments when noteId changes
+  useEffect(() => {
+    console.log(`[ScriptPanel] Note changed to: ${noteId} - resetting script segments`);
+    resetScriptTranslation();
+  }, [noteId, resetScriptTranslation]);
+
   // Debug: Log current audio time
   useEffect(() => {
     const audio = audioRef?.current;
