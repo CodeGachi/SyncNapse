@@ -4,7 +4,7 @@
 
 "use client";
 
-import type { FileItem } from "@/features/note";
+import type { FileItem } from "@/lib/types";
 import { useFilePanelUI } from "@/features/note";
 import { Panel } from "./panel";
 
@@ -12,7 +12,7 @@ interface FilePanelProps {
   isOpen: boolean;
   files: FileItem[];
   onAddFile: (file: File) => void;
-  onRemoveFile: (id: string) => void;
+  onRemoveFile: (id: string) => void | Promise<void>; // async 지원
   selectedFileId: string | null;
   onSelectFile: (id: string) => void;
   onOpenFileInTab: (id: string) => void;
@@ -129,9 +129,9 @@ export function FilePanel({
 
                 {/* 삭제 버튼 */}
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    onRemoveFile(file.id);
+                    await onRemoveFile(file.id);
                   }}
                   className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[#ff4444] transition-all"
                 >

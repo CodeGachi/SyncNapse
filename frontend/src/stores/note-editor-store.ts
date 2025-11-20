@@ -7,8 +7,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { NoteBlock } from "@/features/note/text-notes/use-note-panel"; // ✅ text-notes
-import type { FileItem } from "@/features/note/file/use-file-panel";
-import type { Question, AutoSaveStatus } from "@/lib/types";
+import type { FileItem, Question, AutoSaveStatus } from "@/lib/types";
 import type { Block } from "@blocknote/core";
 
 /**
@@ -35,7 +34,6 @@ interface NoteEditorState {
 
   // UI State
   activeTab: number;
-  activeCategories: string[];
 
   // Question State
   questions: Question[];
@@ -65,7 +63,7 @@ interface NoteEditorState {
 
   // File Actions
   addFile: (file: FileItem) => void;
-  removeFile: (id: string) => void; // files 목록에서 완전히 삭제
+  removeFile: (id: string) => void; // Store에서만 제거 (UI 상태 업데이트)
   selectFile: (id: string) => void;
   setSelectedFileId: (id: string | null) => void; // 공유 모드용
   loadFiles: (files: FileItem[]) => void;
@@ -80,7 +78,6 @@ interface NoteEditorState {
 
   // UI Actions
   setActiveTab: (index: number) => void;
-  toggleCategory: (category: string) => void;
 
   // Question Actions
   addQuestion: (content: string, author: string) => void;
@@ -118,7 +115,6 @@ const initialState = {
 
   // UI
   activeTab: 0,
-  activeCategories: ["Notes"],
 
   // Question
   questions: [],
@@ -325,7 +321,7 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         set((state) => {
           const fileToRemove = state.files.find((f) => f.id === id);
 
-          // URL 해제를 지연시켜 React DOM 업데이트 완료 후 실행
+          // Blob URL 해제를 지연시켜 React DOM 업데이트 완료 후 실행
           // 이렇게 하면 removeChild 에러를 방지할 수 있음
           // PDF 뷰어의 경우 언마운트가 복잡하므로 더 긴 지연 시간 사용
           if (fileToRemove?.url) {
@@ -334,6 +330,7 @@ export const useNoteEditorStore = create<NoteEditorState>()(
             }, 500);
           }
 
+          // Store에서 제거 (순수 UI 상태 업데이트)
           const newFiles = state.files.filter((file) => file.id !== id);
           const newOpenedTabs = state.openedTabs.filter((tabId) => tabId !== id);
 
@@ -345,7 +342,7 @@ export const useNoteEditorStore = create<NoteEditorState>()(
           return {
             files: newFiles,
             openedTabs: newOpenedTabs,
-            selectedFileId: newSelectedId
+            selectedFileId: newSelectedId,
           };
         }),
 
@@ -460,13 +457,6 @@ export const useNoteEditorStore = create<NoteEditorState>()(
 
       // UI Actions
       setActiveTab: (index) => set({ activeTab: index }),
-
-      toggleCategory: (category) =>
-        set((state) => ({
-          activeCategories: state.activeCategories.includes(category)
-            ? state.activeCategories.filter((c) => c !== category)
-            : [...state.activeCategories, category],
-        })),
 
       // Question Actions
       addQuestion: (content, author) =>

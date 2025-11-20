@@ -8,13 +8,14 @@
 
 import { useNoteEditorStore } from "@/stores";
 import { useSaveNoteFile } from "@/lib/api/mutations/files.mutations";
+import { deleteFile as deleteFileAPI } from "@/lib/api/services/files.api";
 
 interface UseFileManagementOptions {
   noteId?: string | null;
 }
 
 export function useFileManagement(options?: UseFileManagementOptions) {
-  const { addFile } = useNoteEditorStore();
+  const { addFile, removeFile: removeFileFromStore } = useNoteEditorStore();
   const noteId = options?.noteId ?? null;
 
   // TanStack Query 뮤테이션 사용 (자동 캐시 무효화 포함)
@@ -85,8 +86,28 @@ export function useFileManagement(options?: UseFileManagementOptions) {
     }
   };
 
+  // 파일 삭제 (IndexedDB + 백엔드 + Store 업데이트)
+  const handleRemoveFile = async (fileId: string) => {
+    try {
+      console.log(`[FileManagement] 파일 삭제 시작: ${fileId}`);
+
+      // 1. IndexedDB와 백엔드에서 삭제 (동기화 큐에 추가)
+      await deleteFileAPI(fileId);
+      console.log(`[FileManagement] IndexedDB/백엔드 삭제 완료: ${fileId}`);
+
+      // 2. Store에서 제거 (UI 업데이트)
+      removeFileFromStore(fileId);
+      console.log(`[FileManagement] Store에서 제거 완료: ${fileId}`);
+    } catch (error) {
+      console.error(`[FileManagement] 파일 삭제 실패: ${fileId}`, error);
+      // 삭제 실패 시에도 UI에서는 제거 (나중에 동기화 재시도)
+      removeFileFromStore(fileId);
+    }
+  };
+
   return {
     handleAddFile,
+    handleRemoveFile,
     isSaving: saveFileMutation.isPending,
   };
 }

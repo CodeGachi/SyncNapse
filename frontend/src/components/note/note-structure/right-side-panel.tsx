@@ -7,18 +7,19 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteUIStore } from "@/stores";
 import {
   useFileManagement,
   useTranscriptTranslation,
 } from "@/features/note/right-panel";
-import { useAudioPlayer } from "@/features/note/recording";
+import { useAudioPlayer, useAudioPlayback } from "@/features/note/recording";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 
 // UI Components
 import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
+import { AudioPlaybackControls } from "@/components/note/panels/audio-playback-controls";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
@@ -45,24 +46,17 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
   // Store states (useEffect 전에 먼저 선언)
   const {
     files: uploadedFiles,
-    removeFile,
     selectedFileId,
     selectFile,
     openFileInTab,
     renameFile,
     copyFile,
-    activeCategories,
-    toggleCategory,
-    currentTime,
   } = useNoteEditorStore();
 
   const { scriptSegments } = useScriptTranslationStore();
 
   // UI Store
   const { isExpanded, toggleExpand } = useNoteUIStore();
-
-  // Active segment tracking for transcript timeline
-  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
 
   const {
     isFilePanelOpen,
@@ -94,90 +88,24 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     togglePlay,
   } = useAudioPlayer();
 
+  // ✅ Audio playback controls and script synchronization (separated to custom hook)
+  const {
+    currentTime,
+    activeSegmentId,
+    handleAudioPlayToggle,
+    handleAudioStop,
+    handleSeek,
+  } = useAudioPlayback({
+    audioRef,
+    scriptSegments,
+    isPlaying,
+    togglePlay,
+  });
+
   // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
-  const { handleAddFile } = useFileManagement({ noteId });
+  const { handleAddFile, handleRemoveFile } = useFileManagement({ noteId });
 
   const { isTranslating, translationSupported } = useTranscriptTranslation();
-
-  // Track active transcript segment based on audio playback time
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || scriptSegments.length === 0) return;
-
-    const handleTimeUpdate = () => {
-      const currentTime = audio.currentTime; // in seconds
-      
-      // Find the active segment - segment.timestamp is in milliseconds
-      const activeSegment = scriptSegments.find(
-        (segment) => {
-          const segmentStartTime = (segment.timestamp || 0) / 1000; // Convert ms to seconds
-          const segmentEndTime = segmentStartTime + 5; // 5 second window
-          return currentTime >= segmentStartTime && currentTime < segmentEndTime;
-        }
-      );
-      
-      if (activeSegment) {
-        console.log('[RightSidePanel] Active segment:', {
-          id: activeSegment.id,
-          text: activeSegment.originalText?.substring(0, 30),
-          segmentTime: ((activeSegment.timestamp || 0) / 1000).toFixed(2) + 's',
-          currentTime: currentTime.toFixed(2) + 's',
-        });
-      }
-      
-      setActiveSegmentId(activeSegment?.id || null);
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-    };
-  }, [audioRef, scriptSegments]);
-
-  // Audio playback controls (for saved recordings)
-  const handleAudioPlayToggle = () => {
-    if (audioRef.current && audioRef.current.src) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      togglePlay();
-    }
-  };
-
-  const handleAudioStop = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      if (isPlaying) togglePlay();
-    }
-  };
-
-  // Format time
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // Handle timeline seek
-  const handleSeek = (time: number) => {
-    if (audioRef.current) {
-      // Validate time value
-      if (!isFinite(time) || time < 0) {
-        console.warn('[RightSidePanel] Invalid seek time:', time);
-        return;
-      }
-      
-      // Clamp time to valid range
-      const maxTime = audioRef.current.duration || 0;
-      const validTime = Math.max(0, Math.min(time, maxTime));
-      
-      audioRef.current.currentTime = validTime;
-      console.log('[RightSidePanel] Seek to:', validTime);
-    }
-  };
 
   return (
     <>
@@ -211,51 +139,15 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
                 onSeek={handleSeek}
                 className="mt-3"
               />
-              
+
               {/* 오디오 재생 컨트롤 */}
-              {audioRef.current && audioRef.current.src && (
-                <div className="mt-3 bg-[#2f2f2f] border-2 border-[#b9b9b9] rounded-2xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {/* 재생/일시정지 버튼 */}
-                      <button
-                        onClick={handleAudioPlayToggle}
-                        className="w-10 h-10 bg-[#444444] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                      >
-                        {isPlaying ? (
-                          <svg width="12" height="14" viewBox="0 0 12 14" fill="white">
-                            <rect x="0" y="0" width="4" height="14" />
-                            <rect x="8" y="0" width="4" height="14" />
-                          </svg>
-                        ) : (
-                          <svg width="12" height="14" viewBox="0 0 12 14" fill="white">
-                            <path d="M0 0L12 7L0 14V0Z" />
-                          </svg>
-                        )}
-                      </button>
-
-                      {/* 정지 버튼 */}
-                      <button
-                        onClick={handleAudioStop}
-                        className="w-10 h-10 bg-[#444444] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="white">
-                          <rect width="10" height="10" />
-                        </svg>
-                      </button>
-
-                      {/* 시간 표시 */}
-                      <div className="text-white text-sm">
-                        {formatTime(currentTime)} / {formatTime(audioRef.current.duration || 0)}
-                      </div>
-                    </div>
-
-                    <div className="text-gray-400 text-xs">
-                      오디오 재생 중
-                    </div>
-                  </div>
-                </div>
-              )}
+              <AudioPlaybackControls
+                audioRef={audioRef}
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                onPlayToggle={handleAudioPlayToggle}
+                onStop={handleAudioStop}
+              />
             </>
           )}
 
@@ -264,7 +156,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
             isOpen={isFilePanelOpen}
             files={uploadedFiles}
             onAddFile={handleAddFile}
-            onRemoveFile={removeFile}
+            onRemoveFile={handleRemoveFile}
             selectedFileId={selectedFileId}
             onSelectFile={selectFile}
             onOpenFileInTab={openFileInTab}

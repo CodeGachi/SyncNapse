@@ -4,7 +4,9 @@
  * Structure:
  * - recording/: Record/Play Related (useRecordingList, useRecording, useRecordingControl, useAudioPlayer)
  * - text-notes/: Editor Related (useNotePanel)
- * - file/: File Management (useFilePanel)
+ * - file/: File Management (useFilePanelUI)
+ *
+ * Note: FileItem type moved to @/lib/types
  */
 // Recording Module
 export { useRecordingList, useRecording } from "./recording";
@@ -15,5 +17,4 @@ export { useNotePanel } from "./text-notes";
 export type { NoteBlock } from "./text-notes";
 
 // File Module
-export { useFilePanel, useFilePanelUI } from "./file";
-export type { FileItem } from "./file";
+export { useFilePanelUI } from "./file";
