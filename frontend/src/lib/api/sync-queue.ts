@@ -5,8 +5,9 @@
 
 type SyncTask = {
   id: string;
-  type: 'folder-create' | 'folder-update' | 'folder-delete' | 'folder-move' | 
-        'note-create' | 'note-update' | 'note-delete' | 
+  type: 'folder-create' | 'folder-update' | 'folder-delete' | 'folder-move' |
+        'note-create' | 'note-update' | 'note-delete' |
+        'note-content' | // ✅ 추가: 노트 컨텐츠 동기화
         'file-upload';
   data: any;
   retryCount: number;
@@ -219,6 +220,34 @@ class SyncQueueManager {
           headers: getAuthHeaders() as HeadersInit,
         });
         if (!res.ok) throw new Error("Failed to sync note deletion");
+        break;
+      }
+
+      case 'note-content': {
+        const res = await fetch(`${API_BASE_URL}/api/notes/${task.data.noteId}/content`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          } as HeadersInit,
+          credentials: "include",
+          body: JSON.stringify({
+            pageId: task.data.pageId,
+            blocks: task.data.blocks,
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to sync note content");
+
+        // 성공 시 IndexedDB의 syncedAt 업데이트
+        const { saveNoteContent } = await import('@/lib/db/notes');
+        await saveNoteContent(
+          task.data.noteId,
+          task.data.pageId,
+          task.data.blocks,
+          undefined,
+          true // markSynced = true
+        );
+        console.log(`[SyncQueue] ✅ Note content synced to backend:`, task.data.noteId, task.data.pageId);
         break;
       }
 

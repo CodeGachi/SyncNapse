@@ -1,12 +1,13 @@
 /**
- * 노트 데이터 로더 - Client Component
- * TanStack Query와 API 레이어를 사용하여 노트 데이터 로드
+ * 노트 데이터 로더 - Client Component (리팩토링됨)
+ * - IndexedDB를 단일 진실 공급원으로 사용
+ * - blocks 상태는 Zustand 대신 BlockNote 에디터와 IndexedDB가 직접 관리
+ * - 백그라운드 백엔드 동기화
  */
 
 "use client";
 
 import { useNote } from "@/lib/api/queries/notes.queries";
-import { useAutoSave } from "@/hooks/use-auto-save";
 import { useNoteDataLoader } from "@/features/note/note-structure/use-note-data-loader";
 
 interface NoteDataLoaderProps {
@@ -17,7 +18,9 @@ interface NoteDataLoaderProps {
 
 export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteDataLoaderProps) {
   const { data: note, isLoading, error } = useNote(noteId, { enabled: !isSharedView });
-  const { handleAutoSave } = useNoteDataLoader({ noteId });
+
+  // 파일 목록만 로드 (blocks는 BlockNote 에디터가 직접 관리)
+  useNoteDataLoader({ noteId });
 
   // Debug logs
   console.log('[NoteDataLoader] Current state:', {
@@ -26,13 +29,6 @@ export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteD
     isLoading,
     error: error?.message,
     noteData: note
-  });
-
-  // 자동저장 훅
-  useAutoSave({
-    noteId: noteId || "",
-    enabled: !!noteId && !isSharedView, // 공유 모드에서는 자동저장 비활성화
-    onSave: handleAutoSave,
   });
 
   // 공유 모드일 때는 로컬 DB 체크 건너뛰기
