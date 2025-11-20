@@ -9,7 +9,6 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
 import { NoteHeader } from "@/components/note/note-structure/note-header";
 import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
 import { NoteContentArea } from "@/components/note/note-structure/note-content-area";
@@ -18,6 +17,7 @@ import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
 import { EmojiReactions } from "@/components/note/collaboration/emoji-reactions";
 import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
+import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 
 interface EducatorNotePageProps {
   params: {
@@ -35,28 +35,10 @@ export default function EducatorNotePage({
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
 
-  // 사용자 정보 로드 (협업 이모지용)
-  const [userId, setUserId] = useState("");
-  const [userName, setUserName] = useState("");
-
-  useEffect(() => {
-    // localStorage에서 사용자 정보 가져오기
-    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
-    const storedUserName = localStorage.getItem("userName") || "사용자";
-
-    // 없으면 새로 생성하여 저장
-    if (!localStorage.getItem("userId")) {
-      localStorage.setItem("userId", storedUserId);
-    }
-    if (!localStorage.getItem("userName")) {
-      localStorage.setItem("userName", storedUserName);
-    }
-
-    setUserId(storedUserId);
-    setUserName(storedUserName);
-
-    console.log(`[EducatorNotePage] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
-  }, []);
+  // 백엔드 인증 사용자 정보 가져오기 (협업 이모지용)
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id || "";
+  const userName = currentUser?.name || currentUser?.email || "사용자";
 
   return (
     <div className="flex items-start bg-[#1e1e1e] h-screen w-full">

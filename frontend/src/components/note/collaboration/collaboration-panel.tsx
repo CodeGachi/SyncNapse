@@ -20,10 +20,12 @@ import { AVAILABLE_EMOJIS, type AvailableEmoji } from "@/lib/types/collaboration
 import { Users, MessageCircle, BarChart3, Hand, Smile } from "lucide-react";
 
 interface CollaborationPanelProps {
+  isOpen: boolean;
   userId: string;
   userName: string;
   noteId: string;
   isEducator?: boolean;
+  onClose?: () => void;
   className?: string;
 }
 
@@ -38,20 +40,23 @@ const TABS = [
 ];
 
 export function CollaborationPanel({
+  isOpen,
   userId,
   userName,
   noteId,
   isEducator = false,
+  onClose,
   className = "",
 }: CollaborationPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("users");
 
   return (
     <Panel
-      isOpen={true}
+      isOpen={isOpen}
       borderColor="green"
       height="h-[560px]"
       title="실시간 협업"
+      onClose={onClose}
     >
       <div className="flex flex-col h-full">
         {/* 탭 네비게이션 */}

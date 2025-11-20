@@ -11,10 +11,10 @@ import { useState, useEffect } from "react";
 import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteUIStore } from "@/stores";
 import {
   useFileManagement,
-  useQuestionManagement,
   useTranscriptTranslation,
 } from "@/features/note/right-panel";
 import { useAudioPlayer } from "@/features/note/recording";
+import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 
 // UI Components
 import { ScriptPanel } from "@/components/note/panels/script-panel";
@@ -29,30 +29,18 @@ interface RightSidePanelProps {
 }
 
 export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelProps) {
-  // Educator 전용: 사용자 정보 로드 (협업 기능용)
-  const [userId, setUserId] = useState("");
-  const [userName, setUserName] = useState("");
+  // 백엔드 인증 사용자 정보 가져오기
+  const { data: currentUser } = useCurrentUser();
+
+  // Educator 전용: 협업 기능용 사용자 정보
+  const userId = currentUser?.id || "";
+  const userName = currentUser?.name || currentUser?.email || "사용자";
 
   useEffect(() => {
-    if (!isEducator) return; // Student는 건너뜀
-
-    // localStorage에서 사용자 정보 가져오기
-    const storedUserId = localStorage.getItem("userId") || `user-${Date.now()}`;
-    const storedUserName = localStorage.getItem("userName") || "사용자";
-
-    // 없으면 새로 생성하여 저장
-    if (!localStorage.getItem("userId")) {
-      localStorage.setItem("userId", storedUserId);
+    if (isEducator && currentUser) {
+      console.log(`[RightSidePanel] 인증된 사용자 정보: ${userName} (${userId})`);
     }
-    if (!localStorage.getItem("userName")) {
-      localStorage.setItem("userName", storedUserName);
-    }
-
-    setUserId(storedUserId);
-    setUserName(storedUserName);
-
-    console.log(`[RightSidePanel] 사용자 정보 로드: ${storedUserName} (${storedUserId})`);
-  }, [isEducator]);
+  }, [isEducator, currentUser, userName, userId]);
 
   // Store states (useEffect 전에 먼저 선언)
   const {
@@ -108,8 +96,6 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
   // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
   const { handleAddFile } = useFileManagement({ noteId });
-
-  const { handleAddQuestion, deleteQuestion } = useQuestionManagement({ noteId });
 
   const { isTranslating, translationSupported } = useTranscriptTranslation();
 
@@ -291,12 +277,14 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
           <EtcPanel isOpen={isEtcPanelOpen} onClose={toggleEtcPanel} />
 
           {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
-          {isEducator && isCollaborationPanelOpen && userId && userName && (
+          {isEducator && (
             <CollaborationPanel
+              isOpen={isCollaborationPanelOpen}
               userId={userId}
               userName={userName}
               noteId={noteId!}
               isEducator={true}
+              onClose={toggleCollaborationPanel}
             />
           )}
         </>
