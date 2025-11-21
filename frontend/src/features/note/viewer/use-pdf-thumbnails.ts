@@ -21,8 +21,9 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
   // 로드 중인 페이지 추적 (중복 방지)
   const loadingPagesRef = useRef<Set<number>>(new Set());
 
-  // unmount 플래그
+  // unmount 플래그 - 매 렌더링마다 true로 리셋
   const isMountedRef = useRef(true);
+  isMountedRef.current = true;
 
   // 썸네일 생성 함수
   const generateThumbnail = async (pageNum: number): Promise<HTMLCanvasElement | null> => {
@@ -81,6 +82,12 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
     }
   };
 
+  // PDF 변경 시 썸네일 초기화
+  useEffect(() => {
+    setThumbnails(new Map());
+    loadingPagesRef.current.clear();
+  }, [pdfDoc]);
+
   // 현재 페이지 주변 썸네일 우선 생성
   useEffect(() => {
     if (!pdfDoc || numPages === 0) return;
@@ -96,14 +103,16 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
       ];
 
       for (const pageNum of priorityPages) {
-        // 이미 생성되었거나 로드 중이면 스킵
-        if (thumbnails.has(pageNum) || loadingPagesRef.current.has(pageNum)) {
+        // 이미 로드 중이면 스킵 (setThumbnails 내부에서 has 체크)
+        if (loadingPagesRef.current.has(pageNum)) {
           continue;
         }
 
         const canvas = await generateThumbnail(pageNum);
         if (canvas && isMountedRef.current) {
           setThumbnails(prev => {
+            // 이미 있으면 스킵
+            if (prev.has(pageNum)) return prev;
             const newMap = new Map(prev);
             newMap.set(pageNum, canvas);
             return newMap;
@@ -117,7 +126,7 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
     };
 
     loadThumbnails();
-  }, [pdfDoc, currentPage, numPages, thumbnails]);
+  }, [pdfDoc, currentPage, numPages]); // thumbnails 제거 - 무한 루프 방지
 
   // 모든 썸네일 백그라운드 로드
   useEffect(() => {
@@ -129,14 +138,16 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
         if (cancelled || !isMountedRef.current) break;
 
-        // 이미 생성되었거나 로드 중이면 스킵
-        if (thumbnails.has(pageNum) || loadingPagesRef.current.has(pageNum)) {
+        // 이미 로드 중이면 스킵
+        if (loadingPagesRef.current.has(pageNum)) {
           continue;
         }
 
         const canvas = await generateThumbnail(pageNum);
         if (canvas && !cancelled && isMountedRef.current) {
           setThumbnails(prev => {
+            // 이미 있으면 스킵
+            if (prev.has(pageNum)) return prev;
             const newMap = new Map(prev);
             newMap.set(pageNum, canvas);
             return newMap;
@@ -157,7 +168,7 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [pdfDoc, numPages, thumbnails]);
+  }, [pdfDoc, numPages]); // thumbnails 제거 - 무한 루프 방지
 
   // Cleanup on unmount
   useEffect(() => {
