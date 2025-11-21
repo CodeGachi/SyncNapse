@@ -6,7 +6,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { NoteBlock, FileItem, Question, AutoSaveStatus } from "@/lib/types";
+import type { NoteBlock, FileItem, Question } from "@/lib/types";
 import type { Block } from "@blocknote/core";
 
 /**
@@ -40,7 +40,6 @@ interface NoteEditorState {
   isQuestionListExpanded: boolean;
 
   // AutoSave State
-  autoSaveStatus: AutoSaveStatus;
   lastSavedAt: string | null;
 
   // Note Block Actions (DEPRECATED)
@@ -86,7 +85,6 @@ interface NoteEditorState {
   toggleQuestionListExpanded: () => void;
 
   // AutoSave Actions
-  setAutoSaveStatus: (status: AutoSaveStatus) => void;
   updateLastSavedAt: () => void;
 
   // Reset
@@ -121,7 +119,6 @@ const initialState = {
   isQuestionListExpanded: false,
 
   // AutoSave
-  autoSaveStatus: "idle" as AutoSaveStatus,
   lastSavedAt: null,
 };
 
@@ -502,12 +499,9 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         })),
 
       // AutoSave Actions
-      setAutoSaveStatus: (status) => set({ autoSaveStatus: status }),
-
       updateLastSavedAt: () =>
         set({
           lastSavedAt: new Date().toISOString(),
-          autoSaveStatus: "saved",
         }),
 
       // Reset

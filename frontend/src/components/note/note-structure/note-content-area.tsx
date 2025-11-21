@@ -22,8 +22,6 @@ interface NoteContentAreaProps {
   isCollaborating?: boolean;
   isSharedView?: boolean; // 공유 링크로 접속한 경우
   isEducator?: boolean; // 교육자 노트 여부 (prop으로 명시적 전달)
-  onStartCollaboration?: () => void;
-  onStopCollaboration?: () => void;
 }
 
 export function NoteContentArea({
@@ -32,13 +30,10 @@ export function NoteContentArea({
   isCollaborating,
   isSharedView = false,
   isEducator,
-  onStartCollaboration,
-  onStopCollaboration,
 }: NoteContentAreaProps) {
   // 실제 노트 데이터로부터 제목 가져오기
   // 공유 모드에서는 로컬 DB 쿼리 비활성화 (Liveblocks Storage에서 가져옴)
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
-  const actualTitle = note?.title || noteTitle;
   // 교육자 노트 여부: prop으로 명시적 전달되면 절대 우선 (|| 연산자 사용)
   // isEducator={true}가 전달되면 DB의 type과 무관하게 educator로 처리
   const isEducatorNote = isEducator === true || note?.type === "educator";
@@ -83,15 +78,10 @@ export function NoteContentArea({
   const {
     files: uploadedFiles,
     openedTabs,
-    removeFile,
     selectedFileId,
     selectFile,
     activeTab,
     setActiveTab,
-    isExpanded,
-    toggleExpand,
-    autoSaveStatus,
-    lastSavedAt,
     closeTab,
     getOpenedFiles,
   } = editorStore;
