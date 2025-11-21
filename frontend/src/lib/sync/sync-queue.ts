@@ -176,3 +176,11 @@ export function updateSyncStatus(
     syncStatus: status,
   };
 }
+
+/**
+ * 현재 동기화 큐 반환
+ * API 서비스에서 사용 (useSyncStore의 간단한 wrapper)
+ */
+export function getSyncQueue(): SyncQueue {
+  return loadSyncQueue();
+}

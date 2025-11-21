@@ -104,16 +104,6 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
       // React Query의 Optimistic Update 사용 (즉시 UI 업데이트 + 자동 롤백)
       removeRecording(sessionId);
 
-      // IndexedDB에서도 삭제 (선택적)
-      try {
-        const { deleteSession: deleteLocalSession } = await import('@/lib/storage/transcription-storage');
-        await deleteLocalSession(sessionId);
-        console.log('[RecordingBarContainer] ✅ Recording deleted from IndexedDB');
-      } catch (localError) {
-        console.warn('[RecordingBarContainer] ⚠️ Failed to delete from IndexedDB:', localError);
-        // Continue even if local delete fails
-      }
-
       console.log('[RecordingBarContainer] ✅ Deletion complete');
     } catch (error) {
       console.error('[RecordingBarContainer] ❌ Failed to delete recording:', error);

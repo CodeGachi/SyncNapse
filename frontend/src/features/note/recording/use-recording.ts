@@ -74,11 +74,14 @@ export function useRecording(noteId?: string | null) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionService | null>(null);
-  
+
+  // Track recording state for cleanup (prevent stale closure)
+  const isRecordingRef = useRef(false);
+
   // Track pause time for timestamp correction
   const pauseStartTimeRef = useRef<number>(0);
   const totalPausedTimeRef = useRef<number>(0);
-  
+
   // Track when Speech Recognition was (re)started for accurate timestamp calculation
   const speechRecognitionStartTimeRef = useRef<number>(0);
   const audioRecordingTimeAtSpeechStartRef = useRef<number>(0);
@@ -250,6 +253,7 @@ export function useRecording(noteId?: string | null) {
       mediaRecorder.start();
       console.log('[useRecording] MediaRecorder started without timeslice (following /transcription pattern)');
       setIsRecording(true);
+      isRecordingRef.current = true; // 🔥 FIX: Update ref
       setIsPaused(false);
       setRecordingTime(0);
 
@@ -482,7 +486,7 @@ export function useRecording(noteId?: string | null) {
             console.log('[useRecording] Full audio uploaded');
 
             // 4. Save transcription segments (병렬 처리로 성능 개선)
-            if (finalSegments.length > 0) {
+            if (finalSegments.length > 0 && sessionId) {
               console.log('[useRecording] Saving', finalSegments.length, 'transcription segments in parallel...');
               const startTime = Date.now();
 
@@ -490,7 +494,7 @@ export function useRecording(noteId?: string | null) {
               const savePromises = finalSegments.map(async (segment) => {
                 try {
                   await transcriptionApi.saveTranscript({
-                    sessionId,
+                    sessionId: sessionId!,
                     text: segment.originalText || '',
                     startTime: segment.timestamp / 1000, // Convert ms to seconds
                     endTime: (segment.timestamp / 1000) + ((segment.originalText || '').split(/\s+/).length / 2.5),
@@ -541,6 +545,7 @@ export function useRecording(noteId?: string | null) {
 
           // 상태 초기화
           setIsRecording(false);
+          isRecordingRef.current = false; // 🔥 FIX: Update ref
           setIsPaused(false);
           setRecordingTime(0);
           audioChunksRef.current = [];
@@ -591,6 +596,7 @@ export function useRecording(noteId?: string | null) {
 
     // 상태 초기화
     setIsRecording(false);
+    isRecordingRef.current = false; // 🔥 FIX: Update ref
     setIsPaused(false);
     setRecordingTime(0);
     audioChunksRef.current = [];
@@ -666,7 +672,8 @@ export function useRecording(noteId?: string | null) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
 
       // 녹음 중이면 리소스 정리 (저장은 beforeunload/visibilitychange에서 처리됨)
-      if (isRecording && !isSavingOnExit) {
+      // 🔥 FIX: Use ref instead of state to prevent stale closure
+      if (isRecordingRef.current && !isSavingOnExit) {
         console.log('[useRecording] ⚠️ Recording still active during unmount - cleaning up resources');
 
         // 음성 인식 중단
@@ -695,7 +702,7 @@ export function useRecording(noteId?: string | null) {
         console.log('[useRecording] ✅ Resources cleaned up');
       }
     };
-  }, [isRecording, recordingStartTime, noteId, stopRecording]);
+  }, []); // 🔥 FIX: dependency 제거 - mount/unmount 시에만 cleanup 실행
 
   return {
     isRecording,

@@ -20,7 +20,7 @@ import {
 } from "@/lib/db/folders";
 import { dbToFolder, dbToFolders, apiToFolder, apiToFolders } from "../adapters/folder.adapter";
 import { getAuthHeaders } from "../client";
-import { getSyncQueue } from "../sync-queue";
+// import { getSyncQueue } from "@/lib/sync"; // TODO: Use useSyncStore instead
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -186,8 +186,8 @@ export async function createFolder(
       return backendFolder;
     } catch (error) {
       console.error("[folders.api] Failed to sync to backend:", error);
-      // 재시도 큐에 추가
-      getSyncQueue().addTask('folder-create', { id: folderId, name, parent_id: parentId });
+      // TODO: Implement retry queue using useSyncStore
+      // getSyncQueue().addTask('folder-create', { id: folderId, name, parent_id: parentId });
       return null;
     }
   };
@@ -250,7 +250,8 @@ export async function renameFolder(
     } catch (error) {
       console.error("[folders.api] Failed to sync rename to backend:", error);
       // 재시도 큐에 추가
-      getSyncQueue().addTask('folder-update', { id: folderId, updates: { name: newName } });
+      // TODO: Implement retry queue using useSyncStore
+      // getSyncQueue().addTask('folder-update', { id: folderId, updates: { name: newName } });
     }
   };
 
@@ -296,7 +297,8 @@ export async function deleteFolder(folderId: string): Promise<void> {
       // 404 에러가 아닌 경우에만 재시도 큐에 추가
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (!errorMessage.includes('404')) {
-        getSyncQueue().addTask('folder-delete', { id: folderId });
+        // TODO: Implement retry queue using useSyncStore
+        // getSyncQueue().addTask('folder-delete', { id: folderId });
       }
     }
   };
@@ -339,7 +341,8 @@ export async function moveFolder(
     } catch (error) {
       console.error("[folders.api] Failed to sync move to backend:", error);
       // 재시도 큐에 추가
-      getSyncQueue().addTask('folder-move', { id: folderId, newParentId });
+      // TODO: Implement retry queue using useSyncStore
+      // getSyncQueue().addTask('folder-move', { id: folderId, newParentId });
     }
   };
 

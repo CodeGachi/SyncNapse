@@ -30,14 +30,17 @@ export function AuthInitializer() {
     // 1. Sync tokens from cookies to localStorage
     const cookieToken = getCookie("authToken");
     const localToken = localStorage.getItem("authToken");
+    const syncnapseToken = localStorage.getItem("syncnapse_access_token");
 
     console.log('[AuthInitializer] Cookie token exists:', !!cookieToken);
     console.log('[AuthInitializer] LocalStorage token exists:', !!localToken);
+    console.log('[AuthInitializer] Syncnapse token exists:', !!syncnapseToken);
 
     // If cookie has token but localStorage doesn't, sync it
     if (cookieToken && !localToken) {
       console.log('[AuthInitializer] Syncing token from cookie to localStorage');
       localStorage.setItem("authToken", cookieToken);
+      localStorage.setItem("syncnapse_access_token", cookieToken); // Also set syncnapse_ key
 
       // For mock auth, also set a default user
       if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true") {
@@ -52,7 +55,13 @@ export function AuthInitializer() {
       }
     }
 
-    // 2. Clean up user data with invalid picture field
+    // 2. Sync authToken to syncnapse_access_token if missing
+    if (localToken && !syncnapseToken) {
+      console.log('[AuthInitializer] Syncing authToken to syncnapse_access_token');
+      localStorage.setItem("syncnapse_access_token", localToken);
+    }
+
+    // 3. Clean up user data with invalid picture field
     const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
@@ -68,7 +77,7 @@ export function AuthInitializer() {
       }
     }
 
-    // 3. Clean up any invalid tokens
+    // 4. Clean up any invalid tokens
     const token = localStorage.getItem("authToken");
     if (token) {
       // Validate token format (must be JWT with 3 parts or mock token)

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import type { FileItem } from "@/features/note/file/use-file-panel";
+import type { FileItem } from "@/lib/types/file";
 
 interface UseNoteContentAreaProps {
   openedFiles: FileItem[];

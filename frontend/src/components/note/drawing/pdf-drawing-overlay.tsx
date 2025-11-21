@@ -297,9 +297,9 @@ export const PDFDrawingOverlay = forwardRef<
         if (drawStore.type !== 'eraser') return;
 
         const canvas = fabricCanvasRef.current;
-        const target = canvas.findTarget(event.e as MouseEvent, false);
+        const target = canvas.findTarget(event.e as MouseEvent);
 
-        if (target && !target.isPreview) {
+        if (target && !(target as any).isPreview) {
           // 히스토리 저장
           useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 

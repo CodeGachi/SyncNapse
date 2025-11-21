@@ -30,8 +30,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
 
     const query = searchQuery.toLowerCase();
     return allNotes.filter((note) =>
-      note.title.toLowerCase().includes(query) ||
-      note.content?.toLowerCase().includes(query)
+      note.title.toLowerCase().includes(query)
     );
   }, [allNotes, searchQuery]);
 
@@ -39,8 +38,8 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   const recentNotes = useMemo(() => {
     return [...filteredNotes]
       .sort((a, b) => {
-        const dateA = new Date(a.updated_at || a.created_at).getTime();
-        const dateB = new Date(b.updated_at || b.created_at).getTime();
+        const dateA = a.updatedAt || a.createdAt;
+        const dateB = b.updatedAt || b.createdAt;
         return dateB - dateA;
       })
       .slice(0, 5);
@@ -49,7 +48,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   // 선택된 폴더의 노트
   const folderNotes = useMemo(() => {
     if (!selectedFolderId) return [];
-    return filteredNotes.filter((note) => note.folder_id === selectedFolderId);
+    return filteredNotes.filter((note) => note.folderId === selectedFolderId);
   }, [filteredNotes, selectedFolderId]);
 
   // 폴더 이름 가져오기
@@ -60,7 +59,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   };
 
   // 날짜 포맷팅
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | number) => {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -78,8 +77,9 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   };
 
   // 노트 클릭 핸들러
-  const handleNoteClick = (noteId: string) => {
-    router.push(`/dashboard/notes/${noteId}`);
+  const handleNoteClick = (note: Note) => {
+    const noteType = note.type || "student"; // 기본값은 student
+    router.push(`/note/${noteType}/${note.id}`);
   };
 
   return (
@@ -142,7 +142,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
               recentNotes.map((note) => (
                 <div key={note.id}>
                   <div
-                    onClick={() => handleNoteClick(note.id)}
+                    onClick={() => handleNoteClick(note)}
                     className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                   >
                     {/* Note Icon + Name */}
@@ -162,7 +162,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
 
                     {/* Folder Location */}
                     <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                      {getFolderName(note.folder_id)}
+                      {getFolderName(note.folderId)}
                     </div>
 
                     {/* Favorite Icon */}
@@ -216,7 +216,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                 folderNotes.map((note) => (
                   <div key={note.id}>
                     <div
-                      onClick={() => handleNoteClick(note.id)}
+                      onClick={() => handleNoteClick(note)}
                       className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                     >
                       {/* Note Icon + Name */}
@@ -236,7 +236,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
 
                       {/* Modified Date */}
                       <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                        {formatDate(note.updated_at || note.created_at)}
+                        {formatDate(note.updatedAt || note.createdAt)}
                       </div>
 
                       {/* Favorite Icon */}

@@ -200,7 +200,7 @@ export function FolderTree({
 
                 {/* 폴더 이름 */}
                 <span className="flex-1 text-sm truncate">
-                  {node.folder.name}
+                  {node.folder.name === "Root" && node.folder.parentId === null ? "루트" : node.folder.name}
                 </span>
 
                 {/* 폴더 옵션 메뉴 */}

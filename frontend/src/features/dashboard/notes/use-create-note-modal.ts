@@ -129,7 +129,6 @@ export function useCreateNoteModal(
 
     // File Conflict Process
     if (duplicates.length > 0) {
-      const { notify } = await import("@/stores");
       const renamedFiles: File[] = [];
       duplicates.forEach((originalFile) => {
         const suggestedName = generateSafeFileName(originalFile.name, [
@@ -141,10 +140,9 @@ export function useCreateNoteModal(
         });
         renamedFiles.push(renamedFile);
 
-        notify.warning(
-          "파일 이름 충돌",
-          `"${originalFile.name}"이(가) 이미 존재하여 "${suggestedName}"(으)로 저장되었습니다.`,
-          { duration: 5000 }
+        // TODO: Add notification system
+        console.warn(
+          `파일 이름 충돌: "${originalFile.name}"이(가) 이미 존재하여 "${suggestedName}"(으)로 저장되었습니다.`
         );
       });
 

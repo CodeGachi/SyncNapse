@@ -22,22 +22,20 @@ export function useAutoSave({
   enabled = true,
 }: UseAutoSaveOptions) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { blocks, setAutoSaveStatus, updateLastSavedAt } = useNoteEditorStore();
+  const { blocks, updateLastSavedAt } = useNoteEditorStore();
 
   const performSave = useCallback(async () => {
     if (!enabled) return;
 
     try {
-      setAutoSaveStatus("saving");
       await onSave();
       updateLastSavedAt();
       // 성공 알림은 표시하지 않음 (너무 빈번)
     } catch (error) {
       console.error("자동저장 실패:", error);
-      setAutoSaveStatus("error");
       // 알림 제거됨 - console.error로 대체
     }
-  }, [enabled, onSave, setAutoSaveStatus, updateLastSavedAt]);
+  }, [enabled, onSave, updateLastSavedAt]);
 
   // blocks가 변경될 때마다 디바운스 적용하여 저장
   useEffect(() => {

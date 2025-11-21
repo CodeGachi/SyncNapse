@@ -5,7 +5,7 @@
 
 import { saveNoteContent as saveNoteContentInDB, getNoteContent as getNoteContentFromDB } from "@/lib/db/notes";
 import { getAuthHeaders } from "../client";
-import { getSyncQueue } from "../sync-queue";
+// import { getSyncQueue } from "@/lib/sync"; // TODO: Use useSyncStore instead
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -94,11 +94,12 @@ async function syncFromBackendInBackground(
       // 로컬이 더 최신이면 백엔드로 동기화 큐에 추가
       if (localContent.updatedAt > (localContent.syncedAt || 0)) {
         console.log('[note-content.api] 📤 Local changes need to sync to backend');
-        getSyncQueue().addTask('note-content', {
-          noteId,
-          pageId,
-          blocks: localContent.blocks,
-        });
+        // TODO: Implement retry queue using useSyncStore
+        // getSyncQueue().addTask('note-content', {
+        //   noteId,
+        //   pageId,
+        //   blocks: localContent.blocks,
+        // });
       }
     }
   } catch (error) {
@@ -127,6 +128,7 @@ export async function saveNoteContentWithSync(
   console.log('[note-content.api] ✅ Saved to IndexedDB');
 
   // 2. 백그라운드 동기화 큐에 추가
-  getSyncQueue().addTask('note-content', { noteId, pageId, blocks });
-  console.log('[note-content.api] 📤 Added to sync queue');
+  // TODO: Implement retry queue using useSyncStore
+  // getSyncQueue().addTask('note-content', { noteId, pageId, blocks });
+  console.log('[note-content.api] 📤 Saved (background sync TODO)');
 }

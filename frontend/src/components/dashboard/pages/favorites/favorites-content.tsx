@@ -9,7 +9,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useNotes } from "@/lib/api/queries/notes.queries";
-import { useUpdateNoteMutation } from "@/lib/api/mutations/notes.mutations";
+import { useUpdateNote } from "@/lib/api/mutations/notes.mutations";
 import { useFolders } from "@/features/dashboard";
 import type { Note } from "@/lib/types";
 
@@ -19,7 +19,7 @@ export function FavoritesContent() {
 
   // 모든 노트 조회
   const { data: allNotes = [], isLoading } = useNotes();
-  const updateNoteMutation = useUpdateNoteMutation();
+  const updateNoteMutation = useUpdateNote();
   const { folders } = useFolders();
 
   // 즐겨찾기 노트만 필터링
@@ -34,8 +34,7 @@ export function FavoritesContent() {
     const query = searchQuery.toLowerCase();
     return favoriteNotes.filter(
       (note) =>
-        note.title.toLowerCase().includes(query) ||
-        note.content?.toLowerCase().includes(query)
+        note.title.toLowerCase().includes(query)
     );
   }, [favoriteNotes, searchQuery]);
 
@@ -47,7 +46,7 @@ export function FavoritesContent() {
   };
 
   // 날짜 포맷팅
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | number) => {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -65,8 +64,9 @@ export function FavoritesContent() {
   };
 
   // 노트 클릭 핸들러
-  const handleNoteClick = (noteId: string) => {
-    router.push(`/dashboard/notes/${noteId}`);
+  const handleNoteClick = (note: Note) => {
+    const noteType = note.type || "student"; // 기본값은 student
+    router.push(`/note/${noteType}/${note.id}`);
   };
 
   // 즐겨찾기 토글 핸들러
@@ -171,7 +171,7 @@ export function FavoritesContent() {
               filteredNotes.map((note) => (
                 <div key={note.id}>
                   <div
-                    onClick={() => handleNoteClick(note.id)}
+                    onClick={() => handleNoteClick(note)}
                     className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                   >
                     {/* Note Icon + Name */}
@@ -191,12 +191,12 @@ export function FavoritesContent() {
 
                     {/* Folder Location */}
                     <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                      {getFolderName(note.folder_id)}
+                      {getFolderName(note.folderId)}
                     </div>
 
                     {/* Modified Date */}
                     <div className="w-[150px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                      {formatDate(note.updated_at || note.created_at)}
+                      {formatDate(note.updatedAt || note.createdAt)}
                     </div>
 
                     {/* Favorite Icon (clickable) */}

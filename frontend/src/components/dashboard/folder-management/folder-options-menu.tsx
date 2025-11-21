@@ -24,6 +24,9 @@ export function FolderOptionsMenu({
   const { isOpen, menuRef, buttonRef, handleToggle, handleOptionClick } =
     useFolderOptionsMenu();
 
+  // Check if this is the Root folder
+  const isRootFolder = folder.name === "Root" && folder.parentId === null;
+
   return (
     <div className="relative">
       {/* 옵션 버튼 */}
@@ -51,11 +54,12 @@ export function FolderOptionsMenu({
           ref={menuRef}
           className="absolute right-0 top-full mt-1 w-48 bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg shadow-lg z-50 py-1"
         >
-          {/* 이름 변경 */}
-          <button
-            onClick={() => handleOptionClick(onRename)}
-            className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
-          >
+          {/* 이름 변경 (Root 폴더는 제외) */}
+          {!isRootFolder && (
+            <button
+              onClick={() => handleOptionClick(onRename)}
+              className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
+            >
             <svg
               className="w-4 h-4"
               fill="none"
@@ -70,7 +74,8 @@ export function FolderOptionsMenu({
               />
             </svg>
             Rename
-          </button>
+            </button>
+          )}
 
           {/* 하위 폴더 추가 */}
           <button
@@ -93,14 +98,15 @@ export function FolderOptionsMenu({
             Add Subfolder
           </button>
 
-          {/* 구분선 */}
-          <div className="my-1 border-t border-[#3C3C3C]" />
+          {/* 구분선 (Root 폴더가 아닐 때만) */}
+          {!isRootFolder && <div className="my-1 border-t border-[#3C3C3C]" />}
 
-          {/* 삭제 */}
-          <button
-            onClick={() => handleOptionClick(onDelete)}
-            className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors flex items-center gap-2"
-          >
+          {/* 삭제 (Root 폴더는 제외) */}
+          {!isRootFolder && (
+            <button
+              onClick={() => handleOptionClick(onDelete)}
+              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors flex items-center gap-2"
+            >
             <svg
               className="w-4 h-4"
               fill="none"
@@ -115,7 +121,8 @@ export function FolderOptionsMenu({
               />
             </svg>
             Delete
-          </button>
+            </button>
+          )}
         </div>
       )}
     </div>

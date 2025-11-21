@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { getCurrentUser } from "@/lib/api/auth.api";
+import { getCurrentUser } from "@/lib/api/services/auth.api";
 import { AuthLoading } from "./auth-loading";
 
 export function OAuthCallback() {
@@ -26,10 +26,12 @@ export function OAuthCallback() {
 
       if (accessToken && refreshToken) {
         try {
-          // Store tokens in localStorage
-          localStorage.setItem("authToken", accessToken);
-          localStorage.setItem("refreshToken", refreshToken);
-          
+          // Store tokens in localStorage (use syncnapse_ prefix for consistency with auth.api.ts)
+          localStorage.setItem("syncnapse_access_token", accessToken);
+          localStorage.setItem("syncnapse_refresh_token", refreshToken);
+          localStorage.setItem("authToken", accessToken); // Keep for middleware compatibility
+          localStorage.setItem("refreshToken", refreshToken); // Keep for backward compatibility
+
           // Store token in cookie for SSR
           document.cookie = `authToken=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`;
           document.cookie = `refreshToken=${refreshToken}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Strict`;

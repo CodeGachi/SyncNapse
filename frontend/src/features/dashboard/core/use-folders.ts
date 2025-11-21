@@ -89,27 +89,30 @@ export function useFolders() {
   // Get subfolders of a specific folder
   const getSubFolders = (parentId: string | null): DBFolder[] => {
     // Filter folders based on parentId
-    const subfolders = folders.filter((f) => f.parentId === parentId);
-    
-    // If we're at the root level (parentId === null), also include children of "Root" folder
-    if (parentId === null && rootFolder) {
-      const rootChildren = folders.filter((f) => f.parentId === rootFolder.id);
-      // Exclude the "Root" folder itself and combine with root level folders
-      return [...subfolders.filter((f) => f.id !== rootFolder.id), ...rootChildren];
-    }
-    
-    // Exclude "Root" folder from results
-    return subfolders.filter((f) => !(f.name === "Root" && f.parentId === null));
+    return folders.filter((f) => f.parentId === parentId);
   };
 
-  // Build folder tree structure
+  // Build folder tree structure starting from Root
   const buildFolderTree = (
     parentId: string | null = null
   ): FolderTreeNode[] => {
+    // If parentId is null, start from Root folder
+    if (parentId === null && rootFolder) {
+      return [{
+        folder: rootFolder,
+        children: buildFolderTreeRecursive(rootFolder.id),
+      }];
+    }
+
+    return buildFolderTreeRecursive(parentId);
+  };
+
+  // Recursive helper to build tree
+  const buildFolderTreeRecursive = (parentId: string | null): FolderTreeNode[] => {
     const subFolders = getSubFolders(parentId);
     return subFolders.map((folder) => ({
       folder,
-      children: buildFolderTree(folder.id),
+      children: buildFolderTreeRecursive(folder.id),
     }));
   };
 

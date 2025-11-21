@@ -82,6 +82,8 @@ export async function getCurrentUser(): Promise<User | null> {
       console.warn("[Auth] Invalid JWT token format, removing...");
       localStorage.removeItem("syncnapse_access_token");
       localStorage.removeItem("syncnapse_refresh_token");
+      localStorage.removeItem("authToken"); // Also remove authToken
+      localStorage.removeItem("refreshToken"); // Also remove refreshToken
       localStorage.removeItem("user");
       return null;
     }
@@ -96,6 +98,8 @@ export async function getCurrentUser(): Promise<User | null> {
       console.warn("[Auth] Token missing user ID, removing...");
       localStorage.removeItem("syncnapse_access_token");
       localStorage.removeItem("syncnapse_refresh_token");
+      localStorage.removeItem("authToken"); // Also remove authToken
+      localStorage.removeItem("refreshToken"); // Also remove refreshToken
       localStorage.removeItem("user");
       return null;
     }
@@ -105,6 +109,8 @@ export async function getCurrentUser(): Promise<User | null> {
       console.warn("[Auth] Token expired, removing...");
       localStorage.removeItem("syncnapse_access_token");
       localStorage.removeItem("syncnapse_refresh_token");
+      localStorage.removeItem("authToken"); // Also remove authToken
+      localStorage.removeItem("refreshToken"); // Also remove refreshToken
       localStorage.removeItem("user");
       return null;
     }
@@ -123,6 +129,8 @@ export async function getCurrentUser(): Promise<User | null> {
     console.error("[Auth] getCurrentUser 실패:", error);
     localStorage.removeItem("syncnapse_access_token");
     localStorage.removeItem("syncnapse_refresh_token");
+    localStorage.removeItem("authToken"); // Also remove authToken
+    localStorage.removeItem("refreshToken"); // Also remove refreshToken
     localStorage.removeItem("user");
     return null;
   }

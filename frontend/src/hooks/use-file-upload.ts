@@ -83,14 +83,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const removeFile = useCallback((fileId: string) => {
     const fileToRemove = files.find((f) => f.id === fileId);
 
-    // URL 해제를 지연시켜 React DOM 업데이트 완료 후 실행
-    // 이렇게 하면 removeChild 에러를 방지할 수 있음
-    // PDF 뷰어의 경우 언마운트가 복잡하므로 더 긴 지연 시간 사용
-    if (fileToRemove?.url) {
-      setTimeout(() => {
-        URL.revokeObjectURL(fileToRemove.url);
-      }, 500);
-    }
+    // URL cleanup handled elsewhere - FileUploadItem doesn't store URL
 
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
   }, [files]);

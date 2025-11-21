@@ -22,7 +22,7 @@ import {
 } from "@/lib/db/notes";
 import { dbToNote, dbToNotes, apiToNote, apiToNotes } from "../adapters/note.adapter";
 import { getAuthHeaders } from "../client";
-import { getSyncQueue } from "../sync-queue";
+// import { getSyncQueue } from "@/lib/sync"; // TODO: Use useSyncStore instead
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -318,7 +318,8 @@ export async function createNote(
     } catch (error) {
       console.error("[notes.api] Failed to sync to backend:", error);
       // 재시도 큐에 추가
-      getSyncQueue().addTask('note-create', { id: noteId, title, folderId, files });
+      // TODO: Implement retry queue using useSyncStore
+      // getSyncQueue().addTask('note-create', { id: noteId, title, folderId, files });
       return null;
     }
   };
@@ -394,7 +395,8 @@ export async function updateNote(
     } catch (error) {
       console.error("[notes.api] Failed to sync update to backend:", error);
       // 재시도 큐에 추가
-      getSyncQueue().addTask('note-update', { id: noteId, updates: apiUpdates });
+      // TODO: Implement retry queue using useSyncStore
+      // getSyncQueue().addTask('note-update', { id: noteId, updates: apiUpdates });
     }
   };
 
@@ -431,7 +433,8 @@ export async function deleteNote(noteId: string): Promise<void> {
     } catch (error) {
       console.error("[notes.api] Failed to sync deletion to backend:", error);
       // 재시도 큐에 추가
-      getSyncQueue().addTask('note-delete', { id: noteId });
+      // TODO: Implement retry queue using useSyncStore
+      // getSyncQueue().addTask('note-delete', { id: noteId });
     }
   };
 
