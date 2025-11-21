@@ -156,14 +156,18 @@ export function FolderSelectorModal({
 
       {/* Folder tree */}
       <div className="bg-[#191919] rounded-lg p-4 max-h-[400px] overflow-y-auto">
-        {/* Root folder */}
+        {/* Root folder - 실제 Root 폴더 ID 사용 */}
         <div
           className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-2 ${
-            tempSelectedId === "root"
+            (tempSelectedId === "root" || (folderTree.length > 0 && tempSelectedId === folderTree[0].folder.id))
               ? "bg-[#6B7B3E] text-white"
               : "text-gray-300 hover:bg-[#3C3C3C] hover:text-white"
           }`}
-          onClick={() => setTempSelectedId("root")}
+          onClick={() => {
+            // Root 폴더 ID를 사용 (root 문자열 대신)
+            const rootFolderId = folderTree.length > 0 ? folderTree[0].folder.id : "root";
+            setTempSelectedId(rootFolderId);
+          }}
         >
           <svg
             className="w-5 h-5 flex-shrink-0"
@@ -172,15 +176,15 @@ export function FolderSelectorModal({
           >
             <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
           </svg>
-          <span className="text-sm font-medium">루트</span>
+          <span className="text-sm font-medium">Root</span>
         </div>
 
-        {/* Folder tree */}
+        {/* Folder tree - Root의 자식 폴더들만 표시 */}
         <div className="space-y-1">
-          {folderTree.map((node) => (
+          {folderTree.length > 0 && folderTree[0].children.map((child) => (
             <FolderItem
-              key={node.folder.id}
-              node={node}
+              key={child.folder.id}
+              node={child}
               level={0}
               selectedFolderId={tempSelectedId}
               expandedFolders={expandedFolders}
@@ -190,10 +194,10 @@ export function FolderSelectorModal({
           ))}
         </div>
 
-        {/* When no folders exist */}
-        {folderTree.length === 0 && (
-          <div className="text-center text-gray-400 py-8">
-            생성된 폴더가 없습니다
+        {/* When no subfolders exist */}
+        {(folderTree.length === 0 || folderTree[0].children.length === 0) && (
+          <div className="text-center text-gray-400 py-4 text-sm">
+            No folders yet. Create in Root.
           </div>
         )}
       </div>
