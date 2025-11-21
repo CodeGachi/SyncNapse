@@ -114,9 +114,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             id: serverRoot.id,
             name: serverRoot.name,
             parentId: null,
-            createdAt: new Date(serverRoot.created_at || Date.now()),
-            updatedAt: new Date(serverRoot.updated_at || Date.now()),
-            isDeleted: false,
+            createdAt: new Date(serverRoot.created_at || Date.now()).getTime(),
+            updatedAt: new Date(serverRoot.updated_at || Date.now()).getTime(),
           };
           await saveFolder(dbFolder);
           console.log('[DashboardProvider] Root folder synced from server to local with ID:', serverRoot.id);
@@ -129,9 +128,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             id: serverRoot.id,
             name: serverRoot.name,
             parentId: null,
-            createdAt: new Date(serverRoot.created_at || Date.now()),
-            updatedAt: new Date(serverRoot.updated_at || Date.now()),
-            isDeleted: false,
+            createdAt: new Date(serverRoot.created_at || Date.now()).getTime(),
+            updatedAt: new Date(serverRoot.updated_at || Date.now()).getTime(),
           };
           await saveFolder(dbFolder);
           console.log('[DashboardProvider] Root folder replaced with server ID:', serverRoot.id);
@@ -193,9 +191,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
                 id: serverRoot.id,
                 name: serverRoot.name,
                 parentId: null,
-                createdAt: new Date(serverRoot.created_at || Date.now()),
-                updatedAt: new Date(serverRoot.updated_at || Date.now()),
-                isDeleted: false,
+                createdAt: new Date(serverRoot.created_at || Date.now()).getTime(),
+                updatedAt: new Date(serverRoot.updated_at || Date.now()).getTime(),
               };
               await saveFolder(dbFolder);
               console.log('[DashboardProvider] ✅ Root folder synced from server:', serverRoot.id);
