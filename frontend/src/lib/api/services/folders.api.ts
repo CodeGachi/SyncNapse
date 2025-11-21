@@ -32,20 +32,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
  */
 export async function fetchAllFolders(): Promise<Folder[]> {
   // 1. 로컬 데이터 우선 반환 (빠른 응답)
-  let dbFolders = await getAllFoldersFromDB();
-
-  // 2. "Root" 폴더가 없으면 자동 생성
-  const hasRootFolder = dbFolders.some(f => f.name === "Root" && f.parentId === null);
-  if (!hasRootFolder) {
-    console.log('[folders.api] Root folder not found, creating...');
-    const rootFolder = await createFolderInDB("Root", null);
-    dbFolders = await getAllFoldersFromDB(); // 다시 가져오기
-    console.log('[folders.api] Root folder created:', rootFolder.id);
-  }
-
+  const dbFolders = await getAllFoldersFromDB();
   const localFolders = dbToFolders(dbFolders);
 
-  // 3. 백그라운드에서 서버 동기화
+  // 2. 백그라운드에서 서버 동기화
   syncFoldersInBackground(localFolders);
 
   return localFolders;
@@ -71,31 +61,37 @@ async function syncFoldersInBackground(localFolders: Folder[]): Promise<void> {
     
     const apiFolders: ApiFolderResponse[] = await res.json();
     const serverFolders = apiToFolders(apiFolders);
-    
+
     // 동기화할 데이터 찾기
     const { syncFolders } = await import('../sync-utils');
     const { toUpdate, toAdd, toDelete } = await syncFolders(localFolders, serverFolders);
-    
+
+    // Root 폴더는 삭제하지 않음 (보호)
+    const filteredToDelete = toDelete.filter(id => {
+      const folder = localFolders.find(f => f.id === id);
+      return !(folder?.name === "Root" && folder?.parentId === null);
+    });
+
     // IndexedDB 업데이트
-    if (toUpdate.length > 0 || toAdd.length > 0 || toDelete.length > 0) {
+    if (toUpdate.length > 0 || toAdd.length > 0 || filteredToDelete.length > 0) {
       const { saveFolder, permanentlyDeleteFolder } = await import('@/lib/db/folders');
       const { folderToDb } = await import('../adapters/folder.adapter');
-      
+
       // toUpdate와 toAdd 모두 saveFolder로 처리 (put 메서드 사용)
       const allToSave = [...toUpdate, ...toAdd];
-      
+
       for (const folder of allToSave) {
         const dbFolder = folderToDb(folder);
         await saveFolder(dbFolder);
       }
-      
-      // toDelete 처리 - 서버에서 삭제된 폴더는 로컬에서도 영구 삭제
-      for (const folderId of toDelete) {
+
+      // toDelete 처리 - 서버에서 삭제된 폴더는 로컬에서도 영구 삭제 (Root 제외)
+      for (const folderId of filteredToDelete) {
         await permanentlyDeleteFolder(folderId);
       }
-      
-      console.log(`[folders.api] ✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${toDelete.length} deleted folders from server`);
-      
+
+      console.log(`[folders.api] ✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${filteredToDelete.length} deleted folders from server`);
+
       // React Query cache 무효화 (다음 쿼리에서 최신 데이터 가져오도록)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('folders-synced'));

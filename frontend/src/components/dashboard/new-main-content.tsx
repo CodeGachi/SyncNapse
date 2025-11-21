@@ -10,7 +10,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useNotes } from "@/lib/api/queries/notes.queries";
 import { useFolders } from "@/features/dashboard";
-import type { Note } from "@/lib/types";
+import { useDashboardContext } from "@/providers/dashboard-context";
+import type { Note, Folder } from "@/lib/types";
 
 interface NewMainContentProps {
   selectedFolderId: string | null;
@@ -19,10 +20,42 @@ interface NewMainContentProps {
 export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const { setSelectedFolderId } = useDashboardContext();
 
   // 모든 노트 조회
   const { data: allNotes = [], isLoading } = useNotes();
   const { folders } = useFolders();
+
+  // 현재 폴더의 하위 폴더들
+  const childFolders = useMemo(() => {
+    if (!selectedFolderId) return [];
+    return folders.filter((f) => f.parentId === selectedFolderId);
+  }, [folders, selectedFolderId]);
+
+  // 브레드크럼브 경로 계산
+  const breadcrumbPath = useMemo(() => {
+    if (!selectedFolderId) return [];
+
+    const path: Folder[] = [];
+    let currentId: string | null = selectedFolderId;
+
+    while (currentId) {
+      const folder = folders.find((f) => f.id === currentId);
+      if (folder) {
+        path.unshift(folder);
+        currentId = folder.parentId;
+      } else {
+        break;
+      }
+    }
+
+    return path;
+  }, [folders, selectedFolderId]);
+
+  // 폴더 클릭 핸들러
+  const handleFolderClick = (folderId: string) => {
+    setSelectedFolderId(folderId);
+  };
 
   // 검색 필터링
   const filteredNotes = useMemo(() => {
@@ -186,10 +219,27 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
         {/* 선택된 폴더의 노트 Section (폴더 선택 시에만 표시) */}
         {selectedFolderId && (
           <div className="flex flex-col items-start gap-6 w-full">
-            {/* Section Title */}
-            <h2 className="text-white font-bold text-xl leading-6 text-center">
-              {getFolderName(selectedFolderId)}
-            </h2>
+            {/* 브레드크럼브 네비게이션 */}
+            <div className="flex flex-row items-center gap-2">
+              {breadcrumbPath.map((folder, index) => (
+                <div key={folder.id} className="flex items-center gap-2">
+                  {index > 0 && (
+                    <span className="text-[#575757] text-xl font-bold">/</span>
+                  )}
+                  <button
+                    onClick={() => handleFolderClick(folder.id)}
+                    className={`text-xl font-bold transition-colors ${
+                      index === breadcrumbPath.length - 1
+                        ? "text-white cursor-default"
+                        : "text-[#AFC02B] hover:text-[#C4D62E] cursor-pointer"
+                    }`}
+                    disabled={index === breadcrumbPath.length - 1}
+                  >
+                    {folder.name}
+                  </button>
+                </div>
+              ))}
+            </div>
 
             {/* Table Container */}
             <div className="flex flex-col items-start py-4 px-0 gap-4 w-full bg-[#2F2F2F] border border-[#575757] rounded-[10px]">
@@ -207,52 +257,89 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
               {/* Divider */}
               <div className="w-full h-0 border-t border-[#575757]" />
 
-              {/* Table Rows */}
-              {folderNotes.length === 0 ? (
+              {/* Table Rows - 폴더 먼저, 그 다음 노트 */}
+              {childFolders.length === 0 && folderNotes.length === 0 ? (
                 <div className="px-5 py-4 text-[#575757] text-center w-full">
-                  {searchQuery ? "검색 결과가 없습니다" : "이 폴더에 노트가 없습니다"}
+                  {searchQuery ? "검색 결과가 없습니다" : "이 폴더가 비어있습니다"}
                 </div>
               ) : (
-                folderNotes.map((note) => (
-                  <div key={note.id}>
-                    <div
-                      onClick={() => handleNoteClick(note)}
-                      className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
-                    >
-                      {/* Note Icon + Name */}
-                      <div className="flex flex-row items-center gap-1 flex-1">
-                        <div className="w-5 h-5 flex items-center justify-center">
-                          <Image
-                            src="/대시보드/Text input-5.svg"
-                            alt="노트"
-                            width={20}
-                            height={20}
-                          />
+                <>
+                  {/* 폴더 목록 */}
+                  {childFolders.map((folder) => (
+                    <div key={folder.id}>
+                      <div
+                        onClick={() => handleFolderClick(folder.id)}
+                        className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
+                      >
+                        {/* Folder Icon + Name */}
+                        <div className="flex flex-row items-center gap-1 flex-1">
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-[#AFC02B]"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                            </svg>
+                          </div>
+                          <span className="text-white font-normal text-sm leading-[17px]">
+                            {folder.name}
+                          </span>
                         </div>
-                        <span className="text-white font-normal text-sm leading-[17px]">
-                          {note.title}
-                        </span>
-                      </div>
 
-                      {/* Modified Date */}
-                      <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                        {formatDate(note.updatedAt || note.createdAt)}
-                      </div>
+                        {/* Modified Date */}
+                        <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
+                          {formatDate(folder.updatedAt || folder.createdAt)}
+                        </div>
 
-                      {/* Favorite Icon */}
-                      <div className="w-[19px] h-5 flex items-center justify-center">
-                        {note.is_favorite && (
-                          <Image
-                            src="/대시보드/Text input-4.svg"
-                            alt="즐겨찾기"
-                            width={19}
-                            height={20}
-                          />
-                        )}
+                        {/* Empty space for alignment */}
+                        <div className="w-[19px] h-5"></div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                  {/* 노트 목록 */}
+                  {folderNotes.map((note) => (
+                    <div key={note.id}>
+                      <div
+                        onClick={() => handleNoteClick(note)}
+                        className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
+                      >
+                        {/* Note Icon + Name */}
+                        <div className="flex flex-row items-center gap-1 flex-1">
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <Image
+                              src="/대시보드/Text input-5.svg"
+                              alt="노트"
+                              width={20}
+                              height={20}
+                            />
+                          </div>
+                          <span className="text-white font-normal text-sm leading-[17px]">
+                            {note.title}
+                          </span>
+                        </div>
+
+                        {/* Modified Date */}
+                        <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
+                          {formatDate(note.updatedAt || note.createdAt)}
+                        </div>
+
+                        {/* Favorite Icon */}
+                        <div className="w-[19px] h-5 flex items-center justify-center">
+                          {note.is_favorite && (
+                            <Image
+                              src="/대시보드/Text input-4.svg"
+                              alt="즐겨찾기"
+                              width={19}
+                              height={20}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>

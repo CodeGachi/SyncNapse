@@ -180,14 +180,18 @@ export function CreateFolderModal({
           Selected: <span className="text-[#AFC02B]">{getSelectedLocationText()}</span>
         </div>
         <div className="bg-[#191919] rounded-lg p-4 max-h-[300px] overflow-y-auto">
-          {/* 루트 폴더 */}
+          {/* 루트 폴더 - 실제 Root 폴더 ID 사용 */}
           <div
             className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-2 ${
-              selectedParentId === null
+              (selectedParentId === null || (folderTree.length > 0 && selectedParentId === folderTree[0].folder.id))
                 ? "bg-[#6B7B3E] text-white"
                 : "text-gray-300 hover:bg-[#3C3C3C] hover:text-white"
             }`}
-            onClick={() => setSelectedParentId(null)}
+            onClick={() => {
+              // Root 폴더 ID를 사용 (null 대신)
+              const rootFolderId = folderTree.length > 0 ? folderTree[0].folder.id : null;
+              setSelectedParentId(rootFolderId);
+            }}
           >
             <svg
               className="w-5 h-5 flex-shrink-0"
@@ -199,12 +203,12 @@ export function CreateFolderModal({
             <span className="text-sm font-medium">Root</span>
           </div>
 
-          {/* 폴더 트리 */}
+          {/* 폴더 트리 (Root의 자식 폴더들만 표시) */}
           <div className="space-y-1">
-            {folderTree.map((node) => (
+            {folderTree.length > 0 && folderTree[0].children.map((child) => (
               <FolderItem
-                key={node.folder.id}
-                node={node}
+                key={child.folder.id}
+                node={child}
                 level={0}
                 selectedFolderId={selectedParentId}
                 expandedFolders={expandedFolders}
@@ -215,7 +219,7 @@ export function CreateFolderModal({
           </div>
 
           {/* 폴더가 없을 때 */}
-          {folderTree.length === 0 && (
+          {(folderTree.length === 0 || folderTree[0].children.length === 0) && (
             <div className="text-center text-gray-400 py-4 text-sm">
               No folders yet. Create in Root.
             </div>
