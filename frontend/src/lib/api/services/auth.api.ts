@@ -43,30 +43,66 @@ export async function checkAuthStatus(): Promise<{ ok: boolean }> {
  * Fetches user information from the backend API
  */
 export async function getCurrentUserFromAPI(): Promise<User> {
+  console.log("[Auth] Calling GET /api/users/me...");
   const response = await apiClient<{
     id: string;
     email: string;
-    name: string;
-    picture: null;
+    name?: string;
+    displayName?: string;
+    picture?: string | null;
     createdAt: string;
-  }>("/api/auth/me", {
+  }>("/api/users/me", {
     method: "GET",
   });
-  
-  // Backend returns { name, email, ... } but we need to map it
+
+  console.log("[Auth] GET /api/users/me response:", response);
+
+  // Backend returns { displayName, email, ... } but we need to map it
   return {
     id: response.id,
     email: response.email,
-    name: response.name,
+    name: response.displayName || response.name || "User",
     picture: response.picture || undefined,
     createdAt: response.createdAt,
   };
 }
 
 /**
- * Get current user info from JWT token
- * Decodes the JWT token stored in localStorage
- * Returns user info from token payload (fast, no API call)
+ * Update user profile
+ * Updates user information via backend API
+ */
+export interface UpdateUserDto {
+  displayName?: string;
+}
+
+export async function updateUserProfile(data: UpdateUserDto): Promise<User> {
+  console.log("[Auth] Calling PATCH /api/users/me with:", data);
+  const response = await apiClient<{
+    id: string;
+    email: string;
+    displayName?: string;
+    name?: string;
+    picture?: string | null;
+    createdAt: string;
+  }>("/api/users/me", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+  console.log("[Auth] PATCH /api/users/me response:", response);
+
+  return {
+    id: response.id,
+    email: response.email,
+    name: response.displayName || response.name || "User",
+    picture: response.picture || undefined,
+    createdAt: response.createdAt,
+  };
+}
+
+/**
+ * Get current user info from backend API
+ * First validates token, then fetches fresh user data from API
  */
 export async function getCurrentUser(): Promise<User | null> {
   const token = localStorage.getItem("syncnapse_access_token");
@@ -80,15 +116,11 @@ export async function getCurrentUser(): Promise<User | null> {
     const parts = token.split(".");
     if (parts.length !== 3) {
       console.warn("[Auth] Invalid JWT token format, removing...");
-      localStorage.removeItem("syncnapse_access_token");
-      localStorage.removeItem("syncnapse_refresh_token");
-      localStorage.removeItem("authToken"); // Also remove authToken
-      localStorage.removeItem("refreshToken"); // Also remove refreshToken
-      localStorage.removeItem("user");
+      clearAuthTokens();
       return null;
     }
 
-    // JWT 토큰 디코드
+    // JWT 토큰 디코드 (만료 확인용)
     const decoded = JSON.parse(
       atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
@@ -96,44 +128,51 @@ export async function getCurrentUser(): Promise<User | null> {
     // 필수 필드 확인
     if (!decoded || (!decoded.sub && !decoded.id)) {
       console.warn("[Auth] Token missing user ID, removing...");
-      localStorage.removeItem("syncnapse_access_token");
-      localStorage.removeItem("syncnapse_refresh_token");
-      localStorage.removeItem("authToken"); // Also remove authToken
-      localStorage.removeItem("refreshToken"); // Also remove refreshToken
-      localStorage.removeItem("user");
+      clearAuthTokens();
       return null;
     }
 
     // 토큰 만료 확인
     if (decoded.exp && decoded.exp * 1000 < Date.now()) {
       console.warn("[Auth] Token expired, removing...");
-      localStorage.removeItem("syncnapse_access_token");
-      localStorage.removeItem("syncnapse_refresh_token");
-      localStorage.removeItem("authToken"); // Also remove authToken
-      localStorage.removeItem("refreshToken"); // Also remove refreshToken
-      localStorage.removeItem("user");
+      clearAuthTokens();
       return null;
     }
 
-    // 사용자 정보 반환 (토큰에 포함된 정보)
-    return {
-      id: decoded.sub || decoded.id,
-      email: decoded.email || "",
-      name: decoded.name || "User",
-      picture: decoded.picture,
-      createdAt: decoded.iat
-        ? new Date(decoded.iat * 1000).toISOString()
-        : new Date().toISOString(),
-    };
+    // 백엔드 API에서 최신 사용자 정보 가져오기
+    try {
+      const user = await getCurrentUserFromAPI();
+      console.log("[Auth] Fetched user from API:", user);
+      return user;
+    } catch (apiError) {
+      console.warn("[Auth] API call failed, falling back to token data:", apiError);
+      // API 호출 실패 시 토큰 데이터로 폴백
+      return {
+        id: decoded.sub || decoded.id,
+        email: decoded.email || "",
+        name: decoded.name || "User",
+        picture: decoded.picture,
+        createdAt: decoded.iat
+          ? new Date(decoded.iat * 1000).toISOString()
+          : new Date().toISOString(),
+      };
+    }
   } catch (error) {
     console.error("[Auth] getCurrentUser 실패:", error);
-    localStorage.removeItem("syncnapse_access_token");
-    localStorage.removeItem("syncnapse_refresh_token");
-    localStorage.removeItem("authToken"); // Also remove authToken
-    localStorage.removeItem("refreshToken"); // Also remove refreshToken
-    localStorage.removeItem("user");
+    clearAuthTokens();
     return null;
   }
+}
+
+/**
+ * Clear all auth tokens from localStorage
+ */
+function clearAuthTokens(): void {
+  localStorage.removeItem("syncnapse_access_token");
+  localStorage.removeItem("syncnapse_refresh_token");
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
 }
 
 /**

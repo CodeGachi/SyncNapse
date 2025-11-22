@@ -228,9 +228,9 @@ export function NewSidebar({
           <div className="w-full px-3 py-4 border-t border-[#575757]">
             <button
               onClick={() => {
-                // 로그아웃 처리
+                // 로그아웃 처리 - window.location 사용하여 완전한 페이지 이동
                 if (confirm('로그아웃 하시겠습니까?')) {
-                  router.push('/auth/logout');
+                  window.location.href = '/auth/logout';
                 }
               }}
               className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#3C3C3C] rounded-lg transition-colors"
