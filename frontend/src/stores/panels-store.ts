@@ -20,6 +20,7 @@ interface PanelsState {
   toggleEtcPanel: () => void;
   toggleScript: () => void;
   toggleCollaborationPanel: () => void;
+  openScriptPanel: () => void; // 스크립트 패널 강제 열기
 
   // Reset
   reset: () => void;
@@ -71,6 +72,15 @@ export const usePanelsStore = create<PanelsState>()(
           isEtcPanelOpen: false,
           isScriptOpen: false,
         })),
+
+      // 스크립트 패널 강제 열기 (녹음본 클릭 시 사용)
+      openScriptPanel: () =>
+        set({
+          isScriptOpen: true,
+          isFilePanelOpen: false,
+          isEtcPanelOpen: false,
+          isCollaborationPanelOpen: false,
+        }),
 
       reset: () => set(initialState),
     }),

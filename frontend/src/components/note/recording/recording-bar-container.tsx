@@ -51,47 +51,29 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   // 녹음 목록 드롭다운 상태
   const [isRecordingListOpen, setIsRecordingListOpen] = useState(false);
 
-  // Recording/Playback control - Handle both recording and audio playback
+  // 버튼 1: 녹음 시작/일시정지/재개 (녹음 전용)
   const onPlayToggle = () => {
     if (isRecording) {
       // 녹음 중: 일시정지/재개
-      if (isPaused) {
-        handlePlayPause(isPlaying, audioRef.current); // Resume recording
-      } else {
-        handlePlayPause(isPlaying, audioRef.current); // Pause recording
-      }
-    } else if (audioRef.current && audioRef.current.src && duration > 0) {
-      // 녹음본 재생 중: 재생/일시정지
+      handlePlayPause(isPlaying, audioRef.current);
+    } else {
+      // 녹음 시작 - 기존 오디오 플레이어 초기화 후 새 녹음 시작
+      console.log('[RecordingBarContainer] Starting new recording');
+      resetAudioPlayer();
+      handlePlayPause(isPlaying, null);
+    }
+  };
+
+  // 버튼 3: 녹음본 재생/일시정지 (재생 전용)
+  const onStop = () => {
+    if (audioRef.current && audioRef.current.src && duration > 0) {
+      // 재생 중: 재생/일시정지 토글
       console.log('[RecordingBarContainer] Toggle audio playback, isPlaying:', isPlaying);
       if (isPlaying) {
         audioRef.current.pause();
       } else {
         audioRef.current.play();
       }
-      // isPlaying 상태는 audio 이벤트 리스너에서 자동 업데이트됨
-    } else {
-      // 녹음 시작 - 기존 오디오 플레이어 초기화 후 새 녹음 시작
-      console.log('[RecordingBarContainer] Starting new recording');
-      resetAudioPlayer();
-      handlePlayPause(isPlaying, null); // audioRef를 null로 전달하여 녹음 시작
-    }
-  };
-
-  // Stop handler - Stops recording or playback
-  const onStop = () => {
-    if (isRecording) {
-      // 녹음을 즉시 멈추고 모달 열기
-      // pauseRecording을 호출하여 녹음을 멈춤 (모달에서 저장/취소 선택)
-      if (!isPaused) {
-        handlePlayPause(isPlaying, audioRef.current); // Pause recording first
-      }
-      handleStopRecording();
-    } else if (audioRef.current && audioRef.current.src && duration > 0) {
-      // 재생 중: 정지 (재생 위치를 처음으로 리셋)
-      console.log('[RecordingBarContainer] Stopping audio playback');
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      // isPlaying 상태는 audio 이벤트 리스너에서 자동 업데이트됨
     }
   };
 

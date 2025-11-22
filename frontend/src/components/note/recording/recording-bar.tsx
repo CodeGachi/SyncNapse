@@ -43,27 +43,29 @@ export function RecordingBar({
     <div className="w-full bg-[#363636] border-2 border-[#b9b9b9] rounded-[30px] px-6 py-2.5">
       {/* 녹음바 컨트롤 */}
       <div className="flex items-center gap-2 w-full">
-        {/* 버튼 1: 녹음/재생 */}
+        {/* 버튼 1: 녹음 시작/정지 (항상 마이크 아이콘, 녹음 중일 때만 빨간색) */}
         <button
           onClick={onPlayToggle}
-          className="w-[33px] h-[33px] bg-[#444444] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
-          title={isRecording ? "녹음 정지" : isPlaybackMode ? "재생/일시정지" : "녹음 시작"}
+          className={`w-[33px] h-[33px] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0 ${
+            isRecording ? "bg-red-600" : "bg-[#444444]"
+          }`}
+          title={isRecording ? "녹음 일시정지/재개" : "녹음 시작"}
         >
-          {isPlaybackMode ? (
-            /* 재생 모드: Player Play 아이콘 */
+          {isRecording ? (
+            /* 녹음 중: 일시정지/재개 아이콘 */
             isPlaying ? (
-              /* 일시정지 */
+              /* 녹음 진행 중 - 일시정지 아이콘 */
               <svg width="10" height="12" viewBox="0 0 12 14" fill="white">
                 <rect x="0" y="0" width="4" height="14" fill="white" />
                 <rect x="8" y="0" width="4" height="14" fill="white" />
               </svg>
             ) : (
-              /* 재생 */
-              <Image src="/iconstack.io - (Player Play).svg" alt="Play" width={20} height={20} />
+              /* 녹음 일시정지 - 재개 아이콘 */
+              <Image src="/record.svg" alt="Resume Recording" width={16} height={16} />
             )
           ) : (
-            /* 녹음 모드: 녹음 아이콘 (크기 축소) */
-            <Image src="/record.svg" alt="Record" width={16} height={16} />
+            /* 녹음 대기: 마이크 아이콘 */
+            <Image src="/record.svg" alt="Start Recording" width={16} height={16} />
           )}
         </button>
 
@@ -120,7 +122,7 @@ export function RecordingBar({
           )}
         </div>
 
-        {/* 버튼 3: 재생본 재생/일시정지 (Player Play/일시정지, 재생 모드에서만 활성화) */}
+        {/* 버튼 3: 녹음본 재생/일시정지 토글 (재생 모드에서만 활성화) */}
         <button
           onClick={isPlaybackMode && onStop ? onStop : undefined}
           disabled={!isPlaybackMode}
@@ -129,7 +131,7 @@ export function RecordingBar({
               ? "cursor-pointer hover:opacity-80"
               : "opacity-50 cursor-not-allowed"
           }`}
-          title={isPlaying ? "일시정지" : "재생"}
+          title={isPlaybackMode ? (isPlaying ? "일시정지" : "재생") : "녹음본을 선택하세요"}
         >
           {isPlaybackMode && isPlaying ? (
             /* 재생 중: 일시정지 SVG */

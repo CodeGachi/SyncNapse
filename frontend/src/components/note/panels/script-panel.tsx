@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useScriptTranslationStore } from "@/stores";
 import { Panel } from "./panel";
 import type { SupportedLanguage, LanguageOption, WordWithTime } from "@/lib/types";
@@ -48,10 +48,17 @@ export function ScriptPanel({ noteId, isOpen, onClose, audioRef, activeSegmentId
   // Track current playback time for word-level highlighting
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Reset script segments when noteId changes
+  // Track previous noteId to only reset when it actually changes to a different note
+  const prevNoteIdRef = useRef<string | null>(null);
+
+  // Reset script segments only when noteId changes to a DIFFERENT note
   useEffect(() => {
-    console.log(`[ScriptPanel] Note changed to: ${noteId} - resetting script segments`);
-    resetScriptTranslation();
+    // Only reset if noteId actually changed to a different value (not just re-mount)
+    if (prevNoteIdRef.current !== null && prevNoteIdRef.current !== noteId) {
+      console.log(`[ScriptPanel] Note changed from ${prevNoteIdRef.current} to ${noteId} - resetting script segments`);
+      resetScriptTranslation();
+    }
+    prevNoteIdRef.current = noteId;
   }, [noteId, resetScriptTranslation]);
 
   // Debug: Log current audio time
