@@ -12,7 +12,7 @@ import { CreateFolderModal } from "@/components/dashboard/folder-management/crea
 import { RenameFolderModal } from "@/components/dashboard/folder-management/rename-folder-modal";
 import { DeleteFolderModal } from "@/components/dashboard/folder-management/delete-folder-modal";
 import { FolderTree } from "@/components/dashboard/folder-management/folder-tree";
-import { NoteTypeSelectorModal } from "@/components/dashboard/note-creation/note-type-selector-modal";
+import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { useAuth } from "@/features/auth/use-auth";
 import { useFolders } from "@/features/dashboard";
 import { useDashboardSidebar } from "@/features/dashboard";
@@ -33,7 +33,9 @@ export function NewSidebar({
   const { handleCreateNote } = useDashboard();
 
   // UI 상태
+  const [isNoteDropdownOpen, setIsNoteDropdownOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [selectedNoteType, setSelectedNoteType] = useState<"student" | "educator">("student");
 
   const {
     isCreateFolderModalOpen,
@@ -112,25 +114,79 @@ export function NewSidebar({
               </button>
 
               {/* Button Container - gap: 24px */}
-              <div className="flex justify-center items-center gap-6 w-full h-[46px]">
-                {/* 새 노트 Button */}
-                <button
-                  onClick={() => setIsNoteModalOpen(true)}
-                  className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[10px]"
-                  style={{ background: 'rgba(175, 192, 43, 0.4)' }}
-                >
-                  <div className="flex items-center gap-1">
-                    <Image
-                      src="/대시보드/Text input.svg"
-                      alt="새 노트"
-                      width={20}
-                      height={20}
+              <div className="flex justify-center items-center gap-6 w-full">
+                {/* 새 노트 Button - Expandable */}
+                <div className="relative">
+                  {/* Backdrop */}
+                  {isNoteDropdownOpen && (
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsNoteDropdownOpen(false)}
                     />
-                    <span className="text-white font-bold text-sm leading-[17px] text-center font-['Inter']">
-                      새 노트
-                    </span>
-                  </div>
-                </button>
+                  )}
+
+                  {/* 새 노트 Button */}
+                  <button
+                    onClick={() => setIsNoteDropdownOpen(!isNoteDropdownOpen)}
+                    className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[10px] z-50 relative"
+                    style={{ background: 'rgba(175, 192, 43, 0.4)' }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <Image
+                        src="/대시보드/Text input.svg"
+                        alt="새 노트"
+                        width={20}
+                        height={20}
+                      />
+                      <span className="text-white font-bold text-sm leading-[17px] text-center font-['Inter']">
+                        새 노트
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Dropdown - absolute positioned, 불투명 배경, 구분선 추가 */}
+                  {isNoteDropdownOpen && (
+                    <div
+                      className="absolute top-full left-0 mt-1 w-[120px] rounded-[10px] overflow-hidden z-50 shadow-lg bg-[#6B7A2E]"
+                    >
+                      <button
+                        onClick={() => {
+                          setSelectedNoteType("student");
+                          setIsNoteModalOpen(true);
+                          setIsNoteDropdownOpen(false);
+                        }}
+                        className="w-full px-3 py-2.5 text-left text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2"
+                      >
+                        {/* 개인 노트 아이콘 - 사람 */}
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="10" cy="6" r="4" stroke="white" strokeWidth="1.5"/>
+                          <path d="M3 18C3 14.134 6.13401 11 10 11C13.866 11 17 14.134 17 18" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        개인 노트
+                      </button>
+                      {/* 구분선 */}
+                      <div className="mx-2 border-t border-white/30" />
+                      <button
+                        onClick={() => {
+                          setSelectedNoteType("educator");
+                          setIsNoteModalOpen(true);
+                          setIsNoteDropdownOpen(false);
+                        }}
+                        className="w-full px-3 py-2.5 text-left text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2"
+                      >
+                        {/* 강의 노트 아이콘 - 칠판 */}
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect x="2" y="3" width="16" height="11" rx="1" stroke="white" strokeWidth="1.5"/>
+                          <path d="M10 14V17" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M6 17H14" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M6 7H10" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M6 10H14" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        강의 노트
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {/* 새 폴더 Button */}
                 <button
@@ -249,12 +305,15 @@ export function NewSidebar({
       </aside>
 
       {/* Modals */}
-      <NoteTypeSelectorModal
-        isOpen={isNoteModalOpen}
-        onClose={() => setIsNoteModalOpen(false)}
-        onSubmit={handleCreateNote}
-        defaultFolderId={selectedFolderId}
-      />
+      {isNoteModalOpen && (
+        <NoteSettingsModal
+          isOpen={isNoteModalOpen}
+          onClose={() => setIsNoteModalOpen(false)}
+          onSubmit={handleCreateNote}
+          defaultFolderId={selectedFolderId}
+          noteType={selectedNoteType}
+        />
+      )}
 
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}

@@ -1,16 +1,15 @@
 /**
  * Note creation modal UI component
+ * Figma design based (참고.css)
  */
 
 "use client";
 
+import { useRef } from "react";
 import { FILE_CONSTRAINTS } from "@/lib/constants";
-import { useFolders } from "@/features/dashboard";
-import { useCreateNoteModal } from "@/features/dashboard";
+import { useFolders, useCreateNoteModal } from "@/features/dashboard";
 import type { NoteData } from "@/lib/types";
 import { Modal } from "@/components/common/modal";
-import { UploadArea } from "./upload-area";
-import { FileList } from "./file-list";
 import { FolderSelectorModal } from "../folder-management/folder-selector-modal";
 
 interface NoteSettingsModalProps {
@@ -29,22 +28,19 @@ export function NoteSettingsModal({
   noteType: initialNoteType,
 }: NoteSettingsModalProps) {
   const { buildFolderTree } = useFolders();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     title,
     selectedLocation,
     uploadedFiles,
     isDragActive,
     validationErrors,
-    autoExtractZip,
     noteType,
     isFolderSelectorOpen,
     isCreating,
-    storageUsage,
-    uploadQueue,
     setTitle,
     setSelectedLocation,
     setValidationErrors,
-    setAutoExtractZip,
     setIsFolderSelectorOpen,
     handleDragOver,
     handleDragLeave,
@@ -69,220 +65,183 @@ export function NoteSettingsModal({
       overlayClassName="fixed inset-0 z-40 transition-opacity"
       overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
-      contentClassName="bg-[#3C3C3C] rounded-2xl shadow-2xl p-8 flex flex-col gap-8 w-full max-w-[896px]"
+      contentClassName="flex flex-col items-center p-12 gap-2.5 bg-[#2F2F2F] rounded-[30px] w-[871px] max-h-[90vh]"
       closeButton={false}
     >
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-[30px] font-bold text-white leading-9">
-            {noteType === "student" ? "새 개인노트" : "새 강의노트"}
+      {/* Content Container */}
+      <div className="flex flex-col justify-center items-start gap-3 w-[775px]">
+        {/* Header Row */}
+        <div className="flex flex-row justify-center items-center gap-2.5 w-full h-11">
+          <h2 className="flex-1 font-['Inter'] font-bold text-4xl leading-[44px] text-white">
+            {noteType === "student" ? "새 개인 노트" : "새 강의 노트"}
           </h2>
-          <p className="text-base text-white mt-2">
-            노트 정보를 입력하고 파일을 업로드하세요
-          </p>
-        </div>
-        <button
-          onClick={handleClose}
-          className="text-[#9CA3AF] hover:text-white transition-colors"
-        >
-          <svg
-            width="18"
-            height="24"
-            viewBox="0 0 18 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+          <button
+            onClick={handleClose}
+            className="w-[33px] h-[33px] flex items-center justify-center hover:opacity-70 transition-opacity"
           >
-            <path
-              d="M1 1L17 23M17 1L1 23"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg width="33" height="33" viewBox="0 0 33 33" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8.25 8.25L24.75 24.75M24.75 8.25L8.25 24.75" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
 
-      {/* Validation error display */}
-      {validationErrors.length > 0 && (
-        <div className="bg-red-900/20 border border-red-500 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <div className="text-red-500 text-xl">⚠️</div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-red-400 mb-2">
-                파일 업로드 오류
-              </h4>
-              <ul className="text-sm text-red-300 space-y-1">
-                {validationErrors.map((error, idx) => (
-                  <li key={idx}>• {error}</li>
-                ))}
-              </ul>
+        {/* Subtitle */}
+        <p className="w-full font-['Inter'] font-semibold text-xl leading-6 text-white">
+          노트 이름을 입력하고 파일을 업로드 하세요
+        </p>
+
+        {/* Validation error display */}
+        {validationErrors.length > 0 && (
+          <div className="w-full bg-red-900/20 border border-red-500 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <ul className="text-sm text-red-300 space-y-1">
+                  {validationErrors.map((error, idx) => (
+                    <li key={idx}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                onClick={() => setValidationErrors([])}
+                className="text-red-400 hover:text-red-300"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={() => setValidationErrors([])}
-              className="text-red-400 hover:text-red-300"
-            >
-              ✕
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Storage usage */}
-      {storageUsage && (
-        <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-300">저장 공간 사용량</span>
-            <span className="text-sm font-semibold text-gray-200">
-              {storageUsage.totalGB.toFixed(2)} GB /{" "}
-              {(FILE_CONSTRAINTS.MAX_TOTAL_SIZE / (1024 * 1024 * 1024)).toFixed(0)} GB
-            </span>
-          </div>
-          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${
-                storageUsage.usagePercentage > 90
-                  ? "bg-red-500"
-                  : storageUsage.usagePercentage > 70
-                  ? "bg-yellow-500"
-                  : "bg-green-500"
-              }`}
-              style={{
-                width: `${Math.min(storageUsage.usagePercentage, 100)}%`,
-              }}
-            />
-          </div>
-          <div className="text-xs text-gray-400 mt-1">
-            {storageUsage.usagePercentage.toFixed(1)}% 사용 중
-          </div>
-        </div>
-      )}
-
-      {/* Note settings form */}
-      <div className="flex gap-4">
-        <div className="flex-1">
+        {/* Input Row: Title + Folder Selector */}
+        <div className="flex flex-row items-center gap-6 w-full h-11">
+          {/* Title Input */}
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="노트 제목 (비워두면 첫 번째 파일 이름 사용)"
-            className="w-full bg-[#575757] text-white px-4 py-2.5 rounded-lg outline-none focus:ring-2 focus:ring-[#AFC02B] placeholder-gray-400 text-sm"
+            placeholder="노트 제목을 입력하세요"
+            className="flex-1 h-11 bg-[#5E5E67] rounded-[15px] px-4 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#899649]"
           />
-        </div>
-        <div className="w-48">
+
+          {/* Folder Selector Button */}
           <button
             type="button"
             onClick={() => setIsFolderSelectorOpen(true)}
-            className="w-full bg-[#575757] text-white px-4 py-2.5 rounded-lg outline-none hover:ring-2 hover:ring-[#AFC02B] cursor-pointer text-sm flex items-center justify-between gap-2"
+            className="flex flex-row items-center px-2.5 py-2.5 gap-2.5 min-w-[150px] h-11 bg-[#5E5E67] rounded-[15px] hover:bg-[#6E6E77] transition-colors"
           >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <svg
-                className="w-4 h-4 flex-shrink-0"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-              </svg>
-              <span className="truncate">{getSelectedFolderName()}</span>
+            <div className="flex items-center gap-2">
+              {/* Folder Icon */}
+              <div className="w-6 h-6 flex items-center justify-center">
+                <svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="4" width="16" height="10" rx="2" fill="white"/>
+                  <rect x="2" y="2" width="8" height="4" rx="2" fill="white"/>
+                </svg>
+              </div>
+              <span className="font-['Pretendard_GOV_Variable'] font-bold text-base text-[#D9D9D9]">
+                {getSelectedFolderName()}
+              </span>
             </div>
-            <svg
-              className="w-4 h-4 flex-shrink-0 text-gray-400"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
           </button>
         </div>
-      </div>
 
-      {/* Content area - using sub-components */}
-      <div className="flex gap-4 h-[300px]">
-        <UploadArea
-          isDragActive={isDragActive}
+        {/* File List Area */}
+        <div
+          className={`flex flex-col justify-start items-center p-[25px] gap-4 w-full h-[455px] bg-[#5E5E67] rounded-[25px] ${
+            isDragActive ? "ring-2 ring-[#899649]" : ""
+          }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onFileChange={handleFileChange}
-        />
+        >
+          {/* File List Container */}
+          <div className="flex flex-col items-start gap-1 w-[725px] flex-1 overflow-y-auto">
+            {/* Empty state */}
+            {uploadedFiles.length === 0 && (
+              <div className="flex flex-col items-center justify-center w-full h-full text-[#D9D9D9]">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-4 opacity-50">
+                  <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 18V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M9 15L12 12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <p className="text-sm opacity-70">파일을 드래그하거나 아래 버튼을 클릭하세요</p>
+              </div>
+            )}
 
-        <FileList
-          uploadedFiles={uploadedFiles}
-          uploadQueue={uploadQueue}
-          onRemoveFile={removeUploadedFile}
-        />
-      </div>
-
-      {/* Bottom section */}
-      <div className="flex justify-between items-center pt-4 border-t border-[#575757]">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-sm text-white">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="7" cy="7" r="6" stroke="#4B5563" strokeWidth="2" />
-              <path
-                d="M7 4V7L9 9"
-                stroke="#4B5563"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span>지원 형식: PDF, DOC, DOCX, JPG, PNG, MP4, MOV, ZIP</span>
+            {/* Uploaded files - marked with underline */}
+            {uploadedFiles.map((file) => (
+              <div
+                key={file.id}
+                className="flex flex-row items-center gap-2 h-6 group"
+              >
+                {/* File Icon */}
+                <div className="w-6 h-6 flex items-center justify-center">
+                  <svg width="17" height="20" viewBox="0 0 17 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 1H3C2.46957 1 1.96086 1.21071 1.58579 1.58579C1.21071 1.96086 1 2.46957 1 3V17C1 17.5304 1.21071 18.0391 1.58579 18.4142C1.96086 18.7893 2.46957 19 3 19H14C14.5304 19 15.0391 18.7893 15.4142 18.4142C15.7893 18.0391 16 17.5304 16 17V7L10 1Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 1V7H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <span className="font-['Pretendard_GOV_Variable'] font-bold text-base text-[#D9D9D9] underline decoration-[#D9D9D9]">
+                  {file.name}
+                </span>
+                {/* Remove button */}
+                <button
+                  onClick={() => removeUploadedFile(file.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-red-400 hover:text-red-300"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
-          <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoExtractZip}
-              onChange={(e) => setAutoExtractZip(e.target.checked)}
-              className="w-4 h-4 accent-[#AFC02B]"
-            />
-            <span>ZIP 파일 자동 압축 해제 (실험적 기능)</span>
-          </label>
+
+          {/* Add File Button - always at bottom */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex flex-row justify-center items-center p-3 gap-2 w-[725px] h-12 bg-white rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+          >
+            {/* Plus Icon */}
+            <div className="w-6 h-6 flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="0" width="4" height="16" rx="2" fill="#899649"/>
+                <rect x="0" y="6" width="16" height="4" rx="2" fill="#899649"/>
+              </svg>
+            </div>
+            <span className="font-['Inter'] font-bold text-sm text-[#899649]">
+              새 파일 추가
+            </span>
+          </button>
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={FILE_CONSTRAINTS.ALLOWED_EXTENSIONS.join(",")}
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
 
-        <div className="flex gap-7">
-          <button
-            onClick={handleClose}
-            className="px-5 py-[11px] bg-[#B9B9B9] text-[#374151] rounded-lg font-medium text-base hover:bg-[#A0A0A0] transition-colors border border-[#D1D5DB]"
-          >
-            취소
-          </button>
+        {/* Bottom Buttons */}
+        <div className="flex flex-row justify-end items-center gap-6 w-full h-[41px]">
           <button
             onClick={handleSubmit}
             disabled={isCreating}
-            className="px-[18px] py-[10px] bg-[#AFC02B] text-white rounded-lg font-medium text-base hover:bg-[#9DB025] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="flex flex-col justify-center items-center px-8 gap-2.5 h-[41px] bg-[#899649] rounded-[15px] hover:bg-[#7A8740] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isCreating && (
-              <svg
-                className="animate-spin h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            )}
-            {isCreating ? "생성 중..." : "노트 생성"}
+            <span className="font-['Inter'] font-bold text-base text-white">
+              {isCreating ? "생성 중..." : "노트 생성"}
+            </span>
+          </button>
+          <button
+            onClick={handleClose}
+            className="flex flex-col justify-center items-center px-8 gap-2.5 h-[41px] bg-[#5E5E67] rounded-[15px] hover:bg-[#6E6E77] transition-colors"
+          >
+            <span className="font-['Inter'] font-bold text-base text-white">
+              취소
+            </span>
           </button>
         </div>
       </div>
