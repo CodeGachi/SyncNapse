@@ -5,6 +5,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import type { DBFolder } from "@/lib/db/folders";
 import { useFolderOptionsMenu } from "@/features/dashboard";
 
@@ -27,6 +28,30 @@ export function FolderOptionsMenu({
   // Check if this is the Root folder
   const isRootFolder = folder.name === "Root" && folder.parentId === null;
 
+  // 버튼 위치를 기준으로 메뉴 위치 계산
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuHeight = isRootFolder ? 50 : 150; // 대략적인 메뉴 높이
+      const menuWidth = 192; // w-48 = 192px
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+
+      // 화면 하단에 공간이 부족하면 위로 표시
+      const showAbove = rect.bottom + menuHeight > viewportHeight;
+
+      // 버튼 오른쪽에 표시, 화면 밖으로 나가면 왼쪽에 표시
+      const showOnLeft = rect.right + menuWidth + 8 > viewportWidth;
+
+      setMenuPosition({
+        top: showAbove ? rect.top - menuHeight + rect.height : rect.top,
+        left: showOnLeft ? rect.left - menuWidth - 8 : rect.right + 8,
+      });
+    }
+  }, [isOpen, buttonRef, isRootFolder]);
+
   return (
     <div className="relative">
       {/* 옵션 버튼 */}
@@ -48,12 +73,25 @@ export function FolderOptionsMenu({
         </svg>
       </button>
 
-      {/* 드롭다운 메뉴 */}
+      {/* 드롭다운 메뉴 - fixed position으로 변경하여 overflow 문제 해결 */}
       {isOpen && (
-        <div
-          ref={menuRef}
-          className="absolute right-0 top-full mt-1 w-48 bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg shadow-lg z-50 py-1"
-        >
+        <>
+          {/* 클릭 외부 영역 감지용 오버레이 */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle();
+            }}
+          />
+          <div
+            ref={menuRef}
+            className="fixed w-48 bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg shadow-lg z-50 py-1"
+            style={{
+              top: menuPosition.top,
+              left: menuPosition.left,
+            }}
+          >
           {/* 이름 변경 (Root 폴더는 제외) */}
           {!isRootFolder && (
             <button
@@ -123,7 +161,8 @@ export function FolderOptionsMenu({
             Delete
             </button>
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

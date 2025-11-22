@@ -5,22 +5,53 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { useNotes } from "@/lib/api/queries/notes.queries";
 import { useFolders } from "@/features/dashboard";
 import { useDashboardContext } from "@/providers/dashboard-context";
+import { updateNote, deleteNote } from "@/lib/api/services/notes.api";
+import { renameFolder, deleteFolder, moveFolder } from "@/lib/api/services/folders.api";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Note, Folder } from "@/lib/types";
 
 interface NewMainContentProps {
   selectedFolderId: string | null;
 }
 
+// 옵션 메뉴 타입
+interface OptionMenu {
+  type: 'note' | 'folder';
+  id: string;
+  position: { top: number; left: number };
+}
+
+// 이름 변경 모달 타입
+interface RenameModal {
+  type: 'note' | 'folder';
+  id: string;
+  currentName: string;
+}
+
+// 위치 이동 모달 타입
+interface MoveModal {
+  type: 'note' | 'folder';
+  id: string;
+  name: string;
+}
+
 export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const { setSelectedFolderId } = useDashboardContext();
+
+  // 옵션 메뉴 상태
+  const [optionMenu, setOptionMenu] = useState<OptionMenu | null>(null);
+  const [renameModal, setRenameModal] = useState<RenameModal | null>(null);
+  const [moveModal, setMoveModal] = useState<MoveModal | null>(null);
+  const [newName, setNewName] = useState("");
+  const [selectedMoveFolder, setSelectedMoveFolder] = useState<string | null>(null);
 
   // 모든 노트 조회
   const { data: allNotes = [], isLoading } = useNotes();
@@ -91,28 +122,113 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
     return folder?.name || "알 수 없음";
   };
 
-  // 날짜 포맷팅
+  // 날짜 포맷팅 - Figma: 2025/11/18 형식
   const formatDate = (dateString: string | number) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) return "오늘";
-    if (days === 1) return "어제";
-    if (days < 7) return `${days}일 전`;
-
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
   };
 
   // 노트 클릭 핸들러
   const handleNoteClick = (note: Note) => {
     const noteType = note.type || "student"; // 기본값은 student
     router.push(`/note/${noteType}/${note.id}`);
+  };
+
+  // 옵션 메뉴 열기
+  const handleOptionClick = (e: React.MouseEvent, type: 'note' | 'folder', id: string) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setOptionMenu({
+      type,
+      id,
+      position: {
+        top: rect.bottom + 4,
+        left: rect.right - 160,
+      },
+    });
+  };
+
+  // 옵션 메뉴 닫기
+  const closeOptionMenu = () => {
+    setOptionMenu(null);
+  };
+
+  // 이름 변경 핸들러
+  const handleRename = async () => {
+    if (!renameModal || !newName.trim()) return;
+
+    try {
+      if (renameModal.type === 'note') {
+        await updateNote(renameModal.id, { title: newName.trim() });
+      } else {
+        await renameFolder(renameModal.id, newName.trim());
+      }
+
+      // 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      window.dispatchEvent(new CustomEvent('folders-updated'));
+
+      setRenameModal(null);
+      setNewName("");
+    } catch (error) {
+      console.error('이름 변경 실패:', error);
+      alert('이름 변경에 실패했습니다.');
+    }
+  };
+
+  // 삭제 핸들러
+  const handleDelete = async (type: 'note' | 'folder', id: string) => {
+    const confirmMessage = type === 'note'
+      ? '이 노트를 삭제하시겠습니까?'
+      : '이 폴더를 삭제하시겠습니까? 하위 항목도 모두 삭제됩니다.';
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      if (type === 'note') {
+        await deleteNote(id);
+      } else {
+        await deleteFolder(id);
+      }
+
+      // 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      window.dispatchEvent(new CustomEvent('folders-updated'));
+
+      closeOptionMenu();
+    } catch (error) {
+      console.error('삭제 실패:', error);
+      alert('삭제에 실패했습니다.');
+    }
+  };
+
+  // 위치 이동 핸들러
+  const handleMove = async () => {
+    if (!moveModal) return;
+
+    try {
+      if (moveModal.type === 'note') {
+        await updateNote(moveModal.id, { folderId: selectedMoveFolder || undefined });
+      } else {
+        await moveFolder(moveModal.id, selectedMoveFolder);
+      }
+
+      // 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      window.dispatchEvent(new CustomEvent('folders-updated'));
+
+      setMoveModal(null);
+      setSelectedMoveFolder(null);
+    } catch (error) {
+      console.error('이동 실패:', error);
+      alert('이동에 실패했습니다.');
+    }
   };
 
   return (
@@ -126,7 +242,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent text-white text-xs font-bold leading-[15px] text-center outline-none placeholder:text-[#575757]"
+            className="flex-1 bg-transparent text-white text-xs font-bold leading-[15px] outline-none placeholder:text-[#575757]"
           />
           <div className="w-[18px] h-[19.5px]">
             <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -135,6 +251,14 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
             </svg>
           </div>
         </div>
+
+        {/* 알림 아이콘 */}
+        <button className="w-6 h-6 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       {/* Table Container - padding: 48px 36px, gap: 48px */}
@@ -142,7 +266,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
         {/* 최근 접근한 노트 Section */}
         <div className="flex flex-col items-start gap-6 w-full">
           {/* Section Title */}
-          <h2 className="text-white font-bold text-xl leading-6 text-center">
+          <h2 className="text-white font-bold text-xl leading-6">
             최근 접근한 노트
           </h2>
 
@@ -150,13 +274,13 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
           <div className="flex flex-col items-start py-4 px-0 gap-4 w-full bg-[#2F2F2F] border border-[#575757] rounded-[10px]">
             {/* Table Header */}
             <div className="flex flex-row items-center px-5 gap-6 w-full h-[19px]">
-              <div className="flex-1 text-white font-medium text-base leading-[19px] text-center">
+              <div className="flex-1 text-white font-medium text-base leading-[19px]">
                 이름
               </div>
-              <div className="w-[278px] px-2.5 text-white font-medium text-base leading-[19px] text-center">
-                위치
+              <div className="w-[150px] text-white font-medium text-base leading-[19px]">
+                수정일
               </div>
-              <div className="w-[19px]"></div>
+              <div className="w-[24px]"></div>
             </div>
 
             {/* Divider */}
@@ -164,51 +288,50 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
 
             {/* Table Rows */}
             {isLoading ? (
-              <div className="px-5 py-4 text-white text-center w-full">
+              <div className="px-5 py-4 text-white w-full">
                 로딩 중...
               </div>
             ) : recentNotes.length === 0 ? (
-              <div className="px-5 py-4 text-[#575757] text-center w-full">
+              <div className="px-5 py-4 text-[#575757] w-full">
                 {searchQuery ? "검색 결과가 없습니다" : "최근 접근한 노트가 없습니다"}
               </div>
             ) : (
               recentNotes.map((note) => (
-                <div key={note.id}>
+                <div key={note.id} className="w-full">
                   <div
                     onClick={() => handleNoteClick(note)}
-                    className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
+                    className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                   >
                     {/* Note Icon + Name */}
-                    <div className="flex flex-row items-center gap-1 flex-1">
-                      <div className="w-5 h-5 flex items-center justify-center">
-                        <Image
-                          src="/대시보드/Text input-5.svg"
-                          alt="노트"
-                          width={20}
-                          height={20}
-                        />
-                      </div>
-                      <span className="text-white font-normal text-sm leading-[17px]">
+                    <div className="flex flex-row items-center gap-2 flex-1">
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M11.6667 1.66667V6.66667H16.6667" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M13.3333 10.8333H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M13.3333 14.1667H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-white font-normal text-base leading-[19px]">
                         {note.title}
                       </span>
                     </div>
 
-                    {/* Folder Location */}
-                    <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                      {getFolderName(note.folderId)}
+                    {/* 수정일 */}
+                    <div className="w-[150px] text-white font-normal text-base leading-[19px]">
+                      {formatDate(note.updatedAt || note.createdAt)}
                     </div>
 
-                    {/* Favorite Icon */}
-                    <div className="w-[19px] h-5 flex items-center justify-center">
-                      {note.is_favorite && (
-                        <Image
-                          src="/대시보드/Text input-4.svg"
-                          alt="즐겨찾기"
-                          width={19}
-                          height={20}
-                        />
-                      )}
-                    </div>
+                    {/* 더보기 아이콘 */}
+                    <button
+                      onClick={(e) => handleOptionClick(e, 'note', note.id)}
+                      className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded"
+                    >
+                      <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="2" cy="2" r="1.5" fill="white"/>
+                        <circle cx="2" cy="8" r="1.5" fill="white"/>
+                        <circle cx="2" cy="14" r="1.5" fill="white"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))
@@ -219,21 +342,16 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
         {/* 선택된 폴더의 노트 Section (폴더 선택 시에만 표시) */}
         {selectedFolderId && (
           <div className="flex flex-col items-start gap-6 w-full">
-            {/* 브레드크럼브 네비게이션 */}
+            {/* 브레드크럼브 네비게이션 - Figma: 폴더1 / 폴더2 / 폴더3 */}
             <div className="flex flex-row items-center gap-2">
               {breadcrumbPath.map((folder, index) => (
                 <div key={folder.id} className="flex items-center gap-2">
                   {index > 0 && (
-                    <span className="text-[#575757] text-xl font-bold">/</span>
+                    <span className="text-white text-xl font-bold">/</span>
                   )}
                   <button
                     onClick={() => handleFolderClick(folder.id)}
-                    className={`text-xl font-bold transition-colors ${
-                      index === breadcrumbPath.length - 1
-                        ? "text-white cursor-default"
-                        : "text-[#AFC02B] hover:text-[#C4D62E] cursor-pointer"
-                    }`}
-                    disabled={index === breadcrumbPath.length - 1}
+                    className="text-white text-xl font-bold hover:text-[#AFC02B] transition-colors"
                   >
                     {folder.name}
                   </button>
@@ -245,13 +363,13 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
             <div className="flex flex-col items-start py-4 px-0 gap-4 w-full bg-[#2F2F2F] border border-[#575757] rounded-[10px]">
               {/* Table Header */}
               <div className="flex flex-row items-center px-5 gap-6 w-full h-[19px]">
-                <div className="flex-1 text-white font-medium text-base leading-[19px] text-center">
+                <div className="flex-1 text-white font-medium text-base leading-[19px]">
                   이름
                 </div>
-                <div className="w-[278px] px-2.5 text-white font-medium text-base leading-[19px] text-center">
-                  수정 날짜
+                <div className="w-[150px] text-white font-medium text-base leading-[19px]">
+                  수정일
                 </div>
-                <div className="w-[19px]"></div>
+                <div className="w-[24px]"></div>
               </div>
 
               {/* Divider */}
@@ -259,83 +377,85 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
 
               {/* Table Rows - 폴더 먼저, 그 다음 노트 */}
               {childFolders.length === 0 && folderNotes.length === 0 ? (
-                <div className="px-5 py-4 text-[#575757] text-center w-full">
+                <div className="px-5 py-4 text-[#575757] w-full">
                   {searchQuery ? "검색 결과가 없습니다" : "이 폴더가 비어있습니다"}
                 </div>
               ) : (
                 <>
-                  {/* 폴더 목록 */}
-                  {childFolders.map((folder) => (
-                    <div key={folder.id}>
-                      <div
-                        onClick={() => handleFolderClick(folder.id)}
-                        className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
-                      >
-                        {/* Folder Icon + Name */}
-                        <div className="flex flex-row items-center gap-1 flex-1">
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <svg
-                              className="w-5 h-5 text-[#AFC02B]"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                            </svg>
-                          </div>
-                          <span className="text-white font-normal text-sm leading-[17px]">
-                            {folder.name}
-                          </span>
-                        </div>
-
-                        {/* Modified Date */}
-                        <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                          {formatDate(folder.updatedAt || folder.createdAt)}
-                        </div>
-
-                        {/* Empty space for alignment */}
-                        <div className="w-[19px] h-5"></div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* 노트 목록 */}
+                  {/* 노트 목록 먼저 */}
                   {folderNotes.map((note) => (
-                    <div key={note.id}>
+                    <div key={note.id} className="w-full">
                       <div
                         onClick={() => handleNoteClick(note)}
-                        className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
+                        className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                       >
                         {/* Note Icon + Name */}
-                        <div className="flex flex-row items-center gap-1 flex-1">
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <Image
-                              src="/대시보드/Text input-5.svg"
-                              alt="노트"
-                              width={20}
-                              height={20}
-                            />
-                          </div>
-                          <span className="text-white font-normal text-sm leading-[17px]">
+                        <div className="flex flex-row items-center gap-2 flex-1">
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M11.6667 1.66667V6.66667H16.6667" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M13.3333 10.8333H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M13.3333 14.1667H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          <span className="text-white font-normal text-base leading-[19px]">
                             {note.title}
                           </span>
                         </div>
 
-                        {/* Modified Date */}
-                        <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
+                        {/* 수정일 */}
+                        <div className="w-[150px] text-white font-normal text-base leading-[19px]">
                           {formatDate(note.updatedAt || note.createdAt)}
                         </div>
 
-                        {/* Favorite Icon */}
-                        <div className="w-[19px] h-5 flex items-center justify-center">
-                          {note.is_favorite && (
-                            <Image
-                              src="/대시보드/Text input-4.svg"
-                              alt="즐겨찾기"
-                              width={19}
-                              height={20}
-                            />
-                          )}
+                        {/* 더보기 아이콘 */}
+                        <button
+                          onClick={(e) => handleOptionClick(e, 'note', note.id)}
+                          className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded"
+                        >
+                          <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="2" cy="2" r="1.5" fill="white"/>
+                            <circle cx="2" cy="8" r="1.5" fill="white"/>
+                            <circle cx="2" cy="14" r="1.5" fill="white"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* 폴더 목록 */}
+                  {childFolders.map((folder) => (
+                    <div key={folder.id} className="w-full">
+                      <div
+                        onClick={() => handleFolderClick(folder.id)}
+                        className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
+                      >
+                        {/* Folder Icon + Name */}
+                        <div className="flex flex-row items-center gap-2 flex-1">
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18.3333 15.8333C18.3333 16.2754 18.1577 16.6993 17.8452 17.0118C17.5326 17.3244 17.1087 17.5 16.6667 17.5H3.33334C2.89131 17.5 2.46739 17.3244 2.15483 17.0118C1.84227 16.6993 1.66667 16.2754 1.66667 15.8333V4.16667C1.66667 3.72464 1.84227 3.30072 2.15483 2.98816C2.46739 2.67559 2.89131 2.5 3.33334 2.5H7.5L9.16667 5H16.6667C17.1087 5 17.5326 5.17559 17.8452 5.48816C18.1577 5.80072 18.3333 6.22464 18.3333 6.66667V15.8333Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          <span className="text-white font-normal text-base leading-[19px]">
+                            {folder.name}
+                          </span>
                         </div>
+
+                        {/* 수정일 */}
+                        <div className="w-[150px] text-white font-normal text-base leading-[19px]">
+                          {formatDate(folder.updatedAt || folder.createdAt)}
+                        </div>
+
+                        {/* 더보기 아이콘 */}
+                        <button
+                          onClick={(e) => handleOptionClick(e, 'folder', folder.id)}
+                          className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded"
+                        >
+                          <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="2" cy="2" r="1.5" fill="white"/>
+                            <circle cx="2" cy="8" r="1.5" fill="white"/>
+                            <circle cx="2" cy="14" r="1.5" fill="white"/>
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -345,6 +465,211 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
           </div>
         )}
       </div>
+
+      {/* 옵션 메뉴 */}
+      {optionMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={closeOptionMenu}
+          />
+          <div
+            className="fixed z-50 w-40 bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg shadow-lg py-1"
+            style={{
+              top: optionMenu.position.top,
+              left: optionMenu.position.left,
+            }}
+          >
+            {/* 이름 변경 */}
+            <button
+              onClick={() => {
+                const item = optionMenu.type === 'note'
+                  ? allNotes.find(n => n.id === optionMenu.id)
+                  : folders.find(f => f.id === optionMenu.id);
+                if (item) {
+                  setRenameModal({
+                    type: optionMenu.type,
+                    id: optionMenu.id,
+                    currentName: 'title' in item ? item.title : item.name,
+                  });
+                  setNewName('title' in item ? item.title : item.name);
+                }
+                closeOptionMenu();
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              이름 변경
+            </button>
+
+            {/* 위치 이동 */}
+            <button
+              onClick={() => {
+                const item = optionMenu.type === 'note'
+                  ? allNotes.find(n => n.id === optionMenu.id)
+                  : folders.find(f => f.id === optionMenu.id);
+                if (item) {
+                  setMoveModal({
+                    type: optionMenu.type,
+                    id: optionMenu.id,
+                    name: 'title' in item ? item.title : item.name,
+                  });
+                  setSelectedMoveFolder(
+                    optionMenu.type === 'note'
+                      ? (item as Note).folderId || null
+                      : (item as Folder).parentId || null
+                  );
+                }
+                closeOptionMenu();
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              위치 이동
+            </button>
+
+            {/* 구분선 */}
+            <div className="my-1 border-t border-[#3C3C3C]" />
+
+            {/* 삭제 */}
+            <button
+              onClick={() => {
+                handleDelete(optionMenu.type, optionMenu.id);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              삭제
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 이름 변경 모달 */}
+      {renameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg p-6 w-[400px]">
+            <h3 className="text-white text-lg font-bold mb-4">
+              {renameModal.type === 'note' ? '노트' : '폴더'} 이름 변경
+            </h3>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full px-3 py-2 bg-[#262626] border border-[#575757] rounded-lg text-white outline-none focus:border-[#AFC02B]"
+              placeholder="새 이름 입력"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRename();
+                if (e.key === 'Escape') {
+                  setRenameModal(null);
+                  setNewName("");
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setRenameModal(null);
+                  setNewName("");
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleRename}
+                className="px-4 py-2 bg-[#AFC02B] text-black rounded-lg hover:bg-[#9FB025] transition-colors"
+              >
+                변경
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 위치 이동 모달 */}
+      {moveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg p-6 w-[400px] max-h-[500px]">
+            <h3 className="text-white text-lg font-bold mb-4">
+              &quot;{moveModal.name}&quot; 이동
+            </h3>
+            <div className="max-h-[300px] overflow-y-auto space-y-1">
+              {/* 루트 폴더 */}
+              <button
+                onClick={() => setSelectedMoveFolder(null)}
+                className={`w-full px-3 py-2 text-left rounded-lg transition-colors flex items-center gap-2 ${
+                  selectedMoveFolder === null
+                    ? 'bg-[#6B7B3E] text-white'
+                    : 'text-gray-300 hover:bg-[#3C3C3C]'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                </svg>
+                루트
+              </button>
+
+              {/* 폴더 목록 (자기 자신과 하위 폴더 제외) */}
+              {folders
+                .filter(f => {
+                  if (moveModal.type === 'folder') {
+                    // 폴더 이동 시: 자기 자신과 하위 폴더 제외
+                    if (f.id === moveModal.id) return false;
+                    // 하위 폴더인지 확인 (간단한 체크)
+                    let parentId = f.parentId;
+                    while (parentId) {
+                      if (parentId === moveModal.id) return false;
+                      const parent = folders.find(pf => pf.id === parentId);
+                      parentId = parent?.parentId || null;
+                    }
+                  }
+                  return true;
+                })
+                .map(folder => (
+                  <button
+                    key={folder.id}
+                    onClick={() => setSelectedMoveFolder(folder.id)}
+                    className={`w-full px-3 py-2 text-left rounded-lg transition-colors flex items-center gap-2 ${
+                      selectedMoveFolder === folder.id
+                        ? 'bg-[#6B7B3E] text-white'
+                        : 'text-gray-300 hover:bg-[#3C3C3C]'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                    </svg>
+                    {folder.name}
+                  </button>
+                ))}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setMoveModal(null);
+                  setSelectedMoveFolder(null);
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleMove}
+                className="px-4 py-2 bg-[#AFC02B] text-black rounded-lg hover:bg-[#9FB025] transition-colors"
+              >
+                이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
