@@ -133,8 +133,22 @@ export function useAudioPlayer() {
       }
 
       // Play audio
-      const audioSource = sessionData.fullAudioUrl;
-      const audioUrl = audioSource || `/api/transcription/sessions/${sessionId}/audio`;
+      // URL 인코딩 문제 해결: 백엔드에서 반환한 URL에 인코딩되지 않은 공백이 있을 수 있음
+      let audioUrl = sessionData.fullAudioUrl || `/api/transcription/sessions/${sessionId}/audio`;
+
+      // URL에서 프로토콜과 호스트 분리 후 경로만 인코딩
+      if (audioUrl.startsWith('http')) {
+        try {
+          const urlObj = new URL(audioUrl);
+          // 경로 부분만 다시 인코딩 (이미 인코딩된 부분은 유지)
+          urlObj.pathname = urlObj.pathname.split('/').map(segment =>
+            encodeURIComponent(decodeURIComponent(segment))
+          ).join('/');
+          audioUrl = urlObj.toString();
+        } catch (e) {
+          console.warn('[useAudioPlayer] URL parsing failed, using original:', e);
+        }
+      }
 
       console.log('[useAudioPlayer] Playing audio from:', audioUrl);
 

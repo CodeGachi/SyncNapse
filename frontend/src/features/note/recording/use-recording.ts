@@ -479,13 +479,23 @@ export function useRecording(noteId?: string | null) {
             });
 
             // 3. Upload full audio
-            console.log('[useRecording] Uploading full audio...');
-            await transcriptionApi.saveFullAudio({
+            console.log('[useRecording] Uploading full audio...', {
+              sessionId,
+              audioBlobSize: audioBlob.size,
+              audioBlobType: audioBlob.type,
+              base64Length: audioDataUrl.length,
+              duration: recordingTime,
+            });
+            const uploadResult = await transcriptionApi.saveFullAudio({
               sessionId,
               audioUrl: audioDataUrl,
               duration: recordingTime,
             });
-            console.log('[useRecording] Full audio uploaded');
+            console.log('[useRecording] Full audio upload result:', {
+              fullAudioUrl: uploadResult.fullAudioUrl,
+              fullAudioKey: uploadResult.fullAudioKey,
+              status: uploadResult.status,
+            });
 
             // 4. Save transcription segments (병렬 처리로 성능 개선)
             if (finalSegments.length > 0 && sessionId) {

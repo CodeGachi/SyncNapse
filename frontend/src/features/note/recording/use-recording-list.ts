@@ -1,5 +1,6 @@
 /**
  * 녹음 목록 관리 훅
+ * @param noteId - 특정 노트의 녹음만 필터링 (optional, 없으면 전체)
  */
 
 "use client";
@@ -14,9 +15,10 @@ interface FormattedRecording {
   date: string;
   duration: string;
   sessionId?: string;
+  noteId?: string;
 }
 
-export function useRecordingList() {
+export function useRecordingList(noteId?: string | null) {
   const queryClient = useQueryClient();
 
   // React Query: 녹음 목록 조회
@@ -32,6 +34,11 @@ export function useRecordingList() {
     gcTime: 1000 * 60 * 30, // 30분간 캐시 유지
     refetchOnWindowFocus: true, // 윈도우 포커스 시 refetch
   });
+
+  // noteId가 주어지면 해당 노트의 녹음만 필터링
+  const filteredSessions = noteId
+    ? sessions.filter((session) => session.noteId === noteId)
+    : sessions;
 
   // React Query: 녹음 삭제 (Optimistic Update 적용)
   const deleteRecordingMutation = useMutation({
@@ -71,8 +78,8 @@ export function useRecordingList() {
     },
   });
 
-  // 녹음 목록 포맷팅
-  const formattedRecordings: FormattedRecording[] = sessions
+  // 녹음 목록 포맷팅 (필터링된 세션 사용)
+  const formattedRecordings: FormattedRecording[] = filteredSessions
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((session) => {
       const date = new Date(session.createdAt);
@@ -102,6 +109,7 @@ export function useRecordingList() {
         date: dateStr,
         duration,
         sessionId: session.id,
+        noteId: session.noteId,
       };
     });
 

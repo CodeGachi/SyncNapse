@@ -42,11 +42,11 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     resetAudioPlayer,
   } = useAudioPlayer();
 
-  // 녹음 목록
+  // 녹음 목록 (현재 노트의 녹음만 필터링)
   const {
     recordings,
     removeRecording,
-  } = useRecordingList();
+  } = useRecordingList(noteId);
 
   // 녹음 목록 드롭다운 상태
   const [isRecordingListOpen, setIsRecordingListOpen] = useState(false);
