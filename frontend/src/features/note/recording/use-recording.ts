@@ -5,6 +5,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { SpeechRecognitionService, type SpeechSegment } from "@/lib/speech/speech-recognition";
 import { useScriptTranslationStore } from "@/stores";
 import type { WordWithTime } from "@/lib/types";
@@ -67,6 +68,7 @@ export function useRecording(noteId?: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const queryClient = useQueryClient();
   const { setScriptSegments, clearScriptSegments} = useScriptTranslationStore();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -526,6 +528,8 @@ export function useRecording(noteId?: string | null) {
             await transcriptionApi.endSession(sessionId);
             console.log('[useRecording] Session ended successfully');
 
+            // invalidateQueries는 use-recording-control.ts에서 처리함 (중복 호출 방지)
+
           } catch (saveError) {
             console.error('[useRecording] Failed to save recording to backend:', saveError);
             setError('녹음 저장에 실패했습니다');
@@ -562,7 +566,7 @@ export function useRecording(noteId?: string | null) {
       console.log('[useRecording] Stopping recording... Current chunks:', audioChunksRef.current.length);
       mediaRecorderRef.current.stop();
     });
-  }, [recordingTime, setScriptSegments]);
+  }, [recordingTime, setScriptSegments, queryClient, noteId]);
 
   // 녹음 취소
   const cancelRecording = useCallback(() => {

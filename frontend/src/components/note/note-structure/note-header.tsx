@@ -9,23 +9,28 @@ import { useRouter } from "next/navigation";
 import { RecordingBarContainer } from "@/components/note/recording/recording-bar-container";
 import { HeaderMenu } from "@/components/note/note-structure/header-menu";
 import { useEducatorUIStore } from "@/stores";
+import { useNote } from "@/lib/api/queries/notes.queries";
 import Image from "next/image";
 
 interface NoteHeaderProps {
   noteId: string | null;
-  noteTitle: string;
+  noteTitle?: string; // optional - fallback으로 사용
   isEducatorNote?: boolean;
   isSharedView?: boolean;
 }
 
 export function NoteHeader({
   noteId,
-  noteTitle,
+  noteTitle: propTitle,
   isEducatorNote = false,
   isSharedView = false,
 }: NoteHeaderProps) {
   const router = useRouter();
   const { openSharingModal } = useEducatorUIStore();
+
+  // 노트 데이터에서 제목 가져오기
+  const { data: note } = useNote(noteId, { enabled: !!noteId && !isSharedView });
+  const noteTitle = note?.title || propTitle || "제목 없음";
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 

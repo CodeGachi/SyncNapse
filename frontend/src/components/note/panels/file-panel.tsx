@@ -83,7 +83,7 @@ export function FilePanel({
                     : "bg-[#363636] hover:bg-[#3f3f3f]"
                 } group`}
               >
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
                   {/* 파일 아이콘 */}
                   <div className="w-6 h-6 bg-[#444444] rounded flex items-center justify-center flex-shrink-0">
                     <svg

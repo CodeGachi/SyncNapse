@@ -20,11 +20,17 @@ export function useRecordingList() {
   const queryClient = useQueryClient();
 
   // React Query: 녹음 목록 조회
-  const { data: sessions = [], isLoading } = useQuery({
+  const { data: sessions = [], isLoading, refetch } = useQuery({
     queryKey: ["recordings"],
-    queryFn: () => transcriptionApi.getSessions(),
-    staleTime: 1000 * 60 * 5, // 5분간 fresh
+    queryFn: async () => {
+      console.log('[useRecordingList] 🔄 Fetching recordings from backend...');
+      const result = await transcriptionApi.getSessions();
+      console.log('[useRecordingList] ✅ Fetched', result.length, 'recordings');
+      return result;
+    },
+    staleTime: 0, // 항상 stale 상태로 유지하여 invalidate 시 즉시 refetch
     gcTime: 1000 * 60 * 30, // 30분간 캐시 유지
+    refetchOnWindowFocus: true, // 윈도우 포커스 시 refetch
   });
 
   // React Query: 녹음 삭제 (Optimistic Update 적용)
@@ -102,6 +108,7 @@ export function useRecordingList() {
   return {
     recordings: formattedRecordings,
     isLoading,
+    refetch, // 수동 갱신용
 
     // 녹음 삭제 (Optimistic Update)
     removeRecording: (sessionId: string) => {

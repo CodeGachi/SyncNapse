@@ -17,6 +17,8 @@ export function useAudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -34,12 +36,55 @@ export function useAudioPlayer() {
     const handleEnded = () => {
       setIsPlaying(false);
       audio.currentTime = 0;
+      setCurrentTime(0);
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+      console.log('[useAudioPlayer] Duration loaded:', audio.duration);
+    };
+
+    const handlePlay = () => {
+      setIsPlaying(true);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+    };
+
+    const handleError = (e: Event) => {
+      const audio = e.target as HTMLAudioElement;
+      console.error('[useAudioPlayer] ❌ Audio error:', {
+        error: audio.error?.code,
+        message: audio.error?.message,
+        src: audio.src,
+      });
+    };
+
+    const handleCanPlay = () => {
+      console.log('[useAudioPlayer] ✅ Audio can play');
     };
 
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
+    audio.addEventListener("error", handleError);
+    audio.addEventListener("canplay", handleCanPlay);
 
     return () => {
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
+      audio.removeEventListener("error", handleError);
+      audio.removeEventListener("canplay", handleCanPlay);
     };
   }, []);
 
@@ -57,7 +102,10 @@ export function useAudioPlayer() {
       const sessionData = await transcriptionApi.getSession(sessionId);
       console.log('[useAudioPlayer] Session data loaded:', {
         segments: sessionData.segments?.length || 0,
-        audioUrl: sessionData.fullAudioUrl,
+        fullAudioUrl: sessionData.fullAudioUrl,
+        fullAudioKey: sessionData.fullAudioKey,
+        duration: sessionData.duration,
+        status: sessionData.status,
       });
 
       // Load segments into ScriptPanel
@@ -86,49 +134,24 @@ export function useAudioPlayer() {
 
       // Play audio
       const audioSource = sessionData.fullAudioUrl;
-      
-      if (!audioSource) {
-        console.error('[useAudioPlayer] No audio URL found');
-        // Try using backend proxy endpoint
-        const proxyUrl = `/api/transcription/sessions/${sessionId}/audio`;
-        console.log('[useAudioPlayer] Using proxy URL:', proxyUrl);
-        
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0; // Reset to beginning
-          audioRef.current.src = proxyUrl;
-          audioRef.current.load();
-          
-          // Wait for metadata to load before playing
-          audioRef.current.onloadedmetadata = async () => {
-            try {
-              await audioRef.current!.play();
-              if (!isPlaying) togglePlay();
-              console.log('[useAudioPlayer] ✅ Auto-play started');
-            } catch (playError) {
-              console.error('[useAudioPlayer] Auto-play failed:', playError);
-            }
-          };
-        }
-      } else {
-        console.log('[useAudioPlayer] Playing audio from:', audioSource);
-        
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0; // Reset to beginning
-          audioRef.current.src = audioSource;
-          audioRef.current.load();
-          
-          // Wait for metadata to load before playing
-          audioRef.current.onloadedmetadata = async () => {
-            try {
-              await audioRef.current!.play();
-              if (!isPlaying) togglePlay();
-              console.log('[useAudioPlayer] ✅ Auto-play started');
-            } catch (playError) {
-              console.error('[useAudioPlayer] Auto-play failed:', playError);
-            }
-          };
+      const audioUrl = audioSource || `/api/transcription/sessions/${sessionId}/audio`;
+
+      console.log('[useAudioPlayer] Playing audio from:', audioUrl);
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.src = audioUrl;
+        audioRef.current.load();
+
+        // duration은 useEffect의 loadedmetadata 이벤트 리스너에서 자동 업데이트됨
+        // 자동 재생 시도
+        try {
+          await audioRef.current.play();
+          console.log('[useAudioPlayer] ✅ Auto-play started');
+        } catch (playError) {
+          // 자동 재생 실패 시 (브라우저 정책) - 사용자가 직접 재생 버튼 클릭 필요
+          console.warn('[useAudioPlayer] Auto-play blocked, user interaction required:', playError);
         }
       }
 
@@ -147,15 +170,33 @@ export function useAudioPlayer() {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
+      setCurrentTime(0);
     }
+  };
+
+  // 오디오 플레이어 초기화 (새 녹음 시작 전 호출)
+  const resetAudioPlayer = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current.load();
+    }
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setCurrentRecordingId(null);
+    console.log('[useAudioPlayer] Audio player reset');
   };
 
   return {
     audioRef,
     isPlaying,
+    currentTime,
+    duration,
     togglePlay,
     handleRecordingSelect,
     handleStopPlayback,
+    resetAudioPlayer,
     isLoadingSession,
     currentRecordingId,
   };

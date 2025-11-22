@@ -7,7 +7,8 @@
 
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRecording, type RecordingData } from "./use-recording";
+import { useRecording } from "./use-recording";
+import type { TranscriptionSession } from "@/lib/api/transcription.api";
 
 export function useRecordingControl(noteId?: string | null) {
   const queryClient = useQueryClient();
@@ -93,15 +94,37 @@ export function useRecordingControl(noteId?: string | null) {
       }
       
       console.log('[RecordingControl] Saving recording with title:', finalTitle);
-      
+
       // 이제 제목과 함께 stopRecording 호출
       const recordingData = await stopBasicRecording(finalTitle);
-      
+
       console.log('[RecordingControl] Recording saved:', recordingData);
 
-      // React Query 캐시 무효화하여 녹음 목록 새로고침
-      queryClient.invalidateQueries({ queryKey: ["recordings"] });
-      console.log('[RecordingControl] ✅ Invalidated recordings cache');
+      // Optimistic Update: 캐시에 즉시 새 녹음 추가
+      if (recordingData.sessionId) {
+        const newSession: TranscriptionSession = {
+          id: recordingData.sessionId,
+          userId: '', // 백엔드에서 설정됨
+          title: finalTitle,
+          noteId: noteId || undefined,
+          duration: recordingData.duration,
+          status: 'completed',
+          createdAt: recordingData.createdAt.toISOString(),
+          updatedAt: recordingData.createdAt.toISOString(),
+        };
+
+        queryClient.setQueryData<TranscriptionSession[]>(
+          ["recordings"],
+          (old = []) => [newSession, ...old]
+        );
+        console.log('[RecordingControl] ✅ Optimistic update: Added to cache');
+      }
+
+      // Optimistic Update 후 즉시 invalidateQueries 하지 않음
+      // 백엔드에서 세션이 완료되기까지 시간이 걸릴 수 있어서
+      // invalidateQueries가 아직 완료되지 않은 세션을 가져오면 Optimistic 데이터가 사라짐
+      // 대신 윈도우 포커스 시 자동으로 refetch됨 (staleTime: 0, refetchOnWindowFocus: true)
+      console.log('[RecordingControl] ✅ Recording saved with optimistic update (no immediate refetch)');
 
       setIsNameModalOpen(false);
     } catch (error) {

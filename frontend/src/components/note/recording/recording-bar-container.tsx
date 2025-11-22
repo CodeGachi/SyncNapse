@@ -36,13 +36,11 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   const {
     audioRef,
     isPlaying,
-    togglePlay,
+    currentTime,
+    duration,
     handleRecordingSelect,
+    resetAudioPlayer,
   } = useAudioPlayer();
-
-  // 오디오 재생 위치 및 길이 (audioRef에서 직접 가져옴)
-  const currentTime = audioRef.current?.currentTime || 0;
-  const duration = audioRef.current?.duration || 0;
 
   // 녹음 목록
   const {
@@ -64,17 +62,18 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
       }
     } else if (audioRef.current && audioRef.current.src && duration > 0) {
       // 녹음본 재생 중: 재생/일시정지
-      console.log('[RecordingBarContainer] Toggle audio playback');
+      console.log('[RecordingBarContainer] Toggle audio playback, isPlaying:', isPlaying);
       if (isPlaying) {
         audioRef.current.pause();
       } else {
         audioRef.current.play();
       }
-      togglePlay();
+      // isPlaying 상태는 audio 이벤트 리스너에서 자동 업데이트됨
     } else {
-      // 녹음 시작
+      // 녹음 시작 - 기존 오디오 플레이어 초기화 후 새 녹음 시작
       console.log('[RecordingBarContainer] Starting new recording');
-      handlePlayPause(isPlaying, audioRef.current);
+      resetAudioPlayer();
+      handlePlayPause(isPlaying, null); // audioRef를 null로 전달하여 녹음 시작
     }
   };
 
@@ -92,7 +91,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
       console.log('[RecordingBarContainer] Stopping audio playback');
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-      if (isPlaying) togglePlay();
+      // isPlaying 상태는 audio 이벤트 리스너에서 자동 업데이트됨
     }
   };
 
