@@ -48,18 +48,43 @@ export function ScriptPanel({ noteId, isOpen, onClose, audioRef, activeSegmentId
   // Track current playback time for word-level highlighting
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Track previous noteId to only reset when it actually changes to a different note
-  const prevNoteIdRef = useRef<string | null>(null);
+  // Track previous noteId to reset when it changes
+  const prevNoteIdRef = useRef<string | null | undefined>(undefined);
+  // 패널이 닫히는 중인지 추적 (닫힐 때 초기화 방지)
+  const isClosingRef = useRef(false);
 
-  // Reset script segments only when noteId changes to a DIFFERENT note
+  // 패널 열림/닫힘 추적 - 닫힐 때 플래그 설정
   useEffect(() => {
-    // Only reset if noteId actually changed to a different value (not just re-mount)
-    if (prevNoteIdRef.current !== null && prevNoteIdRef.current !== noteId) {
+    if (!isOpen) {
+      isClosingRef.current = true;
+    } else {
+      isClosingRef.current = false;
+    }
+  }, [isOpen]);
+
+  // Reset script segments when noteId changes
+  useEffect(() => {
+    // 첫 마운트가 아니고, noteId가 변경된 경우 리셋
+    if (prevNoteIdRef.current !== undefined && prevNoteIdRef.current !== noteId) {
       console.log(`[ScriptPanel] Note changed from ${prevNoteIdRef.current} to ${noteId} - resetting script segments`);
       resetScriptTranslation();
     }
     prevNoteIdRef.current = noteId;
   }, [noteId, resetScriptTranslation]);
+
+  // 노트 페이지를 완전히 벗어날 때만 초기화 (패널 닫기는 제외)
+  useEffect(() => {
+    return () => {
+      // 패널을 닫아서 언마운트되는 경우는 초기화하지 않음
+      // 홈 이동, 새로고침 등 페이지 이탈 시에만 초기화
+      if (!isClosingRef.current) {
+        console.log(`[ScriptPanel] Page leaving - resetting script segments`);
+        resetScriptTranslation();
+      } else {
+        console.log(`[ScriptPanel] Panel closing - keeping script segments`);
+      }
+    };
+  }, [resetScriptTranslation]);
 
   // Debug: Log current audio time
   useEffect(() => {

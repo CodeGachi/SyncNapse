@@ -65,7 +65,7 @@ export function NoteSettingsModal({
       overlayClassName="fixed inset-0 z-40 transition-opacity"
       overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
-      contentClassName="flex flex-col items-center p-12 gap-2.5 bg-[#2F2F2F] rounded-[30px] w-[871px] max-h-[90vh]"
+      contentClassName="flex flex-col items-center p-12 gap-2.5 bg-[#2F2F2F] rounded-[30px] w-[871px] max-h-[90vh] border border-[#575757]"
       closeButton={false}
     >
       {/* Content Container */}
@@ -168,30 +168,33 @@ export function NoteSettingsModal({
             )}
 
             {/* Uploaded files - marked with underline */}
-            {uploadedFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex flex-row items-center gap-2 h-6 group"
-              >
-                {/* File Icon */}
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <svg width="17" height="20" viewBox="0 0 17 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 1H3C2.46957 1 1.96086 1.21071 1.58579 1.58579C1.21071 1.96086 1 2.46957 1 3V17C1 17.5304 1.21071 18.0391 1.58579 18.4142C1.96086 18.7893 2.46957 19 3 19H14C14.5304 19 15.0391 18.7893 15.4142 18.4142C15.7893 18.0391 16 17.5304 16 17V7L10 1Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M10 1V7H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+            {uploadedFiles.map((uploadedFile, index) => (
+              <div key={`${uploadedFile.file.name}-${uploadedFile.file.size}-${index}`} className="w-full">
+                <div className="flex flex-row items-center gap-2 py-2 group">
+                  {/* File Icon */}
+                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                    <svg width="17" height="20" viewBox="0 0 17 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M10 1H3C2.46957 1 1.96086 1.21071 1.58579 1.58579C1.21071 1.96086 1 2.46957 1 3V17C1 17.5304 1.21071 18.0391 1.58579 18.4142C1.96086 18.7893 2.46957 19 3 19H14C14.5304 19 15.0391 18.7893 15.4142 18.4142C15.7893 18.0391 16 17.5304 16 17V7L10 1Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M10 1V7H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <span className="font-['Inter'] font-medium text-sm text-[#D9D9D9] underline decoration-[#D9D9D9] flex-1 truncate">
+                    {uploadedFile.file.name}
+                  </span>
+                  {/* Remove button */}
+                  <button
+                    onClick={() => removeUploadedFile(uploadedFile.file)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-red-400 hover:text-red-300 flex-shrink-0"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </button>
                 </div>
-                <span className="font-['Pretendard_GOV_Variable'] font-bold text-base text-[#D9D9D9] underline decoration-[#D9D9D9]">
-                  {file.name}
-                </span>
-                {/* Remove button */}
-                <button
-                  onClick={() => removeUploadedFile(file.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-red-400 hover:text-red-300"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </button>
+                {/* 구분선 - 마지막 파일 제외 */}
+                {index < uploadedFiles.length - 1 && (
+                  <div className="border-t border-white/20" />
+                )}
               </div>
             ))}
           </div>

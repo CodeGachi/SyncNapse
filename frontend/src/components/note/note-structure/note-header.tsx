@@ -94,7 +94,7 @@ export function NoteHeader({
         </div>
 
         {/* 오른쪽: 녹음바 */}
-        <div className="flex-shrink-0 min-w-[440px]">
+        <div className="flex-shrink-0">
           <RecordingBarContainer noteId={noteId} />
         </div>
 

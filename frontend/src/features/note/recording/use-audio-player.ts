@@ -78,6 +78,11 @@ export function useAudioPlayer() {
     audio.addEventListener("canplay", handleCanPlay);
 
     return () => {
+      // 언마운트 시 오디오 정지 및 정리
+      audio.pause();
+      audio.src = '';
+      console.log('[useAudioPlayer] Cleanup - audio stopped');
+
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
