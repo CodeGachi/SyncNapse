@@ -34,7 +34,9 @@ interface PDFDrawingOverlayProps {
   pageNum: number;
   containerWidth: number;   // PDF 원본 크기 (baseWidth)
   containerHeight: number;  // PDF 원본 크기 (baseHeight)
-  pdfScale: number;         // PDF 현재 스케일 (CSS transform용)
+  pdfScale: number;         // PDF 현재 스케일
+  renderedWidth?: number;   // PDF 캔버스의 실제 CSS 크기
+  renderedHeight?: number;  // PDF 캔버스의 실제 CSS 크기
   isPdf?: boolean;
   onSave?: (data: DrawingData) => Promise<void>;
   isCollaborative?: boolean;
@@ -54,6 +56,8 @@ export const PDFDrawingOverlay = forwardRef<
       containerWidth,
       containerHeight,
       pdfScale,
+      renderedWidth,
+      renderedHeight,
       isPdf,
       onSave,
       isCollaborative = false,
@@ -75,58 +79,46 @@ export const PDFDrawingOverlay = forwardRef<
     // syncToStorage 함수 ref (협업 래퍼에서 설정됨)
     const syncToStorageRef = useRef<((canvas: fabric.Canvas) => void) | null>(null);
 
-    // Canvas 초기화 (펜과 도형 모두 지원)
+    // 현재 캔버스 크기 추적 (리사이즈 감지용)
+    const currentCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
+
+    // div container 크기 (캔버스와 동기화)
+    const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
+
+    // Canvas 초기화 (최초 1회만 실행)
     useEffect(() => {
       if (!containerRef.current || !isEnabled) return;
 
-      const container = containerRef.current;
+      // renderedWidth/Height가 없으면 대기
+      if (!renderedWidth || !renderedHeight) return;
 
-      // 기존 canvas 정리
-      if (fabricCanvasRef.current) {
-        try {
-          fabricCanvasRef.current.dispose();
-        } catch (error) {
-          console.error("Failed to dispose previous canvas:", error);
-        }
-        fabricCanvasRef.current = null;
-      }
+      // 이미 캔버스가 있으면 초기화 건너뜀 (크기 변경은 별도 useEffect에서 처리)
+      if (fabricCanvasRef.current) return;
+
+      const container = containerRef.current;
+      const finalWidth = renderedWidth;
+      const finalHeight = renderedHeight;
 
       // container 내용물 정리
       container.innerHTML = '';
 
-      // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
-      const adjustedHeight = Math.max(containerHeight, 100);
-
-      // canvas 엘리먼트 동적 생성 (React가 관리하지 않음)
+      // canvas 엘리먼트 동적 생성
       const canvasElement = document.createElement('canvas');
-      canvasElement.width = containerWidth;
-      canvasElement.height = adjustedHeight;
+      canvasElement.width = finalWidth;
+      canvasElement.height = finalHeight;
       container.appendChild(canvasElement);
 
-      // Fabric Canvas 생성 (항상 PDF 원본 크기로 고정)
+      // Fabric Canvas 생성
       const canvas = new fabric.Canvas(canvasElement, {
-        width: containerWidth,
-        height: adjustedHeight,
+        width: finalWidth,
+        height: finalHeight,
         isDrawingMode: false,
         backgroundColor: 'transparent',
       });
 
       fabricCanvasRef.current = canvas;
-
-      // 캔버스 경계 체크 이벤트 추가 (펜/형광펜 모드에서도 적용)
-      canvas.on('mouse:down', (e: any) => {
-        if (!canvas.isDrawingMode) return; // 자유 그리기 모드가 아니면 무시
-
-        const pointer = canvas.getPointer(e.e);
-        // 캔버스 경계 밖이면 드로잉 방지
-        if (pointer.x < 0 || pointer.x > containerWidth || pointer.y < 0 || pointer.y > adjustedHeight) {
-          canvas.isDrawingMode = false; // 일시적으로 비활성화
-          // 다음 프레임에 다시 활성화 (이벤트 처리 후)
-          setTimeout(() => {
-            if (canvas) canvas.isDrawingMode = true;
-          }, 0);
-        }
-      });
+      currentCanvasSizeRef.current = { width: finalWidth, height: finalHeight };
+      setContainerSize({ width: finalWidth, height: finalHeight });
 
       // 초기 히스토리 저장
       useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
@@ -134,22 +126,21 @@ export const PDFDrawingOverlay = forwardRef<
       return () => {
         try {
           if (fabricCanvasRef.current) {
-            const canvas = fabricCanvasRef.current;
+            const canvasToDispose = fabricCanvasRef.current;
             fabricCanvasRef.current = null;
+            currentCanvasSizeRef.current = null;
+            setContainerSize(null);
 
-            // 모든 이벤트와 객체 정리
-            canvas.off();
-            canvas.clear();
+            canvasToDispose.off();
+            canvasToDispose.clear();
 
-            // dispose 호출
             try {
-              canvas.dispose();
+              canvasToDispose.dispose();
             } catch (disposeError) {
               // dispose 에러는 무시
             }
           }
 
-          // container 내용물 정리
           if (container) {
             container.innerHTML = '';
           }
@@ -160,21 +151,45 @@ export const PDFDrawingOverlay = forwardRef<
       };
     }, [containerRef, isEnabled, isPdf]);
 
-    // Canvas 크기 업데이트 (PDF 원본 크기 변경 시만 - 페이지 전환 등)
+    // Canvas 크기 변경 처리 (캔버스 재생성 없이 리사이즈)
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
-      if (!canvas) return;
+      if (!canvas || !renderedWidth || !renderedHeight) return;
 
-      const adjustedHeight = Math.max(containerHeight, 100);
+      const prevSize = currentCanvasSizeRef.current;
+      if (!prevSize) {
+        currentCanvasSizeRef.current = { width: renderedWidth, height: renderedHeight };
+        return;
+      }
 
-      // 캔버스를 항상 PDF 원본 크기로 유지
-      // CSS transform: scale(pdfScale)로 시각적 확대/축소 처리
-      canvas.setWidth(containerWidth);
-      canvas.setHeight(adjustedHeight);
+      // 크기가 같으면 무시
+      if (prevSize.width === renderedWidth && prevSize.height === renderedHeight) return;
+
+      const scaleX = renderedWidth / prevSize.width;
+      const scaleY = renderedHeight / prevSize.height;
+
+      // 캔버스 크기 변경
+      canvas.setDimensions({ width: renderedWidth, height: renderedHeight });
+
+      // 모든 객체에 스케일 적용
+      canvas.getObjects().forEach((obj: fabric.FabricObject) => {
+        obj.scaleX = (obj.scaleX || 1) * scaleX;
+        obj.scaleY = (obj.scaleY || 1) * scaleY;
+        obj.left = (obj.left || 0) * scaleX;
+        obj.top = (obj.top || 0) * scaleY;
+
+        // Path 객체 (펜/형광펜)의 경우 strokeWidth도 조정
+        if (obj.type === 'path') {
+          obj.strokeWidth = (obj.strokeWidth || 1) * Math.min(scaleX, scaleY);
+        }
+
+        obj.setCoords();
+      });
+
       canvas.renderAll();
-
-      // Canvas resize debug logs disabled for performance
-    }, [containerWidth, containerHeight, pdfScale]);
+      currentCanvasSizeRef.current = { width: renderedWidth, height: renderedHeight };
+      setContainerSize({ width: renderedWidth, height: renderedHeight });
+    }, [renderedWidth, renderedHeight])
 
     // 펜 모드 설정 (펜/형광펜 자유 그리기)
     useEffect(() => {
@@ -194,11 +209,8 @@ export const PDFDrawingOverlay = forwardRef<
         canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
         canvas.freeDrawingBrush.color = drawStore.lineColor;
 
-        // pdfScale을 고려한 브러시 크기 설정
-        // CSS transform: scale(pdfScale)이 적용되므로 브러시 크기를 pdfScale로 나눔
-        // 그릴 때: (lineWidth / pdfScale) → transform 적용 후: lineWidth
-        // 그려진 후: (lineWidth / pdfScale) × pdfScale = lineWidth (일관된 크기)
-        canvas.freeDrawingBrush.width = drawStore.lineWidth / pdfScale;
+        // 브러시 크기 설정 - PDF 스케일에 비례하여 조정
+        canvas.freeDrawingBrush.width = drawStore.lineWidth * pdfScale;
 
         // 형광펜은 투명도 설정
         if (drawStore.type === 'highlighter') {
@@ -214,13 +226,17 @@ export const PDFDrawingOverlay = forwardRef<
       // 선택 가능 여부 설정
       canvas.forEachObject((obj) => {
         if (isEraserMode) {
-          // 지우개 모드: 모든 객체 선택 불가능
+          // 지우개 모드: 선택 불가능하지만 이벤트 감지는 활성화 (findTarget 작동 필요)
           obj.selectable = false;
-          obj.evented = false;
+          obj.evented = true;
         } else if (isSelectionMode) {
           // 손 아이콘 모드: 모든 객체 선택 가능
           obj.selectable = true;
           obj.evented = true;
+        } else {
+          // 펜/도형 모드: 선택 및 이벤트 비활성화
+          obj.selectable = false;
+          obj.evented = false;
         }
       });
     }, [drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode, pdfScale]);
@@ -289,12 +305,12 @@ export const PDFDrawingOverlay = forwardRef<
         // 히스토리 저장 (도형 추가 전)
         useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
-        // 클릭한 위치에 고정 크기 도형 생성
+        // 클릭한 위치에 고정 크기 도형 생성 - PDF 스케일 적용
         const shapeInfo: ClickShapeInfo = {
           x: pos.x,
           y: pos.y,
           lineColor: drawStore.lineColor,
-          lineWidth: drawStore.lineWidth,
+          lineWidth: drawStore.lineWidth * pdfScale,
         };
 
         const shape = createShapeByClick(shapeInfo, toolType);
@@ -308,33 +324,10 @@ export const PDFDrawingOverlay = forwardRef<
           triggerAutoSave();
         }
       },
-      [isEnabled, isDrawingMode, drawStore.type, drawStore.lineColor, drawStore.lineWidth, containerWidth, containerHeight, triggerAutoSave]
+      [isEnabled, isDrawingMode, drawStore.type, drawStore.lineColor, drawStore.lineWidth, containerWidth, containerHeight, triggerAutoSave, pdfScale]
     );
 
-    // 지우개 기능 (클릭한 객체 삭제)
-    const handleEraserClick = useCallback(
-      (event: any) => {
-        if (!isEnabled || !isDrawingMode || !fabricCanvasRef.current) return;
-        if (drawStore.type !== 'eraser') return;
-
-        const canvas = fabricCanvasRef.current;
-        const target = canvas.findTarget(event.e as MouseEvent);
-
-        if (target && !(target as any).isPreview) {
-          // 히스토리 저장
-          useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
-
-          canvas.remove(target);
-          canvas.renderAll();
-
-          // 자동 저장 트리거
-          triggerAutoSave();
-        }
-      },
-      [isEnabled, isDrawingMode, drawStore.type, triggerAutoSave]
-    );
-
-    // Canvas 클릭 이벤트 핸들러 바인딩
+    // Canvas 클릭 이벤트 핸들러 바인딩 (지우개 + 도형)
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas || !isDrawingMode) return;
@@ -343,27 +336,76 @@ export const PDFDrawingOverlay = forwardRef<
       const isFreeDrawingMode = drawStore.type === 'pen' || drawStore.type === 'highlighter';
 
       if (isFreeDrawingMode) {
-        // 펜 모드: 클릭 핸들러 제거
-        canvas.off('mouse:down', handleClick);
-        canvas.off('mouse:down', handleEraserClick);
         return;
       }
 
+      // 지우개 모드: 드래그하면서 지나가는 객체 삭제
+      let isErasing = false;
+      let erasedObjects: fabric.FabricObject[] = [];
+      let snapshotSaved = false;
+
+      const onEraserDown = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+        if (drawStore.type !== 'eraser') return;
+        isErasing = true;
+        erasedObjects = [];
+        snapshotSaved = false;
+
+        // 드래그 시작 시 타겟이 있으면 삭제
+        const target = opt.target;
+        if (target && !(target as any).isPreview) {
+          if (!snapshotSaved) {
+            useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
+            snapshotSaved = true;
+          }
+          erasedObjects.push(target);
+          canvas.remove(target);
+          canvas.renderAll();
+        }
+      };
+
+      const onEraserMove = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+        if (drawStore.type !== 'eraser' || !isErasing) return;
+
+        const target = opt.target;
+        if (target && !(target as any).isPreview && !erasedObjects.includes(target)) {
+          if (!snapshotSaved) {
+            useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
+            snapshotSaved = true;
+          }
+          erasedObjects.push(target);
+          canvas.remove(target);
+          canvas.renderAll();
+        }
+      };
+
+      const onEraserUp = () => {
+        if (drawStore.type !== 'eraser') return;
+        if (isErasing && erasedObjects.length > 0) {
+          console.log('[Eraser] Objects removed:', erasedObjects.length);
+          triggerAutoSave();
+        }
+        isErasing = false;
+        erasedObjects = [];
+        snapshotSaved = false;
+      };
+
       // 지우개 모드
       if (drawStore.type === 'eraser') {
-        canvas.off('mouse:down', handleClick);
-        canvas.on('mouse:down', handleEraserClick);
+        canvas.on('mouse:down', onEraserDown);
+        canvas.on('mouse:move', onEraserMove);
+        canvas.on('mouse:up', onEraserUp);
       } else {
         // 도형 모드
-        canvas.off('mouse:down', handleEraserClick);
         canvas.on('mouse:down', handleClick);
       }
 
       return () => {
+        canvas.off('mouse:down', onEraserDown);
+        canvas.off('mouse:move', onEraserMove);
+        canvas.off('mouse:up', onEraserUp);
         canvas.off('mouse:down', handleClick);
-        canvas.off('mouse:down', handleEraserClick);
       };
-    }, [handleClick, handleEraserClick, drawStore.type, isDrawingMode]);
+    }, [handleClick, drawStore.type, isDrawingMode, isEnabled, triggerAutoSave]);
 
     // Fabric.js 자유 그리기 이벤트 처리 (펜/형광펜 모드용)
     useEffect(() => {
@@ -448,29 +490,31 @@ export const PDFDrawingOverlay = forwardRef<
 
     return (
       <>
+        {/*
+          PDF Canvas와 정확히 같은 위치/크기에 오버레이
+          - 명시적인 width/height로 PDF 캔버스와 동일한 크기 지정
+          - position absolute로 PDF 캔버스 위에 겹침
+        */}
         <div
           ref={containerRef}
           style={{
             position: "absolute",
-            top: "0.5rem",     // PDF canvas의 m-2 (8px) 마진과 일치
-            left: "0.5rem",    // PDF canvas의 m-2 (8px) 마진과 일치
-            width: containerWidth,
-            height: canvasHeight,
-            // CSS transform으로 PDF 줌 레벨 적용
-            // 캔버스는 항상 원본 크기, 시각적으로만 확대/축소
-            transform: `scale(${pdfScale})`,
-            transformOrigin: "top left",
+            top: 0,
+            left: 0,
+            // 캔버스 크기와 동기화된 크기 사용 (prop 대신 state)
+            width: containerSize?.width ?? renderedWidth,
+            height: containerSize?.height ?? renderedHeight,
             cursor: isEnabled && isDrawingMode ? "crosshair" : "default",
             // 뷰어 모드에서도 필기가 보이도록 항상 표시
             opacity: isEnabled ? 1 : 0,
             // 뷰어 모드: 필기 보기만 가능 (상호작용 불가)
-            // 필기 모드일 때만 마우스 이벤트 수신
             pointerEvents: isEnabled && isDrawingMode ? "auto" : "none",
             // z-index를 낮춰서 우측 사이드 패널이 위에 있도록 함
-            // (사이드 패널의 버튼 클릭이 가능해야 함)
-            zIndex: isDrawingMode ? 5 : -1,
+            zIndex: isDrawingMode ? 5 : 1,
             // 항상 표시 (뷰어 모드에서도 필기 기록이 보임)
             display: isEnabled ? "block" : "none",
+            // DEBUG: Drawing overlay 테두리 (빨간색)
+            outline: "3px solid red",
           }}
         />
 

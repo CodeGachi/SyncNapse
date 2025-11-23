@@ -12,7 +12,7 @@ import { useNoteContentArea } from "@/features/note/note-structure/use-note-cont
 import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/text-notes/note-panel"; // ✅ text-notes (텍스트 필기)
-import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
+import { type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
 
@@ -180,7 +180,7 @@ export function NoteContentArea({
                 flex: 1,
               }}
             >
-              {/* PDF 뷰어 */}
+              {/* PDF 뷰어 + Drawing 오버레이 (CustomPdfViewer 내부에서 렌더링) */}
               <div className="absolute inset-0 overflow-auto">
                 <CustomPdfViewer
                   fileUrl={selectedFile?.url}
@@ -188,38 +188,23 @@ export function NoteContentArea({
                   fileType={selectedFile?.type}
                   onPageChange={setCurrentPdfPage}
                   onPdfRenderInfo={setPdfRenderInfo}
+                  // Drawing overlay props
+                  drawingEnabled={isEducatorNote && !!selectedFile}
+                  drawingMode={isDrawingMode}
+                  drawingOverlayRef={drawingOverlayRef}
+                  noteId={noteId || ""}
+                  fileId={selectedFile?.id.toString()}
+                  isCollaborative={isCollaborating ?? false}
+                  onDrawingSave={async (data) => {
+                    try {
+                      await saveDrawing(data);
+                      console.log(`Drawing saved for file ${selectedFile?.id} page ${currentPdfPage}:`, data.id);
+                    } catch (error) {
+                      console.error("Failed to save drawing:", error);
+                    }
+                  }}
                 />
               </div>
-
-              {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
-              {isEducatorNote && selectedFile && pdfRenderInfo && (() => {
-                // PDF Debug logs disabled for performance
-
-                return (
-                  <PDFDrawingOverlay
-                    ref={drawingOverlayRef}
-                    isEnabled={true}
-                    isDrawingMode={isDrawingMode}
-                    isCollaborative={isCollaborating ?? false}
-                    noteId={noteId || ""}
-                    fileId={selectedFile.id.toString()}
-                    pageNum={currentPdfPage}
-                    containerWidth={pdfRenderInfo.baseWidth}
-                    containerHeight={pdfRenderInfo.baseHeight}
-                    pdfScale={pdfRenderInfo.scale}
-                    isPdf={selectedFile.type?.includes("pdf")}
-                    onSave={async (data) => {
-                      try {
-                        await saveDrawing(data);
-                        console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
-                      } catch (error) {
-                        console.error("Failed to save drawing:", error);
-                      }
-                    }}
-                  />
-                );
-
-              })()}
             </div>
 
             {/* 필기 도구 사이드바 - 우측 (교육자 노트 + 파일 선택 시만 표시) */}

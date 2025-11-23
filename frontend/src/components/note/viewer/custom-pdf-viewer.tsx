@@ -18,6 +18,8 @@ import {
   usePdfThumbnails,
 } from "@/features/note/viewer";
 import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
+import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
+import type { DrawingData } from "@/lib/types/drawing";
 
 interface CustomPdfViewerProps {
   fileUrl?: string | null;
@@ -32,6 +34,14 @@ interface CustomPdfViewerProps {
     baseWidth: number;       // 원본 크기 (scale=1.0 기준)
     baseHeight: number;
   }) => void;
+  // Drawing overlay props
+  drawingEnabled?: boolean;
+  drawingMode?: boolean;
+  drawingOverlayRef?: React.RefObject<PDFDrawingOverlayHandle>;
+  noteId?: string;
+  fileId?: string;
+  isCollaborative?: boolean;
+  onDrawingSave?: (data: DrawingData) => Promise<void>;
 }
 
 export function CustomPdfViewer({
@@ -40,12 +50,30 @@ export function CustomPdfViewer({
   fileType,
   onPageChange,
   onPdfRenderInfo,
+  // Drawing overlay props
+  drawingEnabled = false,
+  drawingMode = false,
+  drawingOverlayRef,
+  noteId,
+  fileId,
+  isCollaborative = false,
+  onDrawingSave,
 }: CustomPdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 썸네일 사이드바 토글 상태
   const [isThumbnailOpen, setIsThumbnailOpen] = useState(true);
+
+  // Drawing overlay를 위한 PDF 렌더링 정보 (내부 상태)
+  const [pdfRenderState, setPdfRenderState] = useState<{
+    baseWidth: number;
+    baseHeight: number;
+    finalScale: number;
+    // PDF 캔버스의 실제 렌더링 크기 (CSS 크기)
+    renderedWidth: number;
+    renderedHeight: number;
+  } | null>(null);
 
   // Custom hooks for business logic
   const { pdfDoc, numPages, loading, error, isPdf, isImage } = usePdfLoader(
@@ -176,13 +204,20 @@ export function CustomPdfViewer({
         renderTask = page.render(renderContext);
         await renderTask.promise;
 
-        // PDF 렌더링 정보 전달 (드로잉 캔버스 동기화용)
+        // 원본 크기 계산 (scale=1.0, rotation=0 기준)
+        const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+
+        // Drawing overlay를 위한 내부 상태 업데이트
+        setPdfRenderState({
+          baseWidth: baseViewport.width,
+          baseHeight: baseViewport.height,
+          finalScale,
+          renderedWidth: scaledViewport.width,
+          renderedHeight: scaledViewport.height,
+        });
+
+        // PDF 렌더링 정보 전달 (외부 콜백)
         if (onPdfRenderInfo) {
-          // 원본 크기 계산 (scale=1.0, rotation=0 기준)
-          const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
-
-          // PDF Debug logs disabled for performance
-
           onPdfRenderInfo({
             width: scaledViewport.width,
             height: scaledViewport.height,
@@ -248,12 +283,12 @@ export function CustomPdfViewer({
         <div
           ref={containerRef}
           className="flex-1 flex items-center justify-center overflow-auto bg-[#2a2a2a]"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
+          onMouseDown={drawingMode ? undefined : handleMouseDown}
+          onMouseMove={drawingMode ? undefined : handleMouseMove}
+          onMouseUp={drawingMode ? undefined : handleMouseUp}
+          onMouseLeave={drawingMode ? undefined : handleMouseLeave}
           onWheel={handleWheel}
-          style={{ cursor: isPanning ? "grabbing" : "grab" }}
+          style={{ cursor: drawingMode ? "default" : (isPanning ? "grabbing" : "grab") }}
         >
         {!fileUrl ? (
           <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -298,16 +333,38 @@ export function CustomPdfViewer({
               </div>
             )}
 
-            <div className="p-2 inline-block">
+            <div className="inline-block relative">
+              {/* PDF Canvas */}
               <canvas
                 ref={canvasRef}
                 className={loading || error ? "hidden" : ""}
                 style={{
                   display: loading || error ? "none" : "block",
                   imageRendering: scale > 1.5 ? "auto" : "crisp-edges",
-                  transition: "all 0.15s ease-out",
+                  // DEBUG: PDF 캔버스 테두리 (파란색)
+                  outline: "3px solid blue",
                 }}
               />
+
+              {/* Drawing Overlay - PDF Canvas와 정확히 같은 위치/크기 */}
+              {drawingEnabled && pdfRenderState && noteId && fileId && (
+                <PDFDrawingOverlay
+                  ref={drawingOverlayRef}
+                  isEnabled={true}
+                  isDrawingMode={drawingMode}
+                  isCollaborative={isCollaborative}
+                  noteId={noteId}
+                  fileId={fileId}
+                  pageNum={currentPage}
+                  containerWidth={pdfRenderState.baseWidth}
+                  containerHeight={pdfRenderState.baseHeight}
+                  pdfScale={pdfRenderState.finalScale}
+                  renderedWidth={pdfRenderState.renderedWidth}
+                  renderedHeight={pdfRenderState.renderedHeight}
+                  isPdf={isPdf}
+                  onSave={onDrawingSave}
+                />
+              )}
             </div>
           </>
         ) : isImage ? (
