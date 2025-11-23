@@ -302,7 +302,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                     onClick={() => handleNoteClick(note)}
                     className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                   >
-                    {/* Note Icon + Name */}
+                    {/* Note Icon + Type Badge + Name */}
                     <div className="flex flex-row items-center gap-2 flex-1">
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -311,6 +311,14 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                         <path d="M13.3333 14.1667H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
+                      {/* 노트 타입 배지 */}
+                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                        note.type === 'educator'
+                          ? 'bg-[#AFC02B]/20 text-[#AFC02B] border border-[#AFC02B]/30'
+                          : 'bg-[#4A90D9]/20 text-[#4A90D9] border border-[#4A90D9]/30'
+                      }`}>
+                        {note.type === 'educator' ? '강의' : '개인'}
+                      </span>
                       <span className="text-white font-normal text-base leading-[19px]">
                         {note.title}
                       </span>
@@ -389,7 +397,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                         onClick={() => handleNoteClick(note)}
                         className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                       >
-                        {/* Note Icon + Name */}
+                        {/* Note Icon + Type Badge + Name */}
                         <div className="flex flex-row items-center gap-2 flex-1">
                           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -398,6 +406,14 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                             <path d="M13.3333 14.1667H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
+                          {/* 노트 타입 배지 */}
+                          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                            note.type === 'educator'
+                              ? 'bg-[#AFC02B]/20 text-[#AFC02B] border border-[#AFC02B]/30'
+                              : 'bg-[#4A90D9]/20 text-[#4A90D9] border border-[#4A90D9]/30'
+                          }`}>
+                            {note.type === 'educator' ? '강의' : '개인'}
+                          </span>
                           <span className="text-white font-normal text-base leading-[19px]">
                             {note.title}
                           </span>

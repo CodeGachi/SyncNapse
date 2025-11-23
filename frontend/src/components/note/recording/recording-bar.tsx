@@ -40,7 +40,6 @@ export function RecordingBar({
   onSkipBack,
   isRecording = false,
   onToggleRecordingList,
-  recordingCount = 0,
   currentTime = 0,
   duration = 0,
   onSeek,
@@ -91,14 +90,20 @@ export function RecordingBar({
 
   return (
     <div
-      className={`flex items-center gap-2 bg-[#2a2a2a] rounded-full px-3 py-1.5 transition-all duration-300 ease-out ${
-        isExpanded ? "gap-3" : ""
-      }`}
+      className={`
+        flex items-center bg-[#2a2a2a] rounded-full px-3 py-1.5
+        transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+        ${isExpanded ? "gap-3 pr-2" : "gap-2"}
+      `}
     >
       {/* 녹음 버튼 */}
       <button
         onClick={onPlayToggle}
-        className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-all flex-shrink-0 bg-[#444444] hover:bg-[#555555]"
+        className={`
+          w-8 h-8 rounded-full flex items-center justify-center cursor-pointer
+          transition-all duration-300 flex-shrink-0 bg-[#444444] hover:bg-[#555555]
+          hover:scale-105 active:scale-95
+        `}
         title={isRecording ? "녹음 일시정지/재개" : "녹음 시작"}
       >
         <Image
@@ -106,11 +111,12 @@ export function RecordingBar({
           alt={isRecording ? "Recording" : "Record"}
           width={14}
           height={14}
+          className="transition-all duration-300"
           style={{ filter: !isRecording
-            ? "none" // 녹음 시작 안함: 흰색 (원본)
+            ? "none"
             : isPlaying
-              ? "brightness(0) saturate(100%) invert(36%) sepia(68%) saturate(1000%) hue-rotate(327deg) brightness(95%) contrast(90%)" // 녹음 중: 빨강
-              : "brightness(0) saturate(100%) invert(60%) sepia(0%) saturate(0%) hue-rotate(0deg)" // 일시정지: 회색
+              ? "brightness(0) saturate(100%) invert(36%) sepia(68%) saturate(1000%) hue-rotate(327deg) brightness(95%) contrast(90%)"
+              : "brightness(0) saturate(100%) invert(60%) sepia(0%) saturate(0%) hue-rotate(0deg)"
           }}
         />
       </button>
@@ -119,9 +125,11 @@ export function RecordingBar({
       <button
         onClick={isRecording && onSave ? onSave : undefined}
         disabled={!isRecording}
-        className={`w-8 h-8 bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-          isRecording ? "cursor-pointer hover:bg-[#555555]" : "opacity-40 cursor-not-allowed"
-        }`}
+        className={`
+          w-8 h-8 bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0
+          transition-all duration-300
+          ${isRecording ? "cursor-pointer hover:bg-[#555555] hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
+        `}
         title="저장"
       >
         <Image
@@ -132,49 +140,71 @@ export function RecordingBar({
         />
       </button>
 
-      {/* 시간: 녹음 중에는 녹음 시간, 재생 중에는 재생 시간 */}
+      {/* 시간 */}
       <div className="px-1 flex-shrink-0 min-w-[45px]">
-        <p className="text-[12px] font-mono whitespace-nowrap text-[#888888]">
+        <p className="text-[12px] font-mono whitespace-nowrap text-[#888888] transition-colors duration-300">
           {isPlaybackMode ? formatTime(currentTime) : time}
         </p>
       </div>
 
-      {/* 확장 영역 */}
+      {/* 확장 영역 - 스타일리시한 슬라이드 애니메이션 */}
       <div
-        className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ease-out ${
-          isExpanded ? "max-w-[160px] opacity-100" : "max-w-0 opacity-0"
-        }`}
+        className={`
+          flex items-center gap-2 overflow-hidden
+          transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+          ${isExpanded
+            ? "max-w-[180px] opacity-100 scale-100"
+            : "max-w-0 opacity-0 scale-95"
+          }
+        `}
+        style={{
+          transform: isExpanded ? "translateX(0)" : "translateX(-10px)",
+          transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
       >
-        {/* 재생 위치 바 (클릭 + 드래그) */}
+        {/* 재생 위치 바 */}
         <div
           ref={progressRef}
-          className={`w-[40px] h-[3px] flex-shrink-0 relative bg-[#444444] rounded-full ${
-            isPlaybackMode ? "cursor-pointer" : "cursor-not-allowed"
-          }`}
+          className={`
+            w-[40px] h-[4px] flex-shrink-0 relative bg-[#444444] rounded-full
+            transition-all duration-300
+            ${isPlaybackMode ? "cursor-pointer hover:h-[6px]" : "cursor-not-allowed opacity-50"}
+          `}
           onMouseDown={handleMouseDown}
         >
           {isPlaybackMode && duration > 0 && (
             <div
-              className={`absolute left-0 top-0 h-full bg-[#AFC02B] rounded-full ${isDragging ? "" : "transition-all"}`}
+              className={`absolute left-0 top-0 h-full bg-[#AFC02B] rounded-full ${isDragging ? "" : "transition-all duration-150"}`}
               style={{ width: `${Math.min((currentTime / duration) * 100, 100)}%` }}
             />
           )}
-          {/* 드래그 핸들 */}
           {isPlaybackMode && duration > 0 && (
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-sm"
-              style={{ left: `${Math.min((currentTime / duration) * 100, 100)}%`, transform: "translate(-50%, -50%)" }}
+              className={`
+                absolute top-1/2 w-3 h-3 bg-white rounded-full shadow-md
+                transition-all duration-150 hover:scale-125
+                ${isDragging ? "scale-125" : ""}
+              `}
+              style={{
+                left: `${Math.min((currentTime / duration) * 100, 100)}%`,
+                transform: "translate(-50%, -50%)"
+              }}
             />
           )}
         </div>
+
+        {/* 간격 */}
+        <div className="w-2 flex-shrink-0" />
 
         {/* 재생/일시정지 */}
         <button
           onClick={isPlaybackMode && onStop ? onStop : undefined}
           disabled={!isPlaybackMode}
-          className={`w-8 h-8 bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-            isPlaybackMode ? "cursor-pointer hover:bg-[#555555]" : "opacity-40 cursor-not-allowed"
-          }`}
+          className={`
+            w-8 h-8 bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0
+            transition-all duration-300
+            ${isPlaybackMode ? "cursor-pointer hover:bg-[#555555] hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
+          `}
           title={isPlaybackMode ? (isPlaying ? "일시정지" : "재생") : "녹음본 선택 필요"}
         >
           {isPlaybackMode && isPlaying ? (
@@ -197,9 +227,11 @@ export function RecordingBar({
         <button
           onClick={isPlaybackMode && onSkipBack ? onSkipBack : undefined}
           disabled={!isPlaybackMode}
-          className={`w-7 h-7 flex items-center justify-center flex-shrink-0 transition-all ${
-            isPlaybackMode ? "cursor-pointer hover:opacity-80" : "opacity-40 cursor-not-allowed"
-          }`}
+          className={`
+            w-7 h-7 flex items-center justify-center flex-shrink-0
+            transition-all duration-300
+            ${isPlaybackMode ? "cursor-pointer hover:scale-110 active:scale-95" : "opacity-40 cursor-not-allowed"}
+          `}
           title="맨앞으로"
         >
           <Image
@@ -214,7 +246,12 @@ export function RecordingBar({
         {onToggleRecordingList && (
           <button
             onClick={onToggleRecordingList}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-[#444444] hover:bg-[#555555] cursor-pointer transition-all flex-shrink-0"
+            className="
+              flex items-center justify-center w-8 h-8 rounded-full
+              bg-[#444444] hover:bg-[#555555] cursor-pointer
+              transition-all duration-300 flex-shrink-0
+              hover:scale-105 active:scale-95
+            "
             title="저장된 녹음"
           >
             <Image src="/menu.svg" alt="List" width={14} height={14} />
@@ -222,25 +259,39 @@ export function RecordingBar({
         )}
       </div>
 
-      {/* 확장 토글 버튼 */}
+      {/* 확장 토글 버튼 - 이퀄라이저/음파 효과 */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 ${
-          isExpanded ? "bg-[#AFC02B]" : "bg-[#444444] hover:bg-[#555555]"
-        }`}
+        className={`
+          w-8 h-8 rounded-full flex items-center justify-center cursor-pointer
+          transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+          hover:scale-110 active:scale-95 relative
+          ${isExpanded
+            ? "bg-[#AFC02B] shadow-lg shadow-[#AFC02B]/30"
+            : "bg-[#444444] hover:bg-[#555555]"
+          }
+        `}
         title={isExpanded ? "접기" : "펼치기"}
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={isExpanded ? "#1e1e1e" : "white"}
-          strokeWidth="2.5"
-          className={`transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
-        >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
+        <div className="flex items-center justify-center gap-[2px] h-[12px]">
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className={`
+                w-[2px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                ${isExpanded ? "bg-[#1e1e1e]" : "bg-white"}
+                ${isExpanded ? "animate-pulse" : ""}
+              `}
+              style={{
+                height: isExpanded
+                  ? `${[10, 6, 12, 8][i]}px`
+                  : `${[4, 4, 4, 4][i]}px`,
+                animationDelay: isExpanded ? `${i * 0.1}s` : "0s",
+                animationDuration: "0.8s",
+              }}
+            />
+          ))}
+        </div>
       </button>
     </div>
   );

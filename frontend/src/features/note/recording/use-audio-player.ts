@@ -58,6 +58,10 @@ export function useAudioPlayer() {
 
     const handleError = (e: Event) => {
       const audio = e.target as HTMLAudioElement;
+      // 빈 src로 인한 에러는 무시 (초기화 시 정상적인 상태)
+      if (!audio.src || audio.src === window.location.href) {
+        return;
+      }
       console.error('[useAudioPlayer] ❌ Audio error:', {
         error: audio.error?.code,
         message: audio.error?.message,
@@ -137,40 +141,47 @@ export function useAudioPlayer() {
         setScriptSegments([]);
       }
 
-      // Play audio
-      // URL 인코딩 문제 해결: 백엔드에서 반환한 URL에 인코딩되지 않은 공백이 있을 수 있음
-      let audioUrl = sessionData.fullAudioUrl || `/api/transcription/sessions/${sessionId}/audio`;
-
-      // URL에서 프로토콜과 호스트 분리 후 경로만 인코딩
-      if (audioUrl.startsWith('http')) {
-        try {
-          const urlObj = new URL(audioUrl);
-          // 경로 부분만 다시 인코딩 (이미 인코딩된 부분은 유지)
-          urlObj.pathname = urlObj.pathname.split('/').map(segment =>
-            encodeURIComponent(decodeURIComponent(segment))
-          ).join('/');
-          audioUrl = urlObj.toString();
-        } catch (e) {
-          console.warn('[useAudioPlayer] URL parsing failed, using original:', e);
-        }
-      }
-
-      console.log('[useAudioPlayer] Playing audio from:', audioUrl);
-
+      // Play audio - Blob URL 방식 우선, 실패시 직접 URL로 fallback
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
-        audioRef.current.src = audioUrl;
-        audioRef.current.load();
 
-        // duration은 useEffect의 loadedmetadata 이벤트 리스너에서 자동 업데이트됨
-        // 자동 재생 시도
-        try {
-          await audioRef.current.play();
-          console.log('[useAudioPlayer] ✅ Auto-play started');
-        } catch (playError) {
-          // 자동 재생 실패 시 (브라우저 정책) - 사용자가 직접 재생 버튼 클릭 필요
-          console.warn('[useAudioPlayer] Auto-play blocked, user interaction required:', playError);
+        let audioUrl: string | null = null;
+
+        // fullAudioUrl 직접 사용 (MinIO signed URL)
+        if (sessionData.fullAudioUrl) {
+          audioUrl = sessionData.fullAudioUrl;
+          // URL 인코딩 처리 - MinIO에 파일명이 이미 인코딩되어 저장됨 (%3A 등)
+          // 브라우저가 자동으로 디코딩하므로 이중 인코딩 필요
+          if (audioUrl.startsWith('http')) {
+            try {
+              const urlObj = new URL(audioUrl);
+              // 각 경로 세그먼트를 인코딩 (이미 인코딩된 %는 %25로 변환됨)
+              urlObj.pathname = urlObj.pathname.split('/').map(segment =>
+                encodeURIComponent(segment)
+              ).join('/');
+              audioUrl = urlObj.toString();
+            } catch {
+              // URL 파싱 실패 시 원본 사용
+            }
+          }
+          console.log('[useAudioPlayer] Using audio URL:', audioUrl);
+        }
+
+        if (audioUrl) {
+          audioRef.current.src = audioUrl;
+          audioRef.current.load();
+
+          // 자동 재생 시도
+          try {
+            await audioRef.current.play();
+            console.log('[useAudioPlayer] ✅ Auto-play started');
+          } catch (playError) {
+            // 자동 재생 실패 시 (브라우저 정책) - 사용자가 직접 재생 버튼 클릭 필요
+            console.warn('[useAudioPlayer] Auto-play blocked, user interaction required:', playError);
+          }
+        } else {
+          console.error('[useAudioPlayer] ❌ No audio URL available');
         }
       }
 

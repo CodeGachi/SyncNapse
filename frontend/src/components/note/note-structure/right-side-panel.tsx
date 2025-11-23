@@ -19,7 +19,6 @@ import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 // UI Components
 import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
-import { AudioPlaybackControls } from "@/components/note/panels/audio-playback-controls";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { EtcPanel } from "@/components/note/panels/etc-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
@@ -53,7 +52,13 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     copyFile,
   } = useNoteEditorStore();
 
-  const { scriptSegments } = useScriptTranslationStore();
+  const { scriptSegments, reset: resetScriptTranslation } = useScriptTranslationStore();
+
+  // noteId 변경 시 스크립트 초기화 (노트 진입/변경 시)
+  useEffect(() => {
+    console.log(`[RightSidePanel] Note mounted/changed: ${noteId} - resetting script`);
+    resetScriptTranslation();
+  }, [noteId, resetScriptTranslation]);
 
   // UI Store
   const { isExpanded, toggleExpand } = useNoteUIStore();
@@ -120,7 +125,6 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
           {/* 스크립트 패널 */}
           <ScriptPanel
-            noteId={noteId}
             isOpen={isScriptOpen}
             onClose={toggleScript}
             audioRef={audioRef}
@@ -131,24 +135,13 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
           {/* 타임라인 (스크립트가 열려있고 세그먼트가 있을 때만 표시) */}
           {isScriptOpen && scriptSegments.length > 0 && (
-            <>
-              <TranscriptTimeline
-                segments={scriptSegments}
-                audioRef={audioRef}
-                activeSegmentId={activeSegmentId}
-                onSeek={handleSeek}
-                className="mt-3"
-              />
-
-              {/* 오디오 재생 컨트롤 */}
-              <AudioPlaybackControls
-                audioRef={audioRef}
-                isPlaying={isPlaying}
-                currentTime={currentTime}
-                onPlayToggle={handleAudioPlayToggle}
-                onStop={handleAudioStop}
-              />
-            </>
+            <TranscriptTimeline
+              segments={scriptSegments}
+              audioRef={audioRef}
+              activeSegmentId={activeSegmentId}
+              onSeek={handleSeek}
+              className="mt-3"
+            />
           )}
 
           {/* 파일 패널 */}

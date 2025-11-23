@@ -60,7 +60,8 @@ export const PDFDrawingOverlay = forwardRef<
     },
     ref
   ) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    // div container를 사용 - Fabric.js가 canvas를 동적 생성
+    const containerRef = useRef<HTMLDivElement>(null);
     const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
     const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -76,7 +77,9 @@ export const PDFDrawingOverlay = forwardRef<
 
     // Canvas 초기화 (펜과 도형 모두 지원)
     useEffect(() => {
-      if (!canvasRef.current || !isEnabled) return;
+      if (!containerRef.current || !isEnabled) return;
+
+      const container = containerRef.current;
 
       // 기존 canvas 정리
       if (fabricCanvasRef.current) {
@@ -88,11 +91,20 @@ export const PDFDrawingOverlay = forwardRef<
         fabricCanvasRef.current = null;
       }
 
+      // container 내용물 정리
+      container.innerHTML = '';
+
       // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
       const adjustedHeight = Math.max(containerHeight, 100);
 
+      // canvas 엘리먼트 동적 생성 (React가 관리하지 않음)
+      const canvasElement = document.createElement('canvas');
+      canvasElement.width = containerWidth;
+      canvasElement.height = adjustedHeight;
+      container.appendChild(canvasElement);
+
       // Fabric Canvas 생성 (항상 PDF 원본 크기로 고정)
-      const canvas = new fabric.Canvas(canvasRef.current, {
+      const canvas = new fabric.Canvas(canvasElement, {
         width: containerWidth,
         height: adjustedHeight,
         isDrawingMode: false,
@@ -116,28 +128,37 @@ export const PDFDrawingOverlay = forwardRef<
         }
       });
 
-      // 캔버스 크기 정보 콘솔 출력
-      const renderedWidth = containerWidth * pdfScale;
-      const renderedHeight = adjustedHeight * pdfScale;
-
-      // Canvas initialization debug logs disabled for performance
-
       // 초기 히스토리 저장
       useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
       return () => {
         try {
           if (fabricCanvasRef.current) {
-            // Fabric canvas를 안전하게 정리
-            fabricCanvasRef.current.dispose();
+            const canvas = fabricCanvasRef.current;
             fabricCanvasRef.current = null;
+
+            // 모든 이벤트와 객체 정리
+            canvas.off();
+            canvas.clear();
+
+            // dispose 호출
+            try {
+              canvas.dispose();
+            } catch (disposeError) {
+              // dispose 에러는 무시
+            }
+          }
+
+          // container 내용물 정리
+          if (container) {
+            container.innerHTML = '';
           }
         } catch (error) {
           console.error("Canvas cleanup error:", error);
           fabricCanvasRef.current = null;
         }
       };
-    }, [canvasRef, isEnabled, isPdf]);
+    }, [containerRef, isEnabled, isPdf]);
 
     // Canvas 크기 업데이트 (PDF 원본 크기 변경 시만 - 페이지 전환 등)
     useEffect(() => {
@@ -427,14 +448,14 @@ export const PDFDrawingOverlay = forwardRef<
 
     return (
       <>
-        <canvas
-          ref={canvasRef}
-          width={containerWidth}
-          height={canvasHeight}
+        <div
+          ref={containerRef}
           style={{
             position: "absolute",
             top: "0.5rem",     // PDF canvas의 m-2 (8px) 마진과 일치
             left: "0.5rem",    // PDF canvas의 m-2 (8px) 마진과 일치
+            width: containerWidth,
+            height: canvasHeight,
             // CSS transform으로 PDF 줌 레벨 적용
             // 캔버스는 항상 원본 크기, 시각적으로만 확대/축소
             transform: `scale(${pdfScale})`,

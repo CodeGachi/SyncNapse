@@ -222,8 +222,8 @@ export function NoteContentArea({
               })()}
             </div>
 
-            {/* 필기 도구 사이드바 - 우측 (교육자 노트만 표시) */}
-            {isEducatorNote && (
+            {/* 필기 도구 사이드바 - 우측 (교육자 노트 + 파일 선택 시만 표시) */}
+            {isEducatorNote && selectedFile && (
               <DrawingSidebar
                 isEnabled={true}
                 isDrawingMode={isDrawingMode}
@@ -253,7 +253,7 @@ export function NoteContentArea({
               className="overflow-y-auto bg-[#1e1e1e]"
               style={{
                 height: `${100 - viewerHeight}%`,
-                marginRight: isEducatorNote ? '72px' : '0' // 필기바 너비(56px) + gap(16px)
+                marginRight: isEducatorNote && selectedFile ? '72px' : '0' // 필기바 너비(56px) + gap(16px), 파일 선택 시만
               }}
             >
               <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />
