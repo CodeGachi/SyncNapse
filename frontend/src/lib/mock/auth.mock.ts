@@ -9,7 +9,6 @@ const MOCK_USER: User = {
   id: "mock-user-123",
   email: "test@example.com",
   name: "테스트 사용자",
-  picture: "https://via.placeholder.com/150",
   createdAt: new Date().toISOString(),
 };
 

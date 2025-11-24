@@ -49,10 +49,16 @@ export function useCreateNoteModal(
 
   // Set default folder when modal opens or defaultFolderId changes
   useEffect(() => {
-    if (defaultFolderId !== undefined) {
-      setSelectedLocation(defaultFolderId || "root");
+    if (defaultFolderId !== undefined && defaultFolderId !== null) {
+      setSelectedLocation(defaultFolderId);
+    } else {
+      // defaultFolderId가 없으면 Root 폴더 ID를 기본값으로 설정
+      const rootFolder = dbFolders.find(f => f.name === "Root" && f.parentId === null);
+      if (rootFolder) {
+        setSelectedLocation(rootFolder.id);
+      }
     }
-  }, [defaultFolderId, setSelectedLocation]);
+  }, [defaultFolderId, dbFolders, setSelectedLocation]);
 
   // Set initial note type when modal opens
   useEffect(() => {
@@ -86,13 +92,13 @@ export function useCreateNoteModal(
 
   // Select Folder name Import
   const getSelectedFolderName = () => {
-    if (selectedLocation === "root") return "루트";
+    if (selectedLocation === "root") return "Root";
     const folder = dbFolders.find((f) => f.id === selectedLocation);
-    // If the folder is the "Root" system folder, display it as "루트" instead
+    // If the folder is the "Root" system folder, display it as "Root"
     if (folder && folder.name === "Root" && folder.parentId === null) {
-      return "루트";
+      return "Root";
     }
-    return folder?.name || "루트";
+    return folder?.name || "Root";
   };
 
   // File Add Handler
@@ -129,7 +135,6 @@ export function useCreateNoteModal(
 
     // File Conflict Process
     if (duplicates.length > 0) {
-      const { notify } = await import("@/stores");
       const renamedFiles: File[] = [];
       duplicates.forEach((originalFile) => {
         const suggestedName = generateSafeFileName(originalFile.name, [
@@ -141,10 +146,9 @@ export function useCreateNoteModal(
         });
         renamedFiles.push(renamedFile);
 
-        notify.warning(
-          "파일 이름 충돌",
-          `"${originalFile.name}"이(가) 이미 존재하여 "${suggestedName}"(으)로 저장되었습니다.`,
-          { duration: 5000 }
+        // TODO: Add notification system
+        console.warn(
+          `파일 이름 충돌: "${originalFile.name}"이(가) 이미 존재하여 "${suggestedName}"(으)로 저장되었습니다.`
         );
       });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardSidebar } from "@/components/dashboard/sidebar/dashboard-sidebar";
+import { NewSidebar } from "@/components/dashboard/new-sidebar";
 import { useDashboardContext } from "@/providers/dashboard-context";
 
 export function DashboardLayoutContent({
@@ -11,8 +11,8 @@ export function DashboardLayoutContent({
   const { selectedFolderId, setSelectedFolderId } = useDashboardContext();
 
   return (
-    <div className="flex h-screen bg-[#1E1E1E]">
-      <DashboardSidebar
+    <div className="flex h-screen bg-[#262626]">
+      <NewSidebar
         selectedFolderId={selectedFolderId}
         onSelectFolder={setSelectedFolderId}
       />

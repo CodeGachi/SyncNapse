@@ -9,8 +9,7 @@
 
 import { useEffect } from "react";
 import { useMutation } from "@/lib/liveblocks/liveblocks.config";
-import type { Note } from "@/lib/types/domain";
-import type { FileItem } from "@/features/note/file";
+import type { Note, FileItem } from "@/lib/types";
 import { useNoteEditorStore } from "@/stores";
 import { useSyncStore } from "@/lib/sync/sync-store";
 

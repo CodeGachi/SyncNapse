@@ -6,9 +6,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { NoteBlock } from "@/features/note/text-notes/use-note-panel"; // ✅ text-notes
-import type { FileItem } from "@/features/note/file/use-file-panel";
-import type { Question, AutoSaveStatus } from "@/lib/types";
+import type { NoteBlock, FileItem, Question } from "@/lib/types";
 import type { Block } from "@blocknote/core";
 
 /**
@@ -18,19 +16,6 @@ import type { Block } from "@blocknote/core";
  */
 export interface PageNotes {
   [key: string]: NoteBlock[];
-}
-
-/**
- * 녹음 데이터 인터페이스
- */
-export interface Recording {
-  id: string;
-  title: string;
-  duration: number; // 초 단위
-  createdAt: Date;
-  audioUrl: string; // Blob URL
-  audioBlob?: Blob; // 실제 오디오 데이터
-  sessionId?: string; // Backend transcription session ID
 }
 
 interface NoteEditorState {
@@ -48,17 +33,6 @@ interface NoteEditorState {
 
   // UI State
   activeTab: number;
-  activeCategories: string[];
-  isExpanded: boolean;
-
-  // Player State
-  isPlaying: boolean;
-  currentTime: number;
-  isRecordingExpanded: boolean;
-
-  // Recording State
-  recordings: Recording[];
-  currentRecordingId: string | null;
 
   // Question State
   questions: Question[];
@@ -66,7 +40,6 @@ interface NoteEditorState {
   isQuestionListExpanded: boolean;
 
   // AutoSave State
-  autoSaveStatus: AutoSaveStatus;
   lastSavedAt: string | null;
 
   // Note Block Actions (DEPRECATED)
@@ -88,7 +61,7 @@ interface NoteEditorState {
 
   // File Actions
   addFile: (file: FileItem) => void;
-  removeFile: (id: string) => void; // files 목록에서 완전히 삭제
+  removeFile: (id: string) => void; // Store에서만 제거 (UI 상태 업데이트)
   selectFile: (id: string) => void;
   setSelectedFileId: (id: string | null) => void; // 공유 모드용
   loadFiles: (files: FileItem[]) => void;
@@ -103,20 +76,6 @@ interface NoteEditorState {
 
   // UI Actions
   setActiveTab: (index: number) => void;
-  toggleCategory: (category: string) => void;
-  toggleExpand: () => void;
-
-  // Player Actions
-  togglePlay: () => void;
-  setCurrentTime: (time: number) => void;
-  toggleRecordingExpanded: () => void;
-
-  // Recording Actions
-  addRecording: (recording: Omit<Recording, "id" | "audioUrl">) => void;
-  removeRecording: (id: string) => void;
-  updateRecordingTitle: (id: string, title: string) => void;
-  selectRecording: (id: string) => void;
-  clearRecordings: () => void;
 
   // Question Actions
   addQuestion: (content: string, author: string) => void;
@@ -126,7 +85,6 @@ interface NoteEditorState {
   toggleQuestionListExpanded: () => void;
 
   // AutoSave Actions
-  setAutoSaveStatus: (status: AutoSaveStatus) => void;
   updateLastSavedAt: () => void;
 
   // Reset
@@ -154,17 +112,6 @@ const initialState = {
 
   // UI
   activeTab: 0,
-  activeCategories: ["Notes"],
-  isExpanded: false,
-
-  // Player
-  isPlaying: false,
-  currentTime: 0,
-  isRecordingExpanded: false,
-
-  // Recording
-  recordings: [],
-  currentRecordingId: null,
 
   // Question
   questions: [],
@@ -172,7 +119,6 @@ const initialState = {
   isQuestionListExpanded: false,
 
   // AutoSave
-  autoSaveStatus: "idle" as AutoSaveStatus,
   lastSavedAt: null,
 };
 
@@ -370,10 +316,17 @@ export const useNoteEditorStore = create<NoteEditorState>()(
       removeFile: (id) =>
         set((state) => {
           const fileToRemove = state.files.find((f) => f.id === id);
+
+          // Blob URL 해제를 지연시켜 React DOM 업데이트 완료 후 실행
+          // 이렇게 하면 removeChild 에러를 방지할 수 있음
+          // PDF 뷰어의 경우 언마운트가 복잡하므로 더 긴 지연 시간 사용
           if (fileToRemove?.url) {
-            URL.revokeObjectURL(fileToRemove.url);
+            setTimeout(() => {
+              URL.revokeObjectURL(fileToRemove.url);
+            }, 500);
           }
 
+          // Store에서 제거 (순수 UI 상태 업데이트)
           const newFiles = state.files.filter((file) => file.id !== id);
           const newOpenedTabs = state.openedTabs.filter((tabId) => tabId !== id);
 
@@ -385,7 +338,7 @@ export const useNoteEditorStore = create<NoteEditorState>()(
           return {
             files: newFiles,
             openedTabs: newOpenedTabs,
-            selectedFileId: newSelectedId
+            selectedFileId: newSelectedId,
           };
         }),
 
@@ -396,13 +349,21 @@ export const useNoteEditorStore = create<NoteEditorState>()(
       setFiles: (files) => set({ files }),
 
       loadFiles: (files) =>
-        set((state) => ({
-          files,
-          selectedFileId:
-            files.length > 0 && !state.selectedFileId
-              ? files[0].id
-              : state.selectedFileId,
-        })),
+        set((state) => {
+          // 파일이 있고 현재 선택된 파일이 없으면 첫 번째 파일 선택
+          const shouldSelectFirst = files.length > 0 && !state.selectedFileId;
+          const newSelectedFileId = shouldSelectFirst ? files[0].id : state.selectedFileId;
+
+          // 파일이 있고 탭이 비어있으면 첫 번째 파일을 탭에 열기
+          const shouldOpenTab = files.length > 0 && state.openedTabs.length === 0;
+          const newOpenedTabs = shouldOpenTab ? [files[0].id] : state.openedTabs;
+
+          return {
+            files,
+            selectedFileId: newSelectedFileId,
+            openedTabs: newOpenedTabs,
+          };
+        }),
 
       renameFile: (id, newName) =>
         set((state) => ({
@@ -493,90 +454,6 @@ export const useNoteEditorStore = create<NoteEditorState>()(
       // UI Actions
       setActiveTab: (index) => set({ activeTab: index }),
 
-      toggleCategory: (category) =>
-        set((state) => ({
-          activeCategories: state.activeCategories.includes(category)
-            ? state.activeCategories.filter((c) => c !== category)
-            : [...state.activeCategories, category],
-        })),
-
-      toggleExpand: () => set((state) => ({ isExpanded: !state.isExpanded })),
-
-      // Player Actions
-      togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
-
-      setCurrentTime: (time) => set({ currentTime: time }),
-
-      toggleRecordingExpanded: () =>
-        set((state) => ({
-          isRecordingExpanded: !state.isRecordingExpanded,
-        })),
-
-      // Recording Actions
-      addRecording: (recording) =>
-        set((state) => {
-          const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-          const audioUrl = recording.audioBlob
-            ? URL.createObjectURL(recording.audioBlob)
-            : "";
-
-          const newRecording: Recording = {
-            ...recording,
-            id,
-            audioUrl,
-          };
-
-          return {
-            recordings: [...state.recordings, newRecording],
-          };
-        }),
-
-      removeRecording: (id) =>
-        set((state) => {
-          // Blob URL 정리 (id 또는 sessionId로 찾기)
-          const recording = state.recordings.find((r) => r.id === id || r.sessionId === id);
-          if (recording?.audioUrl) {
-            URL.revokeObjectURL(recording.audioUrl);
-          }
-
-          return {
-            // id 또는 sessionId가 일치하는 항목 제거
-            recordings: state.recordings.filter((r) => r.id !== id && r.sessionId !== id),
-            currentRecordingId: state.currentRecordingId === id ? null : state.currentRecordingId,
-          };
-        }),
-
-      updateRecordingTitle: (id, title) =>
-        set((state) => ({
-          recordings: state.recordings.map((r) =>
-            r.id === id ? { ...r, title } : r
-          ),
-        })),
-
-      selectRecording: (id) =>
-        set({
-          currentRecordingId: id,
-          isPlaying: false,
-          currentTime: 0,
-        }),
-
-      clearRecordings: () =>
-        set((state) => {
-          // 모든 Blob URL 정리
-          state.recordings.forEach((r) => {
-            if (r.audioUrl) {
-              URL.revokeObjectURL(r.audioUrl);
-            }
-          });
-
-          return {
-            recordings: [],
-            currentRecordingId: null,
-            isPlaying: false,
-            currentTime: 0,
-          };
-        }),
-
       // Question Actions
       addQuestion: (content, author) =>
         set((state) => {
@@ -622,12 +499,9 @@ export const useNoteEditorStore = create<NoteEditorState>()(
         })),
 
       // AutoSave Actions
-      setAutoSaveStatus: (status) => set({ autoSaveStatus: status }),
-
       updateLastSavedAt: () =>
         set({
           lastSavedAt: new Date().toISOString(),
-          autoSaveStatus: "saved",
         }),
 
       // Reset

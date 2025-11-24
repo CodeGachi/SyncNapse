@@ -1,10 +1,23 @@
 /**
- * Educator 노트 페이지 (Server Component)
+ * Educator 노트 페이지 (Client Component)
  *
- * URL 파라미터를 추출하여 클라이언트 컴포넌트에 전달
+ * Student 구조와 동일하되 협업 기능 추가:
+ * - CollaborationDataHandler (Liveblocks 데이터 동기화)
+ * - EmojiReactions (협업 이모지 오버레이)
+ * - RightSidePanelEducator (협업 패널 포함)
  */
 
-import { EducatorNoteClient } from "@/components/note/note-structure/educator-note-client";
+"use client";
+
+import { NoteHeader } from "@/components/note/note-structure/note-header";
+import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
+import { NoteContentArea } from "@/components/note/note-structure/note-content-area";
+import { RightSidePanel } from "@/components/note/note-structure/right-side-panel";
+import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
+import { CollaborationDataHandler } from "@/components/note/collaboration/shared-note-data-loader";
+import { EmojiReactions } from "@/components/note/collaboration/emoji-reactions";
+import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
+import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 
 interface EducatorNotePageProps {
   params: {
@@ -12,26 +25,70 @@ interface EducatorNotePageProps {
   };
   searchParams: {
     title?: string;
-    join?: string;
-    view?: string;
-    token?: string;
   };
 }
 
-export default function EducatorNotePage({ params, searchParams }: EducatorNotePageProps) {
+export default function EducatorNotePage({
+  params,
+  searchParams,
+}: EducatorNotePageProps) {
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
-  const joinToken = searchParams.join || null;
-  const viewMode = searchParams.view || null;
-  const shareToken = searchParams.token || null;
+
+  // 백엔드 인증 사용자 정보 가져오기 (협업 이모지용)
+  const { data: currentUser } = useCurrentUser();
+  const userId = currentUser?.id || "";
+  const userName = currentUser?.name || currentUser?.email || "사용자";
 
   return (
-    <EducatorNoteClient
-      noteId={noteId}
-      noteTitle={noteTitle}
-      joinToken={joinToken}
-      viewMode={viewMode}
-      shareToken={shareToken}
-    />
+    <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
+      {/* Header - 제목 + 녹음바 */}
+      <NoteHeader
+        noteId={noteId}
+        noteTitle={noteTitle}
+        isEducatorNote={true}
+      />
+
+      {/* 공유 설정 모달 - Zustand로 관리 */}
+      <SharingSettingsModal />
+
+      {/* Data Loader - Client Component (파일 목록 로드 + 노트 검증) */}
+      <NoteDataLoader noteId={noteId}>
+        {/* Collaboration Data Handler - Liveblocks 데이터 동기화 */}
+        <CollaborationDataHandler
+          noteId={noteId}
+          isCollaborating={true}
+          isSharedView={false}
+        >
+          {/* Main Layout - 뷰어 + 패널 + 아이콘 Flexbox 배치 */}
+          <main className="flex-1 h-full">
+            <div className="flex gap-1 h-full pt-20 px-2 pb-4">
+              {/* Main Content Area - PDF 뷰어 + BlockNote 에디터 (협업) */}
+              <NoteContentArea
+                noteId={noteId}
+                noteTitle={noteTitle}
+                isCollaborating={true}
+                isEducator={true}
+              />
+
+              {/* Right Side Panel - 통합 (Script, File, Etc, Collaboration) */}
+              <RightSidePanel noteId={noteId} isEducator={true} />
+
+              {/* Right Sidebar Icons (패널 닫혔을 때) */}
+              <SidebarIcons noteId={noteId} isEducator={true} />
+
+              {/* 협업 이모지 반응 오버레이 */}
+              {userId && userName && (
+                <EmojiReactions
+                  noteId={noteId}
+                  userId={userId}
+                  userName={userName}
+                />
+              )}
+            </div>
+          </main>
+        </CollaborationDataHandler>
+      </NoteDataLoader>
+    </div>
   );
 }

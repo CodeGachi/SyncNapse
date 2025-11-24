@@ -363,19 +363,25 @@ export async function deleteNotesByFolder(folderId: string): Promise<void> {
 
 /**
  * 노트 컨텐츠 저장
+ * @param updatedAt - 명시적 타임스탬프 (서버에서 온 경우), 없으면 현재 시간
+ * @param markSynced - true면 syncedAt도 함께 설정 (백엔드에서 온 데이터)
  */
 export async function saveNoteContent(
   noteId: string,
   pageId: string,
-  blocks: any[]
+  blocks: any[],
+  updatedAt?: number,
+  markSynced?: boolean
 ): Promise<void> {
   const db = await initDB();
+  const now = Date.now();
   const content: DBNoteContent = {
     id: `${noteId}-${pageId}`,
     noteId,
     pageId,
     blocks,
-    updatedAt: Date.now(),
+    updatedAt: updatedAt || now,
+    syncedAt: markSynced ? now : undefined,
   };
 
   return new Promise((resolve, reject) => {

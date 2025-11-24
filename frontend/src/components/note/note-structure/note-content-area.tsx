@@ -6,26 +6,22 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useNoteEditorStore, usePanelsStore, useDrawStore, useToolsStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
 import { NotePanel } from "@/components/note/text-notes/note-panel"; // ✅ text-notes (텍스트 필기)
-import { AutoSaveBadge } from "@/components/note/text-notes/auto-save-badge"; // ✅ text-notes
-import { SharingSettingsModal } from "@/components/note/shared/sharing-settings-modal";
-import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
+import { type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
-import { EducatorNoteLayout } from "@/components/note/educator/educator-note-layout";
 
 interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
   isCollaborating?: boolean;
   isSharedView?: boolean; // 공유 링크로 접속한 경우
-  onStartCollaboration?: () => void;
-  onStopCollaboration?: () => void;
+  isEducator?: boolean; // 교육자 노트 여부 (prop으로 명시적 전달)
 }
 
 export function NoteContentArea({
@@ -33,26 +29,24 @@ export function NoteContentArea({
   noteTitle,
   isCollaborating,
   isSharedView = false,
-  onStartCollaboration,
-  onStopCollaboration,
+  isEducator,
 }: NoteContentAreaProps) {
   // 실제 노트 데이터로부터 제목 가져오기
   // 공유 모드에서는 로컬 DB 쿼리 비활성화 (Liveblocks Storage에서 가져옴)
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
-  const actualTitle = note?.title || noteTitle;
-  const isEducatorNote = note?.type === "educator";
+  // 교육자 노트 여부: prop으로 명시적 전달되면 절대 우선 (|| 연산자 사용)
+  // isEducator={true}가 전달되면 DB의 type과 무관하게 educator로 처리
+  const isEducatorNote = isEducator === true || note?.type === "educator";
 
-  // 공유 설정 관리 (Hooks must be called before any early returns)
-  const [isSharingOpen, setIsSharingOpen] = useState(false);
-  const [sharingSettings, setSharingSettings] = useState(
-    note?.accessControl || {
-      isPublic: false,
-      allowedUsers: [],
-      allowComments: true,
-      realTimeInteraction: true,
-    }
-  );
-  const [newUserEmail, setNewUserEmail] = useState("");
+  // 디버깅: isEducatorNote 값 추적
+  useEffect(() => {
+    console.log('[NoteContentArea] 렌더링 체크:', {
+      isEducator,
+      noteType: note?.type,
+      isEducatorNote,
+      noteId,
+    });
+  }, [isEducator, note?.type, isEducatorNote, noteId]);
 
   // PDF 컨테이너 크기 추적
   const [pdfContainerSize, setPdfContainerSize] = useState({ width: 0, height: 0 });
@@ -77,19 +71,6 @@ export function NoteContentArea({
   // 필기 모드 상태 (필기/뷰어)
   const [isDrawingMode, setIsDrawingMode] = useState(true);
 
-  // Zustand 스토어에서 필기 도구 상태 가져오기
-  const drawStore = useDrawStore();
-  const toolsStore = useToolsStore();
-
-  // 현재 도구 타입
-  const currentTool = drawStore.type;
-  const penColor = drawStore.lineColor;
-  const penSize = drawStore.lineWidth;
-
-  // Undo/Redo 상태 업데이트 - useEffect로 처리
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-
   // Store states
   const editorStore = useNoteEditorStore();
   const panelsStore = usePanelsStore();
@@ -97,15 +78,10 @@ export function NoteContentArea({
   const {
     files: uploadedFiles,
     openedTabs,
-    removeFile,
     selectedFileId,
     selectFile,
     activeTab,
     setActiveTab,
-    isExpanded,
-    toggleExpand,
-    autoSaveStatus,
-    lastSavedAt,
     closeTab,
     getOpenedFiles,
   } = editorStore;
@@ -123,7 +99,6 @@ export function NoteContentArea({
   });
 
   const {
-    showExpandButton,
     viewerHeight,
     isDragging,
     containerRef,
@@ -133,10 +108,15 @@ export function NoteContentArea({
     convertFilesForTabs,
   } = noteContentAreaHook;
 
+  // 초기 마운트 시에만 파일이 있는데 탭이 비어있으면 자동으로 첫 번째 파일 열기
   useEffect(() => {
-    setCanUndo(toolsStore.getCanUndo());
-    setCanRedo(toolsStore.getCanRedo());
-  }, [toolsStore]);
+    if (uploadedFiles.length > 0 && openedTabs.length === 0) {
+      console.log('[NoteContentArea] Auto-opening first file on mount:', uploadedFiles[0].id);
+      const openFileInTab = editorStore.openFileInTab;
+      openFileInTab(uploadedFiles[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedFiles.length]); // uploadedFiles.length만 의존성으로 추가 - 파일 개수가 변경될 때만 실행
 
   // PDF 컨테이너 크기 변화 감지
   useEffect(() => {
@@ -163,82 +143,6 @@ export function NoteContentArea({
     };
   }, []);
 
-  const togglePublic = () => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      isPublic: !prev.isPublic,
-    }));
-  };
-
-  const addUser = (email: string) => {
-    if (!email || !email.includes("@")) return;
-    const updatedUsers = [...(sharingSettings.allowedUsers || [])];
-    if (!updatedUsers.includes(email)) {
-      updatedUsers.push(email);
-      setSharingSettings((prev) => ({
-        ...prev,
-        allowedUsers: updatedUsers,
-      }));
-      setNewUserEmail("");
-    }
-  };
-
-  const removeUser = (email: string) => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      allowedUsers: (prev.allowedUsers || []).filter((u) => u !== email),
-    }));
-  };
-
-  const toggleComments = () => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      allowComments: !prev.allowComments,
-    }));
-  };
-
-  const toggleRealTimeInteraction = () => {
-    setSharingSettings((prev) => ({
-      ...prev,
-      realTimeInteraction: !prev.realTimeInteraction,
-    }));
-  };
-
-  const copyShareLink = async () => {
-    if (!sharingSettings.shareLink) {
-      // 토큰 형식: {noteId}-{timestamp}-{randomString}
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const token = `${noteId}-${timestamp}-${randomString}`;
-      const shareLink = `${window.location.origin}/shared/${token}`;
-
-      setSharingSettings((prev) => ({
-        ...prev,
-        shareLink,
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30일
-      }));
-    }
-    if (sharingSettings.shareLink) {
-      try {
-        await navigator.clipboard.writeText(sharingSettings.shareLink);
-        console.log("공유 링크가 복사되었습니다:", sharingSettings.shareLink);
-      } catch (error) {
-        console.error("링크 복사 실패:", error);
-      }
-    }
-  };
-
-  // Educator 노트는 전용 레이아웃 사용 (after all hooks)
-  if (isEducatorNote && noteId) {
-    return (
-      <EducatorNoteLayout
-        noteId={noteId}
-        noteTitle={actualTitle}
-        isCollaborating={isCollaborating}
-      />
-    );
-  }
-
   // 탭용 파일 형식으로 변환
   const files = convertFilesForTabs();
 
@@ -247,102 +151,7 @@ export function NoteContentArea({
 
   return (
     <div className="flex flex-col gap-3 flex-1">
-      {/* 제목 영역 */}
-      <div className="flex justify-between items-center px-2.5 min-h-[39px]">
-        <div className="flex items-center gap-4">
-          <h1 className="text-[32px] font-bold text-white leading-[39px]">
-            {actualTitle}
-          </h1>
-
-          {/* 자동저장 배지 */}
-          <AutoSaveBadge status={autoSaveStatus} lastSavedAt={lastSavedAt} />
-
-          {/* 강의 노트 버튼들 (Educator만, 공유 모드 제외) */}
-          {isEducatorNote && !isSharedView && (
-            <div className="flex items-center gap-2">
-              {/* 공유 설정 버튼 (아이콘만) */}
-              <button
-                onClick={() => setIsSharingOpen(!isSharingOpen)}
-                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
-                title="공유 설정"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-              </button>
-
-              {/* 공유 설정 모달 */}
-              <SharingSettingsModal
-                isOpen={isSharingOpen}
-                onClose={() => setIsSharingOpen(false)}
-                settings={sharingSettings}
-                newUserEmail={newUserEmail}
-                onNewUserEmailChange={setNewUserEmail}
-                onAddUser={addUser}
-                onRemoveUser={removeUser}
-                onTogglePublic={togglePublic}
-                onToggleComments={toggleComments}
-                onToggleRealTimeInteraction={toggleRealTimeInteraction}
-                onCopyShareLink={copyShareLink}
-                shareLink={sharingSettings.shareLink}
-                noteId={noteId || ""}
-                noteTitle={actualTitle}
-                isCollaborating={isCollaborating ?? false}
-                onStartCollaboration={onStartCollaboration ?? (() => {})}
-                onStopCollaboration={onStopCollaboration ?? (() => {})}
-              />
-            </div>
-          )}
-
-          {/* 공유 모드 뱃지 표시 */}
-          {isSharedView && (
-            <div className="px-3 py-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded-full text-sm font-medium">
-              공유 노트 보기
-            </div>
-          )}
-        </div>
-
-        {/* 사이드바 확장 버튼 (화면이 충분히 클 때만 표시) */}
-        {showExpandButton && (
-          <button
-            onClick={toggleExpand}
-            className="w-6 h-6 cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M4 4h16v16H4V4z"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9 4v16"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d={isExpanded ? "M14 10l3 2-3 2" : "M14 10l-3 2 3 2"}
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        )}
-      </div>
+      {/* 제목 영역 제거 - NoteHeader로 이동 */}
 
       {/* 탭 + PDF 뷰어 + 노트 패널 */}
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -358,9 +167,10 @@ export function NoteContentArea({
           {/* PDF 뷰어와 필기 사이드바를 가로로 배치 */}
           <div
             ref={pdfViewerContainerRef}
-            className="flex-1 flex flex-row overflow-hidden transition-all duration-300"
+            className="flex-1 flex flex-row gap-4 transition-all duration-300"
             style={{
               height: isNotePanelOpen ? `${viewerHeight}%` : 'auto',
+              overflow: 'visible',
             }}
           >
             {/* PDF 뷰어 - 왼쪽 (필기 오버레이 포함) */}
@@ -370,7 +180,7 @@ export function NoteContentArea({
                 flex: 1,
               }}
             >
-              {/* PDF 뷰어 */}
+              {/* PDF 뷰어 + Drawing 오버레이 (CustomPdfViewer 내부에서 렌더링) */}
               <div className="absolute inset-0 overflow-auto">
                 <CustomPdfViewer
                   fileUrl={selectedFile?.url}
@@ -378,62 +188,31 @@ export function NoteContentArea({
                   fileType={selectedFile?.type}
                   onPageChange={setCurrentPdfPage}
                   onPdfRenderInfo={setPdfRenderInfo}
+                  // Drawing overlay props
+                  drawingEnabled={isEducatorNote && !!selectedFile}
+                  drawingMode={isDrawingMode}
+                  drawingOverlayRef={drawingOverlayRef}
+                  noteId={noteId || ""}
+                  fileId={selectedFile?.id.toString()}
+                  isCollaborative={isCollaborating ?? false}
+                  onDrawingSave={async (data) => {
+                    try {
+                      await saveDrawing(data);
+                      console.log(`Drawing saved for file ${selectedFile?.id} page ${currentPdfPage}:`, data.id);
+                    } catch (error) {
+                      console.error("Failed to save drawing:", error);
+                    }
+                  }}
                 />
               </div>
-
-              {/* 필기 오버레이 (교육자 노트) - PDF 뷰어 위에 오버레이 */}
-              {isEducatorNote && selectedFile && pdfRenderInfo && (() => {
-                // PDF Debug logs disabled for performance
-
-                return (
-                  <PDFDrawingOverlay
-                    ref={drawingOverlayRef}
-                    isEnabled={true}
-                    isDrawingMode={isDrawingMode}
-                    isCollaborative={isCollaborating ?? false}
-                    noteId={noteId || ""}
-                    fileId={selectedFile.id.toString()}
-                    pageNum={currentPdfPage}
-                    containerWidth={pdfRenderInfo.baseWidth}
-                    containerHeight={pdfRenderInfo.baseHeight}
-                    pdfScale={pdfRenderInfo.scale}
-                    currentTool={currentTool}
-                    penColor={penColor}
-                    penSize={penSize}
-                    isPdf={selectedFile.type?.includes("pdf")}
-                    onSave={async (data) => {
-                      try {
-                        await saveDrawing(data);
-                        console.log(`Drawing saved for file ${selectedFile.id} page ${currentPdfPage}:`, data.id);
-                      } catch (error) {
-                        console.error("Failed to save drawing:", error);
-                      }
-                    }}
-                  />
-                );
-
-              })()}
             </div>
 
-            {/* 필기 도구 사이드바 - 우측 */}
+            {/* 필기 도구 사이드바 - 우측 (교육자 노트 + 파일 선택 시만 표시) */}
             {isEducatorNote && selectedFile && (
               <DrawingSidebar
-                isEnabled={selectedFile.type?.includes("pdf") || false}
+                isEnabled={true}
                 isDrawingMode={isDrawingMode}
-                currentTool={{
-                  type: currentTool,
-                  color: penColor,
-                  strokeWidth: penSize,
-                  opacity: currentTool === "highlighter" ? 0.3 : 1,
-                }}
-                penColor={penColor}
-                penSize={penSize}
-                canUndo={canUndo}
-                canRedo={canRedo}
                 onDrawingModeChange={setIsDrawingMode}
-                onToolChange={(tool: string) => drawStore.setDrawType(tool as any)}
-                onColorChange={(color) => drawStore.setLineColor(color)}
-                onSizeChange={(size) => drawStore.setLineWidth(size)}
                 onUndo={() => drawingOverlayRef.current?.handleUndo()}
                 onRedo={() => drawingOverlayRef.current?.handleRedo()}
                 onClear={() => drawingOverlayRef.current?.handleClear()}
@@ -457,7 +236,10 @@ export function NoteContentArea({
           {isNotePanelOpen && (
             <div
               className="overflow-y-auto bg-[#1e1e1e]"
-              style={{ height: `${100 - viewerHeight}%` }}
+              style={{
+                height: `${100 - viewerHeight}%`,
+                marginRight: isEducatorNote && selectedFile ? '72px' : '0' // 필기바 너비(56px) + gap(16px), 파일 선택 시만
+              }}
             >
               <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />
             </div>

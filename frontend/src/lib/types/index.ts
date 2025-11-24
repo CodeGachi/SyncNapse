@@ -19,3 +19,6 @@ export * from "./question";
 
 // Auto-save Types
 export * from "./auto-save";
+
+// Note Types
+export * from "./note";

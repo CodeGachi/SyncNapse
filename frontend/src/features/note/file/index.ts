@@ -1,8 +1,8 @@
 /**
  * File feature Module Barrel Export
- * - useFilePanel: State management hook for file panel
  * - useFilePanelUI: UI handlers hook for file interactions
+ *
+ * Note: FileItem type is now in @/lib/types
+ * Note: useFilePanel is deprecated (unused, replaced by Zustand)
 */
-export { useFilePanel } from "./use-file-panel";
 export { useFilePanelUI } from "./use-file-panel-ui";
-export type { FileItem } from "./use-file-panel";

@@ -4,4 +4,3 @@
  */
 
 export { NotePanel } from "./note-panel";
-export { AutoSaveBadge } from "./auto-save-badge";

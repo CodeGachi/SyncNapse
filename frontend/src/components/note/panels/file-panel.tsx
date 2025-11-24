@@ -4,7 +4,7 @@
 
 "use client";
 
-import type { FileItem } from "@/features/note";
+import type { FileItem } from "@/lib/types";
 import { useFilePanelUI } from "@/features/note";
 import { Panel } from "./panel";
 
@@ -12,12 +12,13 @@ interface FilePanelProps {
   isOpen: boolean;
   files: FileItem[];
   onAddFile: (file: File) => void;
-  onRemoveFile: (id: string) => void;
+  onRemoveFile: (id: string) => void | Promise<void>; // async 지원
   selectedFileId: string | null;
   onSelectFile: (id: string) => void;
   onOpenFileInTab: (id: string) => void;
   onRenameFile?: (id: string, newName: string) => void;
   onCopyFile?: (id: string) => void;
+  onClose?: () => void;
 }
 
 export function FilePanel({
@@ -29,7 +30,8 @@ export function FilePanel({
   onSelectFile,
   onOpenFileInTab,
   onRenameFile,
-  onCopyFile
+  onCopyFile,
+  onClose
 }: FilePanelProps) {
   const {
     fileInputRef,
@@ -56,14 +58,9 @@ export function FilePanel({
   });
 
   return (
-    <Panel isOpen={isOpen} borderColor="gray">
-      {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-[#444444]">
-        <h3 className="text-white text-sm font-bold">files</h3>
-      </div>
-
+    <Panel isOpen={isOpen} borderColor="gray" title="files" onClose={onClose}>
       {/* 파일 목록 */}
-      <div className="px-4 py-3 max-h-[240px] overflow-y-auto">
+      <div className="px-4 py-3 flex-1 overflow-y-auto">
         {files.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-[#666666] text-sm">업로드된 파일이 없습니다</p>
@@ -86,7 +83,7 @@ export function FilePanel({
                     : "bg-[#363636] hover:bg-[#3f3f3f]"
                 } group`}
               >
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
                   {/* 파일 아이콘 */}
                   <div className="w-6 h-6 bg-[#444444] rounded flex items-center justify-center flex-shrink-0">
                     <svg
@@ -132,9 +129,9 @@ export function FilePanel({
 
                 {/* 삭제 버튼 */}
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    onRemoveFile(file.id);
+                    await onRemoveFile(file.id);
                   }}
                   className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[#ff4444] transition-all"
                 >
@@ -203,8 +200,9 @@ export function FilePanel({
         </div>
       )}
 
-      {/* 파일 추가 버튼 */}
-      <div className="px-4 py-3 border-t border-[#444444]">
+
+      {/* 파일 추가 버튼 - sticky footer */}
+      <div className="px-4 py-3 border-t border-[#444444] flex-shrink-0 sticky bottom-0 bg-[#2f2f2f]">
         <input
           ref={fileInputRef}
           type="file"
@@ -231,22 +229,6 @@ export function FilePanel({
           <span className="text-white text-xs font-medium">추가</span>
         </label>
       </div>
-
-      <style jsx>{`
-        @keyframes expandPanel {
-          0% {
-            max-height: 0;
-            opacity: 0;
-            transform: scaleY(0.8);
-            transform-origin: top;
-          }
-          100% {
-            max-height: 500px;
-            opacity: 1;
-            transform: scaleY(1);
-          }
-        }
-      `}</style>
     </Panel>
   );
 }

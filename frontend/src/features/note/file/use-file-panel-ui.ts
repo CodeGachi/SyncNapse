@@ -3,7 +3,7 @@
  * Handles UI interactions: context menu, rename, delete, copy, keyboard shortcuts
  */
 import { useState, useRef, useEffect } from "react";
-import type { FileItem } from "./use-file-panel";
+import type { FileItem } from "@/lib/types";
 
 interface ContextMenuState {
   visible: boolean;
@@ -15,7 +15,7 @@ interface ContextMenuState {
 interface UseFilePanelUIProps {
   files: FileItem[];
   onAddFile: (file: File) => void;
-  onRemoveFile: (id: string) => void;
+  onRemoveFile: (id: string) => void | Promise<void>; // async 지원
   onRenameFile?: (id: string, newName: string) => void;
   onCopyFile?: (id: string) => void;
 }
@@ -64,8 +64,8 @@ export function useFilePanelUI({
   };
 
   // File Delete
-  const handleDelete = (fileId: string) => {
-    onRemoveFile(fileId);
+  const handleDelete = async (fileId: string) => {
+    await onRemoveFile(fileId);
     setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
   };
 
@@ -103,10 +103,10 @@ export function useFilePanelUI({
   };
 
   // Keyboard key handler
-  const handleKeyDown = (e: React.KeyboardEvent, fileId: string) => {
+  const handleKeyDown = async (e: React.KeyboardEvent, fileId: string) => {
     if (e.key === "Delete") {
       e.preventDefault();
-      onRemoveFile(fileId);
+      await onRemoveFile(fileId);
     }
     if (e.key === "F2") {
       e.preventDefault();

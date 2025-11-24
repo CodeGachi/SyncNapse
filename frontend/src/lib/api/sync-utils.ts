@@ -16,14 +16,14 @@ export async function syncFolders(
   const toUpdate: Folder[] = [];
   const toAdd: Folder[] = [];
   const toDelete: string[] = [];
-  
+
   const localMap = new Map(localFolders.map(f => [f.id, f]));
   const serverMap = new Map(serverFolders.map(f => [f.id, f]));
-  
+
   // Check server folders for updates or additions
   for (const serverFolder of serverFolders) {
     const localFolder = localMap.get(serverFolder.id);
-    
+
     if (!localFolder) {
       // 서버에만 있음 → 추가
       toAdd.push(serverFolder);
@@ -32,7 +32,7 @@ export async function syncFolders(
       toUpdate.push(serverFolder);
     }
   }
-  
+
   // Check local folders for deletions (exist locally but not on server)
   for (const localFolder of localFolders) {
     if (!serverMap.has(localFolder.id)) {
@@ -40,7 +40,7 @@ export async function syncFolders(
       toDelete.push(localFolder.id);
     }
   }
-  
+
   return { toUpdate, toAdd, toDelete };
 }
 
@@ -54,14 +54,14 @@ export async function syncNotes(
   const toUpdate: Note[] = [];
   const toAdd: Note[] = [];
   const toDelete: string[] = [];
-  
+
   const localMap = new Map(localNotes.map(n => [n.id, n]));
   const serverMap = new Map(serverNotes.map(n => [n.id, n]));
-  
+
   // Check server notes for updates or additions
   for (const serverNote of serverNotes) {
     const localNote = localMap.get(serverNote.id);
-    
+
     if (!localNote) {
       // 서버에만 있음 → 추가
       toAdd.push(serverNote);
@@ -70,7 +70,7 @@ export async function syncNotes(
       toUpdate.push(serverNote);
     }
   }
-  
+
   // Check local notes for deletions (exist locally but not on server)
   for (const localNote of localNotes) {
     if (!serverMap.has(localNote.id)) {
@@ -78,7 +78,7 @@ export async function syncNotes(
       toDelete.push(localNote.id);
     }
   }
-  
+
   return { toUpdate, toAdd, toDelete };
 }
 
@@ -95,4 +95,3 @@ export function timestampToDate(timestamp: number): Date {
 export function isoToTimestamp(isoString: string): number {
   return new Date(isoString).getTime();
 }
-

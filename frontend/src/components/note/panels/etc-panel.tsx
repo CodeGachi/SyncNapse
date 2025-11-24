@@ -11,22 +11,17 @@ import { Panel } from "./panel";
 
 interface EtcPanelProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
 type MenuType = "exam" | "summary" | null;
 
-export function EtcPanel({ isOpen }: EtcPanelProps) {
+export function EtcPanel({ isOpen, onClose }: EtcPanelProps) {
   const [selectedMenu, setSelectedMenu] = useState<MenuType>(null);
 
   return (
-    <Panel isOpen={isOpen} borderColor="green" height="h-[380px]">
+    <Panel isOpen={isOpen} borderColor="green" title="etc." onClose={onClose}>
       <div className="flex flex-col items-center p-3 gap-2.5 w-full h-full">
-      {/* 헤더 */}
-      <div className="flex flex-row justify-center items-center w-full h-[15px] flex-shrink-0">
-        <h3 className="font-bold text-xs leading-[15px] text-center text-white">
-          etc.
-        </h3>
-      </div>
 
       {/* 메인 메뉴 버튼들 */}
       {!selectedMenu && (

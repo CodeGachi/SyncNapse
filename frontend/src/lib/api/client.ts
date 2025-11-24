@@ -215,11 +215,15 @@ async function performRequest<T>(
   const timeout = config?.timeout ?? DEFAULT_TIMEOUT;
   const skipInterceptors = config?.skipInterceptors ?? false;
 
+  // Get auth token
+  const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+
   let requestConfig: RequestInit & { url: string } = {
     ...options,
     url,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     credentials: "include", // 쿠키 포함 (CORS)
