@@ -55,8 +55,6 @@ export function useCollaborativeCanvasSync({
       if (canvasData && typeof canvasData === "object") {
         (canvasData as any)[canvasKey] = canvasJSON;
       }
-
-      console.log("[Collaborative Canvas] Storage 업데이트:", canvasKey);
     },
     [canvasKey]
   );
@@ -83,7 +81,6 @@ export function useCollaborativeCanvasSync({
 
         lastSavedJSON.current = jsonString;
         updateCanvasInStorage(canvasJSON);
-        console.log("[Collaborative Canvas] 로컬 → Storage 동기화");
       } catch (error) {
         console.error("[Collaborative Canvas] Storage 동기화 실패:", error);
       }
@@ -100,18 +97,10 @@ export function useCollaborativeCanvasSync({
     // 페이지가 변경되었는지 확인
     const isPageChanged = lastLoadedKeyRef.current !== canvasKey;
 
-    console.log("[Collaborative Canvas] 🔍 Sync check - canvasKey:", canvasKey,
-      "isPageChanged:", isPageChanged,
-      "hasData:", !!canvasDataFromStorage,
-      "isUpdating:", isUpdatingFromStorage.current);
-
     if (isPageChanged) {
-      console.log("[Collaborative Canvas] 📄 페이지 전환 감지:", lastLoadedKeyRef.current, "→", canvasKey);
-
       // 캔버스 클리어 (이전 페이지 내용 제거)
       fabricCanvas.clear();
       fabricCanvas.renderAll();
-      console.log("[Collaborative Canvas] 🧹 캔버스 클리어 완료");
 
       // 캐시 리셋
       lastSavedJSON.current = null;
@@ -119,7 +108,6 @@ export function useCollaborativeCanvasSync({
 
       // 데이터가 있으면 바로 로드
       if (canvasDataFromStorage) {
-        console.log("[Collaborative Canvas] ✅ 새 페이지 데이터 발견, 즉시 로드");
         isUpdatingFromStorage.current = true;
         const storageJSON = JSON.stringify(canvasDataFromStorage);
         lastSavedJSON.current = storageJSON;
@@ -129,17 +117,13 @@ export function useCollaborativeCanvasSync({
           // 렌더링 보장을 위해 requestAnimationFrame 사용
           requestAnimationFrame(() => {
             fabricCanvas.renderAll();
-            console.log("[Collaborative Canvas] ✅ 페이지 전환 후 로드 완료, canvasKey:", canvasKey, "objects:", fabricCanvas.getObjects().length);
             setTimeout(() => {
               isUpdatingFromStorage.current = false;
             }, 600);
           });
-        }).catch((error) => {
-          console.error("[Collaborative Canvas] 로드 실패:", error);
+        }).catch(() => {
           isUpdatingFromStorage.current = false;
         });
-      } else {
-        console.log("[Collaborative Canvas] ℹ️ 새 페이지에 데이터 없음 (빈 페이지)");
       }
       return;
     }
@@ -160,7 +144,6 @@ export function useCollaborativeCanvasSync({
       return;
     }
 
-    console.log("[Collaborative Canvas] Storage → 로컬 동기화 시작 (외부 변경), canvasKey:", canvasKey);
     isUpdatingFromStorage.current = true;
     lastSavedJSON.current = storageJSON;
 
@@ -168,15 +151,13 @@ export function useCollaborativeCanvasSync({
     fabricCanvas.loadFromJSON(canvasDataFromStorage).then(() => {
       requestAnimationFrame(() => {
         fabricCanvas.renderAll();
-        console.log("[Collaborative Canvas] Storage → 로컬 동기화 완료, canvasKey:", canvasKey, "objects:", fabricCanvas.getObjects().length);
         setTimeout(() => {
           isUpdatingFromStorage.current = false;
         }, 600);
       });
-    }).catch((error) => {
-      console.error("[Collaborative Canvas] 로컬 동기화 실패:", error);
+    }).catch(() => {
       isUpdatingFromStorage.current = false;
-    })
+    });
   }, [canvasDataFromStorage, fabricCanvas, isEnabled, canvasKey]);
 
   // Fabric.js 이벤트 리스너: 캔버스 변경 감지
