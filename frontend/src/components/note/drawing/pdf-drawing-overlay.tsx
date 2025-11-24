@@ -15,10 +15,10 @@ import React, {
 } from "react";
 import * as fabric from "fabric";
 import { useDrawStore } from "@/stores/draw-store";
-import { useToolsStore } from "@/stores/tools-store";
 import type { DrawingData } from "@/lib/types/drawing";
-import { createShapeByClick, type ClickShapeInfo, type ShapeType } from "@/lib/utils/shapes";
+import { createShapeByDrag, type DragShapeInfo, type ShapeType } from "@/lib/utils/shapes";
 import { CollaborativeCanvasWrapper } from "./collaborative-canvas-wrapper";
+import { getDrawing } from "@/lib/db/drawings";
 
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;
@@ -53,8 +53,8 @@ export const PDFDrawingOverlay = forwardRef<
       noteId,
       fileId,
       pageNum,
-      containerWidth,
-      containerHeight,
+      containerWidth: _containerWidth,
+      containerHeight: _containerHeight,
       pdfScale,
       renderedWidth,
       renderedHeight,
@@ -64,6 +64,9 @@ export const PDFDrawingOverlay = forwardRef<
     },
     ref
   ) => {
+    // 🔍 DEBUG: 컴포넌트 렌더링 로그
+    console.log('[Drawing] 🔄 Render - pageNum:', pageNum, 'noteId:', noteId, 'fileId:', fileId, 'isCollaborative:', isCollaborative);
+
     // div container를 사용 - Fabric.js가 canvas를 동적 생성
     const containerRef = useRef<HTMLDivElement>(null);
     const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -71,10 +74,6 @@ export const PDFDrawingOverlay = forwardRef<
 
     // 도구 상태 직접 구독
     const drawStore = useDrawStore();
-    const toolsStore = useToolsStore();
-    const currentTool = drawStore.type;
-    const penColor = drawStore.lineColor;
-    const penSize = drawStore.lineWidth;
 
     // syncToStorage 함수 ref (협업 래퍼에서 설정됨)
     const syncToStorageRef = useRef<((canvas: fabric.Canvas) => void) | null>(null);
@@ -82,8 +81,22 @@ export const PDFDrawingOverlay = forwardRef<
     // 현재 캔버스 크기 추적 (리사이즈 감지용)
     const currentCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
 
+    // 초기 캔버스 크기 저장 (원본 기준 스케일링용)
+    const initialCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
+
     // div container 크기 (캔버스와 동기화)
     const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null);
+
+    // Undo/Redo 스택 (createdAt 타임스탬프 기반)
+    const undoStackRef = useRef<fabric.FabricObject[]>([]);  // 삭제된 객체들 (Redo용)
+    const lastActionRef = useRef<'undo' | 'redo' | null>(null);
+
+    // 페이지 전환 추적 (BlockNote 패턴)
+    const prevPageNumRef = useRef<number>(pageNum);
+    const isInitialMountRef = useRef<boolean>(true);
+    const hasLoadedRef = useRef<boolean>(false);
+    // 콘텐츠 로드 트리거 상태
+    const [shouldLoadContent, setShouldLoadContent] = useState<boolean>(true);
 
     // Canvas 초기화 (최초 1회만 실행)
     useEffect(() => {
@@ -118,10 +131,8 @@ export const PDFDrawingOverlay = forwardRef<
 
       fabricCanvasRef.current = canvas;
       currentCanvasSizeRef.current = { width: finalWidth, height: finalHeight };
+      initialCanvasSizeRef.current = { width: finalWidth, height: finalHeight }; // 초기 크기 저장
       setContainerSize({ width: finalWidth, height: finalHeight });
-
-      // 초기 히스토리 저장
-      useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
 
       return () => {
         try {
@@ -151,20 +162,95 @@ export const PDFDrawingOverlay = forwardRef<
       };
     }, [containerRef, isEnabled, isPdf]);
 
-    // Canvas 크기 변경 처리 (캔버스 재생성 없이 리사이즈)
+    // 페이지 전환 감지 (BlockNote 패턴)
+    useEffect(() => {
+      // 초기 마운트 시 스킵
+      if (isInitialMountRef.current) {
+        isInitialMountRef.current = false;
+        prevPageNumRef.current = pageNum;
+        console.log('[Drawing] ⏭️ Initial mount, page:', pageNum);
+        return;
+      }
+
+      // 실제 페이지 변경 시에만 트리거
+      if (prevPageNumRef.current !== pageNum) {
+        console.log('[Drawing] 📄 Page changed:', prevPageNumRef.current, '->', pageNum);
+        prevPageNumRef.current = pageNum;
+
+        // Undo/Redo 스택 초기화
+        undoStackRef.current = [];
+        lastActionRef.current = null;
+
+        // 비협업 모드에서만 캔버스 클리어 및 IndexedDB 로드
+        // (협업 모드에서는 collaborative-canvas-sync.tsx가 처리)
+        if (!isCollaborative) {
+          const canvas = fabricCanvasRef.current;
+          if (canvas) {
+            canvas.clear();
+            canvas.renderAll();
+            console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+          }
+          hasLoadedRef.current = false;
+          setShouldLoadContent(true);
+        }
+      }
+    }, [pageNum, isCollaborative]);
+
+    // 페이지 데이터 로드 (shouldLoadContent 트리거)
+    useEffect(() => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas || !noteId || !fileId) return;
+      if (isCollaborative) return;
+      if (!shouldLoadContent || hasLoadedRef.current) return;
+
+      const loadPageData = async () => {
+        console.log(`[Drawing] 🔍 Loading page ${pageNum} data...`);
+
+        try {
+          // IndexedDB에서 해당 페이지의 필기 데이터 로드
+          const drawingData = await getDrawing(noteId, fileId, pageNum);
+
+          if (drawingData?.canvas) {
+            console.log(`[Drawing] ✅ Page ${pageNum} data found, loading...`);
+
+            // Fabric.js 캔버스에 데이터 로드
+            canvas.loadFromJSON(drawingData.canvas, () => {
+              canvas.renderAll();
+              console.log(`[Drawing] ✅ Page ${pageNum} data loaded`);
+            });
+          } else {
+            console.log(`[Drawing] ℹ️ Page ${pageNum} has no saved data`);
+          }
+
+          hasLoadedRef.current = true;
+          setShouldLoadContent(false);
+        } catch (error) {
+          console.error(`[Drawing] ❌ Page ${pageNum} load failed:`, error);
+          setShouldLoadContent(false);
+        }
+      };
+
+      loadPageData();
+    }, [shouldLoadContent, pageNum, noteId, fileId, isCollaborative]);
+
+    // Canvas 크기 변경 처리 (줌/리사이즈)
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas || !renderedWidth || !renderedHeight) return;
 
       const prevSize = currentCanvasSizeRef.current;
+
+      // 첫 실행 시 초기화
       if (!prevSize) {
         currentCanvasSizeRef.current = { width: renderedWidth, height: renderedHeight };
+        initialCanvasSizeRef.current = { width: renderedWidth, height: renderedHeight };
         return;
       }
 
       // 크기가 같으면 무시
       if (prevSize.width === renderedWidth && prevSize.height === renderedHeight) return;
 
+      // 스케일 계산
       const scaleX = renderedWidth / prevSize.width;
       const scaleY = renderedHeight / prevSize.height;
 
@@ -177,12 +263,6 @@ export const PDFDrawingOverlay = forwardRef<
         obj.scaleY = (obj.scaleY || 1) * scaleY;
         obj.left = (obj.left || 0) * scaleX;
         obj.top = (obj.top || 0) * scaleY;
-
-        // Path 객체 (펜/형광펜)의 경우 strokeWidth도 조정
-        if (obj.type === 'path') {
-          obj.strokeWidth = (obj.strokeWidth || 1) * Math.min(scaleX, scaleY);
-        }
-
         obj.setCoords();
       });
 
@@ -251,6 +331,7 @@ export const PDFDrawingOverlay = forwardRef<
         if (!canvas) return;
 
         try {
+          // 캔버스 JSON 변환
           const canvasJSON = canvas.toJSON();
 
           // Liveblocks 협업 동기화 (실시간 협업용)
@@ -281,53 +362,8 @@ export const PDFDrawingOverlay = forwardRef<
       }, 1000);
     }, [onSave, noteId, fileId, pageNum, isCollaborative]);
 
-    // 클릭 이벤트로 도형 생성 (드래그 불필요)
-    const handleClick = useCallback(
-      (event: any) => {
-        if (!isEnabled || !isDrawingMode || !fabricCanvasRef.current) return;
 
-        const canvas = fabricCanvasRef.current;
-        const toolType = drawStore.type as ShapeType;
-
-        // 펜/형광펜/지우개/hand 모드는 별도 처리
-        if (toolType === 'pen' || toolType === 'highlighter' || toolType === 'eraser' || toolType === 'hand') {
-          return;
-        }
-
-        const pos = canvas.getPointer(event.e as MouseEvent);
-
-        // 캔버스 경계 체크
-        const adjustedHeight = Math.max(containerHeight, 100);
-        if (pos.x < 0 || pos.x > containerWidth || pos.y < 0 || pos.y > adjustedHeight) {
-          return;
-        }
-
-        // 히스토리 저장 (도형 추가 전)
-        useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
-
-        // 클릭한 위치에 고정 크기 도형 생성 - PDF 스케일 적용
-        const shapeInfo: ClickShapeInfo = {
-          x: pos.x,
-          y: pos.y,
-          lineColor: drawStore.lineColor,
-          lineWidth: drawStore.lineWidth * pdfScale,
-        };
-
-        const shape = createShapeByClick(shapeInfo, toolType);
-
-        if (shape) {
-          canvas.add(shape);
-          canvas.setActiveObject(shape); // 생성 후 바로 선택 상태로
-          canvas.renderAll();
-
-          // 자동 저장 트리거
-          triggerAutoSave();
-        }
-      },
-      [isEnabled, isDrawingMode, drawStore.type, drawStore.lineColor, drawStore.lineWidth, containerWidth, containerHeight, triggerAutoSave, pdfScale]
-    );
-
-    // Canvas 클릭 이벤트 핸들러 바인딩 (지우개 + 도형)
+    // Canvas 이벤트 핸들러 바인딩 (지우개 + 도형 드래그)
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas || !isDrawingMode) return;
@@ -342,21 +378,23 @@ export const PDFDrawingOverlay = forwardRef<
       // 지우개 모드: 드래그하면서 지나가는 객체 삭제
       let isErasing = false;
       let erasedObjects: fabric.FabricObject[] = [];
-      let snapshotSaved = false;
 
+      // 도형 드래그 모드
+      let isDrawingShape = false;
+      let shapeStartPos: { x: number; y: number } | null = null;
+      let previewShape: fabric.Object | null = null;
+
+      const toolType = drawStore.type as ShapeType;
+      const isShapeMode = toolType === 'solidLine' || toolType === 'arrowLine' || toolType === 'rect' || toolType === 'circle';
+
+      // 지우개 핸들러
       const onEraserDown = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
         if (drawStore.type !== 'eraser') return;
         isErasing = true;
         erasedObjects = [];
-        snapshotSaved = false;
 
-        // 드래그 시작 시 타겟이 있으면 삭제
         const target = opt.target;
         if (target && !(target as any).isPreview) {
-          if (!snapshotSaved) {
-            useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
-            snapshotSaved = true;
-          }
           erasedObjects.push(target);
           canvas.remove(target);
           canvas.renderAll();
@@ -368,10 +406,6 @@ export const PDFDrawingOverlay = forwardRef<
 
         const target = opt.target;
         if (target && !(target as any).isPreview && !erasedObjects.includes(target)) {
-          if (!snapshotSaved) {
-            useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
-            snapshotSaved = true;
-          }
           erasedObjects.push(target);
           canvas.remove(target);
           canvas.renderAll();
@@ -381,38 +415,127 @@ export const PDFDrawingOverlay = forwardRef<
       const onEraserUp = () => {
         if (drawStore.type !== 'eraser') return;
         if (isErasing && erasedObjects.length > 0) {
-          console.log('[Eraser] Objects removed:', erasedObjects.length);
           triggerAutoSave();
         }
         isErasing = false;
         erasedObjects = [];
-        snapshotSaved = false;
       };
 
-      // 지우개 모드
+      // 도형 드래그 핸들러
+      const onShapeDown = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+        if (!isShapeMode) return;
+        // 기존 객체 클릭 시 무시 (선택 허용)
+        if (opt.target) return;
+
+        const pos = canvas.getPointer(opt.e as MouseEvent);
+        isDrawingShape = true;
+        shapeStartPos = { x: pos.x, y: pos.y };
+      };
+
+      const onShapeMove = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+        if (!isShapeMode || !isDrawingShape || !shapeStartPos) return;
+
+        const pos = canvas.getPointer(opt.e as MouseEvent);
+
+        // 기존 프리뷰 제거
+        if (previewShape) {
+          canvas.remove(previewShape);
+        }
+
+        // 새 프리뷰 생성
+        const shapeInfo: DragShapeInfo = {
+          startX: shapeStartPos.x,
+          startY: shapeStartPos.y,
+          endX: pos.x,
+          endY: pos.y,
+          lineColor: drawStore.lineColor,
+          lineWidth: drawStore.lineWidth * pdfScale,
+        };
+
+        previewShape = createShapeByDrag(shapeInfo, toolType);
+        if (previewShape) {
+          (previewShape as any).isPreview = true;
+          previewShape.selectable = false;
+          previewShape.evented = false;
+          previewShape.opacity = 0.5;
+          canvas.add(previewShape);
+          canvas.renderAll();
+        }
+      };
+
+      const onShapeUp = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+        if (!isShapeMode || !isDrawingShape || !shapeStartPos) return;
+
+        const pos = canvas.getPointer(opt.e as MouseEvent);
+
+        // 프리뷰 제거
+        if (previewShape) {
+          canvas.remove(previewShape);
+          previewShape = null;
+        }
+
+        // 최종 도형 생성
+        const shapeInfo: DragShapeInfo = {
+          startX: shapeStartPos.x,
+          startY: shapeStartPos.y,
+          endX: pos.x,
+          endY: pos.y,
+          lineColor: drawStore.lineColor,
+          lineWidth: drawStore.lineWidth * pdfScale,
+        };
+
+        const finalShape = createShapeByDrag(shapeInfo, toolType);
+        if (finalShape) {
+          // 생성 시간 메타데이터 추가
+          (finalShape as any).createdAt = Date.now();
+          // 새로운 도형 생성 시 Redo 스택 초기화
+          undoStackRef.current = [];
+
+          canvas.add(finalShape);
+          canvas.setActiveObject(finalShape);
+          canvas.renderAll();
+          triggerAutoSave();
+        }
+
+        isDrawingShape = false;
+        shapeStartPos = null;
+      };
+
+      // 이벤트 등록
       if (drawStore.type === 'eraser') {
         canvas.on('mouse:down', onEraserDown);
         canvas.on('mouse:move', onEraserMove);
         canvas.on('mouse:up', onEraserUp);
-      } else {
-        // 도형 모드
-        canvas.on('mouse:down', handleClick);
+      } else if (isShapeMode) {
+        canvas.on('mouse:down', onShapeDown);
+        canvas.on('mouse:move', onShapeMove);
+        canvas.on('mouse:up', onShapeUp);
       }
 
       return () => {
         canvas.off('mouse:down', onEraserDown);
         canvas.off('mouse:move', onEraserMove);
         canvas.off('mouse:up', onEraserUp);
-        canvas.off('mouse:down', handleClick);
+        canvas.off('mouse:down', onShapeDown);
+        canvas.off('mouse:move', onShapeMove);
+        canvas.off('mouse:up', onShapeUp);
       };
-    }, [handleClick, drawStore.type, isDrawingMode, isEnabled, triggerAutoSave]);
+    }, [drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode, isEnabled, triggerAutoSave, pdfScale]);
 
     // Fabric.js 자유 그리기 이벤트 처리 (펜/형광펜 모드용)
     useEffect(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas || !isDrawingMode) return;
 
-      const handlePathCreated = () => {
+      const handlePathCreated = (e: { path: fabric.FabricObject }) => {
+        const path = e.path;
+        if (path) {
+          // 생성 시간 메타데이터 추가
+          (path as any).createdAt = Date.now();
+          // 새로운 그리기 시 Redo 스택 초기화
+          undoStackRef.current = [];
+          lastActionRef.current = null;
+        }
         // 펜/형광펜으로 그린 후 자동 저장
         triggerAutoSave();
       };
@@ -437,42 +560,67 @@ export const PDFDrawingOverlay = forwardRef<
       };
     }, []);
 
-    // Undo 구현
+    // Undo 구현 (createdAt 기준으로 가장 최근 객체 삭제)
     const handleUndo = useCallback(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
 
-      const snapshot = useToolsStore.getState().undo();
-      if (snapshot) {
-        canvas.loadFromJSON(snapshot, () => {
-          canvas.renderAll();
-        });
-      }
-    }, []);
+      const objects = canvas.getObjects();
+      if (objects.length === 0) return;
 
-    // Redo 구현
+      // createdAt 기준으로 가장 최근 객체 찾기
+      let latestObj: fabric.FabricObject | null = null;
+      let latestTime = 0;
+
+      objects.forEach((obj) => {
+        const createdAt = (obj as any).createdAt || 0;
+        if (createdAt > latestTime) {
+          latestTime = createdAt;
+          latestObj = obj;
+        }
+      });
+
+      if (latestObj) {
+        // Redo 스택에 추가
+        undoStackRef.current.push(latestObj);
+        lastActionRef.current = 'undo';
+        // 캔버스에서 제거
+        canvas.remove(latestObj);
+        canvas.renderAll();
+        triggerAutoSave();
+      }
+    }, [triggerAutoSave]);
+
+    // Redo 구현 (Undo 스택에서 복원)
     const handleRedo = useCallback(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
 
-      const snapshot = useToolsStore.getState().redo();
-      if (snapshot) {
-        canvas.loadFromJSON(snapshot, () => {
-          canvas.renderAll();
-        });
+      if (undoStackRef.current.length === 0) return;
+
+      // Undo 스택에서 마지막 객체 꺼내기
+      const objToRestore = undoStackRef.current.pop();
+      if (objToRestore) {
+        lastActionRef.current = 'redo';
+        canvas.add(objToRestore);
+        canvas.renderAll();
+        triggerAutoSave();
       }
-    }, []);
+    }, [triggerAutoSave]);
 
     // Clear 구현
     const handleClear = useCallback(() => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
 
+      // Undo 스택 초기화
+      undoStackRef.current = [];
+      lastActionRef.current = null;
+
       canvas.clear();
-      useToolsStore.getState().clearUndo();
-      useToolsStore.getState().clearRedo();
-      useToolsStore.getState().saveSnapshot(JSON.stringify(canvas.toJSON()));
-    }, []);
+      canvas.renderAll();
+      triggerAutoSave();
+    }, [triggerAutoSave]);
 
     // Expose methods via ref
     useImperativeHandle(
@@ -484,9 +632,6 @@ export const PDFDrawingOverlay = forwardRef<
       }),
       [handleUndo, handleRedo, handleClear]
     );
-
-    // 캔버스는 전체 높이를 사용 (PDF 뷰어와 동일한 높이)
-    const canvasHeight = Math.max(containerHeight, 100);
 
     return (
       <>
@@ -513,8 +658,6 @@ export const PDFDrawingOverlay = forwardRef<
             zIndex: isDrawingMode ? 5 : 1,
             // 항상 표시 (뷰어 모드에서도 필기 기록이 보임)
             display: isEnabled ? "block" : "none",
-            // DEBUG: Drawing overlay 테두리 (빨간색)
-            outline: "3px solid red",
           }}
         />
 

@@ -341,8 +341,6 @@ export function CustomPdfViewer({
                 style={{
                   display: loading || error ? "none" : "block",
                   imageRendering: scale > 1.5 ? "auto" : "crisp-edges",
-                  // DEBUG: PDF 캔버스 테두리 (파란색)
-                  outline: "3px solid blue",
                 }}
               />
 

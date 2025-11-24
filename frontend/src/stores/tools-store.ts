@@ -36,13 +36,21 @@ export const useToolsStore = create<ToolsState>()(
     (set, get) => ({
       ...initialState,
 
-      // 현재 스냅샷 저장
-      saveSnapshot: (snapshot: string) => {
-        set((state) => ({
-          snapshot,
-          // 새 액션이 들어오면 redo 배열 초기화
-          redoArr: [],
-        }));
+      // 현재 스냅샷 저장 (이전 스냅샷을 undo 스택에 push)
+      saveSnapshot: (newSnapshot: string) => {
+        set((state) => {
+          // 이전 스냅샷이 있으면 undo 스택에 저장
+          const newUndoArr = state.snapshot
+            ? [...state.undoArr, state.snapshot]
+            : state.undoArr;
+
+          return {
+            snapshot: newSnapshot,
+            undoArr: newUndoArr,
+            // 새 액션이 들어오면 redo 배열 초기화
+            redoArr: [],
+          };
+        });
       },
 
       // Undo 스택에 추가

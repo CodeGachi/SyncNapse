@@ -34,10 +34,11 @@ export function useCollaborativeCanvasSync({
   const canvasKey = getCanvasKey(fileId, pageNum);
   const isUpdatingFromStorage = useRef(false); // 무한 루프 방지
 
-  // Liveblocks Storage에서 캔버스 데이터 가져오기
-  const canvasDataFromStorage = useStorage(
-    (root) => root.canvasData?.[canvasKey] || null
-  );
+  // Liveblocks Storage에서 전체 캔버스 데이터 가져오기 (canvasKey 변경에도 안정적으로 동작)
+  const allCanvasData = useStorage((root) => root.canvasData || null);
+
+  // 현재 페이지의 캔버스 데이터 (canvasKey로 접근)
+  const canvasDataFromStorage = allCanvasData?.[canvasKey] || null;
 
   // Storage에 캔버스 데이터 저장 (Mutation)
   const updateCanvasInStorage = useMutation(
@@ -60,13 +61,27 @@ export function useCollaborativeCanvasSync({
     [canvasKey]
   );
 
+  // 마지막으로 Storage에 저장된 JSON (중복 저장 방지)
+  const lastSavedJSON = useRef<string | null>(null);
+  // 마지막으로 로드한 canvasKey 추적 (페이지별 로드 보장)
+  const lastLoadedKeyRef = useRef<string | null>(null);
+
   // 로컬 캔버스 → Storage로 동기화 (디바운스)
   const syncToStorage = useCallback(
     (canvas: fabric.Canvas) => {
       if (!isEnabled || !canvas || isUpdatingFromStorage.current) return;
 
       try {
+        // 캔버스 JSON 변환
         const canvasJSON = canvas.toJSON();
+        const jsonString = JSON.stringify(canvasJSON);
+
+        // 이전에 저장한 것과 같으면 스킵 (중복 저장 방지)
+        if (lastSavedJSON.current === jsonString) {
+          return;
+        }
+
+        lastSavedJSON.current = jsonString;
         updateCanvasInStorage(canvasJSON);
         console.log("[Collaborative Canvas] 로컬 → Storage 동기화");
       } catch (error) {
@@ -78,48 +93,110 @@ export function useCollaborativeCanvasSync({
 
   // Storage → 로컬 캔버스로 동기화
   useEffect(() => {
-    if (
-      !isEnabled ||
-      !fabricCanvas ||
-      !canvasDataFromStorage ||
-      isUpdatingFromStorage.current
-    ) {
+    if (!isEnabled || !fabricCanvas) {
       return;
     }
 
-    console.log("[Collaborative Canvas] Storage → 로컬 동기화 시작");
+    // 페이지가 변경되었는지 확인
+    const isPageChanged = lastLoadedKeyRef.current !== canvasKey;
+
+    console.log("[Collaborative Canvas] 🔍 Sync check - canvasKey:", canvasKey,
+      "isPageChanged:", isPageChanged,
+      "hasData:", !!canvasDataFromStorage,
+      "isUpdating:", isUpdatingFromStorage.current);
+
+    if (isPageChanged) {
+      console.log("[Collaborative Canvas] 📄 페이지 전환 감지:", lastLoadedKeyRef.current, "→", canvasKey);
+
+      // 캔버스 클리어 (이전 페이지 내용 제거)
+      fabricCanvas.clear();
+      fabricCanvas.renderAll();
+      console.log("[Collaborative Canvas] 🧹 캔버스 클리어 완료");
+
+      // 캐시 리셋
+      lastSavedJSON.current = null;
+      lastLoadedKeyRef.current = canvasKey;
+
+      // 데이터가 있으면 바로 로드
+      if (canvasDataFromStorage) {
+        console.log("[Collaborative Canvas] ✅ 새 페이지 데이터 발견, 즉시 로드");
+        isUpdatingFromStorage.current = true;
+        const storageJSON = JSON.stringify(canvasDataFromStorage);
+        lastSavedJSON.current = storageJSON;
+
+        // Fabric.js v6: loadFromJSON은 Promise 반환
+        fabricCanvas.loadFromJSON(canvasDataFromStorage).then(() => {
+          // 렌더링 보장을 위해 requestAnimationFrame 사용
+          requestAnimationFrame(() => {
+            fabricCanvas.renderAll();
+            console.log("[Collaborative Canvas] ✅ 페이지 전환 후 로드 완료, canvasKey:", canvasKey, "objects:", fabricCanvas.getObjects().length);
+            setTimeout(() => {
+              isUpdatingFromStorage.current = false;
+            }, 600);
+          });
+        }).catch((error) => {
+          console.error("[Collaborative Canvas] 로드 실패:", error);
+          isUpdatingFromStorage.current = false;
+        });
+      } else {
+        console.log("[Collaborative Canvas] ℹ️ 새 페이지에 데이터 없음 (빈 페이지)");
+      }
+      return;
+    }
+
+    // 페이지 전환이 아닌 경우: 다른 사용자의 변경사항 동기화
+    if (isUpdatingFromStorage.current) {
+      return;
+    }
+
+    if (!canvasDataFromStorage) {
+      return;
+    }
+
+    // 실제로 데이터가 변경되었는지 확인 (불필요한 로드 방지)
+    const storageJSON = JSON.stringify(canvasDataFromStorage);
+    if (lastSavedJSON.current === storageJSON) {
+      // 이미 같은 데이터 - 스킵
+      return;
+    }
+
+    console.log("[Collaborative Canvas] Storage → 로컬 동기화 시작 (외부 변경), canvasKey:", canvasKey);
     isUpdatingFromStorage.current = true;
+    lastSavedJSON.current = storageJSON;
 
-    try {
-      // Storage의 캔버스 데이터를 로컬 캔버스에 로드
-      fabricCanvas.loadFromJSON(canvasDataFromStorage, () => {
+    // Fabric.js v6: loadFromJSON은 Promise 반환
+    fabricCanvas.loadFromJSON(canvasDataFromStorage).then(() => {
+      requestAnimationFrame(() => {
         fabricCanvas.renderAll();
-        console.log("[Collaborative Canvas] Storage → 로컬 동기화 완료");
-
-        // 짧은 딜레이 후 플래그 해제 (다음 변경 감지 가능하도록)
+        console.log("[Collaborative Canvas] Storage → 로컬 동기화 완료, canvasKey:", canvasKey, "objects:", fabricCanvas.getObjects().length);
         setTimeout(() => {
           isUpdatingFromStorage.current = false;
-        }, 100);
+        }, 600);
       });
-    } catch (error) {
+    }).catch((error) => {
       console.error("[Collaborative Canvas] 로컬 동기화 실패:", error);
       isUpdatingFromStorage.current = false;
-    }
-  }, [canvasDataFromStorage, fabricCanvas, isEnabled]);
+    })
+  }, [canvasDataFromStorage, fabricCanvas, isEnabled, canvasKey]);
 
   // Fabric.js 이벤트 리스너: 캔버스 변경 감지
   useEffect(() => {
     if (!fabricCanvas || !isEnabled) return;
 
-    const handleCanvasModified = () => {
-      // 디바운스 (300ms)
-      if (syncToStorage) {
-        const timer = setTimeout(() => {
-          syncToStorage(fabricCanvas);
-        }, 300);
+    let debounceTimer: NodeJS.Timeout | null = null;
 
-        return () => clearTimeout(timer);
+    const handleCanvasModified = () => {
+      // Storage에서 업데이트 중이면 무시 (무한 루프 방지)
+      if (isUpdatingFromStorage.current) return;
+
+      // 디바운스 (500ms)
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
       }
+
+      debounceTimer = setTimeout(() => {
+        syncToStorage(fabricCanvas);
+      }, 500);
     };
 
     // Fabric.js 이벤트 리스너 등록
@@ -129,6 +206,9 @@ export function useCollaborativeCanvasSync({
     fabricCanvas.on("path:created", handleCanvasModified); // 펜 그리기
 
     return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
       fabricCanvas.off("object:added", handleCanvasModified);
       fabricCanvas.off("object:modified", handleCanvasModified);
       fabricCanvas.off("object:removed", handleCanvasModified);
