@@ -66,7 +66,8 @@ export interface DBNoteContent {
   noteId: string;
   pageId: string;
   blocks: any[]; // NoteBlock[]
-  updatedAt: number;
+  updatedAt: number; // 마지막 수정 시간 (로컬 또는 서버)
+  syncedAt?: number; // 백엔드와 마지막 동기화된 시간
 }
 
 export interface DBRecording {

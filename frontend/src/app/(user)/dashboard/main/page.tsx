@@ -1,9 +1,24 @@
-import { DashboardMainContent } from "@/components/dashboard/pages/main/dashboard-main-content";
+"use client";
+
+import { useEffect } from "react";
+import { NewMainContent } from "@/components/dashboard/new-main-content";
+import { useDashboardContext } from "@/providers/dashboard-context";
+import { useFolders } from "@/features/dashboard";
 
 export default function DashboardPage() {
-  return (
-    <main className="flex-1 overflow-y-auto p-8">
-      <DashboardMainContent />
-    </main>
-  );
+  const { selectedFolderId, setSelectedFolderId } = useDashboardContext();
+  const { folders, isLoading } = useFolders();
+
+  // Auto-select Root folder on first visit
+  useEffect(() => {
+    if (!isLoading && selectedFolderId === null && folders.length > 0) {
+      const rootFolder = folders.find(f => f.name === "Root" && f.parentId === null);
+      if (rootFolder) {
+        console.log('[DashboardPage] Auto-selecting Root folder:', rootFolder.id);
+        setSelectedFolderId(rootFolder.id);
+      }
+    }
+  }, [isLoading, selectedFolderId, folders, setSelectedFolderId]);
+
+  return <NewMainContent selectedFolderId={selectedFolderId} />;
 }

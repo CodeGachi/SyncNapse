@@ -17,13 +17,15 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
 
-  // Initialize when modal opens
+  // Initialize when modal opens - default to Root folder ID
   useEffect(() => {
     if (isOpen) {
       setFolderName("");
-      setSelectedParentId(null);
+      // Root 폴더 ID를 기본값으로 설정 (null 대신)
+      const rootFolderId = folderTree.length > 0 ? folderTree[0].folder.id : null;
+      setSelectedParentId(rootFolderId);
     }
-  }, [isOpen]);
+  }, [isOpen, folderTree]);
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders((prev) => {
@@ -55,14 +57,16 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
   };
 
   const getSelectedLocationText = () => {
-    if (selectedParentId === null) return "루트";
+    // Root 폴더 ID와 비교하거나 null인 경우 "Root" 반환
+    const rootFolderId = folderTree.length > 0 ? folderTree[0].folder.id : null;
+    if (selectedParentId === null || selectedParentId === rootFolderId) return "Root";
 
     const findFolder = (nodes: FolderTreeNode[]): string | null => {
       for (const node of nodes) {
         if (node.folder.id === selectedParentId) {
-          // If the folder is the "Root" system folder, display it as "루트" instead
+          // If the folder is the "Root" system folder, display it as "Root" instead
           if (node.folder.name === "Root" && node.folder.parentId === null) {
-            return "루트";
+            return "Root";
           }
           return node.folder.name;
         }
@@ -73,7 +77,7 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
       }
       return null;
     };
-    return findFolder(folderTree) || "루트";
+    return findFolder(folderTree) || "Root";
   };
 
   return {

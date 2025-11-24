@@ -5,92 +5,392 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/use-auth";
+import { updateUserProfile } from "@/lib/api/services/auth.api";
+
+// 모달 타입
+type ModalType =
+  | { type: "info"; title: string; message: string }
+  | { type: "success"; title: string; message: string }
+  | { type: "error"; title: string; message: string }
+  | { type: "confirm"; title: string; message: string; onConfirm: () => void }
+  | null;
 
 export function ProfileContent() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // 편집 모드 상태
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 모달 상태
+  const [modal, setModal] = useState<ModalType>(null);
+
+  // user가 로드되면 editName 초기화
+  useEffect(() => {
+    if (user?.name) {
+      setEditName(user.name);
+    }
+  }, [user?.name]);
+
+  // 모달 닫기
+  const closeModal = () => setModal(null);
+
+  // 저장 핸들러
+  const handleSave = async () => {
+    if (!editName.trim()) {
+      setModal({
+        type: "error",
+        title: "입력 오류",
+        message: "이름을 입력해주세요.",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // 백엔드 API로 사용자 정보 업데이트
+      await updateUserProfile({ displayName: editName.trim() });
+
+      // 사용자 정보 캐시 무효화 (사이드바도 업데이트됨)
+      await queryClient.invalidateQueries({ queryKey: ["auth", "currentUser"] });
+
+      setModal({
+        type: "success",
+        title: "저장 완료",
+        message: "프로필이 저장되었습니다.",
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("프로필 저장 실패:", error);
+      setModal({
+        type: "error",
+        title: "저장 실패",
+        message: "프로필 저장에 실패했습니다.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 취소 핸들러
+  const handleCancel = () => {
+    setEditName(user?.name || "");
+    setIsEditing(false);
+  };
+
+  // 프로필 이미지 변경 핸들러
+  const handleImageChange = () => {
+    setModal({
+      type: "info",
+      title: "준비 중",
+      message: "프로필 이미지 변경 기능은 준비 중입니다.",
+    });
+  };
+
+  // 알림 설정 핸들러
+  const handleNotificationSettings = () => {
+    setModal({
+      type: "info",
+      title: "준비 중",
+      message: "알림 설정 기능은 준비 중입니다.",
+    });
+  };
+
+  // 계정 삭제 핸들러
+  const handleDeleteAccount = () => {
+    setModal({
+      type: "confirm",
+      title: "계정 삭제",
+      message: "정말 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
+      onConfirm: () => {
+        setModal({
+          type: "info",
+          title: "준비 중",
+          message: "계정 삭제 기능은 준비 중입니다.",
+        });
+      },
+    });
+  };
+
   return (
-    <main className="flex-1 overflow-y-auto p-8">
-      <h1 className="text-3xl font-bold text-white mb-8">My Profile</h1>
+    <div className="flex flex-col w-full h-screen">
+      {/* Header */}
+      <div className="flex flex-row items-center px-6 py-4 h-[74px] bg-[#2F2F2F] border-b border-[#575757]">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mr-4"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15.8333 10H4.16666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9.99999 15.8333L4.16666 10L9.99999 4.16666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <h1 className="text-white text-xl font-bold">마이페이지</h1>
+      </div>
 
-      <div className="bg-[#2F2F2F] rounded-xl p-8 max-w-2xl">
-        {/* Profile Image */}
-        <div className="flex items-center gap-6 mb-8">
-          {user?.picture ? (
-            <Image
-              src={user.picture}
-              alt={user.name}
-              width={96}
-              height={96}
-              className="rounded-full"
-            />
-          ) : (
-            <div className="w-24 h-24 bg-gray-500 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              {user?.name?.[0]?.toUpperCase() || "U"}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-8 bg-[#262626]">
+        <div className="max-w-2xl mx-auto">
+          {/* Profile Card */}
+          <div className="bg-[#2F2F2F] rounded-xl p-8 border border-[#575757]">
+            {/* Profile Image Section */}
+            <div className="flex items-center gap-6 mb-8 pb-8 border-b border-[#575757]">
+              <div className="relative">
+                {user?.picture ? (
+                  <Image
+                    src={user.picture}
+                    alt={user.name}
+                    width={96}
+                    height={96}
+                    className="rounded-full border-2 border-[#AFC02B]"
+                  />
+                ) : (
+                  <div className="w-24 h-24 bg-[#AFC02B] rounded-full flex items-center justify-center text-black text-3xl font-bold">
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
+                {/* 프로필 이미지 변경 버튼 (편집 모드일 때만) */}
+                {isEditing && (
+                  <button
+                    className="absolute bottom-0 right-0 w-8 h-8 bg-[#AFC02B] rounded-full flex items-center justify-center hover:bg-[#9FB025] transition-colors"
+                    onClick={handleImageChange}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2L14 4L8 10H6V8L12 2Z" fill="black"/>
+                      <path d="M2 14H14" stroke="black" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-white mb-1">
+                  {user?.name || "사용자"}
+                </h2>
+                <p className="text-gray-400 text-sm">{user?.email || "user@example.com"}</p>
+              </div>
             </div>
-          )}
-          <div>
-            <h2 className="text-2xl font-bold text-white">
-              {user?.name || "User"}
-            </h2>
-            <p className="text-gray-400">{user?.email || "user@example.com"}</p>
-          </div>
-        </div>
 
-        {/* Profile Information */}
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Full Name
-            </label>
-            <div className="bg-[#191919] text-white px-4 py-3 rounded-lg">
-              {user?.name || "N/A"}
+            {/* Profile Information */}
+            <div className="space-y-6">
+              {/* 이름 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  이름
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-[#262626] text-white px-4 py-3 rounded-lg border border-[#575757] outline-none focus:border-[#AFC02B] transition-colors"
+                    placeholder="이름을 입력하세요"
+                  />
+                ) : (
+                  <div className="bg-[#262626] text-white px-4 py-3 rounded-lg border border-[#575757]">
+                    {user?.name || "N/A"}
+                  </div>
+                )}
+              </div>
+
+              {/* 이메일 (편집 불가) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  이메일
+                </label>
+                <div className="bg-[#262626] text-gray-400 px-4 py-3 rounded-lg border border-[#575757]">
+                  {user?.email || "N/A"}
+                  <span className="text-xs text-gray-500 ml-2">(변경 불가)</span>
+                </div>
+              </div>
+
+              {/* 계정 유형 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  계정 유형
+                </label>
+                <div className="bg-[#262626] text-white px-4 py-3 rounded-lg border border-[#575757] flex items-center justify-between">
+                  <span>Free Plan</span>
+                  <button className="text-[#AFC02B] text-sm hover:underline">
+                    업그레이드
+                  </button>
+                </div>
+              </div>
+
+              {/* 가입일 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  가입일
+                </label>
+                <div className="bg-[#262626] text-white px-4 py-3 rounded-lg border border-[#575757]">
+                  {user?.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString("ko-KR", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "N/A"}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-8 pt-6 border-t border-[#575757]">
+              {isEditing ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancel}
+                    className="flex-1 bg-[#3C3C3C] hover:bg-[#4A4A4A] text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                    disabled={isSaving}
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 bg-[#AFC02B] hover:bg-[#9FB025] text-black font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "저장 중..." : "저장"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="w-full bg-[#AFC02B] hover:bg-[#9FB025] text-black font-medium py-3 px-4 rounded-lg transition-colors"
+                  onClick={() => setIsEditing(true)}
+                >
+                  프로필 편집
+                </button>
+              )}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Email Address
-            </label>
-            <div className="bg-[#191919] text-white px-4 py-3 rounded-lg">
-              {user?.email || "N/A"}
+          {/* Additional Settings */}
+          <div className="bg-[#2F2F2F] rounded-xl p-6 border border-[#575757] mt-6">
+            <h3 className="text-white font-bold text-lg mb-4">계정 설정</h3>
+
+            <div className="space-y-3">
+              {/* 알림 설정 */}
+              <button
+                onClick={handleNotificationSettings}
+                className="w-full flex items-center justify-between px-4 py-3 bg-[#262626] rounded-lg hover:bg-[#3C3C3C] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 6.66667C15 5.34058 14.4732 4.06881 13.5355 3.13113C12.5979 2.19345 11.3261 1.66667 10 1.66667C8.67392 1.66667 7.40215 2.19345 6.46447 3.13113C5.52678 4.06881 5 5.34058 5 6.66667C5 12.5 2.5 14.1667 2.5 14.1667H17.5C17.5 14.1667 15 12.5 15 6.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M11.4417 17.5C11.2952 17.7526 11.0849 17.9622 10.8319 18.1079C10.5788 18.2537 10.292 18.3304 10 18.3304C9.70802 18.3304 9.42116 18.2537 9.16814 18.1079C8.91513 17.9622 8.70484 17.7526 8.55833 17.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-white">알림 설정</span>
+                </div>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 15L12.5 10L7.5 5" stroke="gray" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+
+              {/* 계정 삭제 */}
+              <button
+                onClick={handleDeleteAccount}
+                className="w-full flex items-center justify-between px-4 py-3 bg-[#262626] rounded-lg hover:bg-red-900/20 transition-colors text-left group"
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2.5 5H4.16667H17.5" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M6.66667 5V3.33333C6.66667 2.89131 6.84226 2.46738 7.15482 2.15482C7.46738 1.84226 7.89131 1.66667 8.33333 1.66667H11.6667C12.1087 1.66667 12.5326 1.84226 12.8452 2.15482C13.1577 2.46738 13.3333 2.89131 13.3333 3.33333V5M15.8333 5V16.6667C15.8333 17.1087 15.6577 17.5326 15.3452 17.8452C15.0326 18.1577 14.6087 18.3333 14.1667 18.3333H5.83333C5.39131 18.3333 4.96738 18.1577 4.65482 17.8452C4.34226 17.5326 4.16667 17.1087 4.16667 16.6667V5H15.8333Z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-red-400 group-hover:text-red-300">계정 삭제</span>
+                </div>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 15L12.5 10L7.5 5" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Account Type
-            </label>
-            <div className="bg-[#191919] text-white px-4 py-3 rounded-lg">
-              Free Plan
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Member Since
-            </label>
-            <div className="bg-[#191919] text-white px-4 py-3 rounded-lg">
-              {new Date().toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-8 pt-6 border-t border-[#3C3C3C]">
-          <button
-            className="w-full bg-[#6B7B3E] hover:bg-[#7A8A4D] text-white font-medium py-3 px-4 rounded-lg transition-colors"
-            onClick={() => alert("Edit profile feature coming soon!")}
-          >
-            Edit Profile
-          </button>
         </div>
       </div>
-    </main>
+
+      {/* 모달 */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[#2F2F2F] border border-[#575757] rounded-xl p-6 w-[400px] max-w-[90vw]">
+            {/* 아이콘 */}
+            <div className="flex justify-center mb-4">
+              {modal.type === "success" && (
+                <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {modal.type === "error" && (
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+              {modal.type === "info" && (
+                <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              )}
+              {modal.type === "confirm" && (
+                <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* 제목 */}
+            <h3 className="text-white text-lg font-bold text-center mb-2">
+              {modal.title}
+            </h3>
+
+            {/* 메시지 */}
+            <p className="text-gray-400 text-center mb-6 whitespace-pre-line">
+              {modal.message}
+            </p>
+
+            {/* 버튼 */}
+            <div className="flex gap-3">
+              {modal.type === "confirm" ? (
+                <>
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 bg-[#3C3C3C] hover:bg-[#4A4A4A] text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={() => {
+                      modal.onConfirm();
+                    }}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                  >
+                    확인
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={closeModal}
+                  className="w-full bg-[#AFC02B] hover:bg-[#9FB025] text-black font-medium py-3 px-4 rounded-lg transition-colors"
+                >
+                  확인
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

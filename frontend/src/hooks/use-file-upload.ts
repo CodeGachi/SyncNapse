@@ -81,8 +81,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
    * Remove file
    */
   const removeFile = useCallback((fileId: string) => {
+    const fileToRemove = files.find((f) => f.id === fileId);
+
+    // URL cleanup handled elsewhere - FileUploadItem doesn't store URL
+
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
-  }, []);
+  }, [files]);
 
   /**
    * Start upload (V2 - Direct API call)

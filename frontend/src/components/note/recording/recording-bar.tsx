@@ -1,233 +1,298 @@
 /**
- * 녹음바 UI 컴포넌트 (확장 가능)
+ * 녹음바 UI 컴포넌트
+ * - 컴팩트: 녹음, 저장, 시간
+ * - 확장: + 프로그레스, 재생, 뒤로, 목록
  */
 
 "use client";
 
-import { useScriptTranslationStore } from "@/stores";
-import type { SupportedLanguage } from "@/lib/types";
+import { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
 
-interface Recording {
-  id: number;
-  title: string;
-  time: string;
-  date: string;
-  duration: string;
-  sessionId?: string;
-}
+// 초를 mm:ss 형식으로 변환
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+};
 
 interface RecordingBarProps {
   isPlaying: boolean;
   time: string;
   onPlayToggle: () => void;
   onStop?: () => void;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
-  recordings?: Recording[];
-  isScriptOpen?: boolean;
-  onToggleScript?: () => void;
+  onSave?: () => void;
+  onSkipBack?: () => void;
   isRecording?: boolean;
-  onRecordingSelect?: (sessionId: string) => void;
-  onDeleteRecording?: (sessionId: string) => void;
+  onToggleRecordingList?: () => void;
+  recordingCount?: number;
+  currentTime?: number;
+  duration?: number;
+  onSeek?: (time: number) => void;
 }
-
-const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
-  ko: "한국어",
-  en: "English",
-  ja: "日本語",
-  zh: "中文",
-  es: "Español",
-  fr: "Français",
-  de: "Deutsch",
-  ru: "Русский",
-  ar: "العربية",
-  pt: "Português",
-};
 
 export function RecordingBar({
   isPlaying,
   time,
   onPlayToggle,
   onStop,
-  isExpanded = false,
-  onToggleExpand,
-  recordings = [],
-  isScriptOpen = false,
-  onToggleScript,
+  onSave,
+  onSkipBack,
   isRecording = false,
-  onRecordingSelect,
-  onDeleteRecording,
+  onToggleRecordingList,
+  currentTime = 0,
+  duration = 0,
+  onSeek,
 }: RecordingBarProps) {
-  const { isTranslationEnabled, targetLanguage, originalLanguage } = useScriptTranslationStore();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const progressRef = useRef<HTMLDivElement>(null);
 
-  const displayLanguage = isTranslationEnabled
-    ? `${LANGUAGE_NAMES[originalLanguage]} → ${LANGUAGE_NAMES[targetLanguage]}`
-    : LANGUAGE_NAMES[originalLanguage];
+  const isPlaybackMode = duration > 0 && !isRecording;
+
+  // 프로그레스바 위치 계산
+  const calculateSeekTime = useCallback((clientX: number) => {
+    if (!progressRef.current || !isPlaybackMode || duration <= 0) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const percentage = x / rect.width;
+    const newTime = percentage * duration;
+    onSeek?.(newTime);
+  }, [isPlaybackMode, duration, onSeek]);
+
+  // 드래그 핸들러
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!isPlaybackMode) return;
+    setIsDragging(true);
+    calculateSeekTime(e.clientX);
+  }, [isPlaybackMode, calculateSeekTime]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    calculateSeekTime(e.clientX);
+  }, [isDragging, calculateSeekTime]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // 드래그 이벤트 리스너
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
-    <div className={`w-full bg-[#363636] border-2 border-white rounded-[30px] transition-all duration-300 ${
-      isExpanded ? 'h-[190px] p-[10px] px-6' : 'px-6 py-2.5'
-    }`}>
-      {/* 녹음바 컨트롤 */}
-      <div className={`flex ${isExpanded ? 'flex-col gap-3' : 'items-center gap-2'} w-full`}>
-      {/* 컨트롤 바 */}
-      <div className="flex items-center gap-2 w-full">
-        {/* 재생/일시정지 버튼 */}
-        <button
-          onClick={onPlayToggle}
-          className="w-[33px] h-[33px] bg-[#444444] rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+    <div
+      className={`
+        flex items-center bg-[#2a2a2a] rounded-full px-3 py-1.5
+        transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+        ${isExpanded ? "gap-3 pr-2" : "gap-2"}
+      `}
+    >
+      {/* 녹음 버튼 */}
+      <button
+        onClick={onPlayToggle}
+        className={`
+          w-8 h-8 rounded-full flex items-center justify-center cursor-pointer
+          transition-all duration-300 flex-shrink-0 bg-[#444444] hover:bg-[#555555]
+          hover:scale-105 active:scale-95
+        `}
+        title={isRecording ? "녹음 일시정지/재개" : "녹음 시작"}
+      >
+        <Image
+          src="/record.svg"
+          alt={isRecording ? "Recording" : "Record"}
+          width={14}
+          height={14}
+          className="transition-all duration-300"
+          style={{ filter: !isRecording
+            ? "none"
+            : isPlaying
+              ? "brightness(0) saturate(100%) invert(36%) sepia(68%) saturate(1000%) hue-rotate(327deg) brightness(95%) contrast(90%)"
+              : "brightness(0) saturate(100%) invert(60%) sepia(0%) saturate(0%) hue-rotate(0deg)"
+          }}
+        />
+      </button>
+
+      {/* 저장 버튼 */}
+      <button
+        onClick={isRecording && onSave ? onSave : undefined}
+        disabled={!isRecording}
+        className={`
+          w-8 h-8 bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0
+          transition-all duration-300
+          ${isRecording ? "cursor-pointer hover:bg-[#555555] hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
+        `}
+        title="저장"
+      >
+        <Image
+          src="/iconstack.io - (Player Stop).svg"
+          alt="Save"
+          width={18}
+          height={18}
+        />
+      </button>
+
+      {/* 시간 */}
+      <div className="px-1 flex-shrink-0 min-w-[45px]">
+        <p className="text-[12px] font-mono whitespace-nowrap text-[#888888] transition-colors duration-300">
+          {isPlaybackMode ? formatTime(currentTime) : time}
+        </p>
+      </div>
+
+      {/* 확장 영역 - 스타일리시한 슬라이드 애니메이션 */}
+      <div
+        className={`
+          flex items-center gap-2 overflow-hidden
+          transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+          ${isExpanded
+            ? "max-w-[180px] opacity-100 scale-100"
+            : "max-w-0 opacity-0 scale-95"
+          }
+        `}
+        style={{
+          transform: isExpanded ? "translateX(0)" : "translateX(-10px)",
+          transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      >
+        {/* 재생 위치 바 */}
+        <div
+          ref={progressRef}
+          className={`
+            w-[40px] h-[4px] flex-shrink-0 relative bg-[#444444] rounded-full
+            transition-all duration-300
+            ${isPlaybackMode ? "cursor-pointer hover:h-[6px]" : "cursor-not-allowed opacity-50"}
+          `}
+          onMouseDown={handleMouseDown}
         >
-          {isPlaying ? (
-            /* 일시정지 아이콘 */
-            <svg width="12" height="14" viewBox="0 0 12 14" fill="white">
+          {isPlaybackMode && duration > 0 && (
+            <div
+              className={`absolute left-0 top-0 h-full bg-[#AFC02B] rounded-full ${isDragging ? "" : "transition-all duration-150"}`}
+              style={{ width: `${Math.min((currentTime / duration) * 100, 100)}%` }}
+            />
+          )}
+          {isPlaybackMode && duration > 0 && (
+            <div
+              className={`
+                absolute top-1/2 w-3 h-3 bg-white rounded-full shadow-md
+                transition-all duration-150 hover:scale-125
+                ${isDragging ? "scale-125" : ""}
+              `}
+              style={{
+                left: `${Math.min((currentTime / duration) * 100, 100)}%`,
+                transform: "translate(-50%, -50%)"
+              }}
+            />
+          )}
+        </div>
+
+        {/* 간격 */}
+        <div className="w-2 flex-shrink-0" />
+
+        {/* 재생/일시정지 */}
+        <button
+          onClick={isPlaybackMode && onStop ? onStop : undefined}
+          disabled={!isPlaybackMode}
+          className={`
+            w-8 h-8 bg-[#444444] rounded-full flex items-center justify-center flex-shrink-0
+            transition-all duration-300
+            ${isPlaybackMode ? "cursor-pointer hover:bg-[#555555] hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
+          `}
+          title={isPlaybackMode ? (isPlaying ? "일시정지" : "재생") : "녹음본 선택 필요"}
+        >
+          {isPlaybackMode && isPlaying ? (
+            <svg width="10" height="12" viewBox="0 0 12 14" fill="white">
               <rect x="0" y="0" width="4" height="14" fill="white" />
               <rect x="8" y="0" width="4" height="14" fill="white" />
             </svg>
           ) : (
-            /* 재생 아이콘 */
-            <svg width="10" height="12" viewBox="0 0 10 12" fill="white">
-              <path d="M0 0L10 6L0 12V0Z" fill="white" />
-            </svg>
+            <Image
+              src="/iconstack.io - (Player Play).svg"
+              alt="Play"
+              width={16}
+              height={16}
+              className={!isPlaybackMode ? "opacity-50" : ""}
+            />
           )}
         </button>
 
-        {/* 시간 표시 */}
-        <div className="px-3 py-1">
-          <p className="text-[#b9b9b9] text-[12px] font-bold">{time}</p>
-        </div>
-
-        {/* 언어 표시 */}
-        <div className="flex items-center gap-1 px-1 py-1">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <circle cx="9" cy="9" r="8" stroke="white" strokeWidth="2" />
-            <path
-              d="M1 9h16M9 1c-2.5 3-2.5 13 0 16M9 1c2.5 3 2.5 13 0 16"
-              stroke="white"
-              strokeWidth="2"
-            />
-          </svg>
-          <span
-            className={`text-white text-[12px] font-bold ${isTranslationEnabled ? 'text-blue-400' : ''}`}
-            title={isTranslationEnabled ? "번역 활성화됨" : ""}
-          >
-            {displayLanguage}
-          </span>
-        </div>
-
-        {/* 북마크 */}
-        <button className="flex items-center gap-1 px-1 py-1 cursor-pointer hover:opacity-80 transition-opacity">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
-            <path
-              d="M3 2h10v12l-5-3-5 3V2z"
-              fill="white"
-            />
-          </svg>
-          <span className="text-white text-[12px] font-bold">북마크</span>
+        {/* 뒤로 */}
+        <button
+          onClick={isPlaybackMode && onSkipBack ? onSkipBack : undefined}
+          disabled={!isPlaybackMode}
+          className={`
+            w-7 h-7 flex items-center justify-center flex-shrink-0
+            transition-all duration-300
+            ${isPlaybackMode ? "cursor-pointer hover:scale-110 active:scale-95" : "opacity-40 cursor-not-allowed"}
+          `}
+          title="맨앞으로"
+        >
+          <Image
+            src="/iconstack.io - (Player Skip Back).svg"
+            alt="Skip Back"
+            width={16}
+            height={16}
+          />
         </button>
 
-        {/* 구분선 */}
-        <div className="w-px h-5 bg-white" />
-
-        {/* 종료 버튼 */}
-        {onStop && (
+        {/* 목록 */}
+        {onToggleRecordingList && (
           <button
-            onClick={onStop}
-            className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={onToggleRecordingList}
+            className="
+              flex items-center justify-center w-8 h-8 rounded-full
+              bg-[#444444] hover:bg-[#555555] cursor-pointer
+              transition-all duration-300 flex-shrink-0
+              hover:scale-105 active:scale-95
+            "
+            title="저장된 녹음"
           >
-            <span className="text-white text-[12px] font-bold">종료</span>
+            <Image src="/menu.svg" alt="List" width={14} height={14} />
           </button>
         )}
-
-        {/* 구분선 */}
-        <div className="w-px h-5 bg-white" />
-
-        {/* 확대 아이콘들 */}
-        <div className="flex items-center gap-3 px-2 py-1">
-          {/* 녹음 목록 확장 버튼 */}
-          {onToggleExpand && (
-            <button
-              onClick={onToggleExpand}
-              className="cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <svg width="19" height="18" viewBox="0 0 19 18" fill="white">
-                <rect x="2" y="2" width="6" height="6" fill="white" />
-                <rect x="11" y="2" width="6" height="6" fill="white" />
-                <rect x="2" y="10" width="6" height="6" fill="white" />
-                <rect x="11" y="10" width="6" height="6" fill="white" />
-              </svg>
-            </button>
-          )}
-          {/* 스크립트 버튼 (두 번째 버튼) */}
-          {onToggleScript && (
-            <button
-              onClick={onToggleScript}
-              className="cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <svg width="19" height="19" viewBox="0 0 19 19" fill="white">
-                <path
-                  d="M2 9.5h15M9.5 2v15"
-                  stroke="white"
-                  strokeWidth="2"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* 녹음 목록 (확장 시 - 녹음바 내부) */}
-      {isExpanded && recordings.length > 0 && (
-        <div className="flex flex-col gap-1 w-full max-h-[120px] overflow-y-auto">
-          {recordings.map((recording) => (
-            <div
-              key={recording.sessionId || recording.id}
-              className="flex items-center justify-between py-2 px-3 hover:bg-[#444444] rounded-lg transition-colors group"
-            >
-              <div 
-                className="flex items-center gap-3 flex-1 cursor-pointer"
-                onClick={() => recording.sessionId && onRecordingSelect?.(recording.sessionId)}
-              >
-                <p className="text-white text-xs font-bold">{recording.title}</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-[#b9b9b9] text-[10px] font-bold">{recording.time}</p>
-                  <p className="text-[#b9b9b9] text-[10px] font-bold">{recording.date}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <p className="text-[#b9b9b9] text-[10px] font-bold px-3 py-1">{recording.duration}</p>
-                {/* Delete button */}
-                {onDeleteRecording && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (recording.sessionId && confirm(`"${recording.title}" 녹음을 삭제하시겠습니까?`)) {
-                        onDeleteRecording(recording.sessionId);
-                      }
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/20 rounded"
-                    title="삭제"
-                  >
-                    <svg
-                      className="w-4 h-4 text-red-400 hover:text-red-300"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+      {/* 확장 토글 버튼 - 이퀄라이저/음파 효과 */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`
+          w-8 h-8 rounded-full flex items-center justify-center cursor-pointer
+          transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+          hover:scale-110 active:scale-95 relative
+          ${isExpanded
+            ? "bg-[#AFC02B] shadow-lg shadow-[#AFC02B]/30"
+            : "bg-[#444444] hover:bg-[#555555]"
+          }
+        `}
+        title={isExpanded ? "접기" : "펼치기"}
+      >
+        <div className="flex items-center justify-center gap-[2px] h-[12px]">
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className={`
+                w-[2px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                ${isExpanded ? "bg-[#1e1e1e]" : "bg-white"}
+                ${isExpanded ? "animate-pulse" : ""}
+              `}
+              style={{
+                height: isExpanded
+                  ? `${[10, 6, 12, 8][i]}px`
+                  : `${[4, 4, 4, 4][i]}px`,
+                animationDelay: isExpanded ? `${i * 0.1}s` : "0s",
+                animationDuration: "0.8s",
+              }}
+            />
           ))}
         </div>
-      )}
-      </div>
+      </button>
     </div>
   );
 }

@@ -71,15 +71,33 @@ export function usePdfLoader(fileUrl?: string | null, fileType?: string | null) 
 
   // PDF 문서 로드
   useEffect(() => {
-    if (!pdfjsLib || !fileUrl || !isPdf) return;
+    if (!pdfjsLib || !fileUrl || !isPdf) {
+      // 파일이 없으면 상태 초기화
+      setPdfDoc(null);
+      setNumPages(0);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    let loadingTask: any = null;
+    let loadedPdf: any = null;
 
     const loadPdf = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const loadingTask = pdfjsLib.getDocument(fileUrl);
+        loadingTask = pdfjsLib.getDocument(fileUrl);
         const pdf = await loadingTask.promise;
+        loadedPdf = pdf;
+
+        // 컴포넌트가 언마운트되었거나 파일이 변경된 경우 중단
+        if (cancelled) {
+          pdf.destroy();
+          return;
+        }
 
         setPdfDoc(pdf);
         setNumPages(pdf.numPages);
@@ -89,13 +107,36 @@ export function usePdfLoader(fileUrl?: string | null, fileType?: string | null) 
           initializePageNotes(selectedFileId, pdf.numPages);
         }
       } catch (err) {
-        setError("PDF를 로드할 수 없습니다");
+        if (!cancelled) {
+          setError("PDF를 로드할 수 없습니다");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadPdf();
+
+    // Cleanup: 컴포넌트 언마운트 또는 파일 변경 시 진행 중인 로딩 취소
+    return () => {
+      cancelled = true;
+      if (loadingTask) {
+        try {
+          loadingTask.destroy();
+        } catch (e) {
+          // Already destroyed, ignore
+        }
+      }
+      if (loadedPdf) {
+        try {
+          loadedPdf.destroy();
+        } catch (e) {
+          // Already destroyed, ignore
+        }
+      }
+    };
   }, [pdfjsLib, fileUrl, isPdf, selectedFileId, initializePageNotes, setCurrentPage]);
 
   // 비 PDF 파일 로드 시 노트 초기화

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import type { FileItem } from "@/features/note/file/use-file-panel";
+import type { FileItem } from "@/lib/types/file";
 
 interface UseNoteContentAreaProps {
   openedFiles: FileItem[];
@@ -19,25 +19,9 @@ export function useNoteContentArea({
   selectFile,
   closeTab,
 }: UseNoteContentAreaProps) {
-  const [showExpandButton, setShowExpandButton] = useState(true);
   const [viewerHeight, setViewerHeight] = useState(60);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // 화면 크기 감지하여 확장 버튼 표시 여부 결정
-  useEffect(() => {
-    const handleResize = () => {
-      const minWidth = 1200;
-      setShowExpandButton(window.innerWidth >= minWidth);
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
 
   // 드래그 핸들러
   useEffect(() => {
@@ -94,7 +78,6 @@ export function useNoteContentArea({
   };
 
   return {
-    showExpandButton,
     viewerHeight,
     isDragging,
     containerRef,

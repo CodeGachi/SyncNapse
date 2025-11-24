@@ -49,7 +49,7 @@ export function UploadArea({
         onChange={onFileChange}
         className="hidden"
       />
-      
+
       <svg
         width="50"
         height="40"

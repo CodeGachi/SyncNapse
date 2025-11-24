@@ -45,7 +45,7 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
 
   // Track current playback time for word-level highlighting
   const [currentTime, setCurrentTime] = useState(0);
-  
+
   // Debug: Log current audio time
   useEffect(() => {
     const audio = audioRef?.current;
@@ -116,12 +116,10 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
   };
 
   return (
-    <Panel isOpen={isOpen} borderColor="gray">
+    <Panel isOpen={isOpen} borderColor="gray" title="Script" onClose={onClose}>
       <div className="p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-4">
-          <h3 className="text-white text-lg font-bold">Script</h3>
+        {/* Translation Controls */}
+        <div className="flex items-center gap-4 mb-4">
 
           {/* Translation Toggle */}
           <label className="flex items-center gap-2 cursor-pointer">
@@ -175,26 +173,6 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
           </div>
           )}
         </div>
-
-        <button
-          onClick={onClose}
-          className="text-[#b9b9b9] hover:text-white transition-colors"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
 
       {/* Script Content Area */}
       <div className="bg-[#1e1e1e] rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">

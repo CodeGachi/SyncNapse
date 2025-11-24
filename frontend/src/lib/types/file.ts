@@ -4,6 +4,24 @@
  */
 
 // ============================================================================
+// File Item (Note Editor)
+// ============================================================================
+
+/**
+ * File item in note editor
+ * Used for file management in the note editor (upload, display, etc.)
+ */
+export interface FileItem {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+  url: string; // Blob URL for display
+  file?: File; // Original file object
+}
+
+// ============================================================================
 // File Upload
 // ============================================================================
 

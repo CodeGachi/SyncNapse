@@ -10,6 +10,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 로그아웃 페이지는 항상 허용 (로그아웃 처리를 위해)
+  if (pathname === "/auth/logout") {
+    return NextResponse.next();
+  }
+
   // 올바른 쿠키 키 사용
   const authToken = request.cookies.get("authToken")?.value;
 
@@ -37,5 +42,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/auth/callback", "/dashboard/:path*", "/note/:path*"],
+  matcher: ["/", "/login", "/auth/callback", "/auth/logout", "/dashboard/:path*", "/note/:path*"],
 };

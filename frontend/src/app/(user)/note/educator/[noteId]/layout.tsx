@@ -2,10 +2,11 @@
  * Educator 노트 Layout
  *
  * Liveblocks Provider로 Educator 노트를 래핑
- * 협업 모드일 때만 Liveblocks 활성화 (조건부 래핑은 page.tsx에서 처리)
+ * 협업 기능을 위해 항상 Liveblocks 활성화
  */
 
 import { ReactNode } from "react";
+import { LiveblocksProvider } from "@/providers/liveblocks-provider";
 
 interface EducatorNoteLayoutProps {
   children: ReactNode;
@@ -16,8 +17,13 @@ interface EducatorNoteLayoutProps {
 
 export default function EducatorNoteLayout({
   children,
+  params,
 }: EducatorNoteLayoutProps) {
-  // Liveblocks Provider는 page.tsx에서 조건부로 래핑
-  // layout은 단순히 children을 렌더링
-  return <>{children}</>;
+  const { noteId } = params;
+
+  return (
+    <LiveblocksProvider noteId={noteId}>
+      {children}
+    </LiveblocksProvider>
+  );
 }

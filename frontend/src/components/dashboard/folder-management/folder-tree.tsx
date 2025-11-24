@@ -130,8 +130,8 @@ export function FolderTree({
                 onDrop={(e) => handleDrop(e, 'folder', node.folder.id)}
                 className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group ${
                   isSelected
-                    ? "bg-[#6B7B3E] text-white"
-                    : "text-gray-300 hover:bg-[#2F2F2F] hover:text-white"
+                    ? "text-[#AFC02B]"
+                    : "text-gray-300 hover:text-white"
                 } ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
                 style={{ 
                   marginLeft: level > 0 ? `${level * 16}px` : '0px',

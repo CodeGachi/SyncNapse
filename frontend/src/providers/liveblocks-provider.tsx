@@ -9,6 +9,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { ClientSideSuspense } from "@liveblocks/react";
 import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage, useMutation, LiveList, LiveObject } from "@/lib/liveblocks/liveblocks.config";
+import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 
 interface LiveblocksProviderProps {
   noteId: string;
@@ -16,10 +17,14 @@ interface LiveblocksProviderProps {
 }
 
 export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps) {
-  const [userName, setUserName] = useState("");
-  const [userId, setUserId] = useState("");
-  const [isReady, setIsReady] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  // 백엔드 인증 사용자 정보 가져오기
+  const { data: currentUser, isLoading: isUserLoading } = useCurrentUser();
+
+  const userId = currentUser?.id || "";
+  const userName = currentUser?.name || currentUser?.email || "사용자";
+  const isReady = !isUserLoading && !!currentUser;
 
   useEffect(() => {
     // Liveblocks API 키 확인
@@ -32,29 +37,10 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
 
     console.log("[Liveblocks] 초기화 시작...");
 
-    // 사용자 정보 가져오기 (localStorage 또는 인증 시스템)
-    const storedUserId = localStorage.getItem("userId");
-    const storedUserName = localStorage.getItem("userName");
-
-    if (storedUserId && storedUserName) {
-      setUserId(storedUserId);
-      setUserName(storedUserName);
-      setIsReady(true);
-      console.log(`[Liveblocks] 사용자 정보 로드 완료: ${storedUserName} (${storedUserId})`);
-    } else {
-      // 임시 사용자 정보 생성
-      const tempUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const tempUserName = `사용자${Math.floor(Math.random() * 1000)}`;
-
-      localStorage.setItem("userId", tempUserId);
-      localStorage.setItem("userName", tempUserName);
-
-      setUserId(tempUserId);
-      setUserName(tempUserName);
-      setIsReady(true);
-      console.log(`[Liveblocks] 임시 사용자 생성 완료: ${tempUserName} (${tempUserId})`);
+    if (currentUser) {
+      console.log(`[Liveblocks] 인증된 사용자: ${userName} (${userId})`);
     }
-  }, []);
+  }, [currentUser, userName, userId]);
 
   // 연결 에러
   if (connectionError) {

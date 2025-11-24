@@ -195,16 +195,16 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col rounded-lg shadow-sm mt-4" style={{ backgroundColor: '#252525' }}>
+    <div className="h-full flex flex-col rounded-[15px] border border-gray-700 p-1 gap-2.5" style={{ backgroundColor: '#2f2f2f' }}>
       {/* Header with save status */}
-      <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#3a3a3a' }}>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-white">
+      <div className="flex items-center justify-between px-2 py-1 border-b" style={{ borderColor: '#565656' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-white">
             Page {currentPage}
           </span>
           {isSaving && (
-            <span className="text-xs text-blue-400 flex items-center gap-1">
-              <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <span className="text-[10px] text-blue-400 flex items-center gap-1">
+              <svg className="animate-spin h-2.5 w-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -212,7 +212,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
             </span>
           )}
           {!isSaving && lastSavedAt && (
-            <span className="text-xs text-gray-400">
+            <span className="text-[10px] text-gray-400">
               저장됨 {lastSavedAt.toLocaleTimeString()}
             </span>
           )}
@@ -220,22 +220,22 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-gray-400">로딩 중...</div>
+            <div className="text-gray-400 text-sm">로딩 중...</div>
           </div>
         ) : (
-          <div 
-            className="h-full rounded-md p-4" 
-            style={{ 
-              backgroundColor: '#1a1a1a',
+          <div
+            className="h-full rounded-[15px] border border-gray-700 p-4"
+            style={{
+              backgroundColor: '#1e1e1e',
             }}
           >
             <style dangerouslySetInnerHTML={{
               __html: `
                 .bn-container .bn-editor {
-                  background-color: #1a1a1a !important;
+                  background-color: #1e1e1e !important;
                   color: #ffffff !important;
                 }
                 .bn-container .bn-block-content {

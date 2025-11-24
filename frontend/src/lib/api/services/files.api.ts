@@ -25,6 +25,30 @@ import { uploadFileToServer } from "@/lib/api/file-upload.api";
 const USE_BACKEND_FILES = process.env.NEXT_PUBLIC_USE_BACKEND_FILES === "true";
 
 /**
+ * Decode filename from Latin-1 to UTF-8
+ * Multer encodes non-ASCII filenames as Latin-1, so we need to decode them properly
+ */
+function decodeFilename(filename: string): string {
+  try {
+    // Convert each character to its byte value (Latin-1 to bytes)
+    const bytes = new Uint8Array(filename.length);
+    for (let i = 0; i < filename.length; i++) {
+      bytes[i] = filename.charCodeAt(i);
+    }
+    // Decode bytes as UTF-8
+    const decoder = new TextDecoder("utf-8");
+    const decoded = decoder.decode(bytes);
+    // Check if decoding was successful (no replacement characters)
+    if (decoded && !decoded.includes("\ufffd")) {
+      return decoded;
+    }
+    return filename;
+  } catch {
+    return filename;
+  }
+}
+
+/**
  * Upload result from file upload operation
  */
 export interface UploadResult {
@@ -107,16 +131,18 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
     
     const backendFiles = await res.json();
     console.log(`[FilesAPI] Backend files count: ${backendFiles.length}`, backendFiles);
-    
+
     // 백엔드 파일을 IndexedDB와 동기화
     if (backendFiles.length > 0) {
       // 로컬에 없는 파일 찾기
       const localFiles = await getFilesByNoteFromDB(noteId);
       const localFileNames = new Set(localFiles.map(f => f.fileName));
-      
-      const filesToDownload = backendFiles.filter((bf: any) => 
-        !localFileNames.has(bf.fileName)
-      );
+
+      // Backend filenames need to be decoded for proper comparison
+      const filesToDownload = backendFiles.filter((bf: any) => {
+        const decodedName = decodeFilename(bf.fileName);
+        return !localFileNames.has(decodedName) && !localFileNames.has(bf.fileName);
+      });
       
       if (filesToDownload.length > 0) {
         console.log(`[FilesAPI] Downloading ${filesToDownload.length} files from backend...`);
@@ -142,13 +168,18 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
             }
             
             const downloadData = await downloadRes.json();
+
+            // Decode filename from Latin-1 to UTF-8 (for Korean and other non-ASCII filenames)
+            const decodedFileName = decodeFilename(downloadData.fileName);
+
             console.log(`[FilesAPI] Downloaded file data:`, {
-              fileName: downloadData.fileName,
+              originalFileName: downloadData.fileName,
+              decodedFileName: decodedFileName,
               fileType: downloadData.fileType,
               fileSize: downloadData.fileSize,
               hasBase64Data: !!downloadData.data, // 'data' 필드 확인
             });
-            
+
             // Base64를 Blob으로 변환 (백엔드는 'data' 필드로 base64를 반환)
             const base64Data = downloadData.data;
             const byteCharacters = atob(base64Data);
@@ -158,9 +189,9 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
             }
             const byteArray = new Uint8Array(byteNumbers);
             const blob = new Blob([byteArray], { type: downloadData.fileType });
-            
-            // File 객체 생성
-            const file = new File([blob], downloadData.fileName, {
+
+            // File 객체 생성 (decoded filename 사용)
+            const file = new File([blob], decodedFileName, {
               type: downloadData.fileType,
             });
             
