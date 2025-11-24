@@ -10,5 +10,81 @@
 
 /* hide scrollbar for Chrome, Safari and Opera */
 *::-webkit-scrollbar {
-  display: none; 
+  display: none;
+}
+
+/* PDF.js Text Layer Styles */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.textLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.4);
+  border-radius: 4px;
+}
+
+.textLayer .highlight.appended {
+  position: initial;
+}
+
+.textLayer .highlight.begin {
+  border-radius: 4px 0 0 4px;
+}
+
+.textLayer .highlight.end {
+  border-radius: 0 4px 4px 0;
+}
+
+.textLayer .highlight.middle {
+  border-radius: 0;
+}
+
+.textLayer .highlight.selected {
+  background-color: rgba(0, 100, 0, 0.4);
+}
+
+.textLayer ::selection {
+  background: rgba(0, 0, 255, 0.3);
+}
+
+/* PDF Search Highlight Styles */
+.search-highlight {
+  background-color: rgba(255, 255, 0, 0.4) !important;
+  color: transparent !important;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+.search-highlight-current {
+  background-color: rgba(255, 165, 0, 0.7) !important;
+  color: transparent !important;
+  border-radius: 2px;
+  padding: 1px 0;
+  box-shadow: 0 0 0 2px rgba(255, 165, 0, 0.5);
 }

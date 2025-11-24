@@ -21,13 +21,15 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
     toggleNotePanel,
     toggleFilePanel,
     toggleScript,
-    toggleEtcPanel,
+    toggleChatbotPanel,
     toggleCollaborationPanel,
+    toggleDrawingSidebar,
     isNotePanelOpen,
     isFilePanelOpen,
     isScriptOpen,
-    isEtcPanelOpen,
-    isCollaborationPanelOpen
+    isChatbotPanelOpen,
+    isCollaborationPanelOpen,
+    isDrawingSidebarOpen
   } = usePanelsStore();
 
   // Get note data to determine if it's an educator note
@@ -49,7 +51,7 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
     if (isCurrentlyActive && isExpanded) {
       // 토글 후 상태 확인을 위해 setTimeout 사용
       setTimeout(() => {
-        const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen && !isCollaborationPanelOpen;
+        const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isChatbotPanelOpen && !isCollaborationPanelOpen;
         if (allPanelsClosed) {
           toggleExpand(); // 500px 패널 닫기
         }
@@ -60,10 +62,10 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
   // 아이콘 버튼 공통 스타일
   const buttonWrapperClass = "flex flex-col items-center w-[53px] h-[67px]";
   const getButtonClass = (isActive: boolean) =>
-    `flex flex-col items-start p-2.5 gap-2 w-[53px] h-[53px] bg-[#363636] border-2 ${
+    `flex items-center justify-center w-[53px] h-[53px] bg-[#363636] border-2 ${
       isActive ? 'border-[#afc02b]' : 'border-white'
     } rounded-[30px] hover:bg-[#3a3a3a] transition-colors`;
-  const iconContainerClass = "flex items-center justify-center w-[33px] h-[33px] bg-[#444444] rounded-[16.5px]";
+  const iconContainerClass = "grid place-items-center w-[33px] h-[33px] bg-[#444444] rounded-[16.5px]";
   const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[10px] leading-[12px]";
 
   return (
@@ -76,7 +78,7 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
           title="Notes"
         >
           <div className={iconContainerClass}>
-            <Image src="/notebook.svg" alt="Notes" width={24} height={24} />
+            <Image src="/notebook.svg" alt="Notes" width={24} height={24} className="flex-shrink-0" />
           </div>
         </button>
         <div className={labelClass}>Notes</div>
@@ -90,7 +92,7 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
           title="Script"
         >
           <div className={iconContainerClass}>
-            <Image src="/subtitles.svg" alt="Script" width={20} height={20} />
+            <Image src="/subtitles.svg" alt="Script" width={20} height={20} className="flex-shrink-0" />
           </div>
         </button>
         <div className={labelClass}>Script</div>
@@ -104,24 +106,40 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
           title="Files"
         >
           <div className={iconContainerClass}>
-            <Image src="/file.svg" alt="Files" width={24} height={24} />
+            <Image src="/file.svg" alt="Files" width={24} height={24} className="flex-shrink-0" />
           </div>
         </button>
         <div className={labelClass}>Files</div>
       </div>
 
-      {/* 더보기 아이콘 (etc) */}
+      {/* 필기바 토글 아이콘 (Drawing) - 교육자 노트만, 4번째 위치 */}
+      {isEducatorNote && (
+        <div className={buttonWrapperClass}>
+          <button
+            onClick={toggleDrawingSidebar}
+            className={getButtonClass(isDrawingSidebarOpen)}
+            title={isDrawingSidebarOpen ? "Hide Drawing Bar" : "Show Drawing Bar"}
+          >
+            <div className={iconContainerClass}>
+              <Image src="/iconstack.io - (Pencil Circle Duotone).svg" alt="Drawing" width={24} height={24} className="flex-shrink-0" />
+            </div>
+          </button>
+          <div className={labelClass}>Drawing</div>
+        </div>
+      )}
+
+      {/* 챗봇 아이콘 (AI Chat) */}
       <div className={buttonWrapperClass}>
         <button
-          onClick={() => handlePanelToggle(toggleEtcPanel, isEtcPanelOpen)}
-          className={getButtonClass(isEtcPanelOpen)}
-          title="More"
+          onClick={() => handlePanelToggle(toggleChatbotPanel, isChatbotPanelOpen)}
+          className={getButtonClass(isChatbotPanelOpen)}
+          title="AI Chat"
         >
           <div className={iconContainerClass}>
-            <Image src="/overflow-menu.svg" alt="More" width={24} height={24} />
+            <Image src="/iconstack.io - (Robot).svg" alt="AI Chat" width={24} height={24} className="flex-shrink-0" />
           </div>
         </button>
-        <div className={labelClass}>etc</div>
+        <div className={labelClass}>Chatbot</div>
       </div>
 
       {/* 협업 아이콘 (Collaboration) - 교육자 노트만 */}
@@ -130,13 +148,13 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
           <button
             onClick={() => handlePanelToggle(toggleCollaborationPanel, isCollaborationPanelOpen)}
             className={getButtonClass(isCollaborationPanelOpen)}
-            title="협업"
+            title="Collaborate"
           >
             <div className={iconContainerClass}>
-              <Image src="/collaborate.svg" alt="Collaborate" width={24} height={24} />
+              <Image src="/collaborate.svg" alt="Collaborate" width={24} height={24} className="flex-shrink-0" />
             </div>
           </button>
-          <div className={labelClass}>협업</div>
+          <div className={labelClass}>Collab</div>
         </div>
       )}
     </div>

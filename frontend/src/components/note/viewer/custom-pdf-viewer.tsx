@@ -16,6 +16,8 @@ import {
   usePdfPan,
   usePdfKeyboard,
   usePdfThumbnails,
+  usePdfTextLayer,
+  usePdfSearch,
 } from "@/features/note/viewer";
 import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
@@ -61,6 +63,8 @@ export function CustomPdfViewer({
 }: CustomPdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textLayerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // 썸네일 사이드바 토글 상태
   const [isThumbnailOpen, setIsThumbnailOpen] = useState(true);
@@ -119,6 +123,38 @@ export function CustomPdfViewer({
     currentPage,
     setCurrentPage,
     setScale,
+  });
+
+  // Text layer for text selection
+  usePdfTextLayer({
+    pdfDoc,
+    currentPage,
+    scale,
+    rotation,
+    textLayerRef,
+    canvasRef,
+    containerRef,
+  });
+
+  // Search functionality
+  const {
+    isSearchOpen,
+    setIsSearchOpen,
+    searchQuery,
+    setSearchQuery,
+    matches,
+    currentMatchIndex,
+    isSearching,
+    goToNextMatch,
+    goToPrevMatch,
+    closeSearch,
+  } = usePdfSearch({
+    pdfDoc,
+    numPages,
+    currentPage,
+    setCurrentPage,
+    textLayerRef,
+    isPdf,
   });
 
   // 썸네일 클릭 핸들러
@@ -263,8 +299,74 @@ export function CustomPdfViewer({
     }
   }, [currentPage, isPdf, onPageChange]);
 
+  // 검색창 열릴 때 input 포커스
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
+
+  // 검색 키보드 핸들러
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    }
+  };
+
   return (
-    <div className="w-full h-full bg-[#2f2f2f] border-x border-b border-[#3c3c3c] rounded-bl-[15px] rounded-br-[15px] flex flex-col overflow-hidden">
+    <div className="w-full h-full bg-[#2f2f2f] border-x border-b border-[#3c3c3c] rounded-bl-[15px] rounded-br-[15px] flex flex-col overflow-hidden relative">
+      {/* 검색창 */}
+      {isSearchOpen && isPdf && (
+        <div className="absolute top-2 right-2 z-50 bg-[#252525] border border-[#444444] rounded-lg shadow-lg p-2 flex items-center gap-2">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            placeholder="검색..."
+            className="w-48 h-8 bg-[#1e1e1e] border border-[#444444] rounded px-3 text-white text-sm focus:outline-none focus:border-[#666666]"
+          />
+          <span className="text-gray-400 text-xs min-w-[60px] text-center">
+            {matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length}` : isSearching ? "검색 중..." : "0/0"}
+          </span>
+          <button
+            onClick={goToPrevMatch}
+            disabled={matches.length === 0}
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="이전 (Shift+Enter)"
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+              <path d="M10 14L10 6M10 6L6 10M10 6L14 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            onClick={goToNextMatch}
+            disabled={matches.length === 0}
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="다음 (Enter)"
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+              <path d="M10 6L10 14M10 14L14 10M10 14L6 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            onClick={closeSearch}
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors"
+            title="닫기 (Esc)"
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+              <path d="M6 6L14 14M14 6L6 14" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* 메인 영역: 썸네일 사이드바 + PDF 콘텐츠 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 썸네일 사이드바 (PDF일 때만) */}
@@ -282,7 +384,7 @@ export function CustomPdfViewer({
         {/* 콘텐츠 영역 */}
         <div
           ref={containerRef}
-          className="flex-1 flex items-center justify-center overflow-auto bg-[#2a2a2a]"
+          className="flex-1 overflow-auto bg-[#2a2a2a]"
           onMouseDown={drawingMode ? undefined : handleMouseDown}
           onMouseMove={drawingMode ? undefined : handleMouseMove}
           onMouseUp={drawingMode ? undefined : handleMouseUp}
@@ -290,6 +392,8 @@ export function CustomPdfViewer({
           onWheel={handleWheel}
           style={{ cursor: drawingMode ? "default" : (isPanning ? "grabbing" : "grab") }}
         >
+          {/* 중앙 정렬을 위한 내부 컨테이너 - min-height로 작을 때만 중앙 정렬 */}
+          <div className="min-w-full min-h-full flex items-center justify-center p-4">
         {!fileUrl ? (
           <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
             <svg
@@ -341,6 +445,15 @@ export function CustomPdfViewer({
                 style={{
                   display: loading || error ? "none" : "block",
                   imageRendering: scale > 1.5 ? "auto" : "crisp-edges",
+                }}
+              />
+
+              {/* Text Layer - 텍스트 선택 가능하게 */}
+              <div
+                ref={textLayerRef}
+                className="textLayer absolute top-0 left-0 overflow-hidden pointer-events-auto"
+                style={{
+                  display: loading || error || drawingMode ? "none" : "block",
                 }}
               />
 
@@ -404,6 +517,7 @@ export function CustomPdfViewer({
             </a>
           </div>
         )}
+          </div>
         </div>
       </div>
 

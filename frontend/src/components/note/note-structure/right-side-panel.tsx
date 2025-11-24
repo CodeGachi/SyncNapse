@@ -1,6 +1,6 @@
 /**
  * 우측 사이드 패널 (통합) - Student & Educator
- * 스크립트, 파일, etc 패널 + 협업 패널(Educator 전용)
+ * 스크립트, 파일, AI 챗봇 패널 + 협업 패널(Educator 전용)
  *
  * Refactored: Business logic separated to features/note/right-panel/
  */
@@ -20,7 +20,7 @@ import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 import { ScriptPanel } from "@/components/note/panels/script-panel";
 import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
 import { FilePanel } from "@/components/note/panels/file-panel";
-import { EtcPanel } from "@/components/note/panels/etc-panel";
+import { ChatbotPanel } from "@/components/note/panels/chatbot-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
 interface RightSidePanelProps {
@@ -68,8 +68,8 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     toggleFilePanel,
     isScriptOpen,
     toggleScript,
-    isEtcPanelOpen,
-    toggleEtcPanel,
+    isChatbotPanelOpen,
+    toggleChatbotPanel,
     isCollaborationPanelOpen,
     toggleCollaborationPanel,
   } = usePanelsStore();
@@ -77,14 +77,14 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
   // 모든 개별 패널이 닫히면 500px 패널도 자동으로 닫기
   useEffect(() => {
     const allPanelsClosed = isEducator
-      ? !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen && !isCollaborationPanelOpen
-      : !isScriptOpen && !isFilePanelOpen && !isEtcPanelOpen;
+      ? !isScriptOpen && !isFilePanelOpen && !isChatbotPanelOpen && !isCollaborationPanelOpen
+      : !isScriptOpen && !isFilePanelOpen && !isChatbotPanelOpen;
 
     if (allPanelsClosed && isExpanded) {
       console.log('[RightSidePanel] 모든 패널 닫힘 - 500px 패널 자동 닫기');
       toggleExpand();
     }
-  }, [isScriptOpen, isFilePanelOpen, isEtcPanelOpen, isCollaborationPanelOpen, isExpanded, toggleExpand, isEducator]);
+  }, [isScriptOpen, isFilePanelOpen, isChatbotPanelOpen, isCollaborationPanelOpen, isExpanded, toggleExpand, isEducator]);
 
   // Audio player for playback (used by ScriptPanel)
   const {
@@ -158,8 +158,8 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
             onClose={toggleFilePanel}
           />
 
-          {/* etc 패널 */}
-          <EtcPanel isOpen={isEtcPanelOpen} onClose={toggleEtcPanel} />
+          {/* AI 챗봇 패널 */}
+          <ChatbotPanel isOpen={isChatbotPanelOpen} onClose={toggleChatbotPanel} noteId={noteId} />
 
           {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
           {isEducator && (
