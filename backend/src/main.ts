@@ -4,6 +4,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ApiLinksService } from './modules/hypermedia/api-links.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
+import { LiveSessionsModule } from './modules/live-sessions/live-sessions.module';
 import { ExportsModule } from './modules/exports/exports.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -60,7 +62,7 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config, {
-    include: [AuthModule, UsersModule, ExportsModule, UploadsModule, StorageModule],
+    include: [AuthModule, UsersModule, BookmarksModule, LiveSessionsModule, ExportsModule, UploadsModule, StorageModule],
   });
   SwaggerModule.setup('docs', app, document);
 

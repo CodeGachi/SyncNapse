@@ -121,11 +121,11 @@ INSERT INTO "TranslationSegment" (id, "noteId", "chunkId", "sourceLang", "target
 -- ============================================
 -- 10. Typing Sections (student notes)
 -- ============================================
-INSERT INTO "TypingSection" (id, "noteId", "chunkId", title, content, "startSec", "endSec", "createdAt", "updatedAt") VALUES
-('typing-001', 'note-001', 'chunk-001', 'Arrays Overview', 'Key points:\n- Contiguous memory\n- O(1) access time\n- Fixed size in most languages\n- Cache-friendly', 0.00, 120.00, NOW() - INTERVAL '7 days', NOW()),
-('typing-002', 'note-001', 'chunk-002', 'Linked Lists', 'Important:\n- Dynamic size\n- Non-contiguous memory\n- O(n) access time\n- Easy insertion/deletion', 600.00, 720.00, NOW() - INTERVAL '7 days', NOW()),
-('typing-003', 'note-002', 'chunk-004', 'BST Properties', 'BST Rules:\n1. Left subtree < parent\n2. Right subtree > parent\n3. No duplicates (usually)\n4. Inorder traversal gives sorted order', 0.00, 150.00, NOW() - INTERVAL '5 days', NOW()),
-('typing-004', 'note-003', 'chunk-006', 'BFS vs DFS', 'Comparison:\nBFS:\n- Uses Queue\n- Level-order\n- Shortest path\n\nDFS:\n- Uses Stack\n- Deep exploration\n- Memory efficient for deep graphs', 0.00, 120.00, NOW() - INTERVAL '3 days', NOW());
+INSERT INTO "TypingSection" (id, "noteId", "chunkId", "userId", title, content, "startSec", "endSec", "createdAt", "updatedAt") VALUES
+('typing-001', 'note-001', 'chunk-001', 'user-test-001', 'Arrays Overview', 'Key points:\n- Contiguous memory\n- O(1) access time\n- Fixed size in most languages\n- Cache-friendly', 0.00, 120.00, NOW() - INTERVAL '7 days', NOW()),
+('typing-002', 'note-001', 'chunk-002', 'user-test-001', 'Linked Lists', 'Important:\n- Dynamic size\n- Non-contiguous memory\n- O(n) access time\n- Easy insertion/deletion', 600.00, 720.00, NOW() - INTERVAL '7 days', NOW()),
+('typing-003', 'note-002', 'chunk-004', 'user-test-002', 'BST Properties', 'BST Rules:\n1. Left subtree < parent\n2. Right subtree > parent\n3. No duplicates (usually)\n4. Inorder traversal gives sorted order', 0.00, 150.00, NOW() - INTERVAL '5 days', NOW()),
+('typing-004', 'note-003', 'chunk-006', 'user-test-003', 'BFS vs DFS', 'Comparison:\nBFS:\n- Uses Queue\n- Level-order\n- Shortest path\n\nDFS:\n- Uses Stack\n- Deep exploration\n- Memory efficient for deep graphs', 0.00, 120.00, NOW() - INTERVAL '3 days', NOW());
 
 -- ============================================
 -- 11. Uploads (chunked file uploads)
