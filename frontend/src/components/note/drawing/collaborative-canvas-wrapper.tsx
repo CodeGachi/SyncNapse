@@ -19,6 +19,7 @@ interface CollaborativeCanvasWrapperProps {
   pageNum: number;
   syncToStorageRef?: React.MutableRefObject<((canvas: fabric.Canvas) => void) | null>;
   showStatusIndicator?: boolean; // 상태 표시 UI 활성화 여부
+  readOnly?: boolean;            // 읽기 전용 모드 (학생용)
 }
 
 export function CollaborativeCanvasWrapper({
@@ -27,6 +28,7 @@ export function CollaborativeCanvasWrapper({
   pageNum,
   syncToStorageRef,
   showStatusIndicator = true,
+  readOnly = false,
 }: CollaborativeCanvasWrapperProps) {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -68,6 +70,7 @@ export function CollaborativeCanvasWrapper({
     pageNum,
     fabricCanvas,
     isEnabled: true,
+    readOnly,
     onSyncError: handleSyncError,
     onConnectionChange: handleConnectionChange,
   });
@@ -125,8 +128,8 @@ export function CollaborativeCanvasWrapper({
           </span>
         </div>
 
-        {/* Pending 변경사항 있을 때 재시도 버튼 */}
-        {hasPendingChanges && connectionStatus === "connected" && (
+        {/* Pending 변경사항 있을 때 재시도 버튼 (readOnly 모드에서는 숨김) */}
+        {!readOnly && hasPendingChanges && connectionStatus === "connected" && (
           <button
             onClick={retryPendingChanges}
             className="flex items-center gap-2 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded-lg px-3 py-1.5 shadow-md text-xs hover:bg-yellow-200 dark:hover:bg-yellow-900 transition-colors"

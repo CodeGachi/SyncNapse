@@ -45,6 +45,7 @@ interface CustomPdfViewerProps {
   noteId?: string;
   fileId?: string;
   isCollaborative?: boolean;
+  isSharedView?: boolean;    // 공유 뷰 모드 (학생용 - 읽기 전용)
   onDrawingSave?: (data: DrawingData) => Promise<void>;
 }
 
@@ -61,6 +62,7 @@ export function CustomPdfViewer({
   noteId,
   fileId,
   isCollaborative = false,
+  isSharedView = false,
   onDrawingSave,
 }: CustomPdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -532,6 +534,7 @@ export function CustomPdfViewer({
                       isEnabled={true}
                       isDrawingMode={drawingMode}
                       isCollaborative={isCollaborative}
+                      isSharedView={isSharedView}
                       noteId={noteId}
                       fileId={fileId}
                       pageNum={currentPage}

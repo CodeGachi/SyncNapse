@@ -9,6 +9,7 @@
  * - 재시도 로직 추가 (최대 3회)
  * - 오프라인 복구 지원 (연결 복구 시 pending 변경사항 동기화)
  * - 에러 상태 관리 및 콜백 제공
+ * - readOnly 모드 추가 (학생용 읽기 전용)
  */
 
 "use client";
@@ -35,6 +36,7 @@ interface CollaborativeCanvasSyncProps {
   pageNum: number;
   fabricCanvas: fabric.Canvas | null;
   isEnabled: boolean;
+  readOnly?: boolean;                        // 읽기 전용 모드 (학생용)
   onSyncError?: (error: Error) => void;      // 동기화 에러 콜백
   onConnectionChange?: (status: string) => void;  // 연결 상태 변경 콜백
 }
@@ -55,6 +57,7 @@ export function useCollaborativeCanvasSync({
   pageNum,
   fabricCanvas,
   isEnabled,
+  readOnly = false,
   onSyncError,
   onConnectionChange,
 }: CollaborativeCanvasSyncProps) {
@@ -116,8 +119,8 @@ export function useCollaborativeCanvasSync({
       prevConnectionStatus.current = connectionStatus;
     }
 
-    // 오프라인 → 온라인 복구
-    if (wasDisconnected && isNowConnected && pendingChanges.current) {
+    // 오프라인 → 온라인 복구 (readOnly 모드에서는 스킵)
+    if (!readOnly && wasDisconnected && isNowConnected && pendingChanges.current) {
       console.log("[Collaborative Canvas] 연결 복구 - pending 변경사항 동기화");
 
       // pending 변경사항 전송
@@ -133,7 +136,7 @@ export function useCollaborativeCanvasSync({
         console.error("[Collaborative Canvas] 복구 동기화 실패:", error);
       }
     }
-  }, [connectionStatus, updateCanvasInStorage, onConnectionChange]);
+  }, [connectionStatus, updateCanvasInStorage, onConnectionChange, readOnly]);
 
   // 재시도 로직이 포함된 Storage 업데이트
   const syncToStorageWithRetry = useCallback(
@@ -195,10 +198,10 @@ export function useCollaborativeCanvasSync({
     [connectionStatus, updateCanvasInStorage, onSyncError]
   );
 
-  // 로컬 캔버스 → Storage로 동기화
+  // 로컬 캔버스 → Storage로 동기화 (readOnly 모드에서는 비활성화)
   const syncToStorage = useCallback(
     (canvas: fabric.Canvas) => {
-      if (!isEnabled || !canvas || isUpdatingFromStorage.current) return;
+      if (!isEnabled || !canvas || isUpdatingFromStorage.current || readOnly) return;
 
       try {
         // 캔버스 JSON 변환

@@ -16,12 +16,12 @@ export function ActiveUsersPanel() {
   const allUsers = [
     ...(self
       ? [
-          {
-            connectionId: self.connectionId,
-            ...self.presence,
-            isSelf: true,
-          },
-        ]
+        {
+          connectionId: self.connectionId,
+          ...self.presence,
+          isSelf: true,
+        },
+      ]
       : []),
     ...others.map((user) => ({
       connectionId: user.connectionId,
@@ -31,32 +31,39 @@ export function ActiveUsersPanel() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 h-full flex flex-col">
       {/* 헤더 */}
-      <div className="flex items-center justify-between pb-2 border-b border-[#444444]">
-        <div className="flex items-center gap-2">
-          <Users size={18} className="text-[#AFC02B]" />
-          <h4 className="text-white text-base font-bold">
-            접속자 ({allUsers.length}명)
-          </h4>
+      <div className="flex items-center justify-between pb-4 border-b border-[#3c3c3c]">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-[#AFC02B]/10 rounded-lg">
+            <Users size={18} className="text-[#AFC02B]" />
+          </div>
+          <div>
+            <h4 className="text-white text-sm font-bold">접속자 목록</h4>
+            <p className="text-gray-500 text-xs">현재 {allUsers.length}명이 함께하고 있습니다</p>
+          </div>
         </div>
       </div>
 
       {/* 사용자 목록 */}
-      <div className="space-y-3">
+      <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
         {allUsers.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-8">
-            접속자가 없습니다
-          </p>
+          <div className="flex flex-col items-center justify-center h-40 text-gray-500 gap-2">
+            <Users size={24} className="opacity-20" />
+            <p className="text-sm">접속자가 없습니다</p>
+          </div>
         ) : (
           allUsers.map((user) => (
             <div
               key={user.connectionId}
-              className="flex items-center gap-3 p-3 bg-[#3C3C3C] rounded-lg hover:bg-[#4A4A4A] transition-colors"
+              className={`flex items-center gap-3 p-3 rounded-xl transition-all border ${user.isSelf
+                  ? "bg-[#AFC02B]/5 border-[#AFC02B]/20"
+                  : "bg-[#252525] border-transparent hover:bg-[#2a2a2a]"
+                }`}
             >
               {/* 아바타 */}
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-sm ring-2 ring-[#1e1e1e]"
                 style={{ backgroundColor: user.color }}
               >
                 {user.userName.charAt(0).toUpperCase()}
@@ -64,21 +71,19 @@ export function ActiveUsersPanel() {
 
               {/* 정보 */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-white text-sm font-medium truncate">
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm font-medium truncate ${user.isSelf ? "text-[#AFC02B]" : "text-white"}`}>
                     {user.userName}
-                    {user.isSelf && (
-                      <span className="text-[#AFC02B] text-xs ml-1">(나)</span>
-                    )}
+                    {user.isSelf && <span className="text-xs font-normal ml-1.5 opacity-80">(나)</span>}
                   </p>
                   {/* 온라인 상태 */}
-                  <Circle
-                    size={8}
-                    className="text-green-400 fill-green-400 flex-shrink-0"
-                  />
+                  <div className="flex items-center gap-1.5 bg-[#1e1e1e] px-2 py-0.5 rounded-full border border-[#333]">
+                    <Circle size={6} className="text-green-500 fill-green-500 animate-pulse" />
+                    <span className="text-[10px] text-gray-400 font-medium">Online</span>
+                  </div>
                 </div>
-                <p className="text-gray-400 text-xs mt-1">
-                  ID: {String(user.connectionId).slice(0, 8)}...
+                <p className="text-gray-500 text-[10px] mt-0.5 font-mono">
+                  ID: {String(user.connectionId).slice(0, 8)}
                 </p>
               </div>
             </div>

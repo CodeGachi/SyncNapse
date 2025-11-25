@@ -40,6 +40,7 @@ interface PDFDrawingOverlayProps {
   isPdf?: boolean;
   onSave?: (data: DrawingData) => Promise<void>;
   isCollaborative?: boolean;
+  isSharedView?: boolean;   // 공유 뷰 모드 (학생용 - 읽기 전용)
 }
 
 export const PDFDrawingOverlay = forwardRef<
@@ -61,11 +62,16 @@ export const PDFDrawingOverlay = forwardRef<
       isPdf,
       onSave,
       isCollaborative = false,
+      isSharedView = false,
     },
     ref
   ) => {
     // 🔍 DEBUG: 컴포넌트 렌더링 로그
-    console.log('[Drawing] 🔄 Render - pageNum:', pageNum, 'noteId:', noteId, 'fileId:', fileId, 'isCollaborative:', isCollaborative);
+    console.log('[Drawing] 🔄 Render - pageNum:', pageNum, 'noteId:', noteId, 'fileId:', fileId, 'isCollaborative:', isCollaborative, 'isSharedView:', isSharedView);
+
+    // 공유 뷰(학생)일 때는 협업 모드를 활성화하고 readOnly로 동작
+    const shouldEnableCollaboration = isCollaborative || isSharedView;
+    const isReadOnlyCollaboration = isSharedView && !isCollaborative;
 
     // div container를 사용 - Fabric.js가 canvas를 동적 생성
     const containerRef = useRef<HTMLDivElement>(null);
@@ -696,13 +702,14 @@ export const PDFDrawingOverlay = forwardRef<
           }}
         />
 
-        {/* 협업 모드일 때만 Liveblocks 동기화 활성화 */}
-        {isCollaborative && (
+        {/* 협업 모드 또는 공유 뷰(학생)일 때 Liveblocks 동기화 활성화 */}
+        {shouldEnableCollaboration && (
           <CollaborativeCanvasWrapper
             fabricCanvas={fabricCanvasRef.current}
             fileId={fileId}
             pageNum={pageNum}
             syncToStorageRef={syncToStorageRef}
+            readOnly={isReadOnlyCollaboration}
           />
         )}
       </>

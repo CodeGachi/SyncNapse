@@ -195,6 +195,7 @@ export function NoteContentArea({
                   noteId={noteId || ""}
                   fileId={selectedFile?.id.toString()}
                   isCollaborative={isCollaborating ?? false}
+                  isSharedView={isSharedView ?? false}
                   onDrawingSave={async (data) => {
                     try {
                       await saveDrawing(data);
