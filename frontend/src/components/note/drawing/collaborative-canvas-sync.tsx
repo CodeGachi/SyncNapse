@@ -201,20 +201,30 @@ export function useCollaborativeCanvasSync({
   // 로컬 캔버스 → Storage로 동기화 (readOnly 모드에서는 비활성화)
   const syncToStorage = useCallback(
     (canvas: fabric.Canvas) => {
-      if (!isEnabled || !canvas || isUpdatingFromStorage.current || readOnly) return;
+      console.log("[Collaborative Canvas] syncToStorage 호출됨", { isEnabled, canvas: !!canvas, isUpdating: isUpdatingFromStorage.current, readOnly });
+
+      if (!isEnabled || !canvas || isUpdatingFromStorage.current || readOnly) {
+        console.log("[Collaborative Canvas] syncToStorage 스킵 - 조건 불충족");
+        return;
+      }
 
       try {
         // 캔버스 JSON 변환
         const canvasJSON = canvas.toJSON();
         const jsonString = JSON.stringify(canvasJSON);
+        const objectCount = canvasJSON.objects?.length || 0;
+
+        console.log("[Collaborative Canvas] 캔버스 JSON 생성됨, 객체 수:", objectCount);
 
         // 이전에 저장한 것과 같으면 스킵 (중복 저장 방지)
         if (lastSavedJSON.current === jsonString) {
+          console.log("[Collaborative Canvas] 중복 데이터 - 스킵");
           return;
         }
 
         lastSavedJSON.current = jsonString;
 
+        console.log("[Collaborative Canvas] 💾 Storage에 저장 중... canvasKey:", canvasKey);
         setSyncState(prev => ({ ...prev, isSyncing: true }));
         syncToStorageWithRetry(canvasJSON);
       } catch (error) {
@@ -224,7 +234,7 @@ export function useCollaborativeCanvasSync({
         onSyncError?.(syncError);
       }
     },
-    [isEnabled, syncToStorageWithRetry, onSyncError]
+    [isEnabled, syncToStorageWithRetry, onSyncError, readOnly, canvasKey]
   );
 
   // Storage에서 캔버스 로드 (Promise 기반, 재시도 포함)
@@ -288,9 +298,10 @@ export function useCollaborativeCanvasSync({
     [onSyncError]
   );
 
-  // Storage → 로컬 캔버스로 동기화
+  // Storage → 로컬 캔버스로 동기화 (실시간 수신)
   useEffect(() => {
     if (!isEnabled || !fabricCanvas) {
+      console.log("[Collaborative Canvas] ⏸️ 동기화 스킵 - isEnabled:", isEnabled, "fabricCanvas:", !!fabricCanvas);
       return;
     }
 
@@ -298,6 +309,8 @@ export function useCollaborativeCanvasSync({
     const isPageChanged = lastLoadedKeyRef.current !== canvasKey;
 
     if (isPageChanged) {
+      console.log("[Collaborative Canvas] 📄 페이지 변경 감지:", canvasKey);
+
       // 캔버스 클리어 (이전 페이지 내용 제거)
       fabricCanvas.clear();
       fabricCanvas.renderAll();
@@ -310,10 +323,12 @@ export function useCollaborativeCanvasSync({
 
       // 데이터가 있으면 바로 로드
       if (canvasDataFromStorage) {
+        console.log("[Collaborative Canvas] ✅ Storage에서 초기 데이터 로드");
         const storageJSON = JSON.stringify(canvasDataFromStorage);
         lastSavedJSON.current = storageJSON;
         loadFromStorage(fabricCanvas, canvasDataFromStorage);
       } else {
+        console.log("[Collaborative Canvas] ℹ️ Storage에 데이터 없음");
         setSyncState(prev => ({ ...prev, isLoading: false }));
       }
       return;
@@ -321,6 +336,7 @@ export function useCollaborativeCanvasSync({
 
     // 페이지 전환이 아닌 경우: 다른 사용자의 변경사항 동기화
     if (isUpdatingFromStorage.current) {
+      console.log("[Collaborative Canvas] ⏳ 업데이트 중 - 스킵");
       return;
     }
 
@@ -335,19 +351,32 @@ export function useCollaborativeCanvasSync({
       return;
     }
 
+    // 🔥 실시간 동기화: 다른 사용자가 그린 내용 수신
+    console.log("[Collaborative Canvas] 🔥 실시간 동기화 수신! readOnly:", readOnly);
     lastSavedJSON.current = storageJSON;
     loadFromStorage(fabricCanvas, canvasDataFromStorage);
-  }, [canvasDataFromStorage, fabricCanvas, isEnabled, canvasKey, loadFromStorage]);
+  }, [canvasDataFromStorage, fabricCanvas, isEnabled, canvasKey, loadFromStorage, readOnly]);
 
-  // Fabric.js 이벤트 리스너: 캔버스 변경 감지
+  // Fabric.js 이벤트 리스너: 캔버스 변경 감지 (readOnly가 아닐 때만)
   useEffect(() => {
-    if (!fabricCanvas || !isEnabled) return;
+    // readOnly 모드에서는 이벤트 리스너 등록 안함 (쓰기 권한 없음)
+    if (!fabricCanvas || !isEnabled || readOnly) {
+      console.log("[Collaborative Canvas] 🚫 이벤트 리스너 스킵:", { fabricCanvas: !!fabricCanvas, isEnabled, readOnly });
+      return;
+    }
+
+    console.log("[Collaborative Canvas] ✅ 이벤트 리스너 등록됨 - canvasKey:", canvasKey);
 
     let debounceTimer: NodeJS.Timeout | null = null;
 
     const handleCanvasModified = () => {
+      console.log("[Collaborative Canvas] 🎨 캔버스 변경 감지!");
+
       // Storage에서 업데이트 중이면 무시 (무한 루프 방지)
-      if (isUpdatingFromStorage.current) return;
+      if (isUpdatingFromStorage.current) {
+        console.log("[Collaborative Canvas] ⏭️ Storage 업데이트 중 - 스킵");
+        return;
+      }
 
       // 디바운스
       if (debounceTimer) {
@@ -355,6 +384,7 @@ export function useCollaborativeCanvasSync({
       }
 
       debounceTimer = setTimeout(() => {
+        console.log("[Collaborative Canvas] 📤 Storage로 동기화 시작...");
         syncToStorage(fabricCanvas);
       }, SYNC_CONFIG.DEBOUNCE_MS);
     };
@@ -374,7 +404,7 @@ export function useCollaborativeCanvasSync({
       fabricCanvas.off("object:removed", handleCanvasModified);
       fabricCanvas.off("path:created", handleCanvasModified);
     };
-  }, [fabricCanvas, isEnabled, syncToStorage]);
+  }, [fabricCanvas, isEnabled, readOnly, syncToStorage]);
 
   // pending 변경사항 수동 재시도
   const retryPendingChanges = useCallback(() => {

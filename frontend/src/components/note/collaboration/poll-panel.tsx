@@ -278,7 +278,7 @@ export function PollPanel({
               </div>
               <button
                 onClick={() => setIsCreating(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#AFC02B] text-black rounded-xl font-bold hover:bg-[#c2d43b] transition-all shadow-lg hover:scale-105 active:scale-95"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#333] text-[#AFC02B] border border-[#AFC02B]/30 rounded-xl font-bold hover:bg-[#AFC02B] hover:text-black transition-all shadow-lg hover:scale-105 active:scale-95"
               >
                 <Plus size={20} />
                 <span>투표 생성하기</span>
@@ -350,7 +350,7 @@ export function PollPanel({
                   !question.trim() ||
                   options.filter((opt) => opt.trim()).length < 2
                 }
-                className="w-full px-4 py-3 bg-[#AFC02B] text-black rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#c2d43b] transition-all shadow-md mt-2"
+                className="w-full px-4 py-3 bg-[#333] text-[#AFC02B] border border-[#AFC02B]/30 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B] hover:text-black transition-all shadow-md mt-2"
               >
                 투표 시작
               </button>
@@ -403,8 +403,8 @@ export function PollPanel({
                   onClick={() => handleVote(activePoll.id, index)}
                   disabled={!activePoll.isActive}
                   className={`w-full text-left p-4 rounded-xl border transition-all relative overflow-hidden group ${isVoted
-                      ? "border-[#AFC02B] bg-[#AFC02B]/5 shadow-[0_0_15px_rgba(175,192,43,0.1)]"
-                      : "border-[#3c3c3c] bg-[#252525] hover:border-[#555] hover:bg-[#2a2a2a]"
+                    ? "border-[#AFC02B] bg-[#AFC02B]/5 shadow-[0_0_15px_rgba(175,192,43,0.1)]"
+                    : "border-[#3c3c3c] bg-[#252525] hover:border-[#555] hover:bg-[#2a2a2a]"
                     } ${!activePoll.isActive ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {/* 배경 진행 바 */}

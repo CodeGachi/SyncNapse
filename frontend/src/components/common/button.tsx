@@ -19,7 +19,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
           {
             // Primary: Standard solid
-            "bg-[#AFC02B] text-white hover:bg-[#9DB025] shadow-lg shadow-[#AFC02B]/20":
+            "bg-[#AFC02B] text-black hover:bg-[#c2d43b] shadow-lg shadow-[#AFC02B]/20":
               variant === "primary",
 
             // Brand: The specific olive green used in the app

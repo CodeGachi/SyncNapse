@@ -27,6 +27,8 @@ interface EducatorNotePageProps {
   };
   searchParams: {
     title?: string;
+    view?: string;    // 공유 링크: "shared"
+    token?: string;   // 공유 토큰
   };
 }
 
@@ -36,6 +38,9 @@ export default function EducatorNotePage({
 }: EducatorNotePageProps) {
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
+
+  // 공유 링크로 접속한 학생인지 확인
+  const isSharedView = searchParams.view === "shared" && !!searchParams.token;
 
   // 백엔드 인증 사용자 정보 가져오기 (협업 이모지용)
   const { data: currentUser } = useCurrentUser();
@@ -66,7 +71,7 @@ export default function EducatorNotePage({
         <CollaborationDataHandler
           noteId={noteId}
           isCollaborating={true}
-          isSharedView={false}
+          isSharedView={isSharedView}
         >
           {/* Main Layout - 뷰어 + 패널 + 아이콘 Flexbox 배치 */}
           <main className="flex-1 h-full">
@@ -76,7 +81,8 @@ export default function EducatorNotePage({
                 noteId={noteId}
                 noteTitle={noteTitle}
                 isCollaborating={true}
-                isEducator={true}
+                isSharedView={isSharedView}
+                isEducator={!isSharedView}
               />
 
               {/* Right Side Panel - 통합 (Script, File, Etc, Collaboration) */}

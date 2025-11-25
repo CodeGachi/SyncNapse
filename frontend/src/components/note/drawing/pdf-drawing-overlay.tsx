@@ -66,12 +66,8 @@ export const PDFDrawingOverlay = forwardRef<
     },
     ref
   ) => {
-    // 🔍 DEBUG: 컴포넌트 렌더링 로그
-    console.log('[Drawing] 🔄 Render - pageNum:', pageNum, 'noteId:', noteId, 'fileId:', fileId, 'isCollaborative:', isCollaborative, 'isSharedView:', isSharedView);
-
-    // 공유 뷰(학생)일 때는 협업 모드를 활성화하고 readOnly로 동작
-    const shouldEnableCollaboration = isCollaborative || isSharedView;
-    const isReadOnlyCollaboration = isSharedView && !isCollaborative;
+    // 같은 Liveblocks Room에 있으면 드로잉 동기화 활성화
+    // isSharedView(학생)일 때는 readOnly 모드로 보기만 가능
 
     // div container를 사용 - Fabric.js가 canvas를 동적 생성
     const containerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +79,9 @@ export const PDFDrawingOverlay = forwardRef<
 
     // syncToStorage 함수 ref (협업 래퍼에서 설정됨)
     const syncToStorageRef = useRef<((canvas: fabric.Canvas) => void) | null>(null);
+
+    // 캔버스 준비 상태 (CollaborativeCanvasWrapper 렌더링 제어용)
+    const [isCanvasReady, setIsCanvasReady] = useState(false);
 
     // 현재 캔버스 크기 추적 (리사이즈 감지용)
     const currentCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -139,9 +138,11 @@ export const PDFDrawingOverlay = forwardRef<
       currentCanvasSizeRef.current = { width: finalWidth, height: finalHeight };
       initialCanvasSizeRef.current = { width: finalWidth, height: finalHeight }; // 초기 크기 저장
       setContainerSize({ width: finalWidth, height: finalHeight });
+      setIsCanvasReady(true); // 캔버스 준비 완료
 
       return () => {
         try {
+          setIsCanvasReady(false); // 캔버스 정리 시 상태 초기화
           if (fabricCanvasRef.current) {
             const canvasToDispose = fabricCanvasRef.current;
             fabricCanvasRef.current = null;
@@ -702,14 +703,15 @@ export const PDFDrawingOverlay = forwardRef<
           }}
         />
 
-        {/* 협업 모드 또는 공유 뷰(학생)일 때 Liveblocks 동기화 활성화 */}
-        {shouldEnableCollaboration && (
+        {/* 협업 모드일 때 Liveblocks 동기화 활성화 (같은 Room이면 드로잉 공유) */}
+        {/* 캔버스가 준비된 후에만 렌더링 (fabricCanvas가 null이면 동기화 불가) */}
+        {isCollaborative && isCanvasReady && fabricCanvasRef.current && (
           <CollaborativeCanvasWrapper
             fabricCanvas={fabricCanvasRef.current}
             fileId={fileId}
             pageNum={pageNum}
             syncToStorageRef={syncToStorageRef}
-            readOnly={isReadOnlyCollaboration}
+            readOnly={false}
           />
         )}
       </>
