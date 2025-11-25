@@ -59,33 +59,12 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      overlayClassName="fixed inset-0 z-[60] transition-opacity"
-      overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      containerClassName="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      contentClassName="flex flex-col bg-[#2F2F2F] rounded-[20px] w-[600px] max-h-[80vh] border border-[#575757] overflow-hidden"
-      closeButton={false}
+      title="키보드 단축키"
+      contentClassName="flex flex-col bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[600px] max-h-[80vh] overflow-hidden"
     >
-      {/* 헤더 */}
-      <div className="flex justify-between items-center px-6 py-4 border-b border-[#3f3f3f]">
-        <div className="flex items-center gap-3">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#AFC02B" strokeWidth="2">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8" />
-          </svg>
-          <h2 className="font-bold text-xl text-white">키보드 단축키</h2>
-        </div>
-        <button
-          onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#3f3f3f] rounded transition-colors"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 6L18 18M18 6L6 18" />
-          </svg>
-        </button>
-      </div>
 
       {/* 본문 - 2열 레이아웃 */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-6 pb-8">
         <div className="grid grid-cols-2 gap-6">
           {/* 왼쪽 열 */}
           <div>
@@ -100,13 +79,6 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
             <ShortcutSection title="일반" shortcuts={NOTE_KEYBOARD_SHORTCUTS.general} />
           </div>
         </div>
-      </div>
-
-      {/* 푸터 */}
-      <div className="px-6 py-3 border-t border-[#3f3f3f] bg-[#252525]">
-        <p className="text-xs text-gray-500 text-center">
-          Tip: 입력 필드에서는 일부 단축키가 비활성화됩니다
-        </p>
       </div>
     </Modal>
   );

@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,9 +23,9 @@ export function Modal({
   onClose,
   children,
   title,
-  overlayClassName = "fixed inset-0 bg-black/50 z-40 transition-opacity",
+  overlayClassName = "fixed inset-0 bg-black/40 backdrop-blur-sm z-40",
   containerClassName = "fixed inset-0 z-50 flex items-center justify-center p-4",
-  contentClassName = "bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform transition-all",
+  contentClassName = "bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto",
   closeButton = true,
   overlayStyle,
   contentStyle,
@@ -47,47 +48,65 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      {/* Background overlay */}
-      <div className={overlayClassName} style={overlayStyle} onClick={onClose} />
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Background overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className={overlayClassName}
+            style={overlayStyle}
+            onClick={onClose}
+          />
 
-      {/* Modal content */}
-      <div className={containerClassName}>
-        <div className={cn(contentClassName)} style={contentStyle} onClick={(e) => e.stopPropagation()}>
-          {/* Header */}
-          {title && (
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-              {closeButton && (
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+          {/* Modal content */}
+          <div className={containerClassName} style={{ pointerEvents: "none" }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", duration: 0.3, bounce: 0.2 }}
+              className={cn(contentClassName)}
+              style={{ ...contentStyle, pointerEvents: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              {title && (
+                <div className="flex items-center justify-between p-6 border-b border-white/10 w-full">
+                  <h2 className="text-xl font-bold text-white">{title}</h2>
+                  {closeButton && (
+                    <button
+                      onClick={onClose}
+                      className="text-white/40 hover:text-white transition-colors"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Body */}
-          <div className="p-6">{children}</div>
-        </div>
-      </div>
-    </>
+              {/* Body */}
+              <div className={title ? "p-6" : "p-0"}>{children}</div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

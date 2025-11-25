@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { CreateFolderModal } from "@/components/dashboard/folder-management/create-folder-modal";
 import { RenameFolderModal } from "@/components/dashboard/folder-management/rename-folder-modal";
-import { DeleteFolderModal } from "@/components/dashboard/folder-management/delete-folder-modal";
+import { DeleteConfirmModal } from "@/components/dashboard/delete-confirm-modal";
 import { FolderTree } from "@/components/dashboard/folder-management/folder-tree";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { useAuth } from "@/features/auth/use-auth";
@@ -46,6 +46,8 @@ export function NewSidebar({
     setRenamingFolder,
     deletingFolder,
     setDeletingFolder,
+    deletingNote,
+    setDeletingNote,
     handleCreateFolderModal,
     handleCreateSubFolder,
     handleRenameFolder,
@@ -53,6 +55,7 @@ export function NewSidebar({
     handleDeleteFolder,
     handleDeleteSubmit,
     handleDeleteNote,
+    handleDeleteNoteSubmit,
   } = useDashboardSidebar({
     selectedFolderId,
     onSelectFolder,
@@ -159,8 +162,8 @@ export function NewSidebar({
                       >
                         {/* 개인 노트 아이콘 - 사람 */}
                         <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="10" cy="6" r="4" stroke="white" strokeWidth="1.5"/>
-                          <path d="M3 18C3 14.134 6.13401 11 10 11C13.866 11 17 14.134 17 18" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                          <circle cx="10" cy="6" r="4" stroke="white" strokeWidth="1.5" />
+                          <path d="M3 18C3 14.134 6.13401 11 10 11C13.866 11 17 14.134 17 18" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
                         개인 노트
                       </button>
@@ -176,11 +179,11 @@ export function NewSidebar({
                       >
                         {/* 강의 노트 아이콘 - 칠판 */}
                         <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="2" y="3" width="16" height="11" rx="1" stroke="white" strokeWidth="1.5"/>
-                          <path d="M10 14V17" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M6 17H14" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M6 7H10" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M6 10H14" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                          <rect x="2" y="3" width="16" height="11" rx="1" stroke="white" strokeWidth="1.5" />
+                          <path d="M10 14V17" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                          <path d="M6 17H14" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                          <path d="M6 7H10" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                          <path d="M6 10H14" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
                         강의 노트
                       </button>
@@ -217,8 +220,8 @@ export function NewSidebar({
                 className="flex items-center gap-2"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2.5 5H4.16667H17.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M6.66667 5V3.33333C6.66667 2.89131 6.84226 2.46738 7.15482 2.15482C7.46738 1.84226 7.89131 1.66667 8.33333 1.66667H11.6667C12.1087 1.66667 12.5326 1.84226 12.8452 2.15482C13.1577 2.46738 13.3333 2.89131 13.3333 3.33333V5M15.8333 5V16.6667C15.8333 17.1087 15.6577 17.5326 15.3452 17.8452C15.0326 18.1577 14.6087 18.3333 14.1667 18.3333H5.83333C5.39131 18.3333 4.96738 18.1577 4.65482 17.8452C4.34226 17.5326 4.16667 17.1087 4.16667 16.6667V5H15.8333Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2.5 5H4.16667H17.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M6.66667 5V3.33333C6.66667 2.89131 6.84226 2.46738 7.15482 2.15482C7.46738 1.84226 7.89131 1.66667 8.33333 1.66667H11.6667C12.1087 1.66667 12.5326 1.84226 12.8452 2.15482C13.1577 2.46738 13.3333 2.89131 13.3333 3.33333V5M15.8333 5V16.6667C15.8333 17.1087 15.6577 17.5326 15.3452 17.8452C15.0326 18.1577 14.6087 18.3333 14.1667 18.3333H5.83333C5.39131 18.3333 4.96738 18.1577 4.65482 17.8452C4.34226 17.5326 4.16667 17.1087 4.16667 16.6667V5H15.8333Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <span className="text-white font-normal text-sm leading-[17px] font-['Inter']">
                   휴지통
@@ -234,8 +237,8 @@ export function NewSidebar({
                 className="flex items-center gap-2"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2.5 7.5L10 1.66667L17.5 7.5V16.6667C17.5 17.1087 17.3244 17.5326 17.0118 17.8452C16.6993 18.1577 16.2754 18.3333 15.8333 18.3333H4.16667C3.72464 18.3333 3.30072 18.1577 2.98816 17.8452C2.67559 17.5326 2.5 17.1087 2.5 16.6667V7.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M7.5 18.3333V10H12.5V18.3333" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2.5 7.5L10 1.66667L17.5 7.5V16.6667C17.5 17.1087 17.3244 17.5326 17.0118 17.8452C16.6993 18.1577 16.2754 18.3333 15.8333 18.3333H4.16667C3.72464 18.3333 3.30072 18.1577 2.98816 17.8452C2.67559 17.5326 2.5 17.1087 2.5 16.6667V7.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M7.5 18.3333V10H12.5V18.3333" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <span className="text-white font-normal text-sm leading-[17px] font-['Inter']">
                   홈
@@ -248,7 +251,7 @@ export function NewSidebar({
                 className="flex items-center gap-2"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 1.66667L12.575 6.88334L18.3333 7.725L14.1667 11.7833L15.15 17.5167L10 14.8083L4.85 17.5167L5.83333 11.7833L1.66667 7.725L7.425 6.88334L10 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 1.66667L12.575 6.88334L18.3333 7.725L14.1667 11.7833L15.15 17.5167L10 14.8083L4.85 17.5167L5.83333 11.7833L1.66667 7.725L7.425 6.88334L10 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <span className="text-white font-normal text-sm leading-[17px] font-['Inter']">
                   즐겨찾기
@@ -292,9 +295,9 @@ export function NewSidebar({
               className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#3C3C3C] rounded-lg transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17.5 10H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M17.5 10H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span className="text-white font-normal text-sm leading-[17px] font-['Inter']">
                 로그아웃
@@ -340,11 +343,22 @@ export function NewSidebar({
       )}
 
       {deletingFolder && (
-        <DeleteFolderModal
+        <DeleteConfirmModal
           isOpen={true}
           onClose={() => setDeletingFolder(null)}
           onDelete={handleDeleteSubmit}
-          folderName={deletingFolder.name}
+          type="folder"
+          name={deletingFolder.name}
+        />
+      )}
+
+      {deletingNote && (
+        <DeleteConfirmModal
+          isOpen={true}
+          onClose={() => setDeletingNote(null)}
+          onDelete={handleDeleteNoteSubmit}
+          type="note"
+          name={deletingNote.title}
         />
       )}
     </>

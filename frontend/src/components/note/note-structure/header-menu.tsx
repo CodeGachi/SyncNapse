@@ -13,6 +13,7 @@ import { useNote, useNotes } from "@/lib/api/queries/notes.queries";
 import { FolderSelectorModal } from "@/components/dashboard/folder-management/folder-selector-modal";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { Modal } from "@/components/common/modal";
+import { Button } from "@/components/common/button";
 import { KeyboardShortcutsModal } from "@/components/note/shared/keyboard-shortcuts-modal";
 import type { Note, NoteData } from "@/lib/types";
 
@@ -48,9 +49,10 @@ interface NoteSelectModalProps {
   onClose: () => void;
   onSelect: (noteId: string) => void;
   currentNoteId: string | null;
+  currentFolderId?: string | null;
 }
 
-function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelectModalProps) {
+function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFolderId }: NoteSelectModalProps) {
   const { data: notes = [], isLoading } = useNotes();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -58,6 +60,7 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelec
   const filteredNotes = notes.filter(
     (note) =>
       note.id !== currentNoteId &&
+      (currentFolderId ? note.folderId === currentFolderId : true) && // 같은 폴더 내의 노트만 필터링
       note.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -71,26 +74,10 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelec
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      overlayClassName="fixed inset-0 z-[60] transition-opacity"
-      overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      containerClassName="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      contentClassName="flex flex-col items-center p-8 gap-6 bg-[#2F2F2F] rounded-[20px] w-[480px] max-h-[90vh] border border-[#575757]"
-      closeButton={false}
+      title="노트 이동"
+      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[480px] max-h-[80vh]"
     >
-      <div className="flex flex-col gap-5 w-full">
-        {/* Header */}
-        <div className="flex flex-row justify-between items-center w-full">
-          <h2 className="font-['Inter'] font-bold text-2xl text-white">노트 이동</h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center hover:opacity-70 transition-opacity"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M6 6L18 18M18 6L6 18" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
+      <div className="flex flex-col gap-6">
         {/* 검색 입력 */}
         <div className="relative w-full">
           <svg
@@ -108,12 +95,12 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelec
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="노트 검색..."
-            className="w-full pl-12 pr-4 py-3.5 bg-[#3D3D3D] border border-[#4f4f4f] rounded-[12px] text-white text-sm placeholder-gray-400 focus:outline-none focus:border-[#899649] transition-colors"
+            className="w-full pl-12 pr-4 py-3 bg-[#262626] border border-[#575757] rounded-xl text-white outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all placeholder:text-gray-500"
           />
         </div>
 
         {/* 노트 목록 */}
-        <div className="bg-[#3D3D3D] rounded-[12px] p-4 min-h-[280px] max-h-[350px] overflow-y-auto">
+        <div className="bg-[#262626] border border-[#575757] rounded-xl p-2 min-h-[280px] max-h-[350px] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-gray-400">
               <svg className="animate-spin w-6 h-6 mr-3" fill="none" viewBox="0 0 24 24">
@@ -127,26 +114,25 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelec
               <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                 <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
-              <span className="text-sm">{searchQuery ? "검색 결과가 없습니다" : "다른 노트가 없습니다"}</span>
+              <span className="text-sm">{searchQuery ? "검색 결과가 없습니다" : "같은 폴더 내에 다른 노트가 없습니다"}</span>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {filteredNotes.map((note) => (
                 <button
                   key={note.id}
                   onClick={() => setSelectedNoteId(note.id)}
-                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-[10px] text-left transition-all ${
-                    selectedNoteId === note.id
-                      ? "bg-[#899649]/40 text-white ring-2 ring-[#899649]"
-                      : "text-[#D9D9D9] hover:bg-[#4a4a4a]"
-                  }`}
+                  className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg text-left transition-all ${selectedNoteId === note.id
+                    ? "bg-[#899649]/30 text-white ring-1 ring-[#899649]/50"
+                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    }`}
                 >
                   <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                     <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{note.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {new Date(note.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -162,20 +148,13 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelec
         </div>
 
         {/* 하단 버튼 */}
-        <div className="flex flex-row justify-end items-center gap-3 pt-2">
-          <button
-            onClick={onClose}
-            className="flex justify-center items-center px-6 h-11 bg-[#4a4a4a] rounded-[12px] hover:bg-[#5a5a5a] transition-colors"
-          >
-            <span className="font-['Inter'] font-semibold text-sm text-white">취소</span>
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!selectedNoteId}
-            className="flex justify-center items-center px-6 h-11 bg-[#899649] rounded-[12px] hover:bg-[#7A8740] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span className="font-['Inter'] font-semibold text-sm text-white">이동</span>
-          </button>
+        <div className="flex flex-row justify-end items-center gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            취소
+          </Button>
+          <Button variant="brand" onClick={handleConfirm} disabled={!selectedNoteId}>
+            이동
+          </Button>
         </div>
       </div>
     </Modal>
@@ -223,26 +202,10 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      overlayClassName="fixed inset-0 z-[60] transition-opacity"
-      overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      containerClassName="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      contentClassName="flex flex-col items-center p-8 gap-4 bg-[#2F2F2F] rounded-[20px] w-[420px] border border-[#575757]"
-      closeButton={false}
+      title="제목 수정"
+      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[420px]"
     >
-      <div className="flex flex-col gap-4 w-full">
-        {/* Header */}
-        <div className="flex flex-row justify-between items-center w-full">
-          <h2 className="font-['Inter'] font-bold text-2xl text-white">제목 수정</h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center hover:opacity-70 transition-opacity"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M6 6L18 18M18 6L6 18" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
+      <div className="flex flex-col gap-6">
         {/* 제목 입력 */}
         <div className="flex flex-col gap-2 w-full">
           <label className="text-sm text-gray-400 font-medium">노트 제목</label>
@@ -253,27 +216,22 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="노트 제목을 입력하세요"
-            className="w-full px-4 py-3 bg-[#5E5E67] rounded-[15px] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#899649]"
+            className="w-full px-4 py-3 bg-[#262626] border border-[#575757] rounded-xl text-white outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all placeholder:text-gray-500"
           />
         </div>
 
         {/* 하단 버튼 */}
-        <div className="flex flex-row justify-end items-center gap-4 pt-2">
-          <button
-            onClick={onClose}
-            className="flex justify-center items-center px-6 h-10 bg-[#5E5E67] rounded-[15px] hover:bg-[#6E6E77] transition-colors"
-          >
-            <span className="font-['Inter'] font-bold text-sm text-white">취소</span>
-          </button>
-          <button
+        <div className="flex flex-row justify-end items-center gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            variant="brand"
             onClick={handleSubmit}
             disabled={!title.trim() || isSubmitting}
-            className="flex justify-center items-center px-6 h-10 bg-[#899649] rounded-[15px] hover:bg-[#7A8740] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="font-['Inter'] font-bold text-sm text-white">
-              {isSubmitting ? "저장 중..." : "저장"}
-            </span>
-          </button>
+            {isSubmitting ? "저장 중..." : "저장"}
+          </Button>
         </div>
       </div>
     </Modal>
@@ -486,6 +444,7 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
         onClose={() => setIsNoteSelectModalOpen(false)}
         onSelect={handleNoteSelect}
         currentNoteId={noteId}
+        currentFolderId={note?.folderId}
       />
 
       {/* 새 노트 생성 모달 */}
