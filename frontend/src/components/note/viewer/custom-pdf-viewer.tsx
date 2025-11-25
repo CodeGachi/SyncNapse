@@ -14,11 +14,12 @@ import {
   usePdfLoader,
   usePdfControls,
   usePdfPan,
-  usePdfKeyboard,
   usePdfThumbnails,
   usePdfTextLayer,
   usePdfSearch,
 } from "@/features/note/viewer";
+import { useNoteKeyboard } from "@/features/note/keyboard";
+import { usePanelsStore, useDrawStore } from "@/stores";
 import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
 import type { DrawingData } from "@/lib/types/drawing";
@@ -119,15 +120,6 @@ export function CustomPdfViewer({
     currentPage,
   });
 
-  // Keyboard shortcuts
-  usePdfKeyboard({
-    isPdf,
-    numPages,
-    currentPage,
-    setCurrentPage,
-    setScale,
-  });
-
   // Text layer for text selection
   usePdfTextLayer({
     pdfDoc,
@@ -158,6 +150,50 @@ export function CustomPdfViewer({
     setCurrentPage,
     textLayerRef,
     isPdf,
+  });
+
+  // 패널 토글 함수들 가져오기
+  const {
+    toggleNotePanel,
+    toggleScript,
+    toggleFilePanel,
+    toggleDrawingSidebar,
+    toggleChatbotPanel,
+    toggleCollaborationPanel,
+  } = usePanelsStore();
+
+  // 필기 도구 상태
+  const { setDrawType } = useDrawStore();
+
+  // 통합 키보드 단축키
+  useNoteKeyboard({
+    // PDF 관련
+    isPdf,
+    numPages,
+    currentPage,
+    setCurrentPage,
+    setScale,
+    // 검색 관련
+    isSearchOpen,
+    setIsSearchOpen,
+    closeSearch,
+    // 썸네일/팬 모드
+    isThumbnailOpen,
+    setIsThumbnailOpen,
+    isPanModeEnabled,
+    setIsPanModeEnabled,
+    // 패널 토글
+    toggleNotePanel,
+    toggleScriptPanel: toggleScript,
+    toggleFilePanel,
+    toggleDrawingSidebar,
+    toggleChatbotPanel,
+    toggleCollaborationPanel,
+    // 필기 도구
+    isDrawingEnabled: drawingEnabled && drawingMode,
+    setDrawingTool: setDrawType,
+    onUndo: drawingOverlayRef?.current?.handleUndo,
+    onRedo: drawingOverlayRef?.current?.handleRedo,
   });
 
   // 썸네일 클릭 핸들러
@@ -395,7 +431,8 @@ export function CustomPdfViewer({
           onWheel={handleWheel}
           style={{
             cursor: drawingMode ? "default" : (isPanModeEnabled ? (isPanning ? "grabbing" : "grab") : "default"),
-            userSelect: isPanModeEnabled ? "none" : "auto",
+            // 외부 영역은 항상 선택 불가, 텍스트 레이어만 선택 가능
+            userSelect: "none",
           }}
         >
           {/* 중앙 정렬을 위한 내부 컨테이너 - 확대 시 좌우 스크롤 가능 */}
@@ -450,7 +487,7 @@ export function CustomPdfViewer({
               </div>
             )}
 
-            <div className="inline-block relative" style={{ overflow: "clip" }}>
+            <div className="inline-block relative" style={{ overflow: "hidden", contain: "paint" }}>
               {/* PDF Canvas */}
               <canvas
                 ref={canvasRef}
@@ -470,6 +507,8 @@ export function CustomPdfViewer({
                   display: loading || error || (drawingEnabled && drawingMode) ? "none" : "block",
                   pointerEvents: isPanModeEnabled ? "none" : "auto",
                   visibility: isPanModeEnabled && !isSearchOpen ? "hidden" : "visible",
+                  // 텍스트 레이어만 선택 가능
+                  userSelect: isPanModeEnabled ? "none" : "text",
                 }}
               />
 

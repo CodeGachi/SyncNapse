@@ -146,9 +146,13 @@ export const PDFDrawingOverlay = forwardRef<
 
             // 캔버스 컨텍스트가 유효할 때만 clear 호출
             try {
-              const ctx = canvasToDispose.getContext();
-              if (ctx) {
-                canvasToDispose.clear();
+              // lowerCanvasEl이 존재하고 DOM에 연결되어 있는지 확인
+              const lowerCanvas = (canvasToDispose as any).lowerCanvasEl;
+              if (lowerCanvas && lowerCanvas.getContext && lowerCanvas.isConnected !== false) {
+                const ctx = lowerCanvas.getContext('2d');
+                if (ctx) {
+                  canvasToDispose.clear();
+                }
               }
             } catch (clearError) {
               // clear 에러는 무시
@@ -196,12 +200,15 @@ export const PDFDrawingOverlay = forwardRef<
           const canvas = fabricCanvasRef.current;
           if (canvas) {
             try {
-              // 캔버스 컨텍스트가 유효한지 확인
-              const ctx = canvas.getContext();
-              if (ctx) {
-                canvas.clear();
-                canvas.renderAll();
-                console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+              // lowerCanvasEl이 존재하고 DOM에 연결되어 있는지 확인
+              const lowerCanvas = (canvas as any).lowerCanvasEl;
+              if (lowerCanvas && lowerCanvas.getContext && lowerCanvas.isConnected !== false) {
+                const ctx = lowerCanvas.getContext('2d');
+                if (ctx) {
+                  canvas.clear();
+                  canvas.renderAll();
+                  console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+                }
               }
             } catch (e) {
               console.warn('[Drawing] Canvas clear skipped - context unavailable');
@@ -635,12 +642,15 @@ export const PDFDrawingOverlay = forwardRef<
       lastActionRef.current = null;
 
       try {
-        // 캔버스 컨텍스트가 유효한지 확인
-        const ctx = canvas.getContext();
-        if (ctx) {
-          canvas.clear();
-          canvas.renderAll();
-          triggerAutoSave();
+        // lowerCanvasEl이 존재하고 DOM에 연결되어 있는지 확인
+        const lowerCanvas = (canvas as any).lowerCanvasEl;
+        if (lowerCanvas && lowerCanvas.getContext && lowerCanvas.isConnected !== false) {
+          const ctx = lowerCanvas.getContext('2d');
+          if (ctx) {
+            canvas.clear();
+            canvas.renderAll();
+            triggerAutoSave();
+          }
         }
       } catch (e) {
         console.warn('[Drawing] Canvas clear skipped - context unavailable');

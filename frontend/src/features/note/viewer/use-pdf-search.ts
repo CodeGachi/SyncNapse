@@ -1,6 +1,8 @@
 /**
  * PDF Search Hook
- * PDF 내 텍스트 검색 기능 (Ctrl+F)
+ * PDF 내 텍스트 검색 기능
+ *
+ * Note: 키보드 단축키(Ctrl+F, Escape)는 useNoteKeyboard로 이동됨
  */
 
 "use client";
@@ -28,7 +30,6 @@ export function usePdfSearch({
   currentPage,
   setCurrentPage,
   textLayerRef,
-  isPdf,
 }: UsePdfSearchProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,25 +40,6 @@ export function usePdfSearch({
   // 하이라이트 적용 중인지 추적 (무한 루프 방지)
   const isHighlightingRef = useRef(false);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 검색창 열기/닫기 (Ctrl+F)
-  useEffect(() => {
-    if (!isPdf) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-      if (e.key === "Escape" && isSearchOpen) {
-        e.preventDefault();
-        closeSearch();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPdf, isSearchOpen]);
 
   // 하이라이트 지우기
   const clearHighlights = useCallback(() => {

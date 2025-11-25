@@ -13,6 +13,7 @@ import { useNote, useNotes } from "@/lib/api/queries/notes.queries";
 import { FolderSelectorModal } from "@/components/dashboard/folder-management/folder-selector-modal";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { Modal } from "@/components/common/modal";
+import { KeyboardShortcutsModal } from "@/components/note/shared/keyboard-shortcuts-modal";
 import type { Note, NoteData } from "@/lib/types";
 
 interface HeaderMenuProps {
@@ -222,6 +223,7 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
   const [isCreateNoteModalOpen, setIsCreateNoteModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isTitleEditModalOpen, setIsTitleEditModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
 
   // 외부 클릭 감지
   useEffect(() => {
@@ -307,6 +309,12 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
     setIsTitleEditModalOpen(true);
   };
 
+  // 단축키 도움말
+  const handleShowShortcuts = () => {
+    onClose();
+    setIsShortcutsModalOpen(true);
+  };
+
   const handleTitleSubmit = (newTitle: string) => {
     if (!noteId) return;
 
@@ -377,6 +385,21 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
             label="제목 수정"
             onClick={handleEditTitle}
           />
+
+          {/* 구분선 */}
+          <div className="my-1 mx-3 border-t border-[#4f4f4f]" />
+
+          {/* 단축키 도움말 */}
+          <MenuItem
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8" />
+              </svg>
+            }
+            label="단축키"
+            onClick={handleShowShortcuts}
+          />
         </div>
       </div>
 
@@ -413,6 +436,12 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
         currentTitle={note?.title || ""}
         onSubmit={handleTitleSubmit}
         isSubmitting={updateNote.isPending}
+      />
+
+      {/* 단축키 도움말 모달 */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
     </>
   );

@@ -19,8 +19,6 @@
   text-align: initial;
   top: 0;
   left: 0;
-  /* clip-path로 텍스트 레이어 영역 밖 완전히 잘라냄 */
-  clip-path: inset(0);
   overflow: hidden;
   opacity: 1;
   line-height: 1;
@@ -32,6 +30,8 @@
   z-index: 2;
   /* PDF.js 3.x 기본값 */
   --scale-factor: 1;
+  /* 선택 영역이 밖으로 나가지 않도록 */
+  contain: paint;
 }
 
 .textLayer :is(span, br) {

@@ -68,8 +68,8 @@ export function NoteContentArea({
   // PDF 현재 페이지 추적
   const [currentPdfPage, setCurrentPdfPage] = useState(1);
 
-  // 필기 모드 상태 (필기/뷰어)
-  const [isDrawingMode, setIsDrawingMode] = useState(true);
+  // 필기 모드 상태 (필기/뷰어) - 기본값: 뷰어 모드 (PDF 조작 가능)
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   // Store states
   const editorStore = useNoteEditorStore();

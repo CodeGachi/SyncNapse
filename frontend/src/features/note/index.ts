@@ -5,6 +5,7 @@
  * - recording/: Record/Play Related (useRecordingList, useRecording, useRecordingControl, useAudioPlayer)
  * - text-notes/: Editor Related
  * - file/: File Management (useFilePanelUI)
+ * - keyboard/: Keyboard Shortcuts (useNoteKeyboard)
  *
  * Note: FileItem, NoteBlock types moved to @/lib/types
  */
@@ -14,3 +15,6 @@ export type { RecordingData } from "./recording";
 
 // File Module
 export { useFilePanelUI } from "./file";
+
+// Keyboard Module
+export { useNoteKeyboard, NOTE_KEYBOARD_SHORTCUTS } from "./keyboard";
