@@ -69,6 +69,9 @@ export function CustomPdfViewer({
   // 썸네일 사이드바 토글 상태
   const [isThumbnailOpen, setIsThumbnailOpen] = useState(true);
 
+  // 마우스 팬 모드 (이동 모드) 토글 상태
+  const [isPanModeEnabled, setIsPanModeEnabled] = useState(false);
+
   // Drawing overlay를 위한 PDF 렌더링 정보 (내부 상태)
   const [pdfRenderState, setPdfRenderState] = useState<{
     baseWidth: number;
@@ -385,15 +388,25 @@ export function CustomPdfViewer({
         <div
           ref={containerRef}
           className="flex-1 overflow-auto bg-[#2a2a2a]"
-          onMouseDown={drawingMode ? undefined : handleMouseDown}
-          onMouseMove={drawingMode ? undefined : handleMouseMove}
-          onMouseUp={drawingMode ? undefined : handleMouseUp}
-          onMouseLeave={drawingMode ? undefined : handleMouseLeave}
+          onMouseDown={isPanModeEnabled && !drawingMode ? handleMouseDown : undefined}
+          onMouseMove={isPanModeEnabled && !drawingMode ? handleMouseMove : undefined}
+          onMouseUp={isPanModeEnabled && !drawingMode ? handleMouseUp : undefined}
+          onMouseLeave={isPanModeEnabled && !drawingMode ? handleMouseLeave : undefined}
           onWheel={handleWheel}
-          style={{ cursor: drawingMode ? "default" : (isPanning ? "grabbing" : "grab") }}
+          style={{
+            cursor: drawingMode ? "default" : (isPanModeEnabled ? (isPanning ? "grabbing" : "grab") : "default"),
+            userSelect: isPanModeEnabled ? "none" : "auto",
+          }}
         >
-          {/* 중앙 정렬을 위한 내부 컨테이너 - min-height로 작을 때만 중앙 정렬 */}
-          <div className="min-w-full min-h-full flex items-center justify-center p-4">
+          {/* 중앙 정렬을 위한 내부 컨테이너 - 확대 시 좌우 스크롤 가능 */}
+          <div
+            className="inline-flex items-center justify-center p-4"
+            style={{
+              pointerEvents: isPanModeEnabled ? "none" : "auto",
+              minWidth: "100%",
+              minHeight: "100%",
+            }}
+          >
         {!fileUrl ? (
           <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
             <svg
@@ -437,7 +450,7 @@ export function CustomPdfViewer({
               </div>
             )}
 
-            <div className="inline-block relative">
+            <div className="inline-block relative" style={{ overflow: "clip" }}>
               {/* PDF Canvas */}
               <canvas
                 ref={canvasRef}
@@ -448,12 +461,15 @@ export function CustomPdfViewer({
                 }}
               />
 
-              {/* Text Layer - 텍스트 선택 가능하게 */}
+              {/* Text Layer - 텍스트 선택 가능하게 (팬 모드 off일 때 또는 검색 중일 때) */}
+              {/* drawingEnabled && drawingMode일 때만 숨김 (개인 노트에서는 drawingEnabled=false이므로 항상 표시) */}
               <div
                 ref={textLayerRef}
-                className="textLayer absolute top-0 left-0 overflow-hidden pointer-events-auto"
+                className="textLayer"
                 style={{
-                  display: loading || error || drawingMode ? "none" : "block",
+                  display: loading || error || (drawingEnabled && drawingMode) ? "none" : "block",
+                  pointerEvents: isPanModeEnabled ? "none" : "auto",
+                  visibility: isPanModeEnabled && !isSearchOpen ? "hidden" : "visible",
                 }}
               />
 
@@ -573,8 +589,31 @@ export function CustomPdfViewer({
             </button>
           </div>
 
-          {/* 줌 컨트롤 */}
+          {/* 팬 모드 토글 + 줌 컨트롤 */}
           <div className="flex items-center gap-1.5">
+            {/* 팬 모드 (마우스 이동) 토글 버튼 */}
+            <button
+              onClick={() => setIsPanModeEnabled(prev => !prev)}
+              className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                isPanModeEnabled
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "hover:bg-[#3c3c3c]"
+              }`}
+              title={isPanModeEnabled ? "이동 모드 끄기 (텍스트 선택 가능)" : "이동 모드 켜기 (드래그로 이동)"}
+            >
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M10 2L10 18M10 2L6 6M10 2L14 6M10 18L6 14M10 18L14 14M2 10L18 10M2 10L6 6M2 10L6 14M18 10L14 6M18 10L14 14"
+                  stroke="white"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            <div className="w-px h-5 bg-[#444444] mx-1" />
+
             <button
               onClick={handleZoomOut}
               disabled={scale <= 0.5}

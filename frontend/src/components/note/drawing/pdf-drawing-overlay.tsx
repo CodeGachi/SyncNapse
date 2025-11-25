@@ -143,7 +143,16 @@ export const PDFDrawingOverlay = forwardRef<
             setContainerSize(null);
 
             canvasToDispose.off();
-            canvasToDispose.clear();
+
+            // 캔버스 컨텍스트가 유효할 때만 clear 호출
+            try {
+              const ctx = canvasToDispose.getContext();
+              if (ctx) {
+                canvasToDispose.clear();
+              }
+            } catch (clearError) {
+              // clear 에러는 무시
+            }
 
             try {
               canvasToDispose.dispose();
@@ -186,9 +195,17 @@ export const PDFDrawingOverlay = forwardRef<
         if (!isCollaborative) {
           const canvas = fabricCanvasRef.current;
           if (canvas) {
-            canvas.clear();
-            canvas.renderAll();
-            console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+            try {
+              // 캔버스 컨텍스트가 유효한지 확인
+              const ctx = canvas.getContext();
+              if (ctx) {
+                canvas.clear();
+                canvas.renderAll();
+                console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+              }
+            } catch (e) {
+              console.warn('[Drawing] Canvas clear skipped - context unavailable');
+            }
           }
           hasLoadedRef.current = false;
           setShouldLoadContent(true);
@@ -617,9 +634,17 @@ export const PDFDrawingOverlay = forwardRef<
       undoStackRef.current = [];
       lastActionRef.current = null;
 
-      canvas.clear();
-      canvas.renderAll();
-      triggerAutoSave();
+      try {
+        // 캔버스 컨텍스트가 유효한지 확인
+        const ctx = canvas.getContext();
+        if (ctx) {
+          canvas.clear();
+          canvas.renderAll();
+          triggerAutoSave();
+        }
+      } catch (e) {
+        console.warn('[Drawing] Canvas clear skipped - context unavailable');
+      }
     }, [triggerAutoSave]);
 
     // Expose methods via ref

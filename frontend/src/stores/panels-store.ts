@@ -34,7 +34,7 @@ const initialState = {
   isChatbotPanelOpen: false,
   isScriptOpen: false,
   isCollaborationPanelOpen: false,
-  isDrawingSidebarOpen: true, // 필기바 기본 표시
+  isDrawingSidebarOpen: false, // 필기바 기본 숨김
 };
 
 export const usePanelsStore = create<PanelsState>()(

@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, RefObject } from "react";
+import { useState, useEffect, useCallback, useRef, RefObject } from "react";
 
 interface SearchMatch {
   pageNum: number;
@@ -36,6 +36,10 @@ export function usePdfSearch({
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
 
+  // 하이라이트 적용 중인지 추적 (무한 루프 방지)
+  const isHighlightingRef = useRef(false);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // 검색창 열기/닫기 (Ctrl+F)
   useEffect(() => {
     if (!isPdf) return;
@@ -54,6 +58,110 @@ export function usePdfSearch({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isPdf, isSearchOpen]);
+
+  // 하이라이트 지우기
+  const clearHighlights = useCallback(() => {
+    if (!textLayerRef.current) return;
+
+    const marks = textLayerRef.current.querySelectorAll("mark");
+    marks.forEach((mark) => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent || ""), mark);
+        parent.normalize(); // 연속된 텍스트 노드 병합
+      }
+    });
+  }, [textLayerRef]);
+
+  // 텍스트 레이어에서 하이라이트 (간단한 버전)
+  const highlightMatches = useCallback(() => {
+    if (isHighlightingRef.current) return;
+    if (!textLayerRef.current || !searchQuery.trim()) return;
+
+    isHighlightingRef.current = true;
+
+    try {
+      const textLayer = textLayerRef.current;
+
+      // 먼저 기존 하이라이트 제거
+      clearHighlights();
+
+      const normalizedQuery = searchQuery.toLowerCase();
+      const currentPageMatches = matches.filter((m) => m.pageNum === currentPage);
+
+      if (currentPageMatches.length === 0) {
+        isHighlightingRef.current = false;
+        return;
+      }
+
+      // 현재 페이지 이전의 매치 개수 계산
+      const matchesBeforeCurrentPage = matches.filter(
+        (m) => m.pageNum < currentPage
+      ).length;
+
+      const spans = textLayer.querySelectorAll("span");
+      let pageMatchIndex = 0;
+
+      spans.forEach((span) => {
+        const text = span.textContent || "";
+        const lowerText = text.toLowerCase();
+
+        if (lowerText.includes(normalizedQuery)) {
+          // TreeWalker를 사용하여 텍스트 노드 찾기
+          const walker = document.createTreeWalker(
+            span,
+            NodeFilter.SHOW_TEXT,
+            null
+          );
+
+          let node;
+          const nodesToProcess: { node: Text; startIndex: number }[] = [];
+
+          while ((node = walker.nextNode())) {
+            const textNode = node as Text;
+            const nodeText = textNode.textContent || "";
+            const lowerNodeText = nodeText.toLowerCase();
+            let searchIndex = 0;
+
+            while ((searchIndex = lowerNodeText.indexOf(normalizedQuery, searchIndex)) !== -1) {
+              nodesToProcess.push({ node: textNode, startIndex: searchIndex });
+              searchIndex += normalizedQuery.length;
+            }
+          }
+
+          // 역순으로 처리하여 인덱스가 변경되지 않도록
+          for (let i = nodesToProcess.length - 1; i >= 0; i--) {
+            const { node: textNode, startIndex } = nodesToProcess[i];
+            const nodeText = textNode.textContent || "";
+
+            const globalMatchIndex = matchesBeforeCurrentPage + pageMatchIndex;
+            const isCurrentMatch = globalMatchIndex === currentMatchIndex;
+            pageMatchIndex++;
+
+            // 텍스트 노드 분할 및 mark 요소 생성
+            const before = nodeText.substring(0, startIndex);
+            const matched = nodeText.substring(startIndex, startIndex + searchQuery.length);
+            const after = nodeText.substring(startIndex + searchQuery.length);
+
+            const mark = document.createElement("mark");
+            mark.className = isCurrentMatch ? "search-highlight-current" : "search-highlight";
+            mark.textContent = matched;
+
+            const parent = textNode.parentNode;
+            if (parent) {
+              if (after) {
+                parent.insertBefore(document.createTextNode(after), textNode.nextSibling);
+              }
+              parent.insertBefore(mark, textNode.nextSibling);
+              textNode.textContent = before;
+            }
+          }
+        }
+      });
+    } finally {
+      isHighlightingRef.current = false;
+    }
+  }, [textLayerRef, searchQuery, matches, currentPage, currentMatchIndex, clearHighlights]);
 
   // 검색 실행
   const performSearch = useCallback(async (query: string) => {
@@ -94,7 +202,6 @@ export function usePdfSearch({
       setCurrentMatchIndex(0);
 
       if (foundMatches.length > 0) {
-        // 첫 번째 매치가 있는 페이지로 이동
         setCurrentPage(foundMatches[0].pageNum);
       }
     } catch (err) {
@@ -102,69 +209,7 @@ export function usePdfSearch({
     } finally {
       setIsSearching(false);
     }
-  }, [pdfDoc, numPages, setCurrentPage]);
-
-  // 텍스트 레이어에서 하이라이트
-  const highlightMatches = useCallback(() => {
-    if (!textLayerRef.current || !searchQuery.trim()) return;
-
-    const textLayer = textLayerRef.current;
-    const spans = textLayer.querySelectorAll("span");
-
-    // 먼저 모든 하이라이트 제거
-    spans.forEach((span) => {
-      span.innerHTML = span.textContent || "";
-      span.classList.remove("search-highlight", "search-highlight-current");
-    });
-
-    if (!searchQuery.trim()) return;
-
-    const normalizedQuery = searchQuery.toLowerCase();
-    let currentPageMatchIndex = 0;
-
-    // 현재 페이지의 매치 인덱스 계산
-    const matchesBeforeCurrentPage = matches.filter(
-      (m) => m.pageNum < currentPage
-    ).length;
-    const currentPageMatches = matches.filter(
-      (m) => m.pageNum === currentPage
-    );
-
-    spans.forEach((span) => {
-      const text = span.textContent || "";
-      const lowerText = text.toLowerCase();
-
-      if (lowerText.includes(normalizedQuery)) {
-        const regex = new RegExp(`(${escapeRegExp(searchQuery)})`, "gi");
-        const parts = text.split(regex);
-
-        span.innerHTML = parts
-          .map((part) => {
-            if (part.toLowerCase() === normalizedQuery) {
-              const isCurrentMatch =
-                matchesBeforeCurrentPage + currentPageMatchIndex === currentMatchIndex;
-              currentPageMatchIndex++;
-              return `<mark class="${
-                isCurrentMatch ? "search-highlight-current" : "search-highlight"
-              }">${part}</mark>`;
-            }
-            return part;
-          })
-          .join("");
-      }
-    });
-  }, [textLayerRef, searchQuery, matches, currentPage, currentMatchIndex]);
-
-  // 하이라이트 지우기
-  const clearHighlights = useCallback(() => {
-    if (!textLayerRef.current) return;
-
-    const spans = textLayerRef.current.querySelectorAll("span");
-    spans.forEach((span) => {
-      span.innerHTML = span.textContent || "";
-      span.classList.remove("search-highlight", "search-highlight-current");
-    });
-  }, [textLayerRef]);
+  }, [pdfDoc, numPages, setCurrentPage, clearHighlights]);
 
   // 검색어 변경 시 검색 실행
   useEffect(() => {
@@ -177,13 +222,24 @@ export function usePdfSearch({
 
   // 페이지 변경 또는 매치 인덱스 변경 시 하이라이트 업데이트
   useEffect(() => {
-    // 텍스트 레이어 렌더링 후 하이라이트 적용을 위해 약간의 지연
-    const timer = setTimeout(() => {
-      highlightMatches();
-    }, 100);
+    if (!searchQuery.trim()) return;
 
-    return () => clearTimeout(timer);
-  }, [currentPage, currentMatchIndex, highlightMatches]);
+    // 기존 타이머 취소
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+
+    // 텍스트 레이어 렌더링 완료를 기다린 후 하이라이트
+    highlightTimeoutRef.current = setTimeout(() => {
+      highlightMatches();
+    }, 400);
+
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, [currentPage, currentMatchIndex, searchQuery, highlightMatches]);
 
   // 다음 매치로 이동
   const goToNextMatch = useCallback(() => {

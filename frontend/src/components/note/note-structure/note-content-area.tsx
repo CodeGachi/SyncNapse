@@ -189,7 +189,7 @@ export function NoteContentArea({
                   onPageChange={setCurrentPdfPage}
                   onPdfRenderInfo={setPdfRenderInfo}
                   // Drawing overlay props
-                  drawingEnabled={isEducatorNote && !!selectedFile}
+                  drawingEnabled={!!selectedFile}
                   drawingMode={isDrawingMode}
                   drawingOverlayRef={drawingOverlayRef}
                   noteId={noteId || ""}
@@ -207,8 +207,8 @@ export function NoteContentArea({
               </div>
             </div>
 
-            {/* 필기 도구 사이드바 - 우측 (교육자 노트 + 파일 선택 + 필기바 표시 시만 표시) */}
-            {isEducatorNote && selectedFile && isDrawingSidebarOpen && (
+            {/* 필기 도구 사이드바 - 우측 (파일 선택 + 필기바 표시 시만 표시) */}
+            {selectedFile && isDrawingSidebarOpen && (
               <DrawingSidebar
                 isEnabled={true}
                 isDrawingMode={isDrawingMode}
@@ -238,7 +238,7 @@ export function NoteContentArea({
               className="overflow-y-auto bg-[#1e1e1e]"
               style={{
                 height: `${100 - viewerHeight}%`,
-                marginRight: isEducatorNote && selectedFile && isDrawingSidebarOpen
+                marginRight: selectedFile && isDrawingSidebarOpen
                   ? '72px' // 필기바 표시: 56px + gap 16px
                   : '0'
               }}

@@ -112,21 +112,19 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
         <div className={labelClass}>Files</div>
       </div>
 
-      {/* 필기바 토글 아이콘 (Drawing) - 교육자 노트만, 4번째 위치 */}
-      {isEducatorNote && (
-        <div className={buttonWrapperClass}>
-          <button
-            onClick={toggleDrawingSidebar}
-            className={getButtonClass(isDrawingSidebarOpen)}
-            title={isDrawingSidebarOpen ? "Hide Drawing Bar" : "Show Drawing Bar"}
-          >
-            <div className={iconContainerClass}>
-              <Image src="/iconstack.io - (Pencil Circle Duotone).svg" alt="Drawing" width={24} height={24} className="flex-shrink-0" />
-            </div>
-          </button>
-          <div className={labelClass}>Drawing</div>
-        </div>
-      )}
+      {/* 필기바 토글 아이콘 (Drawing) - 4번째 위치 */}
+      <div className={buttonWrapperClass}>
+        <button
+          onClick={toggleDrawingSidebar}
+          className={getButtonClass(isDrawingSidebarOpen)}
+          title={isDrawingSidebarOpen ? "Hide Drawing Bar" : "Show Drawing Bar"}
+        >
+          <div className={iconContainerClass}>
+            <Image src="/iconstack.io - (Pencil Circle Duotone).svg" alt="Drawing" width={24} height={24} className="flex-shrink-0" />
+          </div>
+        </button>
+        <div className={labelClass}>Drawing</div>
+      </div>
 
       {/* 챗봇 아이콘 (AI Chat) */}
       <div className={buttonWrapperClass}>

@@ -99,7 +99,7 @@ export function NoteHeader({
         </div>
 
         {/* 헤더 메뉴 */}
-        <HeaderMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+        <HeaderMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} noteId={noteId} />
       </div>
     </div>
   );

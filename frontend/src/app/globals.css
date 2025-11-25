@@ -13,11 +13,14 @@
   display: none;
 }
 
-/* PDF.js Text Layer Styles */
+/* PDF.js Text Layer Styles (3.x compatible) */
 .textLayer {
   position: absolute;
   text-align: initial;
-  inset: 0;
+  top: 0;
+  left: 0;
+  /* clip-path로 텍스트 레이어 영역 밖 완전히 잘라냄 */
+  clip-path: inset(0);
   overflow: hidden;
   opacity: 1;
   line-height: 1;
@@ -27,6 +30,8 @@
   forced-color-adjust: none;
   transform-origin: 0 0;
   z-index: 2;
+  /* PDF.js 3.x 기본값 */
+  --scale-factor: 1;
 }
 
 .textLayer :is(span, br) {
@@ -35,6 +40,25 @@
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
+  margin: 0;
+  padding: 0;
+  /* 글자 겹침 시 선택 영역이 넘치지 않도록 */
+  overflow: hidden;
+}
+
+/* PDF.js 3.x 스타일 - 텍스트 위치 및 크기 계산 */
+.textLayer span {
+  font-size: calc(10px * var(--scale-factor));
+}
+
+/* 텍스트 레이어 전체의 선택 스타일 - 겹침 방지 */
+.textLayer {
+  isolation: isolate;
+}
+
+/* 텍스트 선택 시 하이라이트가 글자 위에 보이도록 */
+.textLayer ::selection {
+  background: rgba(66, 133, 244, 0.5) !important;
 }
 
 .textLayer span.markedContent {
@@ -69,22 +93,13 @@
   background-color: rgba(0, 100, 0, 0.4);
 }
 
-.textLayer ::selection {
-  background: rgba(0, 0, 255, 0.3);
-}
-
 /* PDF Search Highlight Styles */
 .search-highlight {
   background-color: rgba(255, 255, 0, 0.4) !important;
   color: transparent !important;
-  border-radius: 2px;
-  padding: 1px 0;
 }
 
 .search-highlight-current {
-  background-color: rgba(255, 165, 0, 0.7) !important;
+  background-color: rgba(255, 150, 50, 0.5) !important;
   color: transparent !important;
-  border-radius: 2px;
-  padding: 1px 0;
-  box-shadow: 0 0 0 2px rgba(255, 165, 0, 0.5);
 }

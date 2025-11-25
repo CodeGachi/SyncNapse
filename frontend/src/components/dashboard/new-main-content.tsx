@@ -277,10 +277,10 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
               <div className="flex-1 text-white font-medium text-base leading-[19px]">
                 이름
               </div>
-              <div className="w-[150px] text-white font-medium text-base leading-[19px]">
+              <div className="w-[150px] text-white font-medium text-base leading-[19px] hidden sm:block flex-shrink-0">
                 수정일
               </div>
-              <div className="w-[24px]"></div>
+              <div className="w-[24px] flex-shrink-0"></div>
             </div>
 
             {/* Divider */}
@@ -303,8 +303,8 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                     className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                   >
                     {/* Note Icon + Type Badge + Name */}
-                    <div className="flex flex-row items-center gap-2 flex-1">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <div className="flex flex-row items-center gap-2 flex-1 min-w-0">
+                      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M11.6667 1.66667V6.66667H16.6667" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M13.3333 10.8333H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -312,27 +312,27 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                         <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       {/* 노트 타입 배지 */}
-                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 ${
                         note.type === 'educator'
                           ? 'bg-[#AFC02B]/20 text-[#AFC02B] border border-[#AFC02B]/30'
                           : 'bg-[#4A90D9]/20 text-[#4A90D9] border border-[#4A90D9]/30'
                       }`}>
                         {note.type === 'educator' ? '강의' : '개인'}
                       </span>
-                      <span className="text-white font-normal text-base leading-[19px]">
+                      <span className="text-white font-normal text-base leading-[19px] truncate">
                         {note.title}
                       </span>
                     </div>
 
                     {/* 수정일 */}
-                    <div className="w-[150px] text-white font-normal text-base leading-[19px]">
+                    <div className="w-[150px] text-white font-normal text-base leading-[19px] hidden sm:block flex-shrink-0">
                       {formatDate(note.updatedAt || note.createdAt)}
                     </div>
 
                     {/* 더보기 아이콘 */}
                     <button
                       onClick={(e) => handleOptionClick(e, 'note', note.id)}
-                      className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded"
+                      className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded flex-shrink-0"
                     >
                       <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="2" cy="2" r="1.5" fill="white"/>
@@ -374,10 +374,10 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                 <div className="flex-1 text-white font-medium text-base leading-[19px]">
                   이름
                 </div>
-                <div className="w-[150px] text-white font-medium text-base leading-[19px]">
+                <div className="w-[150px] text-white font-medium text-base leading-[19px] hidden sm:block flex-shrink-0">
                   수정일
                 </div>
-                <div className="w-[24px]"></div>
+                <div className="w-[24px] flex-shrink-0"></div>
               </div>
 
               {/* Divider */}
@@ -398,8 +398,8 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                         className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                       >
                         {/* Note Icon + Type Badge + Name */}
-                        <div className="flex flex-row items-center gap-2 flex-1">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <div className="flex flex-row items-center gap-2 flex-1 min-w-0">
+                          <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M11.6667 1.66667V6.66667H16.6667" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M13.3333 10.8333H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -407,27 +407,27 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                             <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           {/* 노트 타입 배지 */}
-                          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                          <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 ${
                             note.type === 'educator'
                               ? 'bg-[#AFC02B]/20 text-[#AFC02B] border border-[#AFC02B]/30'
                               : 'bg-[#4A90D9]/20 text-[#4A90D9] border border-[#4A90D9]/30'
                           }`}>
                             {note.type === 'educator' ? '강의' : '개인'}
                           </span>
-                          <span className="text-white font-normal text-base leading-[19px]">
+                          <span className="text-white font-normal text-base leading-[19px] truncate">
                             {note.title}
                           </span>
                         </div>
 
                         {/* 수정일 */}
-                        <div className="w-[150px] text-white font-normal text-base leading-[19px]">
+                        <div className="w-[150px] text-white font-normal text-base leading-[19px] hidden sm:block flex-shrink-0">
                           {formatDate(note.updatedAt || note.createdAt)}
                         </div>
 
                         {/* 더보기 아이콘 */}
                         <button
                           onClick={(e) => handleOptionClick(e, 'note', note.id)}
-                          className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded"
+                          className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded flex-shrink-0"
                         >
                           <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="2" cy="2" r="1.5" fill="white"/>
@@ -447,24 +447,24 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                         className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                       >
                         {/* Folder Icon + Name */}
-                        <div className="flex flex-row items-center gap-2 flex-1">
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <div className="flex flex-row items-center gap-2 flex-1 min-w-0">
+                          <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M18.3333 15.8333C18.3333 16.2754 18.1577 16.6993 17.8452 17.0118C17.5326 17.3244 17.1087 17.5 16.6667 17.5H3.33334C2.89131 17.5 2.46739 17.3244 2.15483 17.0118C1.84227 16.6993 1.66667 16.2754 1.66667 15.8333V4.16667C1.66667 3.72464 1.84227 3.30072 2.15483 2.98816C2.46739 2.67559 2.89131 2.5 3.33334 2.5H7.5L9.16667 5H16.6667C17.1087 5 17.5326 5.17559 17.8452 5.48816C18.1577 5.80072 18.3333 6.22464 18.3333 6.66667V15.8333Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                          <span className="text-white font-normal text-base leading-[19px]">
+                          <span className="text-white font-normal text-base leading-[19px] truncate">
                             {folder.name}
                           </span>
                         </div>
 
                         {/* 수정일 */}
-                        <div className="w-[150px] text-white font-normal text-base leading-[19px]">
+                        <div className="w-[150px] text-white font-normal text-base leading-[19px] hidden sm:block flex-shrink-0">
                           {formatDate(folder.updatedAt || folder.createdAt)}
                         </div>
 
                         {/* 더보기 아이콘 */}
                         <button
                           onClick={(e) => handleOptionClick(e, 'folder', folder.id)}
-                          className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded"
+                          className="w-[24px] h-6 flex items-center justify-center hover:bg-[#4A4A4A] rounded flex-shrink-0"
                         >
                           <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="2" cy="2" r="1.5" fill="white"/>
