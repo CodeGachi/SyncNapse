@@ -53,12 +53,19 @@ interface NoteSelectModalProps {
 function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelectModalProps) {
   const { data: notes = [], isLoading } = useNotes();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   const filteredNotes = notes.filter(
     (note) =>
       note.id !== currentNoteId &&
       note.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleConfirm = () => {
+    if (selectedNoteId) {
+      onSelect(selectedNoteId);
+    }
+  };
 
   return (
     <Modal
@@ -67,59 +74,109 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId }: NoteSelec
       overlayClassName="fixed inset-0 z-[60] transition-opacity"
       overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       containerClassName="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      contentClassName="flex flex-col p-6 gap-4 bg-[#2F2F2F] rounded-[20px] w-[400px] max-h-[500px] border border-[#575757]"
+      contentClassName="flex flex-col items-center p-8 gap-6 bg-[#2F2F2F] rounded-[20px] w-[480px] max-h-[90vh] border border-[#575757]"
       closeButton={false}
     >
-      <div className="flex justify-between items-center">
-        <h2 className="font-bold text-xl text-white">노트 선택</h2>
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 6L18 18M18 6L6 18" />
+      <div className="flex flex-col gap-5 w-full">
+        {/* Header */}
+        <div className="flex flex-row justify-between items-center w-full">
+          <h2 className="font-['Inter'] font-bold text-2xl text-white">노트 이동</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center hover:opacity-70 transition-opacity"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M6 6L18 18M18 6L6 18" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 검색 입력 */}
+        <div className="relative w-full">
+          <svg
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
           </svg>
-        </button>
-      </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="노트 검색..."
+            className="w-full pl-12 pr-4 py-3.5 bg-[#3D3D3D] border border-[#4f4f4f] rounded-[12px] text-white text-sm placeholder-gray-400 focus:outline-none focus:border-[#899649] transition-colors"
+          />
+        </div>
 
-      {/* 검색 입력 */}
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="노트 검색..."
-        className="w-full px-4 py-2 bg-[#1e1e1e] border border-[#4f4f4f] rounded-lg text-white text-sm focus:outline-none focus:border-[#899649]"
-      />
+        {/* 노트 목록 */}
+        <div className="bg-[#3D3D3D] rounded-[12px] p-4 min-h-[280px] max-h-[350px] overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 text-gray-400">
+              <svg className="animate-spin w-6 h-6 mr-3" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              로딩 중...
+            </div>
+          ) : filteredNotes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+              <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              <span className="text-sm">{searchQuery ? "검색 결과가 없습니다" : "다른 노트가 없습니다"}</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredNotes.map((note) => (
+                <button
+                  key={note.id}
+                  onClick={() => setSelectedNoteId(note.id)}
+                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-[10px] text-left transition-all ${
+                    selectedNoteId === note.id
+                      ? "bg-[#899649]/40 text-white ring-2 ring-[#899649]"
+                      : "text-[#D9D9D9] hover:bg-[#4a4a4a]"
+                  }`}
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{note.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(note.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {selectedNoteId === note.id && (
+                    <svg className="w-5 h-5 text-[#AFC02B] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* 노트 목록 */}
-      <div className="flex-1 overflow-y-auto min-h-[200px]">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            로딩 중...
-          </div>
-        ) : filteredNotes.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            {searchQuery ? "검색 결과가 없습니다" : "다른 노트가 없습니다"}
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {filteredNotes.map((note) => (
-              <button
-                key={note.id}
-                onClick={() => onSelect(note.id)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-[#3f3f3f] transition-colors"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{note.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(note.updatedAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+        {/* 하단 버튼 */}
+        <div className="flex flex-row justify-end items-center gap-3 pt-2">
+          <button
+            onClick={onClose}
+            className="flex justify-center items-center px-6 h-11 bg-[#4a4a4a] rounded-[12px] hover:bg-[#5a5a5a] transition-colors"
+          >
+            <span className="font-['Inter'] font-semibold text-sm text-white">취소</span>
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedNoteId}
+            className="flex justify-center items-center px-6 h-11 bg-[#899649] rounded-[12px] hover:bg-[#7A8740] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="font-['Inter'] font-semibold text-sm text-white">이동</span>
+          </button>
+        </div>
       </div>
     </Modal>
   );
@@ -169,42 +226,55 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
       overlayClassName="fixed inset-0 z-[60] transition-opacity"
       overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       containerClassName="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      contentClassName="flex flex-col p-6 gap-4 bg-[#2F2F2F] rounded-[20px] w-[400px] border border-[#575757]"
+      contentClassName="flex flex-col items-center p-8 gap-4 bg-[#2F2F2F] rounded-[20px] w-[420px] border border-[#575757]"
       closeButton={false}
     >
-      <div className="flex justify-between items-center">
-        <h2 className="font-bold text-xl text-white">제목 수정</h2>
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 6L18 18M18 6L6 18" />
-          </svg>
-        </button>
-      </div>
+      <div className="flex flex-col gap-4 w-full">
+        {/* Header */}
+        <div className="flex flex-row justify-between items-center w-full">
+          <h2 className="font-['Inter'] font-bold text-2xl text-white">제목 수정</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center hover:opacity-70 transition-opacity"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M6 6L18 18M18 6L6 18" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
 
-      <input
-        ref={inputRef}
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="노트 제목"
-        className="w-full px-4 py-3 bg-[#1e1e1e] border border-[#4f4f4f] rounded-lg text-white focus:outline-none focus:border-[#899649]"
-      />
+        {/* 제목 입력 */}
+        <div className="flex flex-col gap-2 w-full">
+          <label className="text-sm text-gray-400 font-medium">노트 제목</label>
+          <input
+            ref={inputRef}
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="노트 제목을 입력하세요"
+            className="w-full px-4 py-3 bg-[#5E5E67] rounded-[15px] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#899649]"
+          />
+        </div>
 
-      <div className="flex justify-end gap-3">
-        <button
-          onClick={onClose}
-          className="px-5 py-2 bg-[#5E5E67] rounded-lg text-white hover:bg-[#6E6E77] transition-colors"
-        >
-          취소
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={!title.trim() || isSubmitting}
-          className="px-5 py-2 bg-[#899649] rounded-lg text-white hover:bg-[#7A8740] transition-colors disabled:opacity-50"
-        >
-          {isSubmitting ? "저장 중..." : "저장"}
-        </button>
+        {/* 하단 버튼 */}
+        <div className="flex flex-row justify-end items-center gap-4 pt-2">
+          <button
+            onClick={onClose}
+            className="flex justify-center items-center px-6 h-10 bg-[#5E5E67] rounded-[15px] hover:bg-[#6E6E77] transition-colors"
+          >
+            <span className="font-['Inter'] font-bold text-sm text-white">취소</span>
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!title.trim() || isSubmitting}
+            className="flex justify-center items-center px-6 h-10 bg-[#899649] rounded-[15px] hover:bg-[#7A8740] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="font-['Inter'] font-bold text-sm text-white">
+              {isSubmitting ? "저장 중..." : "저장"}
+            </span>
+          </button>
+        </div>
       </div>
     </Modal>
   );
@@ -224,6 +294,9 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isTitleEditModalOpen, setIsTitleEditModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+
+  // 모달이 열려있는지 확인
+  const isAnyModalOpen = isNoteSelectModalOpen || isCreateNoteModalOpen || isFolderModalOpen || isTitleEditModalOpen || isShortcutsModalOpen;
 
   // 외부 클릭 감지
   useEffect(() => {
@@ -248,7 +321,8 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
     }
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  // 메뉴도 닫혀있고 모달도 없으면 렌더링하지 않음
+  if (!isOpen && !isAnyModalOpen) return null;
 
   // 노트 이동 (다른 노트 선택)
   const handleNavigateToNote = () => {
@@ -330,78 +404,81 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
 
   return (
     <>
-      <div
-        ref={menuRef}
-        className="absolute top-14 left-14 w-[200px] bg-[#2f2f2f] border border-[#393939] rounded-[10px] shadow-lg z-50 overflow-hidden"
-      >
-        <div className="py-2">
-          {/* 노트 이동 (다른 노트로) */}
-          <MenuItem
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-            }
-            label="노트 이동"
-            onClick={handleNavigateToNote}
-          />
+      {/* 드롭다운 메뉴 - isOpen일 때만 표시 */}
+      {isOpen && (
+        <div
+          ref={menuRef}
+          className="absolute top-14 left-14 w-[200px] bg-[#2f2f2f] border border-[#393939] rounded-[10px] shadow-lg z-50 overflow-hidden"
+        >
+          <div className="py-2">
+            {/* 노트 이동 (다른 노트로) */}
+            <MenuItem
+              icon={
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              }
+              label="노트 이동"
+              onClick={handleNavigateToNote}
+            />
 
-          {/* 새 노트 만들기 */}
-          <MenuItem
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <line x1="9" y1="15" x2="15" y2="15" />
-              </svg>
-            }
-            label="새 노트 만들기"
-            onClick={handleCreateNote}
-          />
+            {/* 새 노트 만들기 */}
+            <MenuItem
+              icon={
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+              }
+              label="새 노트 만들기"
+              onClick={handleCreateNote}
+            />
 
-          {/* 노트 위치 옮기기 */}
-          <MenuItem
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                <line x1="12" y1="11" x2="12" y2="17" />
-                <polyline points="9 14 12 17 15 14" />
-              </svg>
-            }
-            label="노트 위치 옮기기"
-            onClick={handleMoveNote}
-          />
+            {/* 노트 위치 옮기기 */}
+            <MenuItem
+              icon={
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  <line x1="12" y1="11" x2="12" y2="17" />
+                  <polyline points="9 14 12 17 15 14" />
+                </svg>
+              }
+              label="노트 위치 옮기기"
+              onClick={handleMoveNote}
+            />
 
-          {/* 제목 수정 */}
-          <MenuItem
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-            }
-            label="제목 수정"
-            onClick={handleEditTitle}
-          />
+            {/* 제목 수정 */}
+            <MenuItem
+              icon={
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              }
+              label="제목 수정"
+              onClick={handleEditTitle}
+            />
 
-          {/* 구분선 */}
-          <div className="my-1 mx-3 border-t border-[#4f4f4f]" />
+            {/* 구분선 */}
+            <div className="my-1 mx-3 border-t border-[#4f4f4f]" />
 
-          {/* 단축키 도움말 */}
-          <MenuItem
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8" />
-              </svg>
-            }
-            label="단축키"
-            onClick={handleShowShortcuts}
-          />
+            {/* 단축키 도움말 */}
+            <MenuItem
+              icon={
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8" />
+                </svg>
+              }
+              label="단축키"
+              onClick={handleShowShortcuts}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 노트 선택 모달 */}
       <NoteSelectModal

@@ -19,7 +19,7 @@ import {
   usePdfSearch,
 } from "@/features/note/viewer";
 import { useNoteKeyboard } from "@/features/note/keyboard";
-import { usePanelsStore, useDrawStore } from "@/stores";
+import { usePanelsStore, useDrawStore, useNoteUIStore } from "@/stores";
 import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
 import type { DrawingData } from "@/lib/types/drawing";
@@ -152,7 +152,7 @@ export function CustomPdfViewer({
     isPdf,
   });
 
-  // 패널 토글 함수들 가져오기
+  // 패널 토글 함수들 및 상태 가져오기
   const {
     toggleNotePanel,
     toggleScript,
@@ -160,7 +160,14 @@ export function CustomPdfViewer({
     toggleDrawingSidebar,
     toggleChatbotPanel,
     toggleCollaborationPanel,
+    isScriptOpen,
+    isFilePanelOpen,
+    isChatbotPanelOpen,
+    isCollaborationPanelOpen,
   } = usePanelsStore();
+
+  // 사이드바 확장 상태
+  const { isExpanded, toggleExpand } = useNoteUIStore();
 
   // 필기 도구 상태
   const { setDrawType } = useDrawStore();
@@ -189,6 +196,14 @@ export function CustomPdfViewer({
     toggleDrawingSidebar,
     toggleChatbotPanel,
     toggleCollaborationPanel,
+    // 사이드바 확장
+    isExpanded,
+    toggleExpand,
+    // 개별 패널 상태 (사이드바 자동 확장용)
+    isScriptOpen,
+    isFilePanelOpen,
+    isChatbotPanelOpen,
+    isCollaborationPanelOpen,
     // 필기 도구
     isDrawingEnabled: drawingEnabled && drawingMode,
     setDrawingTool: setDrawType,

@@ -35,6 +35,16 @@ interface UseNoteKeyboardProps {
   toggleChatbotPanel?: () => void;
   toggleCollaborationPanel?: () => void;
 
+  // 사이드바 확장 (우측 500px 패널)
+  isExpanded?: boolean;
+  toggleExpand?: () => void;
+
+  // 개별 패널 상태 (사이드바 자동 확장용)
+  isScriptOpen?: boolean;
+  isFilePanelOpen?: boolean;
+  isChatbotPanelOpen?: boolean;
+  isCollaborationPanelOpen?: boolean;
+
   // 필기 도구
   isDrawingEnabled?: boolean;
   setDrawingTool?: (tool: DrawToolType) => void;
@@ -88,6 +98,14 @@ export function useNoteKeyboard({
   toggleDrawingSidebar,
   toggleChatbotPanel,
   toggleCollaborationPanel,
+  // 사이드바 확장
+  isExpanded,
+  toggleExpand,
+  // 개별 패널 상태
+  isScriptOpen,
+  isFilePanelOpen,
+  isChatbotPanelOpen,
+  isCollaborationPanelOpen,
   // 필기
   isDrawingEnabled,
   setDrawingTool,
@@ -159,34 +177,55 @@ export function useNoteKeyboard({
     }
 
     // ============================================
-    // 4. Alt + 숫자: 패널 토글
+    // 4. Alt + 숫자: 패널 토글 (사이드바 확장 포함)
     // ============================================
+
+    // 패널 토글 헬퍼: 사이드바 확장 + 개별 패널 토글
+    const handlePanelToggle = (toggleFn: () => void, isPanelCurrentlyOpen: boolean) => {
+      // 패널이 닫혀있으면 사이드바 확장
+      if (!isExpanded && toggleExpand) {
+        toggleExpand();
+      }
+      // 개별 패널 토글
+      toggleFn();
+      // 활성화된 패널을 다시 클릭한 경우 -> 사이드바 닫기 체크
+      if (isPanelCurrentlyOpen && isExpanded && toggleExpand) {
+        setTimeout(() => {
+          const allPanelsClosed = !isScriptOpen && !isFilePanelOpen && !isChatbotPanelOpen && !isCollaborationPanelOpen;
+          if (allPanelsClosed) {
+            toggleExpand();
+          }
+        }, 0);
+      }
+    };
 
     if (isAlt && !isTyping) {
       switch (e.key) {
         case "1":
+          // 노트 패널은 뷰어 하단만 토글 (사이드바 확장 안 함)
           e.preventDefault();
           toggleNotePanel?.();
           return;
         case "2":
           e.preventDefault();
-          toggleScriptPanel?.();
+          if (toggleScriptPanel) handlePanelToggle(toggleScriptPanel, !!isScriptOpen);
           return;
         case "3":
           e.preventDefault();
-          toggleFilePanel?.();
+          if (toggleFilePanel) handlePanelToggle(toggleFilePanel, !!isFilePanelOpen);
           return;
         case "4":
+          // 필기바는 뷰어 상단만 토글 (사이드바 확장 안 함)
           e.preventDefault();
           toggleDrawingSidebar?.();
           return;
         case "5":
           e.preventDefault();
-          toggleChatbotPanel?.();
+          if (toggleChatbotPanel) handlePanelToggle(toggleChatbotPanel, !!isChatbotPanelOpen);
           return;
         case "6":
           e.preventDefault();
-          toggleCollaborationPanel?.();
+          if (toggleCollaborationPanel) handlePanelToggle(toggleCollaborationPanel, !!isCollaborationPanelOpen);
           return;
       }
     }
@@ -336,6 +375,15 @@ export function useNoteKeyboard({
     toggleDrawingSidebar,
     toggleChatbotPanel,
     toggleCollaborationPanel,
+    // 사이드바 확장
+    isExpanded,
+    toggleExpand,
+    // 개별 패널 상태
+    isScriptOpen,
+    isFilePanelOpen,
+    isChatbotPanelOpen,
+    isCollaborationPanelOpen,
+    // 필기
     isDrawingEnabled,
     setDrawingTool,
     onUndo,
