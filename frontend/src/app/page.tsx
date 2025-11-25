@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/features/auth/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 export default function LandingPage() {
   const { isAuthenticated, loading } = useAuth();
@@ -17,14 +18,7 @@ export default function LandingPage() {
   }, [isAuthenticated, loading, router]);
 
   if (loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
-        </div>
-      </main>
-    );
+    return <LoadingScreen fullScreen message="로딩 중..." />;
   }
 
   return (
@@ -73,7 +67,7 @@ export default function LandingPage() {
           <h2 className="text-4xl font-bold text-center text-gray-900 mb-16">
             주요 기능
           </h2>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             {/* Feature 1: Real-time Recording */}
             <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-200">

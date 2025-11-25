@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logout } from "@/lib/api/services/auth.api";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 export function LogoutHandler() {
   const queryClient = useQueryClient();
@@ -51,12 +52,5 @@ export function LogoutHandler() {
     performLogout();
   }, [queryClient]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#1a1a1a]">
-      <div className="text-center">
-        <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gray-600 border-t-white mx-auto" />
-        <p className="text-gray-400">{status}</p>
-      </div>
-    </div>
-  );
+  return <LoadingScreen fullScreen message={status} />;
 }

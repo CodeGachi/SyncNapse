@@ -13,6 +13,8 @@ import { useNoteEditorStore } from "@/stores";
 import { useNoteContent } from "@/features/note/editor/use-note-content";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
+import { LoadingScreen } from "@/components/common/loading-screen";
+import { Spinner } from "@/components/common/spinner";
 
 interface NotePanelProps {
   isOpen: boolean;
@@ -57,14 +59,14 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   const initialContent = useMemo(() => {
     const pageKey = selectedFileId ? `${selectedFileId}-${currentPage}` : null;
     const blocks = pageKey ? pageNotes[pageKey] : null;
-    
-    console.log('[NotePanel] 📋 Building content:', { 
-      pageKey, 
-      hasBlocks: !!blocks, 
+
+    console.log('[NotePanel] 📋 Building content:', {
+      pageKey,
+      hasBlocks: !!blocks,
       blockCount: blocks?.length || 0,
       firstBlockContent: blocks?.[0]?.content,
     });
-    
+
     if (!blocks || blocks.length === 0) {
       return [{
         type: "paragraph",
@@ -137,15 +139,15 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
       const pageData = pageKey ? pageNotes[pageKey] : null;
       const hasActualData = pageData && pageData.length > 0 && pageData[0].content !== "";
       const hasAnyData = Object.keys(pageNotes).length > 0;
-      
-      console.log('[NotePanel] 🔍 Checking for data:', { 
-        hasActualData, 
-        hasAnyData, 
+
+      console.log('[NotePanel] 🔍 Checking for data:', {
+        hasActualData,
+        hasAnyData,
         pageDataLength: pageData?.length,
         firstBlockContent: pageData?.[0]?.content,
         pageNotesKeys: Object.keys(pageNotes).slice(0, 3),
       });
-      
+
       // Only mark as loaded when we have actual content data
       // This ensures we wait for IndexedDB load to complete
       if (hasActualData && initialContent) {
@@ -182,10 +184,10 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
 
     const blocks = editor.document as Block[];
     console.log('[NotePanel] ✏️ Content changed');
-    
+
     // Update store
     updatePageBlocksFromBlockNote(blocks);
-    
+
     // Schedule auto-save (2 seconds after typing stops)
     scheduleAutoSave();
   };
@@ -204,10 +206,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
           </span>
           {isSaving && (
             <span className="text-[10px] text-blue-400 flex items-center gap-1">
-              <svg className="animate-spin h-2.5 w-2.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <Spinner size="xs" />
               저장 중...
             </span>
           )}
@@ -222,9 +221,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
       {/* Editor */}
       <div className="flex-1 overflow-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-gray-400 text-sm">로딩 중...</div>
-          </div>
+          <LoadingScreen message="로딩 중..." />
         ) : (
           <div
             className="h-full rounded-[15px] border border-gray-700 p-4"

@@ -8,19 +8,30 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNotes } from "@/lib/api/queries/notes.queries";
-import { useUpdateNote } from "@/lib/api/mutations/notes.mutations";
+import { updateNote } from "@/lib/api/services/notes.api";
 import { useFolders } from "@/features/dashboard";
+import { LoadingScreen } from "@/components/common/loading-screen";
 import type { Note } from "@/lib/types";
 
 export function FavoritesContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
 
   // 모든 노트 조회
   const { data: allNotes = [], isLoading } = useNotes();
-  const updateNoteMutation = useUpdateNote();
   const { folders } = useFolders();
+
+  // 노트 업데이트 뮤테이션
+  const updateNoteMutation = useMutation({
+    mutationFn: ({ noteId, updates }: { noteId: string; updates: Partial<Note> }) =>
+      updateNote(noteId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
 
   // 즐겨찾기 노트만 필터링
   const favoriteNotes = useMemo(() => {
@@ -87,6 +98,10 @@ export function FavoritesContent() {
       console.error("Failed to toggle favorite:", error);
     }
   };
+
+  if (isLoading) {
+    return <LoadingScreen message="즐겨찾기를 불러오는 중..." />;
+  }
 
   return (
     <div className="flex flex-col w-full h-screen">
@@ -157,11 +172,7 @@ export function FavoritesContent() {
             <div className="w-full h-0 border-t border-[#575757]" />
 
             {/* Table Rows */}
-            {isLoading ? (
-              <div className="px-5 py-4 text-white text-center w-full">
-                로딩 중...
-              </div>
-            ) : filteredNotes.length === 0 ? (
+            {filteredNotes.length === 0 ? (
               <div className="px-5 py-4 text-[#575757] text-center w-full">
                 {searchQuery
                   ? "검색 결과가 없습니다"
@@ -169,10 +180,10 @@ export function FavoritesContent() {
               </div>
             ) : (
               filteredNotes.map((note) => (
-                <div key={note.id}>
+                <div key={note.id} className="w-full">
                   <div
                     onClick={() => handleNoteClick(note)}
-                    className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
+                    className="flex flex-row items-center px-5 gap-6 w-full h-10 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
                   >
                     {/* Note Icon + Name */}
                     <div className="flex flex-row items-center gap-1 flex-1">

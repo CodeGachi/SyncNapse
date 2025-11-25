@@ -16,6 +16,7 @@ import {
   AlertCircle,
   X,
 } from "lucide-react";
+import { Spinner } from "@/components/common/spinner";
 
 export function SyncStatusBar() {
   const { queue, isSyncing, lastSyncTime, syncError } = useSyncStore();
@@ -72,7 +73,7 @@ export function SyncStatusBar() {
     if (isSyncing) {
       return {
         type: "syncing" as const,
-        icon: <RefreshCw size={18} className="animate-spin" />,
+        icon: <Spinner size="sm" className="w-[18px] h-[18px]" />,
         text: "동기화 중...",
         description: `${queue.items.length}개 항목 처리 중`,
         bgColor: "bg-blue-500/20",

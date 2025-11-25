@@ -1,15 +1,16 @@
 /**
  * Trash Content Component (Client Component)
- * Trashed notes management and restoration
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Trash2, RotateCcw, X, Clock } from "lucide-react";
 import { fetchTrashedNotes, restoreNote, permanentlyDeleteNote } from "@/lib/api/services/notes.api";
+import { LoadingScreen } from "@/components/common/loading-screen";
+import { Spinner } from "@/components/common/spinner";
 import type { Note } from "@/lib/types";
-import { Trash2, RotateCcw, Clock, X } from "lucide-react";
 
 export function TrashContent() {
   const queryClient = useQueryClient();
@@ -46,16 +47,16 @@ export function TrashContent() {
     try {
       setRestoring(noteId);
       console.log('[TrashContent] Restoring note:', noteId);
-      
+
       const result = await restoreNote(noteId);
       console.log('[TrashContent] Restore result:', result);
-      
+
       alert(`복구되었습니다!\n새 이름: ${result.title || noteTitle}`);
-      
+
       // Invalidate queries to refresh all note lists
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['folders'] });
-      
+
       // Reload trashed notes list
       await loadTrashedNotes();
     } catch (error) {
@@ -77,29 +78,29 @@ export function TrashContent() {
       `- 관련 데이터\n\n` +
       `정말로 삭제하시겠습니까?`
     );
-    
+
     if (!confirmed) return;
 
     // Double confirmation for safety
     const doubleConfirmed = confirm(
       `정말로 "${noteTitle}"를 영구 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다!`
     );
-    
+
     if (!doubleConfirmed) return;
 
     try {
       setDeleting(noteId);
       console.log('[TrashContent] Permanently deleting note:', noteId);
-      
+
       await permanentlyDeleteNote(noteId);
       console.log('[TrashContent] Permanent delete successful');
-      
+
       alert('영구적으로 삭제되었습니다.');
-      
+
       // Invalidate queries to refresh all note lists
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['folders'] });
-      
+
       // Reload trashed notes list
       await loadTrashedNotes();
     } catch (error) {
@@ -124,7 +125,7 @@ export function TrashContent() {
 
   const formatRelativeTime = (dateString?: string) => {
     if (!dateString) return '';
-    
+
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -143,6 +144,10 @@ export function TrashContent() {
     }
   };
 
+  if (isLoading) {
+    return <LoadingScreen message="휴지통을 불러오는 중..." />;
+  }
+
   return (
     <main className="flex-1 overflow-y-auto p-8">
       <div className="max-w-6xl mx-auto">
@@ -157,18 +162,8 @@ export function TrashContent() {
           </div>
         </div>
 
-        {/* Loading State */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-gray-400 flex items-center gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-              <span>로딩 중...</span>
-            </div>
-          </div>
-        ) : trashedNotes.length === 0 ? (
-          /* Empty State */
-          <div className="text-center py-20 bg-[#2F2F2F] rounded-xl">
-            <Trash2 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+        {trashedNotes.length === 0 ? (
+          <div className="text-center py-20">
             <h3 className="text-xl font-semibold text-gray-400 mb-2">
               휴지통이 비어있습니다
             </h3>
@@ -221,7 +216,7 @@ export function TrashContent() {
                   >
                     {restoring === note.id ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <Spinner size="sm" className="border-white/20" />
                         <span>복구 중...</span>
                       </>
                     ) : (
@@ -238,7 +233,7 @@ export function TrashContent() {
                   >
                     {deleting === note.id ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <Spinner size="sm" className="border-white/20" />
                         <span>삭제 중...</span>
                       </>
                     ) : (

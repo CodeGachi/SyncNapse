@@ -10,6 +10,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { getAllFolders, createFolder as createFolderInDB, saveFolder } from "@/lib/db/folders";
 import { getAuthHeaders } from "@/lib/api/client";
 import type { DBFolder } from "@/lib/db/folders";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 interface DashboardContextType {
   selectedFolderId: string | null;
@@ -211,14 +212,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Show loading indicator while initializing
   if (!isInitialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1E1E1E]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-400">대시보드 로딩 중...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen fullScreen message="대시보드 로딩 중..." />;
   }
 
   return (

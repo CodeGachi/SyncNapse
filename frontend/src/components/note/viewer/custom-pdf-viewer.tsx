@@ -23,6 +23,7 @@ import { usePanelsStore, useDrawStore, useNoteUIStore } from "@/stores";
 import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
 import type { DrawingData } from "@/lib/types/drawing";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 interface CustomPdfViewerProps {
   fileUrl?: string | null;
@@ -275,14 +276,14 @@ export function CustomPdfViewer({
 
         // 렌더링 - 캔버스 크기를 정확하게 설정
         const scaledViewport = page.getViewport({ scale: finalScale, rotation });
-        
+
         // High DPI 디스플레이 지원
         const dpr = window.devicePixelRatio || 1;
         canvas.width = scaledViewport.width * dpr;
         canvas.height = scaledViewport.height * dpr;
         canvas.style.width = `${scaledViewport.width}px`;
         canvas.style.height = `${scaledViewport.height}px`;
-        
+
         // Context scale for high DPI
         context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -459,34 +460,8 @@ export function CustomPdfViewer({
               minHeight: "100%",
             }}
           >
-        {!fileUrl ? (
-          <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
-            <svg
-              width="64"
-              height="64"
-              viewBox="0 0 64 64"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M38 8H14v48h36V22L38 8z" />
-              <path d="M38 8v14h12" />
-              <path d="M20 30h24M20 38h24M20 46h16" />
-            </svg>
-            <p className="text-sm">파일을 업로드하면 여기에 표시됩니다</p>
-          </div>
-        ) : isPdf ? (
-          // PDF 파일
-          <>
-            {loading && (
-              <div className="flex flex-col items-center gap-3 text-white">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-                <div className="text-lg">PDF 로딩 중...</div>
-              </div>
-            )}
-
-            {error && (
-              <div className="flex flex-col items-center gap-3 text-red-400">
+            {!fileUrl ? (
+              <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
                 <svg
                   width="64"
                   height="64"
@@ -495,98 +470,121 @@ export function CustomPdfViewer({
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <circle cx="32" cy="32" r="28" />
-                  <path d="M32 20v16M32 44h.01" strokeLinecap="round" />
+                  <path d="M38 8H14v48h36V22L38 8z" />
+                  <path d="M38 8v14h12" />
+                  <path d="M20 30h24M20 38h24M20 46h16" />
                 </svg>
-                <p className="text-sm">{error}</p>
+                <p className="text-sm">파일을 업로드하면 여기에 표시됩니다</p>
+              </div>
+            ) : isPdf ? (
+              // PDF 파일
+              <>
+                {loading && (
+                  <LoadingScreen message="PDF 로딩 중..." />
+                )}
+
+                {error && (
+                  <div className="flex flex-col items-center gap-3 text-red-400">
+                    <svg
+                      width="64"
+                      height="64"
+                      viewBox="0 0 64 64"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle cx="32" cy="32" r="28" />
+                      <path d="M32 20v16M32 44h.01" strokeLinecap="round" />
+                    </svg>
+                    <p className="text-sm">{error}</p>
+                  </div>
+                )}
+
+                <div className="inline-block relative" style={{ overflow: "hidden", contain: "paint" }}>
+                  {/* PDF Canvas */}
+                  <canvas
+                    ref={canvasRef}
+                    className={loading || error ? "hidden" : ""}
+                    style={{
+                      display: loading || error ? "none" : "block",
+                      imageRendering: scale > 1.5 ? "auto" : "crisp-edges",
+                    }}
+                  />
+
+                  {/* Text Layer - 텍스트 선택 가능하게 (팬 모드 off일 때 또는 검색 중일 때) */}
+                  {/* drawingEnabled && drawingMode일 때만 숨김 (개인 노트에서는 drawingEnabled=false이므로 항상 표시) */}
+                  <div
+                    ref={textLayerRef}
+                    className="textLayer"
+                    style={{
+                      display: loading || error || (drawingEnabled && drawingMode) ? "none" : "block",
+                      pointerEvents: isPanModeEnabled ? "none" : "auto",
+                      visibility: isPanModeEnabled && !isSearchOpen ? "hidden" : "visible",
+                      // 텍스트 레이어만 선택 가능
+                      userSelect: isPanModeEnabled ? "none" : "text",
+                    }}
+                  />
+
+                  {/* Drawing Overlay - PDF Canvas와 정확히 같은 위치/크기 */}
+                  {drawingEnabled && pdfRenderState && noteId && fileId && (
+                    <PDFDrawingOverlay
+                      ref={drawingOverlayRef}
+                      isEnabled={true}
+                      isDrawingMode={drawingMode}
+                      isCollaborative={isCollaborative}
+                      noteId={noteId}
+                      fileId={fileId}
+                      pageNum={currentPage}
+                      containerWidth={pdfRenderState.baseWidth}
+                      containerHeight={pdfRenderState.baseHeight}
+                      pdfScale={pdfRenderState.finalScale}
+                      renderedWidth={pdfRenderState.renderedWidth}
+                      renderedHeight={pdfRenderState.renderedHeight}
+                      isPdf={isPdf}
+                      onSave={onDrawingSave}
+                    />
+                  )}
+                </div>
+              </>
+            ) : isImage ? (
+              // 이미지 파일
+              <div className="w-full h-full p-4 overflow-auto flex items-center justify-center">
+                <Image
+                  src={fileUrl}
+                  alt={fileName || "Image"}
+                  width={800}
+                  height={600}
+                  className="max-w-full max-h-full object-contain"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              // 기타 파일
+              <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
+                <svg
+                  width="64"
+                  height="64"
+                  viewBox="0 0 64 64"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M38 8H14v48h36V22L38 8z" />
+                  <path d="M38 8v14h12" />
+                </svg>
+                <p className="text-sm">{fileName}</p>
+                <p className="text-xs text-gray-500">
+                  이 파일 형식은 미리보기를 지원하지 않습니다
+                </p>
+                <a
+                  href={fileUrl}
+                  download={fileName}
+                  className="px-4 py-2 bg-[#444444] hover:bg-[#555555] text-white rounded-lg text-sm transition-colors"
+                >
+                  다운로드
+                </a>
               </div>
             )}
-
-            <div className="inline-block relative" style={{ overflow: "hidden", contain: "paint" }}>
-              {/* PDF Canvas */}
-              <canvas
-                ref={canvasRef}
-                className={loading || error ? "hidden" : ""}
-                style={{
-                  display: loading || error ? "none" : "block",
-                  imageRendering: scale > 1.5 ? "auto" : "crisp-edges",
-                }}
-              />
-
-              {/* Text Layer - 텍스트 선택 가능하게 (팬 모드 off일 때 또는 검색 중일 때) */}
-              {/* drawingEnabled && drawingMode일 때만 숨김 (개인 노트에서는 drawingEnabled=false이므로 항상 표시) */}
-              <div
-                ref={textLayerRef}
-                className="textLayer"
-                style={{
-                  display: loading || error || (drawingEnabled && drawingMode) ? "none" : "block",
-                  pointerEvents: isPanModeEnabled ? "none" : "auto",
-                  visibility: isPanModeEnabled && !isSearchOpen ? "hidden" : "visible",
-                  // 텍스트 레이어만 선택 가능
-                  userSelect: isPanModeEnabled ? "none" : "text",
-                }}
-              />
-
-              {/* Drawing Overlay - PDF Canvas와 정확히 같은 위치/크기 */}
-              {drawingEnabled && pdfRenderState && noteId && fileId && (
-                <PDFDrawingOverlay
-                  ref={drawingOverlayRef}
-                  isEnabled={true}
-                  isDrawingMode={drawingMode}
-                  isCollaborative={isCollaborative}
-                  noteId={noteId}
-                  fileId={fileId}
-                  pageNum={currentPage}
-                  containerWidth={pdfRenderState.baseWidth}
-                  containerHeight={pdfRenderState.baseHeight}
-                  pdfScale={pdfRenderState.finalScale}
-                  renderedWidth={pdfRenderState.renderedWidth}
-                  renderedHeight={pdfRenderState.renderedHeight}
-                  isPdf={isPdf}
-                  onSave={onDrawingSave}
-                />
-              )}
-            </div>
-          </>
-        ) : isImage ? (
-          // 이미지 파일
-          <div className="w-full h-full p-4 overflow-auto flex items-center justify-center">
-            <Image
-              src={fileUrl}
-              alt={fileName || "Image"}
-              width={800}
-              height={600}
-              className="max-w-full max-h-full object-contain"
-              unoptimized
-            />
-          </div>
-        ) : (
-          // 기타 파일
-          <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
-            <svg
-              width="64"
-              height="64"
-              viewBox="0 0 64 64"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M38 8H14v48h36V22L38 8z" />
-              <path d="M38 8v14h12" />
-            </svg>
-            <p className="text-sm">{fileName}</p>
-            <p className="text-xs text-gray-500">
-              이 파일 형식은 미리보기를 지원하지 않습니다
-            </p>
-            <a
-              href={fileUrl}
-              download={fileName}
-              className="px-4 py-2 bg-[#444444] hover:bg-[#555555] text-white rounded-lg text-sm transition-colors"
-            >
-              다운로드
-            </a>
-          </div>
-        )}
           </div>
         </div>
       </div>
@@ -648,11 +646,10 @@ export function CustomPdfViewer({
             {/* 팬 모드 (마우스 이동) 토글 버튼 */}
             <button
               onClick={() => setIsPanModeEnabled(prev => !prev)}
-              className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-                isPanModeEnabled
+              className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${isPanModeEnabled
                   ? "bg-blue-600 hover:bg-blue-700"
                   : "hover:bg-[#3c3c3c]"
-              }`}
+                }`}
               title={isPanModeEnabled ? "이동 모드 끄기 (텍스트 선택 가능)" : "이동 모드 켜기 (드래그로 이동)"}
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
