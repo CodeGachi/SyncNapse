@@ -40,7 +40,7 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
         return;
       }
 
-      console.log(`[Share Token] 토큰 파싱 완료: noteId=${noteId}`);
+      // console.log(`[Share Token] 토큰 파싱 완료: noteId=${noteId}`);
 
       // educator 노트 페이지로 리다이렉트 (공유 모드)
       // ?view=shared 파라미터를 추가하여 공유 모드로 접속함을 표시

@@ -14,19 +14,19 @@ export default function UserLayout({
 
   // Debug logging
   useEffect(() => {
-    console.log('[UserLayout] Auth state:', { loading, isAuthenticated, user });
+    // console.log('[UserLayout] Auth state:', { loading, isAuthenticated, user });
   }, [loading, isAuthenticated, user]);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      console.log('[UserLayout] Not authenticated, redirecting to login');
+      // console.log('[UserLayout] Not authenticated, redirecting to login');
       router.replace("/login");
     }
   }, [isAuthenticated, loading, router]);
 
   // Show loading while checking authentication
   if (loading) {
-    console.log('[UserLayout] Loading authentication...');
+    // console.log('[UserLayout] Loading authentication...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

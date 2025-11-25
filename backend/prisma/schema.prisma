@@ -1,11 +1,13 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext]
 }
 
 model User {
@@ -16,18 +18,13 @@ model User {
   updatedAt     DateTime @updatedAt
   deletedAt     DateTime?
   folders       Folder[]
-  bookmark      Bookmark[]
   authProvider  String   // e.g., cognito, credentials, oauth
   role          String   // e.g., user, admin
+
   // Back-relations
-  // Ink back-relations
-  inkLayersCreated       InkLayer[]   @relation("InkLayerCreatedBy")
-  inkStrokesCreated      InkStroke[]  @relation("InkStrokeCreatedBy")
-  // Uploads and Q&A back-relations
   uploads                Upload[]     @relation("UserUploads")
-  questionsAsked         Question[]   @relation("UserAskedQuestions")
-  answersAuthored        Answer[]     @relation("UserAnsweredAnswers")
   auditLogs              AuditLog[]
+  
   // Auth-related back-relations
   refreshTokens          RefreshToken[]
   trustedDevices         TrustedDevice[]
@@ -43,11 +40,14 @@ model Folder {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
   user      User     @relation(fields: [userId], references: [id])
+  
   // Hierarchical self relation
   parent    Folder?  @relation("FolderToChildren", fields: [parentId], references: [id])
   children  Folder[] @relation("FolderToChildren")
+  
   // Many-to-many with LectureNote via explicit join
   notesLink FolderLectureNote[]
+  
   @@index([userId])
   @@index([parentId])
 }
@@ -58,67 +58,29 @@ model LectureNote {
   type           String   @default("student") // Note type: 'student' or 'educator'
   sourceFileUrl  String?  // original lecture material file storage URL
   audioFileUrl   String?  // recorded audio file storage URL
-  sourceBlobId   String?  // optional: file stored in DB (not recommended for production)
-  audioBlobId    String?  // optional: audio stored in DB (not recommended for production)
+  
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   deletedAt      DateTime?
+  
   // Many-to-many with Folder via explicit join
   foldersLink    FolderLectureNote[]
-  transcript     TranscriptSegment[]
-  translations   TranslationSegment[]
-  typingSections TypingSection[]
-  mediaLinks     MediaLink[]
-  // Time-aligned chunks
-  chunks         MediaChunk[]
-  // Structured assets and user artifacts
-  materialPages  MaterialPage[]
+  
+  // Structured assets
   audioRecordings AudioRecording[]
-  inkLayers      InkLayer[]
-  bookmark       Bookmark[]
-  // Section sync mappings removed to match DB schema
-  questions      Question[]
-  // FileBlob relations
-  sourceBlob     FileBlob? @relation("LectureNoteSourceBlob", fields: [sourceBlobId], references: [id])
-  audioBlob      FileBlob? @relation("LectureNoteAudioBlob", fields: [audioBlobId], references: [id])
+  
   // File attachments (MinIO/S3 storage)
   files          File[]
-  // Page-specific note contents (DEPRECATED)
-  pageContents   PageContent[] @relation("PageContentToNote")
+  
   // Note-level content (NEW)
   noteContent    NoteContent? @relation("NoteContentToNote")
   
-  @@index([sourceBlobId])
-  @@index([audioBlobId])
+  // Page-specific content (Granular)
+  pageContents   NotePageContent[]
+  
+  // Linked Transcription Sessions
+  transcriptionSessions TranscriptionSession[]
 }
-
-// File attachments for LectureNote (stored in MinIO/S3)
-model File {
-  id          String   @id @default(cuid())
-  noteId      String
-  fileName    String
-  fileType    String   // MIME type
-  fileSize    Int      // Size in bytes
-  storageUrl  String   // MinIO/S3 URL or path
-  storageKey  String   // MinIO object key for deletion
-  uploadedAt  DateTime @default(now())
-  deletedAt   DateTime?
-
-  note        LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@index([noteId])
-  @@index([storageKey])
-}
-
-// ============================================================================
-// ============================================================================
-// Transcription (녹음 및 자막) - 통합 버전
-// ============================================================================
-// WhisperCpp WASM 기반 로컬 실시간 자막 생성 및 백엔드 저장
-// - 자막과 오디오 chunk 링킹
-// - MinIO에 오디오 저장, PostgreSQL에 메타데이터 저장
-// - 재생 시 자막-오디오 동기화
-// ============================================================================
 
 // Explicit join table mapping for Folder <-> LectureNote
 model FolderLectureNote {
@@ -132,131 +94,35 @@ model FolderLectureNote {
   @@map("FolderLectureNote")
 }
 
-model TranscriptSegment {
-  id            String   @id @default(cuid())
-  noteId        String
-  chunkId       String?
-  // timestamps in seconds with decimal precision
-  startSec      Decimal  @db.Decimal(7, 2)
-  endSec        Decimal  @db.Decimal(7, 2)
-  text          String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  note          LectureNote @relation(fields: [noteId], references: [id])
-  chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
-  // links to other entities at that timestamp
-  links         MediaLink[]
-  @@index([noteId, startSec])
-  @@index([chunkId])
+// File attachments for LectureNote (stored in MinIO/S3)
+model File {
+  id          String   @id @default(cuid())
+  noteId      String
+  fileName    String
+  fileType    String   // MIME type
+  fileSize    Int      // Size in bytes
+  storageUrl  String   // MinIO/S3 URL or path
+  storageKey  String   // MinIO object key for deletion
+  
+  // Versioning
+  version     Int      @default(1)
+  isLatest    Boolean  @default(true)
+  previousVersionId String?
+  
+  uploadedAt  DateTime @default(now())
+  deletedAt   DateTime?
+
+  note        LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  
+  // Relations
+  pageContents NotePageContent[]
+  timelineEvents AudioTimelineEvent[]
+
+  @@index([noteId, fileName])
+  @@index([storageKey])
 }
 
-model TranslationSegment {
-  id            String   @id @default(cuid())
-  noteId        String
-  chunkId       String?
-  sourceLang    String
-  targetLang    String
-  startSec      Decimal  @db.Decimal(7, 2)
-  endSec        Decimal  @db.Decimal(7, 2)
-  text          String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  note          LectureNote @relation(fields: [noteId], references: [id])
-  chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
-  links         MediaLink[]
-  @@index([noteId, targetLang, startSec])
-  @@index([chunkId])
-}
-
-model TypingSection {
-  id            String   @id @default(cuid())
-  noteId        String
-  chunkId       String?
-  // a named section of typed notes that can map to a time range
-  title         String
-  content       String
-  startSec      Decimal? @db.Decimal(7, 2)
-  endSec        Decimal? @db.Decimal(7, 2)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  note          LectureNote @relation(fields: [noteId], references: [id])
-  chunk         MediaChunk? @relation(fields: [chunkId], references: [id])
-  links         MediaLink[]
-  @@index([noteId, startSec])
-  @@index([chunkId])
-}
-
-// A generic link that associates a time range to resources (file page, transcript, translation, typing)
-model MediaLink {
-  id                 String   @id @default(cuid())
-  noteId             String
-  // the canonical timestamp range this link represents
-  startSec           Decimal @db.Decimal(7, 2)
-  endSec             Decimal @db.Decimal(7, 2)
-  // link type: 'file_page', 'transcript', 'translation', 'typing'
-  linkType           String
-  // detailed reference: page number for file, foreign keys for segments/sections
-  filePageNumber     Int?
-  transcriptId       String?
-  translationId      String?
-  typingSectionId    String?
-  // extended references: material page and audio slice
-  materialPageId     String?
-  audioSliceId       String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  note               LectureNote @relation(fields: [noteId], references: [id])
-  transcriptSegment  TranscriptSegment? @relation(fields: [transcriptId], references: [id])
-  translationSegment TranslationSegment? @relation(fields: [translationId], references: [id])
-  typingSection      TypingSection? @relation(fields: [typingSectionId], references: [id])
-  materialPage       MaterialPage? @relation(fields: [materialPageId], references: [id])
-  audioSlice         AudioSlice? @relation(fields: [audioSliceId], references: [id])
-  @@index([noteId, startSec])
-}
-
-// Material pages belong to a note and represent per-page assets
-model MaterialPage {
-  id         String   @id @default(cuid())
-  noteId     String
-  pageNumber Int
-  pageUrl    String?
-  pageBlobId String?  // optional: page image stored in DB (not recommended for production)
-  // canonicalization
-  pageHash   String?   // sha256 or stable content hash
-  canonicalPageId String?
-  viewTransform Json?  // normalized transform to render canonical into this page viewport
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  note       LectureNote @relation(fields: [noteId], references: [id])
-  links      MediaLink[]
-  canonical  CanonicalPage? @relation(fields: [canonicalPageId], references: [id])
-  inkLayers  InkLayer[]
-  questions  Question[]
-  pageBlob   FileBlob? @relation("MaterialPageBlob", fields: [pageBlobId], references: [id])
-  pageContent PageContent? // Typed note content for this page
-  @@unique([noteId, pageNumber])
-  @@index([canonicalPageId])
-  @@index([pageBlobId])
-}
-
-// Page-specific note content (blocks) - DEPRECATED, use NoteContent instead
-model PageContent {
-  id                String   @id @default(cuid())
-  noteId            String
-  pageId            String   @unique
-  pageNumber        Int
-  blocks            Json     // Array of note blocks with content, type, indent, etc.
-  storageKey        String?  // MinIO storage key for JSON backup
-  version           Int      @default(1)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  note              LectureNote @relation("PageContentToNote", fields: [noteId], references: [id])
-  page              MaterialPage @relation(fields: [pageId], references: [id])
-  @@unique([noteId, pageNumber])
-  @@index([noteId, pageNumber])
-}
-
-// Note-level content (all pages in a single document)
+// Note-level content (all pages in a single document) - Legacy/Metadata support
 model NoteContent {
   id         String   @id @default(cuid())
   noteId     String   @unique
@@ -269,148 +135,183 @@ model NoteContent {
   @@index([noteId])
 }
 
+// Page-specific note content (Granular Typing/Ink)
+model NotePageContent {
+  id          String   @id @default(cuid())
+  noteId      String
+  fileId      String
+  pageNumber  Int
+  
+  content     Json     // Delta format for typing/ink
+  version     Int      @default(1)
+  storageKey  String?  // MinIO storage key for large content backup
+  
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  note        LectureNote @relation(fields: [noteId], references: [id])
+  file        File        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, pageNumber])
+  @@index([noteId])
+}
+
 // Audio recordings attached to a note (file-level)
 model AudioRecording {
   id           String   @id @default(cuid())
   noteId       String
+  title        String   @default("Recording")
   fileUrl      String
-  fileBlobId   String?  // optional: audio file stored in DB (not recommended for production)
-  durationSec  Decimal? @db.Decimal(7, 2)
+  storageKey   String
+  durationSec  Decimal? @db.Decimal(10, 3)
+  
+  // Versioning
+  version      Int      @default(1)
+  isActive     Boolean  @default(true)
+  
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  
   note         LectureNote @relation(fields: [noteId], references: [id])
-  slices       AudioSlice[]
-  fileBlob     FileBlob? @relation("AudioRecordingBlob", fields: [fileBlobId], references: [id])
+  
+  // Relations
+  timelineEvents AudioTimelineEvent[]
+  transcriptionSessions TranscriptionSession[] // One recording can have multiple transcription sessions
+
   @@index([noteId])
-  @@index([fileBlobId])
 }
 
-// Sliced audio segments with optional file offset for alignment
-model AudioSlice {
-  id             String   @id @default(cuid())
-  recordingId    String
-  chunkId        String?
-  startSec       Decimal @db.Decimal(7, 2)
-  endSec         Decimal @db.Decimal(7, 2)
-  fileOffsetSec  Decimal? @db.Decimal(7, 2)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  recording      AudioRecording @relation(fields: [recordingId], references: [id])
-  chunk          MediaChunk? @relation(fields: [chunkId], references: [id])
-  links          MediaLink[]
-  @@index([recordingId, startSec])
-  @@index([chunkId])
+// Audio Timeline Events for Context Synchronization
+model AudioTimelineEvent {
+  id            String   @id @default(cuid())
+  recordingId   String
+  timestamp     Decimal  @db.Decimal(10, 3) // Seconds in audio
+  
+  // Context
+  fileId        String?
+  pageNumber    Int?
+  
+  createdAt     DateTime @default(now())
+
+  recording     AudioRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  file          File?          @relation(fields: [fileId], references: [id])
+
+  @@index([recordingId, timestamp])
 }
 
-model Bookmark {
-  id             String   @id @default(cuid())
-  noteId         String
-  userId         String
-  startSec       Decimal @db.Decimal(7, 2)
-  tag            String?
-  comment        String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  note           LectureNote @relation(fields: [noteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  user           User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  @@index([noteId, startSec])
+// === Transcription Sessions ===
+// Web Speech API 기반 실시간 자막 생성 및 백엔드 저장
+model TranscriptionSession {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String   @default("Untitled Session")
+  noteId          String?  // Optional: link to LectureNote
+  
+  // Link to specific recording
+  audioRecordingId String?
+  
+  // Current active transcript revision
+  activeTranscriptId String?
+
+  startTime       Decimal  @default(0) @db.Decimal(10, 3) // Session start timestamp (relative to recording start, in seconds)
+  endTime         Decimal? @db.Decimal(10, 3) // Session end timestamp (relative to recording start, in seconds)
+  duration        Decimal  @default(0) @db.Decimal(10, 3) // Total duration in seconds
+  status          String   @default("created") // created, recording, processing, completed, failed
+  language        String   @default("ko")
+  
+  fullAudioUrl    String?  // Full audio file URL (MinIO)
+  fullAudioKey    String?  // Full audio file storage key (MinIO)
+  fullAudioSize   Int?     // Full audio file size in bytes
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note            LectureNote? @relation(fields: [noteId], references: [id])
+  audioRecording  AudioRecording? @relation(fields: [audioRecordingId], references: [id])
+  
+  audioChunks     AudioChunk[]
+  segments        TranscriptionSegment[]
+  revisions       TranscriptRevision[]
+
   @@index([userId])
-  @@unique([userId, noteId, startSec])
+  @@index([noteId])
+  @@index([createdAt])
+  @@index([status])
 }
 
-// User-specific bookmarks tied to a note and an optional page/time
-// Removed Bookmark and VocabEntry to match current DB schema
-
-// Live sessions for presenter/listeners with invite links and Q&A
-
-// Removed SessionInvite to match current DB schema
-
-// Timestamped Q&A during/after sessions
-// Removed Q&A models to match current DB schema
-
-// Trusted devices per user for MFA remember/WebAuthn binding and session management
-// Removed TrustedDevice and RefreshToken to match current DB schema
-
-// LiveSession/SessionMember/SectionSync removed to match DB schema
-
-// Time-aligned chunk to group transcript/translation/typing and audio slices
-model MediaChunk {
-  id          String   @id @default(cuid())
-  noteId      String
-  startSec    Decimal @db.Decimal(7, 2)
-  endSec      Decimal @db.Decimal(7, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  note        LectureNote @relation(fields: [noteId], references: [id])
-  transcripts TranscriptSegment[]
-  translations TranslationSegment[]
-  typings     TypingSection[]
-  slices      AudioSlice[]
-  inkLayers   InkLayer[]
-
-  @@index([noteId, startSec])
+model TranscriptRevision {
+  id            String   @id @default(cuid())
+  sessionId     String
+  version       Int
+  content       Json     // Full transcript content or delta
+  createdAt     DateTime @default(now())
+  
+  session       TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId, version])
 }
 
-// Canonicalized page deduplication unit
-model CanonicalPage {
-  id          String   @id @default(cuid())
-  contentHash String   @unique // sha256 of normalized page bitmap/vector
-  sourceType  String             // pdf|image|other
-  renderKey   String?            // storage key for canonical render (e.g., PNG)
-  width       Int
-  height      Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  materialPages MaterialPage[]
-  inkLayers     InkLayer[]
+// === Audio Chunks ===
+// 오디오 chunk 저장 (MinIO에 실제 파일, DB에 메타데이터)
+model AudioChunk {
+  id              String   @id @default(cuid())
+  sessionId       String
+  chunkIndex      Int      // Sequential index (0부터 시작)
+  startTime       Decimal  @db.Decimal(10, 3) // Start time in seconds (millisecond precision)
+  endTime         Decimal  @db.Decimal(10, 3) // End time in seconds
+  duration        Decimal  @db.Decimal(10, 3) // Duration in seconds
+  sampleRate      Int      @default(16000)
+  storageUrl      String   // MinIO URL
+  storageKey      String   // MinIO object key
+  fileSize        Int      @default(0) // Size in bytes
+  createdAt       DateTime @default(now())
+
+  session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@unique([sessionId, chunkIndex])
+  @@index([sessionId])
+  @@index([storageKey])
 }
 
-// Ink grouping per chunk/page with style and ownership
-model InkLayer {
-  id               String   @id @default(cuid())
-  noteId           String
-  chunkId          String?
-  canonicalPageId  String?
-  materialPageId   String?
-  title            String?
-  color            String?  // default stroke color
-  opacity          Float?   // 0..1
-  blendMode        String?  // normal/multiply/... (client-defined)
-  zIndex           Int?     // layer order
-  createdByUserId  String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+// === Transcription Segments ===
+// 자막 세그먼트 (문장 단위)
+model TranscriptionSegment {
+  id              String   @id @default(cuid())
+  sessionId       String
+  text            String   @db.Text
+  startTime       Decimal  @db.Decimal(10, 3) // Start time in seconds (millisecond precision)
+  endTime         Decimal  @db.Decimal(10, 3) // End time in seconds
+  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
+  isPartial       Boolean  @default(false) // true for streaming partial results
+  language        String   @default("ko")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  note        LectureNote @relation(fields: [noteId], references: [id])
-  chunk       MediaChunk? @relation(fields: [chunkId], references: [id])
-  canonical   CanonicalPage? @relation(fields: [canonicalPageId], references: [id])
-  material    MaterialPage? @relation(fields: [materialPageId], references: [id])
-  createdBy   User @relation("InkLayerCreatedBy", fields: [createdByUserId], references: [id])
-  strokes     InkStroke[]
+  session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  words           TranscriptionWord[]
 
-  @@index([noteId, chunkId])
-  @@index([canonicalPageId])
-  @@index([materialPageId])
+  @@index([sessionId, startTime])
+  @@index([sessionId, isPartial])
 }
 
-// Individual stroke data (vector points), large payload -> JSON
-model InkStroke {
-  id          String   @id @default(cuid())
-  layerId     String
-  tool        String?     // pen|highlighter|eraser|shape
-  color       String?
-  thickness   Float?
-  // raw points array with x,y,t,pressure; client-normalized to canonical/page space
-  points      Json
-  // optional precomputed bounding box {x,y,w,h}
-  bbox        Json?
-  createdById String
-  createdAt   DateTime @default(now())
+// === Transcription Words ===
+// 단어 레벨 타임스탬프 (자막 내부의 각 단어)
+model TranscriptionWord {
+  id              String   @id @default(cuid())
+  segmentId       String
+  word            String   // 단어 텍스트
+  startTime       Decimal  @db.Decimal(10, 3) // Word start time in seconds
+  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
+  wordIndex       Int      // 문장 내 단어 순서 (0부터 시작)
+  createdAt       DateTime @default(now())
 
-  layer       InkLayer @relation(fields: [layerId], references: [id])
-  createdBy   User @relation("InkStrokeCreatedBy", fields: [createdById], references: [id])
+  segment         TranscriptionSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
 
-  @@index([layerId])
+  @@index([segmentId, wordIndex])
+  @@index([segmentId, startTime])
 }
 
 // === Chunked upload schema ===
@@ -457,42 +358,6 @@ model UploadChunk {
 
   @@unique([uploadId, index])
   @@index([uploadId])
-}
-
-// === Q&A schema with slide (MaterialPage) reference ===
-
-model Question {
-  id              String      @id @default(cuid())
-  askedByUserId   String
-  noteId          String?
-  materialPageId  String?
-  startSec        Decimal?    @db.Decimal(7, 2)
-  text            String
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  askedBy         User          @relation("UserAskedQuestions", fields: [askedByUserId], references: [id])
-  note            LectureNote?  @relation(fields: [noteId], references: [id])
-  materialPage    MaterialPage? @relation(fields: [materialPageId], references: [id])
-  answers         Answer[]
-
-  @@index([askedByUserId])
-  @@index([noteId, startSec])
-}
-
-model Answer {
-  id             String   @id @default(cuid())
-  questionId     String
-  answeredByUserId String
-  text           String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  question       Question @relation(fields: [questionId], references: [id])
-  answeredBy     User     @relation("UserAnsweredAnswers", fields: [answeredByUserId], references: [id])
-
-  @@index([questionId])
-  @@index([answeredByUserId])
 }
 
 // === Audit Log ===
@@ -565,30 +430,6 @@ model JwtBlacklist {
   @@index([expiresAt])
 }
 
-// === File Blob Storage (⚠️ NOT recommended for production) ===
-// This stores files directly in PostgreSQL using BYTEA
-// Consider using S3, GCS, or MinIO for production systems
-model FileBlob {
-  id         String   @id @default(cuid())
-  fileName   String
-  mimeType   String?
-  sizeBytes  Int
-  data       Bytes    // Binary data stored in BYTEA (PostgreSQL limit: 1GB)
-  checksum   String?  // SHA256 or other hash for integrity verification
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  // Back-relations to entities using this blob
-  lectureNotesAsSource  LectureNote[] @relation("LectureNoteSourceBlob")
-  lectureNotesAsAudio   LectureNote[] @relation("LectureNoteAudioBlob")
-  audioRecordings       AudioRecording[] @relation("AudioRecordingBlob")
-  materialPages         MaterialPage[] @relation("MaterialPageBlob")
-  
-  @@index([fileName])
-  @@index([mimeType])
-  @@index([createdAt])
-}
-
 // === Trusted Devices for P2P Communication ===
 // Stores registered devices for WebRTC P2P audio streaming
 model TrustedDevice {
@@ -607,91 +448,4 @@ model TrustedDevice {
 
   @@index([userId])
   @@index([fingerprint])
-}
-
-// === Transcription Sessions ===
-// Web Speech API 기반 실시간 자막 생성 및 백엔드 저장
-model TranscriptionSession {
-  id              String   @id @default(cuid())
-  userId          String
-  title           String   @default("Untitled Session")
-  noteId          String?  // Optional: link to LectureNote
-  startTime       Decimal  @default(0) @db.Decimal(10, 3) // Session start timestamp (relative to recording start, in seconds)
-  endTime         Decimal? @db.Decimal(10, 3) // Session end timestamp (relative to recording start, in seconds)
-  duration        Decimal  @default(0) @db.Decimal(10, 3) // Total duration in seconds
-  status          String   @default("recording") // recording, completed, processing
-  fullAudioUrl    String?  // Full audio file URL (MinIO)
-  fullAudioKey    String?  // Full audio file storage key (MinIO)
-  fullAudioSize   Int?     // Full audio file size in bytes
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  deletedAt       DateTime?
-
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  audioChunks     AudioChunk[]
-  segments        TranscriptionSegment[]
-
-  @@index([userId])
-  @@index([createdAt])
-  @@index([status])
-}
-
-// === Audio Chunks ===
-// 오디오 chunk 저장 (MinIO에 실제 파일, DB에 메타데이터)
-model AudioChunk {
-  id              String   @id @default(cuid())
-  sessionId       String
-  chunkIndex      Int      // Sequential index (0부터 시작)
-  startTime       Decimal  @db.Decimal(10, 3) // Start time in seconds (millisecond precision)
-  endTime         Decimal  @db.Decimal(10, 3) // End time in seconds
-  duration        Decimal  @db.Decimal(10, 3) // Duration in seconds
-  sampleRate      Int      @default(16000)
-  storageUrl      String   // MinIO URL
-  storageKey      String   // MinIO object key
-  fileSize        Int      @default(0) // Size in bytes
-  createdAt       DateTime @default(now())
-
-  session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  @@unique([sessionId, chunkIndex])
-  @@index([sessionId])
-  @@index([storageKey])
-}
-
-// === Transcription Segments ===
-// 자막 세그먼트 (문장 단위)
-model TranscriptionSegment {
-  id              String   @id @default(cuid())
-  sessionId       String
-  text            String   @db.Text
-  startTime       Decimal  @db.Decimal(10, 3) // Start time in seconds (millisecond precision)
-  endTime         Decimal  @db.Decimal(10, 3) // End time in seconds
-  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
-  isPartial       Boolean  @default(false) // true for streaming partial results
-  language        String   @default("ko")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  session         TranscriptionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  words           TranscriptionWord[]
-
-  @@index([sessionId, startTime])
-  @@index([sessionId, isPartial])
-}
-
-// === Transcription Words ===
-// 단어 레벨 타임스탬프 (자막 내부의 각 단어)
-model TranscriptionWord {
-  id              String   @id @default(cuid())
-  segmentId       String
-  word            String   // 단어 텍스트
-  startTime       Decimal  @db.Decimal(10, 3) // Word start time in seconds
-  confidence      Decimal  @default(0) @db.Decimal(5, 4) // 0.0 to 1.0
-  wordIndex       Int      // 문장 내 단어 순서 (0부터 시작)
-  createdAt       DateTime @default(now())
-
-  segment         TranscriptionSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
-
-  @@index([segmentId, wordIndex])
-  @@index([segmentId, startTime])
 }

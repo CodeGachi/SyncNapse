@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
@@ -386,7 +386,7 @@ export class StorageService {
       }
     } else if (this.config.provider === 'local') {
       const { readdirSync, statSync } = await import('node:fs');
-      const fullPath = join(this.localBasePath, prefix);
+      const fullPath = this.resolveLocalPath(prefix);
       
       if (!existsSync(fullPath)) {
         return [];
@@ -516,7 +516,7 @@ export class StorageService {
         throw error;
       }
     } else if (this.config.provider === 'local') {
-      const filePath = join(this.localBasePath, key);
+      const filePath = this.resolveLocalPath(key);
       if (!existsSync(filePath)) {
         throw new Error(`File not found: ${key}`);
       }
@@ -655,12 +655,21 @@ export class StorageService {
     }
   }
 
+  // Helper: Validate and resolve local path to prevent directory traversal
+  private resolveLocalPath(key: string): string {
+    const fullPath = resolve(this.localBasePath, key);
+    if (!fullPath.startsWith(this.localBasePath)) {
+      throw new Error(`Invalid path: Access denied`);
+    }
+    return fullPath;
+  }
+
   // ============================================
   // Local Storage Implementation
   // ============================================
 
   private async uploadToLocal(localPath: string, storageKey: string): Promise<UploadResult> {
-    const destPath = join(this.localBasePath, storageKey);
+    const destPath = this.resolveLocalPath(storageKey);
     const destDir = destPath.substring(0, destPath.lastIndexOf('/'));
     if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
 
@@ -675,7 +684,7 @@ export class StorageService {
   }
 
   private async uploadBufferToLocal(buffer: Buffer, storageKey: string): Promise<UploadResult> {
-    const destPath = join(this.localBasePath, storageKey);
+    const destPath = this.resolveLocalPath(storageKey);
     const destDir = destPath.substring(0, destPath.lastIndexOf('/'));
     if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
 
@@ -689,13 +698,13 @@ export class StorageService {
   }
 
   private async downloadFromLocal(storageKey: string, localPath: string): Promise<void> {
-    const srcPath = join(this.localBasePath, storageKey);
+    const srcPath = this.resolveLocalPath(storageKey);
     const buffer = readFileSync(srcPath);
     writeFileSync(localPath, buffer);
   }
 
   private async deleteFromLocal(storageKey: string): Promise<void> {
-    const filePath = join(this.localBasePath, storageKey);
+    const filePath = this.resolveLocalPath(storageKey);
     if (existsSync(filePath)) {
       unlinkSync(filePath);
     }
@@ -989,53 +998,58 @@ export class StorageService {
         
         this.logger.debug(`[renameFolder] Listing objects with prefix: ${oldPrefix}`);
         
-        // List all objects with old prefix
-        const listCommand = new ListObjectsV2Command({
-          Bucket: this.config.bucket,
-          Prefix: oldPrefix,
-        });
-        
-        const listResponse = await this.s3Client.send(listCommand);
-        const objects = listResponse.Contents || [];
-        
-        if (objects.length === 0) {
-          this.logger.warn(`[renameFolder] No objects found with prefix: ${oldPrefix}`);
-          return;
-        }
-        
-        this.logger.debug(`[renameFolder] Found ${objects.length} objects to rename`);
-        
-        // Copy each object to new path and delete old one
-        for (const obj of objects) {
-          if (!obj.Key) continue;
-          
-          const relativePath = obj.Key.substring(oldPrefix.length);
-          const newKey = `${newPrefix}${relativePath}`;
-          
-          this.logger.debug(`[renameFolder] Copying: ${obj.Key} -> ${newKey}`);
-          
-          // Copy object to new path (URL encode the source path)
-          const encodedObjKey = encodeURIComponent(obj.Key);
-          const copyCommand = new CopyObjectCommand({
+        let continuationToken: string | undefined;
+        do {
+          // List objects with pagination
+          const listCommand = new ListObjectsV2Command({
             Bucket: this.config.bucket,
-            CopySource: `${this.config.bucket}/${encodedObjKey}`,
-            Key: newKey,
+            Prefix: oldPrefix,
+            ContinuationToken: continuationToken,
           });
           
-          await this.s3Client.send(copyCommand);
+          const listResponse = await this.s3Client.send(listCommand);
+          const objects = listResponse.Contents || [];
+          continuationToken = listResponse.NextContinuationToken;
           
-          // Delete old object
-          const deleteCommand = new DeleteObjectCommand({
-            Bucket: this.config.bucket,
-            Key: obj.Key,
-          });
+          if (objects.length === 0 && !continuationToken) {
+            if (!continuationToken) { // Only warn if it's the first page and empty
+               this.logger.warn(`[renameFolder] No objects found with prefix: ${oldPrefix}`);
+            }
+            continue;
+          }
           
-          await this.s3Client.send(deleteCommand);
+          this.logger.debug(`[renameFolder] Processing batch of ${objects.length} objects`);
           
-          this.logger.debug(`[renameFolder] ✅ Renamed: ${obj.Key} -> ${newKey}`);
-        }
+          // Copy each object to new path and delete old one
+          for (const obj of objects) {
+            if (!obj.Key) continue;
+            
+            const relativePath = obj.Key.substring(oldPrefix.length);
+            const newKey = `${newPrefix}${relativePath}`;
+            
+            this.logger.debug(`[renameFolder] Copying: ${obj.Key} -> ${newKey}`);
+            
+            // Copy object to new path (URL encode the source path)
+            const encodedObjKey = encodeURIComponent(obj.Key);
+            const copyCommand = new CopyObjectCommand({
+              Bucket: this.config.bucket,
+              CopySource: `${this.config.bucket}/${encodedObjKey}`,
+              Key: newKey,
+            });
+            
+            await this.s3Client.send(copyCommand);
+            
+            // Delete old object
+            const deleteCommand = new DeleteObjectCommand({
+              Bucket: this.config.bucket,
+              Key: obj.Key,
+            });
+            
+            await this.s3Client.send(deleteCommand);
+          }
+        } while (continuationToken);
         
-        this.logger.log(`[renameFolder] ✅ Successfully renamed ${objects.length} objects from ${oldPath} to ${newPath}`);
+        this.logger.log(`[renameFolder] ✅ Successfully renamed folder from ${oldPath} to ${newPath}`);
       } catch (error) {
         this.logger.error(`[renameFolder] ❌ Failed to rename folder:`, error);
         throw error;

@@ -10,6 +10,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const portFromEnv = process.env.PORT;
@@ -20,6 +21,11 @@ async function bootstrap() {
     bodyParser: true,
     rawBody: true,
   });
+
+  // Security Headers
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resource sharing for audio/files
+  }));
 
   // Increase body size limit for audio chunks (50MB)
   app.use(json({ limit: '50mb' }));

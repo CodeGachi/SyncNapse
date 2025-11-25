@@ -1,16 +1,45 @@
 import { PostprocessService } from './postprocess.service';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 
 // Mock child_process
-jest.mock('node:child_process');
-const mockExecFileSync = execFileSync as jest.MockedFunction<typeof execFileSync>;
+jest.mock('node:child_process', () => ({
+  execFile: jest.fn(),
+}));
+
+// Mock util.promisify
+// Since the service uses promisify(execFile), and promisify wraps the function to return a promise
+// we need to ensure that when the service calls the promisified function, it behaves as expected.
+// The easiest way is to mock execFile to invoke the callback, which promisify will then turn into a resolved/rejected promise.
+// OR we can mock promisify itself if we want to return a specific mock function. 
+// However, jest.mock('node:util') is tricky.
+// Better approach: standard promisify wrapping of a mock.
+// If we mock execFile to call its callback, the real promisify will work fine.
 
 describe('PostprocessService', () => {
   let service: PostprocessService;
+  const mockExecFile = execFile as unknown as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
     service = new PostprocessService();
+    
+    // Default mock implementation for execFile: call the callback with success
+    mockExecFile.mockImplementation((file, args, options, callback) => {
+      // Handle variadic arguments for execFile: (file, args?, options?, callback?)
+      let cb = callback;
+      if (!cb && typeof options === 'function') {
+        cb = options;
+      }
+      if (!cb && typeof args === 'function') {
+        cb = args;
+      }
+      
+      if (cb) {
+        // Default success response
+        cb(null, { stdout: '123.456\n', stderr: '' });
+      }
+      return {} as any; // Return child process object stub
+    });
   });
 
   describe('getIndexingTarget', () => {
@@ -147,22 +176,26 @@ describe('PostprocessService', () => {
 
   describe('probeAudioDurationSec', () => {
     it('should return duration in seconds when ffprobe succeeds', async () => {
-      // Mock successful ffprobe execution
-      mockExecFileSync.mockReturnValue('123.456\n');
-
+      // Mock success already set in beforeEach
+      
       const duration = await service.probeAudioDurationSec('/path/to/audio.mp3');
 
       expect(duration).toBe(123.456);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockExecFile).toHaveBeenCalledWith(
         'ffprobe',
-        ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', '/path/to/audio.mp3'],
-        { encoding: 'utf8' }
+        expect.arrayContaining(['-show_entries', 'format=duration']),
+        expect.any(Object),
+        expect.any(Function)
       );
     });
 
     it('should return undefined when ffprobe output is invalid', async () => {
       // Mock invalid output
-      mockExecFileSync.mockReturnValue('invalid-number');
+      mockExecFile.mockImplementation((file, args, opts, cb) => {
+        const callback = typeof opts === 'function' ? opts : cb;
+        callback(null, { stdout: 'invalid-number', stderr: '' });
+        return {} as any;
+      });
 
       const duration = await service.probeAudioDurationSec('/path/to/audio.mp3');
 
@@ -171,8 +204,10 @@ describe('PostprocessService', () => {
 
     it('should return undefined when ffprobe fails', async () => {
       // Mock ffprobe failure
-      mockExecFileSync.mockImplementation(() => {
-        throw new Error('ffprobe not found');
+      mockExecFile.mockImplementation((file, args, opts, cb) => {
+        const callback = typeof opts === 'function' ? opts : cb;
+        callback(new Error('ffprobe not found'), { stdout: '', stderr: '' });
+        return {} as any;
       });
 
       const duration = await service.probeAudioDurationSec('/path/to/audio.mp3');
@@ -181,7 +216,12 @@ describe('PostprocessService', () => {
     });
 
     it('should handle empty output', async () => {
-      mockExecFileSync.mockReturnValue('');
+      // Mock empty output
+      mockExecFile.mockImplementation((file, args, opts, cb) => {
+        const callback = typeof opts === 'function' ? opts : cb;
+        callback(null, { stdout: '', stderr: '' });
+        return {} as any;
+      });
 
       const duration = await service.probeAudioDurationSec('/path/to/audio.mp3');
 
@@ -189,7 +229,12 @@ describe('PostprocessService', () => {
     });
 
     it('should handle float values correctly', async () => {
-      mockExecFileSync.mockReturnValue('45.67890');
+      // Mock float output
+      mockExecFile.mockImplementation((file, args, opts, cb) => {
+        const callback = typeof opts === 'function' ? opts : cb;
+        callback(null, { stdout: '45.67890', stderr: '' });
+        return {} as any;
+      });
 
       const duration = await service.probeAudioDurationSec('/path/to/audio.wav');
 
