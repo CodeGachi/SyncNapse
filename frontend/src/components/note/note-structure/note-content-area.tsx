@@ -156,7 +156,7 @@ export function NoteContentArea({
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
-      className="flex flex-col gap-3 flex-1"
+      className="flex flex-col gap-3 flex-1 min-w-0"
     >
       {/* 제목 영역 제거 - NoteHeader로 이동 */}
 

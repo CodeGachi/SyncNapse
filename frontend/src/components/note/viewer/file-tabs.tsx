@@ -18,9 +18,9 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
   };
 
   return (
-    <div className="flex items-end w-full h-[32px] overflow-hidden">
+    <div className="flex items-end w-full h-[32px] overflow-hidden min-w-0">
       {/* 탭 스크롤 영역 */}
-      <div className="flex items-end h-full overflow-x-auto overflow-y-hidden scrollbar-hide min-w-0 flex-shrink">
+      <div className="flex items-end h-full overflow-x-auto overflow-y-hidden scrollbar-hide min-w-0 flex-1">
         {files.map((file, index) => (
           <div
             key={file.id}
@@ -66,7 +66,7 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
       </div>
 
       {/* 빈 공간 하단 border */}
-      <div className="flex-1 border-b border-[#3c3c3c] min-w-[16px]" />
+      <div className="flex-shrink-0 border-b border-[#3c3c3c] min-w-[16px]" />
     </div>
   );
 }
