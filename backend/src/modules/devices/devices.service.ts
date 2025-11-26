@@ -77,11 +77,14 @@ export class DevicesService {
   }
 
   /**
-   * Get device by fingerprint
+   * Get device by fingerprint (scoped to user for security)
    */
-  async getDeviceByFingerprint(fingerprint: string) {
-    return this.prisma.trustedDevice.findUnique({
-      where: { fingerprint },
+  async getDeviceByFingerprint(userId: string, fingerprint: string) {
+    return this.prisma.trustedDevice.findFirst({
+      where: { 
+        userId,
+        fingerprint 
+      },
     });
   }
 

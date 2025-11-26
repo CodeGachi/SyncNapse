@@ -11,6 +11,7 @@ import {
   Logger,
   forwardRef,
   Inject,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -434,8 +435,18 @@ export class FoldersService {
         this.logger.log(`[moveFolder] ✅ Updated .folder metadata file: ${metadataKey}`);
       }
     } catch (error) {
-      this.logger.error(`[moveFolder] Failed to move folder in storage:`, error);
-      // Don't fail the request if storage move fails
+      this.logger.error(`[moveFolder] Failed to move folder in storage. Rolling back DB changes...`, error);
+      
+      // Rollback DB changes
+      await this.prisma.folder.update({
+        where: { id: folderId },
+        data: {
+          parentId: folder.parentId, // Revert to old parent
+          updatedAt: folder.updatedAt, // Revert updated time
+        },
+      });
+      
+      throw new InternalServerErrorException('Failed to move folder storage');
     }
 
     return {

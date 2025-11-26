@@ -37,7 +37,7 @@ export function HandRaisePanel({
 
   // 손들기 목록 변경 감지 (디버깅용)
   useEffect(() => {
-    console.log(`[Hand Raise Panel] 손들기 목록 업데이트:`, {
+    /* console.log(`[Hand Raise Panel] 손들기 목록 업데이트:`, {
       userId,
       userName,
       isEducator,
@@ -48,7 +48,7 @@ export function HandRaisePanel({
         user: h.userName,
         timestamp: new Date(h.timestamp).toLocaleTimeString(),
       })),
-    });
+    }); */
   }, [handRaises, userId, userName, isEducator]);
 
   // 현재 사용자가 손들기 중인지 확인
@@ -60,17 +60,17 @@ export function HandRaisePanel({
   // 손들기 추가 Mutation (Student)
   const raiseHand = useMutation(
     ({ storage }, userName: string, userId: string) => {
-      console.log(`[Hand Raise Mutation] Storage 접근 시작`);
+      // console.log(`[Hand Raise Mutation] Storage 접근 시작`);
       const handRaises = storage.get("handRaises");
-      console.log(`[Hand Raise Mutation] 현재 handRaises 배열:`, handRaises);
-      console.log(`[Hand Raise Mutation] handRaises 타입:`, typeof handRaises, Array.isArray(handRaises));
+      // console.log(`[Hand Raise Mutation] 현재 handRaises 배열:`, handRaises);
+      // console.log(`[Hand Raise Mutation] handRaises 타입:`, typeof handRaises, Array.isArray(handRaises));
 
       // 중복 방지: 이미 손들기 중이면 무시
       const existing = handRaises.find(
         (h) => h.userId === userId && h.isActive
       );
       if (existing) {
-        console.log(`[Hand Raise Mutation] 이미 손들기 중: ${userId}`);
+        // console.log(`[Hand Raise Mutation] 이미 손들기 중: ${userId}`);
         return;
       }
 
@@ -83,9 +83,9 @@ export function HandRaisePanel({
         isActive: true,
       };
 
-      console.log(`[Hand Raise Mutation] 새 손들기 생성:`, newHandRaise);
+      // console.log(`[Hand Raise Mutation] 새 손들기 생성:`, newHandRaise);
       handRaises.push(newHandRaise);
-      console.log(`[Hand Raise Mutation] 손들기 추가 후 배열 길이:`, handRaises.length);
+      // console.log(`[Hand Raise Mutation] 손들기 추가 후 배열 길이:`, handRaises.length);
     },
     []
   );
@@ -120,9 +120,9 @@ export function HandRaisePanel({
   const handleRaiseHand = () => {
     if (!isHandRaised) {
       // 손들기
-      console.log(`[Hand Raise Panel] 손들기 시작:`, { userId, userName });
+      // console.log(`[Hand Raise Panel] 손들기 시작:`, { userId, userName });
       raiseHand(userName, userId);
-      console.log(`[Hand Raise Panel] raiseHand Mutation 호출 완료`);
+      // console.log(`[Hand Raise Panel] raiseHand Mutation 호출 완료`);
       broadcast({
         type: "HAND_RAISE",
         userId,

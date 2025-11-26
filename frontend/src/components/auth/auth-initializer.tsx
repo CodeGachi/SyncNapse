@@ -25,20 +25,20 @@ function getCookie(name: string): string | null {
 
 export function AuthInitializer() {
   useEffect(() => {
-    console.log('[AuthInitializer] Initializing authentication...');
+    // console.log('[AuthInitializer] Initializing authentication...');
 
     // 1. Sync tokens from cookies to localStorage
     const cookieToken = getCookie("authToken");
     const localToken = localStorage.getItem("authToken");
     const syncnapseToken = localStorage.getItem("syncnapse_access_token");
 
-    console.log('[AuthInitializer] Cookie token exists:', !!cookieToken);
-    console.log('[AuthInitializer] LocalStorage token exists:', !!localToken);
-    console.log('[AuthInitializer] Syncnapse token exists:', !!syncnapseToken);
+    // console.log('[AuthInitializer] Cookie token exists:', !!cookieToken);
+    // console.log('[AuthInitializer] LocalStorage token exists:', !!localToken);
+    // console.log('[AuthInitializer] Syncnapse token exists:', !!syncnapseToken);
 
     // If cookie has token but localStorage doesn't, sync it
     if (cookieToken && !localToken) {
-      console.log('[AuthInitializer] Syncing token from cookie to localStorage');
+      // console.log('[AuthInitializer] Syncing token from cookie to localStorage');
       localStorage.setItem("authToken", cookieToken);
       localStorage.setItem("syncnapse_access_token", cookieToken); // Also set syncnapse_ key
 
@@ -51,13 +51,13 @@ export function AuthInitializer() {
           createdAt: new Date().toISOString(),
         };
         localStorage.setItem("user", JSON.stringify(mockUser));
-        console.log('[AuthInitializer] Mock user data synced');
+        // console.log('[AuthInitializer] Mock user data synced');
       }
     }
 
     // 2. Sync authToken to syncnapse_access_token if missing
     if (localToken && !syncnapseToken) {
-      console.log('[AuthInitializer] Syncing authToken to syncnapse_access_token');
+      // console.log('[AuthInitializer] Syncing authToken to syncnapse_access_token');
       localStorage.setItem("syncnapse_access_token", localToken);
     }
 
@@ -68,7 +68,7 @@ export function AuthInitializer() {
         const userData = JSON.parse(userStr);
         // Remove picture field if it exists (to avoid Next.js image host errors)
         if (userData.picture) {
-          console.log('[AuthInitializer] Removing picture field from user data');
+          // console.log('[AuthInitializer] Removing picture field from user data');
           delete userData.picture;
           localStorage.setItem("user", JSON.stringify(userData));
         }
@@ -89,7 +89,7 @@ export function AuthInitializer() {
       }
     }
 
-    console.log('[AuthInitializer] Initialization complete');
+    // console.log('[AuthInitializer] Initialization complete');
   }, []);
 
   return null;

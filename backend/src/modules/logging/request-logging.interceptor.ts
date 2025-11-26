@@ -14,14 +14,19 @@ export class RequestLoggingInterceptor implements NestInterceptor<unknown, unkno
     const requestId = (req?.headers?.['x-request-id'] as string) || undefined;
     // Extract user-agent and ensure it's string | undefined for type safety
     const userAgent = ((req?.get && req.get('user-agent')) || req?.headers?.['user-agent'] || undefined) as string | undefined;
-    const ip = req?.ip || req?.connection?.remoteAddress || undefined;
+    const headers = req?.headers ? { ...req.headers } : {};
+    // Mask sensitive headers
+    if (headers['authorization']) headers['authorization'] = '[MASKED]';
+    if (headers['cookie']) headers['cookie'] = '[MASKED]';
+    if (headers['x-api-key']) headers['x-api-key'] = '[MASKED]';
+
     return next.handle().pipe(
       // success path
       tap({
         next: () => {
           const ms = Date.now() - start;
           const statusCode = res?.statusCode;
-          const payload = { requestId, method, url, statusCode, ms, ip, userAgent } as Record<string, unknown>;
+          const payload = { requestId, method, url, statusCode, ms, ip: req.ip, userAgent } as Record<string, unknown>;
           if (typeof statusCode === 'number') {
             if (statusCode >= 500) {
               this.logging.error('http_request', payload);
@@ -35,7 +40,7 @@ export class RequestLoggingInterceptor implements NestInterceptor<unknown, unkno
           } else {
             this.logging.log('http_request', payload);
           }
-          void this.logging.audit({ requestId, userId: req?.user?.id, method, path: url, status: statusCode, ip, userAgent });
+          void this.logging.audit({ requestId, userId: req?.user?.id, method, path: url, status: statusCode, ip: req.ip, userAgent });
         },
         error: (err: unknown) => {
           // In error path, prefer HttpException status over response.statusCode (which may still be 200 before filters run)
@@ -49,7 +54,7 @@ export class RequestLoggingInterceptor implements NestInterceptor<unknown, unkno
             url,
             statusCode,
             ms,
-            ip,
+            ip: req?.ip,
             userAgent,
             errorName: (err as { name?: string })?.name,
           };
@@ -58,7 +63,7 @@ export class RequestLoggingInterceptor implements NestInterceptor<unknown, unkno
           } else {
             this.logging.warn('http_request', payload);
           }
-          void this.logging.audit({ requestId, userId: req?.user?.id, method, path: url, status: statusCode, ip, userAgent, extra: { error: (err as Error)?.message } });
+          void this.logging.audit({ requestId, userId: req?.user?.id, method, path: url, status: statusCode, ip: req.ip, userAgent, extra: { error: (err as Error)?.message } });
         },
       }),
     );

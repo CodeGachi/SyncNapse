@@ -38,14 +38,16 @@ export class ExportsController {
     
     // Generate export if not exists or regenerate
     const { file } = await this.exportsService.createExportForNote(noteId);
-    const { content } = await this.exportsService.readExport(file);
+    const exportResult = await this.exportsService.readExport(file);
+    const content = exportResult.stream;
 
     // Set response headers
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${noteId}.json"`);
-    res.setHeader('Content-Length', content.length);
+    // Stream does not have length property, omit Content-Length or verify file size before
+    // res.setHeader('Content-Length', content.length); 
 
     // Send file
-    res.send(content);
+    content.pipe(res);
   }
 }

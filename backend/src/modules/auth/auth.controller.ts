@@ -71,7 +71,8 @@ export class AuthController {
     } catch (error) {
       this.logger.error('[googleCallback] Authentication failed', error);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/?error=auth_failed`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.redirect(`${frontendUrl}/?error=auth_failed&message=${encodeURIComponent(errorMessage)}`);
     }
   }
   

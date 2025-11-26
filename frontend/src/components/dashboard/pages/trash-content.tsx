@@ -27,9 +27,9 @@ export function TrashContent() {
   const loadTrashedNotes = async () => {
     try {
       setIsLoading(true);
-      console.log('[TrashContent] Loading trashed notes...');
+      // console.log('[TrashContent] Loading trashed notes...');
       const notes = await fetchTrashedNotes();
-      console.log('[TrashContent] Loaded:', notes.length, 'notes');
+      // console.log('[TrashContent] Loaded:', notes.length, 'notes');
       setTrashedNotes(notes);
     } catch (error) {
       console.error('[TrashContent] Failed to load:', error);
@@ -47,11 +47,11 @@ export function TrashContent() {
 
     try {
       setRestoring(noteId);
-      console.log('[TrashContent] Restoring note:', noteId);
-
+      // console.log('[TrashContent] Restoring note:', noteId);
+      
       const result = await restoreNote(noteId);
-      console.log('[TrashContent] Restore result:', result);
-
+      // console.log('[TrashContent] Restore result:', result);
+      
       alert(`복구되었습니다!\n새 이름: ${result.title || noteTitle}`);
 
       // Invalidate queries to refresh all note lists
@@ -91,11 +91,11 @@ export function TrashContent() {
 
     try {
       setDeleting(noteId);
-      console.log('[TrashContent] Permanently deleting note:', noteId);
-
+      // console.log('[TrashContent] Permanently deleting note:', noteId);
+      
       await permanentlyDeleteNote(noteId);
-      console.log('[TrashContent] Permanent delete successful');
-
+      // console.log('[TrashContent] Permanent delete successful');
+      
       alert('영구적으로 삭제되었습니다.');
 
       // Invalidate queries to refresh all note lists

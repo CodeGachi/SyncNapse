@@ -1,12 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { UpdateUserDto } from './dto';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
-  
-  constructor(private readonly prisma: PrismaService) {}
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) { }
 
   async findById(userId: string) {
     this.logger.debug(`findById userId=${userId}`);
@@ -20,7 +24,7 @@ export class UsersService {
 
   async updateUser(userId: string, updateUserDto: UpdateUserDto) {
     this.logger.debug(`updateUser userId=${userId}`);
-    
+
     // Check if user exists first
     const existingUser = await this.findById(userId);
     if (!existingUser) {
@@ -38,6 +42,9 @@ export class UsersService {
 
   async upsertGoogleUser(params: { email: string; displayName: string }) {
     this.logger.debug(`upsertGoogleUser email=${params.email}`);
+
+    await this.ensureDeletedFolder(params.email);
+
     return this.prisma.user.upsert({
       where: { email: params.email },
       update: {
@@ -52,5 +59,19 @@ export class UsersService {
         role: 'user',
       },
     });
+  }
+
+  private async ensureDeletedFolder(email: string) {
+    try {
+      const key = `users/${email}/.deleted/.gitkeep`;
+      await this.storageService.uploadBuffer(
+        Buffer.from(''),
+        key,
+        'text/plain'
+      );
+      this.logger.debug(`[ensureDeletedFolder] Created .deleted folder for ${email}`);
+    } catch (error) {
+      this.logger.error(`[ensureDeletedFolder] Failed to create .deleted folder for ${email}`, error);
+    }
   }
 }

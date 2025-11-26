@@ -18,7 +18,7 @@ function LoginContent() {
     const callbackUrl = searchParams.get("callbackUrl");
     if (callbackUrl && callbackUrl !== "/" && !callbackUrl.startsWith("/auth")) {
       localStorage.setItem("redirectAfterLogin", callbackUrl);
-      console.log("[Login] 💾 Saved redirect URL from query:", callbackUrl);
+      // console.log("[Login] 💾 Saved redirect URL from query:", callbackUrl);
     }
   }, [searchParams]);
 
@@ -28,7 +28,7 @@ function LoginContent() {
       // Check if there's a saved redirect URL
       const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
       localStorage.removeItem("redirectAfterLogin");
-      console.log("[Login] ✅ Already authenticated, redirecting to:", redirectUrl);
+      // console.log("[Login] ✅ Already authenticated, redirecting to:", redirectUrl);
       router.replace(redirectUrl);
     }
   }, [isAuthenticated, loading, router]);

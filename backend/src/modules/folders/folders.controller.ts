@@ -14,11 +14,14 @@ import {
   UseGuards,
   Logger,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FoldersService } from './folders.service';
 import { CreateFolderDto, UpdateFolderDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 
+@ApiTags('folders')
+@ApiBearerAuth()
 @Controller('folders')
 @UseGuards(JwtAuthGuard)
 export class FoldersController {

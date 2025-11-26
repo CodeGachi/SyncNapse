@@ -162,7 +162,10 @@ export class AuthService {
   // Parse expiration string (15m, 1h, 7d) to seconds
   private parseExpiration(exp: string): number {
     const match = exp.match(/^(\d+)([smhd])$/);
-    if (!match) return 900; // default 15 minutes
+    if (!match) {
+      this.logger.warn(`[parseExpiration] Invalid expiration format: ${exp}. Defaulting to 15m (900s).`);
+      return 900; // default 15 minutes
+    }
 
     const value = parseInt(match[1], 10);
     const unit = match[2];

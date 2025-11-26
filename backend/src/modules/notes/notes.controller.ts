@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -15,16 +14,19 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { NotesService } from './notes.service';
-import { CreateNoteDto, UpdateNoteDto, SavePageContentDto, SaveNoteContentDto, NoteBlock } from './dto';
+import { CreateNoteDto, UpdateNoteDto, SavePageTypingDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
 
 @Controller('notes')
 @UseGuards(JwtAuthGuard)
+@ApiTags('notes')
 export class NotesController {
   private readonly logger = new Logger(NotesController.name);
 
-  constructor(private readonly notesService: NotesService) {}
+  constructor(private readonly notesService: NotesService) { }
+
   @Get()
   async getNotes(
     @CurrentUser('id') userId: string,
@@ -95,65 +97,16 @@ export class NotesController {
     return this.notesService.deleteNote(userId, noteId);
   }
 
-  // Page Content endpoints
-  @Post(':noteId/pages/:pageNumber/content')
-  async savePageContent(
-    @CurrentUser('id') userId: string,
-    @Param('noteId') noteId: string,
-    @Param('pageNumber') pageNumber: string,
-    @Body() dto: SavePageContentDto,
-  ) {
-    const pageNum = parseInt(pageNumber, 10);
-    this.logger.debug(`[savePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum} blocks=${dto.blocks.length}`);
-    return this.notesService.savePageContent(userId, noteId, pageNum, dto.blocks as NoteBlock[]);
-  }
-
-  @Get(':noteId/pages/:pageNumber/content')
-  async getPageContent(
-    @CurrentUser('id') userId: string,
-    @Param('noteId') noteId: string,
-    @Param('pageNumber') pageNumber: string,
-  ) {
-    const pageNum = parseInt(pageNumber, 10);
-    this.logger.debug(`[getPageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum}`);
-    return this.notesService.getPageContent(userId, noteId, pageNum);
-  }
-
-  @Delete(':noteId/pages/:pageNumber/content')
-  async deletePageContent(
-    @CurrentUser('id') userId: string,
-    @Param('noteId') noteId: string,
-    @Param('pageNumber') pageNumber: string,
-  ) {
-    const pageNum = parseInt(pageNumber, 10);
-    this.logger.debug(`[deletePageContent] userId=${userId} noteId=${noteId} pageNumber=${pageNum}`);
-    return this.notesService.deletePageContent(userId, noteId, pageNum);
-  }
-
-  // Note-level content endpoints (NEW)
   @Post(':noteId/content')
   async saveNoteContent(
     @CurrentUser('id') userId: string,
     @Param('noteId') noteId: string,
-    @Body() dto: SaveNoteContentDto,
+    @Body() body: { pages: any },
   ) {
-    this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId} pages=${Object.keys(dto.pages || {}).length}`);
-    
-    // Debug: Log received DTO data
-    const firstPageKey = Object.keys(dto.pages || {})[0];
-    if (firstPageKey && dto.pages[firstPageKey]) {
-      const firstPage = dto.pages[firstPageKey];
-      this.logger.debug(`[saveNoteContent] 📥 Received DTO - First page (${firstPageKey}):`, {
-        hasBlocks: !!firstPage.blocks,
-        blocksIsArray: Array.isArray(firstPage.blocks),
-        blockCount: firstPage.blocks?.length || 0,
-        firstBlockContent: firstPage.blocks?.[0]?.content,
-        firstBlockType: firstPage.blocks?.[0]?.type,
-        allBlocks: JSON.stringify(firstPage.blocks),
-      });
-    }
-    
-    return this.notesService.saveNoteContent(userId, noteId, dto.pages);
+    this.logger.debug(`[saveNoteContent] userId=${userId} noteId=${noteId}`);
+    // If body.pages is missing but body has page keys directly (legacy/client issue), try to wrap it
+    // But based on the log, the client sends { noteId, pages: { ... } } which is correct for DTO but here we extract body.pages
+    return this.notesService.saveNoteContent(userId, noteId, body.pages);
   }
 
   @Get(':noteId/content')
@@ -165,13 +118,62 @@ export class NotesController {
     return this.notesService.getNoteContent(userId, noteId);
   }
 
-  @Delete(':noteId/content')
-  async deleteNoteContent(
+  @Post(':noteId/files')
+  @UseInterceptors(FilesInterceptor('file'))
+  async createFile(
     @CurrentUser('id') userId: string,
     @Param('noteId') noteId: string,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    this.logger.debug(`[deleteNoteContent] userId=${userId} noteId=${noteId}`);
-    return this.notesService.deleteNoteContent(userId, noteId);
+    const file = files && files.length > 0 ? files[0] : null;
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+    this.logger.debug(`[createFile] userId=${userId} noteId=${noteId} file=${file.originalname}`);
+    return this.notesService.createFile(userId, noteId, file);
+  }
+
+  @Post(':noteId/files/:fileId')
+  @UseInterceptors(FilesInterceptor('file'))
+  async updateFile(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('fileId') fileId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const file = files && files.length > 0 ? files[0] : null;
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+    this.logger.debug(`[updateFile] userId=${userId} noteId=${noteId} fileId=${fileId}`);
+    return this.notesService.updateFile(userId, noteId, fileId, file);
+  }
+
+  @Post(':noteId/files/:fileId/pages/:pageNumber/typing')
+  @ApiOperation({ summary: 'Save page typing content with optimistic locking' })
+  @ApiBody({ type: SavePageTypingDto })
+  async savePageTyping(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('fileId') fileId: string,
+    @Param('pageNumber') pageNumber: string,
+    @Body() dto: SavePageTypingDto,
+  ) {
+    const pageNum = parseInt(pageNumber, 10);
+    this.logger.debug(`[savePageTyping] userId=${userId} fileId=${fileId} page=${pageNum}`);
+    return this.notesService.savePageTyping(userId, noteId, fileId, pageNum, dto.content, dto.version);
+  }
+
+  @Get(':noteId/files/:fileId/pages/:pageNumber/typing')
+  async getPageTyping(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('fileId') fileId: string,
+    @Param('pageNumber') pageNumber: string,
+  ) {
+    const pageNum = parseInt(pageNumber, 10);
+    this.logger.debug(`[getPageTyping] userId=${userId} fileId=${fileId} page=${pageNum}`);
+    return this.notesService.getPageTyping(userId, noteId, fileId, pageNum);
   }
 
   // Trash endpoints
