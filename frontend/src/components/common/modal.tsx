@@ -33,7 +33,7 @@ export function Modal({
   // Close on ESC key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && typeof onClose === "function") onClose();
     };
 
     if (isOpen) {

@@ -9,7 +9,7 @@ interface FolderSelectorModalProps {
   onClose: () => void;
   onSelect: (folderId: string) => void;
   folderTree: FolderTreeNode[];
-  selectedFolderId: string;
+  selectedFolderId?: string | null;
 }
 
 export function FolderSelectorModal({

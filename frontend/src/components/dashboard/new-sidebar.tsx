@@ -321,13 +321,7 @@ export function NewSidebar({
           setIsCreateFolderModalOpen(false);
           setCreateSubfolderParentId(null);
         }}
-        onCreate={async (name, parentId) => {
-          const actualParentId = createSubfolderParentId || parentId;
-          await handleCreateFolderModal(name, actualParentId);
-          setCreateSubfolderParentId(null);
-          setIsCreateFolderModalOpen(false);
-        }}
-        folderTree={buildFolderTree()}
+        parentId={createSubfolderParentId}
       />
 
       {renamingFolder && (

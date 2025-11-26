@@ -26,7 +26,7 @@ export function DeleteConfirmModal({
             <div className="flex flex-col gap-6">
                 <div className="text-gray-300">
                     <p className="mb-2">
-                        <span className="text-white font-semibold">"{name}"</span>
+                        <span className="text-white font-semibold">&quot;{name}&quot;</span>
                         을(를) 삭제하시겠습니까?
                     </p>
                     {type === 'folder' && (

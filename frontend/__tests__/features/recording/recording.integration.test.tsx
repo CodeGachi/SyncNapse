@@ -176,7 +176,7 @@ describe('Recording Integration Test', () => {
     });
 
     // "테스트"란 이름으로 저장
-    const titleInput = screen.getByPlaceholderText(/2025_01_15/i);
+    const titleInput = screen.getByPlaceholderText(/\d{4}_\d{2}_\d{2}/i);
     await user.clear(titleInput);
     await user.type(titleInput, '테스트');
 

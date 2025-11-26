@@ -19,7 +19,7 @@ interface FolderTreeProps {
   onCreateSubFolder: (parentId: string) => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
-  onDeleteNote?: (noteId: string) => void; // Add note delete handler
+  onDeleteNote?: (noteId: string, noteTitle: string) => void; // Add note delete handler
   level?: number;
 }
 
@@ -345,7 +345,7 @@ function FolderNotes({
 }: {
   folderId: string;
   level: number;
-  onDeleteNote?: (noteId: string) => void;
+  onDeleteNote?: (noteId: string, noteTitle: string) => void;
   draggedItem: { type: 'folder' | 'note', id: string } | null;
   dragOverItem: { type: 'folder' | 'note', id: string } | null;
   onDragStart: (e: React.DragEvent, type: 'folder' | 'note', id: string) => void;
@@ -453,7 +453,7 @@ function FolderNotes({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onDeleteNote) {
-                    onDeleteNote(note.id);
+                    onDeleteNote(note.id, note.title);
                   }
                 }}
                 className="p-1 hover:bg-[#3C3C3C] rounded transition-colors opacity-0 group-hover:opacity-100"
@@ -532,7 +532,8 @@ function FolderNotes({
             <button
               onClick={() => {
                 if (onDeleteNote) {
-                  onDeleteNote(noteContextMenu.noteId);
+                  const note = notes.find(n => n.id === noteContextMenu.noteId);
+                  onDeleteNote(noteContextMenu.noteId, note?.title || '');
                 }
                 closeNoteContextMenu();
               }}
