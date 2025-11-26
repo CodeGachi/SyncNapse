@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost" | "glass" | "brand";
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "glass" | "brand" | "danger";
   size?: "sm" | "md" | "lg" | "icon";
 }
 
@@ -41,6 +41,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             // Glass: Trendy glassmorphism
             "bg-white/5 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 shadow-xl shadow-black/20":
               variant === "glass",
+
+            // Danger: Red for destructive actions
+            "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-transparent hover:border-red-500/30":
+              variant === "danger",
           },
 
           {

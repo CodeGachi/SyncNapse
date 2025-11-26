@@ -8,6 +8,8 @@ import { NoteDataLoader } from "@/components/note/note-structure/note-data-loade
 import { NoteHeader } from "@/components/note/note-structure/note-header";
 import { usePanelsStore } from "@/stores";
 
+import { motion } from "framer-motion";
+
 interface StudentNotePageProps {
   params: {
     noteId: string;
@@ -31,7 +33,12 @@ export default function StudentNotePage({
   }, [resetPanels]);
 
   return (
-    <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="flex items-start bg-[#1e1e1e] h-screen w-full"
+    >
       {/* Header - 제목 + 녹음바 */}
       <NoteHeader
         noteId={noteId}
@@ -55,6 +62,6 @@ export default function StudentNotePage({
           </div>
         </main>
       </NoteDataLoader>
-    </div>
+    </motion.div>
   );
 }

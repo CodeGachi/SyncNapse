@@ -23,6 +23,8 @@ import { FilePanel } from "@/components/note/panels/file-panel";
 import { ChatbotPanel } from "@/components/note/panels/chatbot-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
+import { motion } from "framer-motion";
+
 interface RightSidePanelProps {
   noteId: string | null;
   isEducator?: boolean; // 교육자 노트 여부
@@ -115,66 +117,68 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
   return (
     <>
       {/* 사이드 패널 - 확장시에만 표시 */}
-      <div
-        className={`flex flex-col bg-[#1e1e1e] overflow-hidden ${
-          isExpanded ? "flex-shrink-0 w-[370px] gap-2 pt-6 px-3" : "w-0 p-0"
-        }`}
+      <motion.div
+        initial={{ x: 20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+        className={`flex flex-col bg-[#1e1e1e] overflow-hidden ${isExpanded ? "flex-shrink-0 w-[370px] gap-2 pt-6 px-3" : "w-0 p-0"
+          }`}
       >
         {isExpanded && (
           <>
 
-          {/* 스크립트 패널 */}
-          <ScriptPanel
-            isOpen={isScriptOpen}
-            onClose={toggleScript}
-            audioRef={audioRef}
-            activeSegmentId={activeSegmentId}
-            isTranslating={isTranslating}
-            translationSupported={translationSupported}
-          />
-
-          {/* 타임라인 (스크립트가 열려있고 세그먼트가 있을 때만 표시) */}
-          {isScriptOpen && scriptSegments.length > 0 && (
-            <TranscriptTimeline
-              segments={scriptSegments}
+            {/* 스크립트 패널 */}
+            <ScriptPanel
+              isOpen={isScriptOpen}
+              onClose={toggleScript}
               audioRef={audioRef}
               activeSegmentId={activeSegmentId}
-              onSeek={handleSeek}
-              className="mt-3"
+              isTranslating={isTranslating}
+              translationSupported={translationSupported}
             />
-          )}
 
-          {/* 파일 패널 */}
-          <FilePanel
-            isOpen={isFilePanelOpen}
-            files={uploadedFiles}
-            onAddFile={handleAddFile}
-            onRemoveFile={handleRemoveFile}
-            selectedFileId={selectedFileId}
-            onSelectFile={selectFile}
-            onOpenFileInTab={openFileInTab}
-            onRenameFile={renameFile}
-            onCopyFile={copyFile}
-            onClose={toggleFilePanel}
-          />
+            {/* 타임라인 (스크립트가 열려있고 세그먼트가 있을 때만 표시) */}
+            {isScriptOpen && scriptSegments.length > 0 && (
+              <TranscriptTimeline
+                segments={scriptSegments}
+                audioRef={audioRef}
+                activeSegmentId={activeSegmentId}
+                onSeek={handleSeek}
+                className="mt-3"
+              />
+            )}
 
-          {/* AI 챗봇 패널 */}
-          <ChatbotPanel isOpen={isChatbotPanelOpen} onClose={toggleChatbotPanel} noteId={noteId} />
-
-          {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
-          {isEducator && (
-            <CollaborationPanel
-              isOpen={isCollaborationPanelOpen}
-              userId={userId}
-              userName={userName}
-              noteId={noteId!}
-              isEducator={true}
-              onClose={toggleCollaborationPanel}
+            {/* 파일 패널 */}
+            <FilePanel
+              isOpen={isFilePanelOpen}
+              files={uploadedFiles}
+              onAddFile={handleAddFile}
+              onRemoveFile={handleRemoveFile}
+              selectedFileId={selectedFileId}
+              onSelectFile={selectFile}
+              onOpenFileInTab={openFileInTab}
+              onRenameFile={renameFile}
+              onCopyFile={copyFile}
+              onClose={toggleFilePanel}
             />
-          )}
-        </>
-      )}
-    </div>
+
+            {/* AI 챗봇 패널 */}
+            <ChatbotPanel isOpen={isChatbotPanelOpen} onClose={toggleChatbotPanel} noteId={noteId} />
+
+            {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
+            {isEducator && (
+              <CollaborationPanel
+                isOpen={isCollaborationPanelOpen}
+                userId={userId}
+                userName={userName}
+                noteId={noteId!}
+                isEducator={true}
+                onClose={toggleCollaborationPanel}
+              />
+            )}
+          </>
+        )}
+      </motion.div>
     </>
   );
 }

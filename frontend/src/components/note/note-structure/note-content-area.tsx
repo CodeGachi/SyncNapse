@@ -16,6 +16,8 @@ import { type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-draw
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
 
+import { motion } from "framer-motion";
+
 interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
@@ -74,7 +76,7 @@ export function NoteContentArea({
   // Store states
   const editorStore = useNoteEditorStore();
   const panelsStore = usePanelsStore();
-  
+
   const {
     files: uploadedFiles,
     openedTabs,
@@ -150,7 +152,12 @@ export function NoteContentArea({
   const selectedFile = uploadedFiles.find((file) => file.id === selectedFileId);
 
   return (
-    <div className="flex flex-col gap-3 flex-1">
+    <motion.div
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+      className="flex flex-col gap-3 flex-1"
+    >
       {/* 제목 영역 제거 - NoteHeader로 이동 */}
 
       {/* 탭 + PDF 뷰어 + 노트 패널 */}
@@ -249,6 +256,6 @@ export function NoteContentArea({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

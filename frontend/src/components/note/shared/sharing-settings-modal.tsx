@@ -8,8 +8,10 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/common/modal";
-import { Copy, Check, ExternalLink, Users } from "lucide-react";
+import { Copy, Check, ExternalLink, Users, Globe, Lock, ChevronRight, RefreshCw } from "lucide-react";
 import { useEducatorUIStore } from "@/stores";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/common/button";
 
 export function SharingSettingsModal() {
   const {
@@ -35,32 +37,28 @@ export function SharingSettingsModal() {
   const [collaborativeLink, setCollaborativeLink] = useState<string | null>(null);
   const [isCopiedCollab, setIsCopiedCollab] = useState(false);
   const [isGeneratingCollab, setIsGeneratingCollab] = useState(false);
+  const [isCopiedPublic, setIsCopiedPublic] = useState(false);
 
   // 공유 설정 핸들러들 (내부에서 처리)
   const handleTogglePublic = () => {
-    setSettings(prev => ({ ...prev, isPublic: !prev.isPublic }));
-  };
+    setSettings(prev => {
+      const nextIsPublic = !prev.isPublic;
+      let nextShareLink = prev.shareLink;
 
-  const handleAddUser = () => {
-    if (!newUserEmail || !newUserEmail.includes("@")) return;
-    if (settings.allowedUsers.includes(newUserEmail)) return;
+      // 공개로 전환 시 링크가 없으면 자동 생성
+      if (nextIsPublic && !nextShareLink && sharingModalNoteId) {
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const token = `${sharingModalNoteId}-${timestamp}-${randomString}`;
+        nextShareLink = `${window.location.origin}/shared/${token}`;
+      }
 
-    setSettings(prev => ({
-      ...prev,
-      allowedUsers: [...prev.allowedUsers, newUserEmail]
-    }));
-    setNewUserEmail("");
-  };
-
-  const handleRemoveUser = (email: string) => {
-    setSettings(prev => ({
-      ...prev,
-      allowedUsers: prev.allowedUsers.filter(u => u !== email)
-    }));
-  };
-
-  const handleToggleComments = () => {
-    setSettings(prev => ({ ...prev, allowComments: !prev.allowComments }));
+      return {
+        ...prev,
+        isPublic: nextIsPublic,
+        shareLink: nextShareLink
+      };
+    });
   };
 
   const handleToggleRealTimeInteraction = () => {
@@ -68,30 +66,14 @@ export function SharingSettingsModal() {
   };
 
   const handleCopyShareLink = async () => {
-    if (!sharingModalNoteId) return;
+    if (!sharingModalNoteId || !settings.shareLink) return;
 
-    if (!settings.shareLink) {
-      // 공유 링크 생성
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const token = `${sharingModalNoteId}-${timestamp}-${randomString}`;
-      const shareLink = `${window.location.origin}/shared/${token}`;
-
-      setSettings(prev => ({ ...prev, shareLink }));
-
-      try {
-        await navigator.clipboard.writeText(shareLink);
-        console.log("공유 링크가 복사되었습니다:", shareLink);
-      } catch (error) {
-        console.error("링크 복사 실패:", error);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(settings.shareLink);
-        console.log("공유 링크가 복사되었습니다:", settings.shareLink);
-      } catch (error) {
-        console.error("링크 복사 실패:", error);
-      }
+    try {
+      await navigator.clipboard.writeText(settings.shareLink);
+      setIsCopiedPublic(true);
+      setTimeout(() => setIsCopiedPublic(false), 2000);
+    } catch (error) {
+      console.error("링크 복사 실패:", error);
     }
   };
 
@@ -109,9 +91,6 @@ export function SharingSettingsModal() {
 
       setCollaborativeLink(link);
       setIsCollaborating(true);
-
-      console.log(`[Share Link] 생성 완료: ${link}`);
-      console.log(`[Share Link] Token: ${token}`);
     } catch (error) {
       console.error("Failed to generate collaboration link:", error);
       alert("협업 링크 생성에 실패했습니다.");
@@ -147,171 +126,173 @@ export function SharingSettingsModal() {
       isOpen={isSharingModalOpen}
       onClose={closeSharingModal}
       title="공유 설정"
-      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-full max-w-[600px] max-h-[90vh] overflow-y-auto"
+      contentClassName="bg-[#1e1e1e] border border-[#333] shadow-2xl shadow-black/50 rounded-3xl p-0 flex flex-col w-full max-w-[520px] overflow-hidden"
     >
+      <div className="p-6 flex flex-col gap-6">
 
-      {/* 공개 범위 섹션 */}
-      <div className="border-b border-[#575757] pb-6">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">공개 범위</h3>
-
-        <div className="space-y-3">
-          <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-[#4C4C4C] transition-colors">
-            <input
-              type="radio"
-              id="share-invite-only"
-              checked={!settings.isPublic}
-              onChange={handleTogglePublic}
-              className="w-4 h-4 accent-[#AFC02B] mt-1"
-            />
-            <div className="flex-1">
-              <label htmlFor="share-invite-only" className="text-sm font-medium text-white cursor-pointer block mb-2">
-                초대된 사용자만
-              </label>
-
-              <label className="flex items-center justify-between p-3 rounded-lg bg-[#3f3f3f] hover:bg-[#4a4a4a] transition-colors cursor-pointer">
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    실시간 상호작용
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    손들기, 투표 등 실시간 기능 활성화
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.realTimeInteraction}
-                  onChange={handleToggleRealTimeInteraction}
-                  className="w-4 h-4 accent-[#AFC02B]"
-                />
-              </label>
+        {/* 1. 공개 범위 카드 */}
+        <div className="bg-[#252525] rounded-2xl p-5 border border-[#333] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.isPublic ? 'bg-[#AFC02B]/20 text-[#AFC02B]' : 'bg-[#333] text-gray-400'}`}>
+                {settings.isPublic ? <Globe size={20} /> : <Lock size={20} />}
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-[15px]">공개 범위 설정</h3>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  {settings.isPublic ? "누구나 링크를 통해 접근 가능" : "초대된 사용자만 접근 가능"}
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* 공유 링크 섹션 */}
-      {settings.isPublic && (
-        <div className="border-b border-[#575757] pb-6">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">
-            공개 공유 링크
-          </h3>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={settings.shareLink || "링크 생성 중..."}
-              readOnly
-              className="flex-1 bg-[#4C4C4C] text-gray-300 px-3 py-2 rounded-lg text-sm truncate"
-            />
+            {/* Custom Toggle Switch */}
             <button
-              onClick={handleCopyShareLink}
-              className="px-4 py-2 bg-[#AFC02B] text-white rounded-lg font-medium text-sm hover:bg-[#9DB025] transition-colors"
+              onClick={handleTogglePublic}
+              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ${settings.isPublic ? 'bg-[#AFC02B]' : 'bg-[#444]'}`}
             >
-              복사
+              <motion.div
+                className="w-5 h-5 bg-white rounded-full shadow-md"
+                animate={{ x: settings.isPublic ? 20 : 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
             </button>
           </div>
-        </div>
-      )}
 
-      {/* 실시간 협업 링크 섹션 */}
-      <div>
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">
-            <div className="flex items-center gap-2">
-              <Users size={16} />
-              <span>Student 공유 링크</span>
+          <AnimatePresence>
+            {settings.isPublic && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-4 border-t border-[#333] flex flex-col gap-4">
+                  {/* 실시간 상호작용 옵션 */}
+                  <div
+                    onClick={handleToggleRealTimeInteraction}
+                    className="flex items-center justify-between p-3 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] transition-colors cursor-pointer group"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">실시간 상호작용 허용</span>
+                      <span className="text-xs text-gray-500">손들기, 투표 등 협업 기능 활성화</span>
+                    </div>
+                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${settings.realTimeInteraction ? 'bg-[#AFC02B] border-[#AFC02B]' : 'border-gray-500'}`}>
+                      {settings.realTimeInteraction && <Check size={14} className="text-[#1e1e1e]" strokeWidth={3} />}
+                    </div>
+                  </div>
+
+                  {/* 공개 링크 복사 UI 제거됨 */}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* 2. Student 협업 링크 카드 */}
+        <div className="bg-[#252525] rounded-2xl p-5 border border-[#333] flex flex-col gap-4 relative overflow-hidden">
+          {/* Background Glow */}
+          {isCollaborating && (
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#AFC02B]/5 blur-[60px] rounded-full pointer-events-none" />
+          )}
+
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-10 h-10 rounded-full bg-[#333] flex items-center justify-center text-gray-300">
+              <Users size={20} />
             </div>
-          </h3>
+            <div>
+              <h3 className="text-white font-semibold text-[15px]">Student 협업 링크</h3>
+              <p className="text-gray-400 text-xs mt-0.5">학생들과 실시간으로 노트를 공유합니다</p>
+            </div>
+          </div>
 
           {!collaborativeLink ? (
-            <div className="text-center py-6">
-              <p className="text-gray-400 text-sm mb-4">
-                Student들과 실시간으로 협업할 수 있는 공유 링크를 생성하세요
+            <div className="flex flex-col items-center justify-center py-4 gap-3">
+              <p className="text-gray-500 text-xs text-center">
+                링크를 생성하여 학생들을 초대하세요.<br />
+                실시간 Q&A 및 반응 기능을 사용할 수 있습니다.
               </p>
-              {isCollaborating && (
-                <div className="bg-green-500 bg-opacity-10 border border-green-500 border-opacity-30 rounded-lg p-3 mb-4">
-                  <p className="text-green-300 text-sm">
-                    ✅ 협업 모드가 활성화되었습니다!
-                  </p>
-                </div>
-              )}
-              <button
+              <Button
+                variant="primary"
                 onClick={handleGenerateCollaborativeLink}
                 disabled={isGeneratingCollab}
-                className="px-6 py-2 bg-[#AFC02B] text-[#1E1E1E] rounded-lg font-medium text-sm hover:bg-[#9DB025] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full"
               >
-                {isGeneratingCollab ? "생성 중..." : isCollaborating ? "새 공유 링크 생성" : "공유 링크 생성"}
-              </button>
+                {isGeneratingCollab ? (
+                  <div className="flex items-center gap-2">
+                    <RefreshCw size={16} className="animate-spin" /> 생성 중...
+                  </div>
+                ) : (
+                  "협업 링크 생성하기"
+                )}
+              </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* 협업 링크 입력 */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={collaborativeLink}
-                    readOnly
-                    className="flex-1 bg-[#4C4C4C] text-gray-300 px-3 py-2 rounded-lg text-sm truncate"
-                  />
-                  <button
-                    onClick={handleCopyCollaborativeLink}
-                    title="복사"
-                    className="px-4 py-2 bg-[#4C4C4C] hover:bg-[#575757] rounded-lg transition-colors"
-                  >
-                    {isCopiedCollab ? (
-                      <Check size={18} className="text-green-400" />
-                    ) : (
-                      <Copy size={18} className="text-gray-400" />
-                    )}
-                  </button>
+            <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-[#AFC02B]/10 border border-[#AFC02B]/20 rounded-xl p-3 flex items-start gap-3">
+                <div className="mt-0.5 min-w-[16px]">
+                  <div className="w-4 h-4 rounded-full bg-[#AFC02B] flex items-center justify-center">
+                    <Check size={10} className="text-[#1e1e1e] stroke-[4]" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-[#AFC02B] text-xs font-bold">협업 모드 활성화됨</p>
+                  <p className="text-[#AFC02B]/80 text-[11px] leading-relaxed">
+                    학생들이 이 링크로 접속하여 실시간으로 노트를 보고 상호작용할 수 있습니다.
+                  </p>
                 </div>
               </div>
 
-              {/* 안내 메시지 */}
-              <div className="bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 rounded-lg p-3">
-                <p className="text-blue-300 text-xs">
-                  💡 이 링크를 통해 접속한 Student는:
-                </p>
-                <ul className="text-blue-200 text-xs mt-2 space-y-1 list-disc list-inside">
-                  <li>공유된 노트를 실시간으로 확인할 수 있습니다</li>
-                  <li>Q&A, 손들기, 투표 등 협업 기능을 사용할 수 있습니다</li>
-                  <li>이모지 반응을 보낼 수 있습니다</li>
-                </ul>
+              <div className="flex gap-2">
+                <div className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-xl px-3 py-2.5 flex items-center overflow-hidden">
+                  <span className="text-gray-300 text-xs truncate select-all">
+                    {collaborativeLink}
+                  </span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCopyCollaborativeLink}
+                  className="shrink-0 w-10 h-10 p-0 flex items-center justify-center"
+                >
+                  {isCopiedCollab ? <Check size={18} /> : <Copy size={18} />}
+                </Button>
               </div>
 
-              {/* 액션 버튼 */}
-              <button
-                onClick={handleOpenCollaborativeLink}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#4C4C4C] hover:bg-[#575757] text-white rounded-lg transition-colors text-sm"
-              >
-                <ExternalLink size={16} />
-                <span>새 탭에서 열기</span>
-              </button>
-
-              {/* 협업 종료 버튼 */}
-              {isCollaborating && (
-                <button
+              <div className="flex gap-2 mt-1">
+                <Button
+                  variant="secondary"
+                  className="flex-1 text-xs h-9"
+                  onClick={handleOpenCollaborativeLink}
+                >
+                  <ExternalLink size={14} className="mr-2" />
+                  새 탭에서 열기
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1 text-xs h-9 bg-red-500/10 text-red-400 hover:bg-red-500/20 border-transparent"
                   onClick={() => {
                     setIsCollaborating(false);
                     setCollaborativeLink(null);
                   }}
-                  className="w-full px-4 py-2 text-red-400 hover:text-red-300 transition-colors text-sm font-medium"
                 >
                   협업 종료
-                </button>
-              )}
+                </Button>
+              </div>
             </div>
           )}
+        </div>
+
       </div>
 
-      {/* 닫기 버튼 */}
-      <div className="flex justify-end gap-3 pt-4 border-t border-[#575757]">
-        <button
+      {/* Footer */}
+      <div className="p-4 border-t border-[#333] bg-[#252525]/50 flex justify-end">
+        <Button
+          variant="secondary"
           onClick={closeSharingModal}
-          className="px-6 py-2 bg-[#575757] text-white rounded-lg font-medium hover:bg-[#666666] transition-colors"
+          className="px-8"
         >
           완료
-        </button>
+        </Button>
       </div>
     </Modal>
   );
