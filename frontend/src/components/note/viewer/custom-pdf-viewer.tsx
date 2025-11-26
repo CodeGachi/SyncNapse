@@ -246,9 +246,6 @@ export function CustomPdfViewer({
 
     let renderTask: any = null;
     let isUnmounted = false;
-    let resizeTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    // 오프스크린 캔버스 (더블 버퍼링)
-    let offscreenCanvas: HTMLCanvasElement | null = null;
 
     const renderPage = async () => {
       if (isUnmounted) return;
@@ -284,35 +281,21 @@ export function CustomPdfViewer({
 
         // High DPI 디스플레이 지원
         const dpr = window.devicePixelRatio || 1;
-        const targetWidth = scaledViewport.width * dpr;
-        const targetHeight = scaledViewport.height * dpr;
-
-        // 오프스크린 캔버스 생성 (더블 버퍼링으로 깜빡임 방지)
-        offscreenCanvas = document.createElement("canvas");
-        offscreenCanvas.width = targetWidth;
-        offscreenCanvas.height = targetHeight;
-        const offscreenContext = offscreenCanvas.getContext("2d");
-        if (!offscreenContext) return;
+        canvas.width = scaledViewport.width * dpr;
+        canvas.height = scaledViewport.height * dpr;
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
 
         // Context scale for high DPI
-        offscreenContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const renderContext = {
-          canvasContext: offscreenContext,
+          canvasContext: context,
           viewport: scaledViewport,
         };
 
         renderTask = page.render(renderContext);
         await renderTask.promise;
-
-        // 렌더링 완료 후 메인 캔버스에 복사 (깜빡임 없이 한 번에 교체)
-        if (isUnmounted || !canvasRef.current) return;
-
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        canvas.style.width = `${scaledViewport.width}px`;
-        canvas.style.height = `${scaledViewport.height}px`;
-        context.drawImage(offscreenCanvas, 0, 0);
 
         // 원본 크기 계산 (scale=1.0, rotation=0 기준)
         const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
@@ -345,16 +328,10 @@ export function CustomPdfViewer({
     // Initial render
     renderPage();
 
-    // ResizeObserver to detect container size changes (debounced)
+    // ResizeObserver to detect container size changes
     const resizeObserver = new ResizeObserver(() => {
       if (!isUnmounted) {
-        // Debounce resize events to prevent excessive re-renders
-        if (resizeTimeoutId) {
-          clearTimeout(resizeTimeoutId);
-        }
-        resizeTimeoutId = setTimeout(() => {
-          renderPage();
-        }, 100);
+        renderPage();
       }
     });
 
@@ -368,11 +345,7 @@ export function CustomPdfViewer({
       if (renderTask) {
         renderTask.cancel();
       }
-      if (resizeTimeoutId) {
-        clearTimeout(resizeTimeoutId);
-      }
       resizeObserver.disconnect();
-      offscreenCanvas = null;
     };
   }, [pdfDoc, currentPage, scale, rotation, numPages, onPdfRenderInfo]);
 

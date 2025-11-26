@@ -43,7 +43,7 @@ export function PollPanel({
 
   // 투표 목록 변경 감지 (디버깅용)
   useEffect(() => {
-    /* console.log(`[Poll Panel] 투표 목록 업데이트:`, {
+    console.log(`[Poll Panel] 투표 목록 업데이트:`, {
       userId,
       isEducator,
       pollCount: polls.length,
@@ -52,23 +52,23 @@ export function PollPanel({
         question: activePoll.question,
         optionCount: activePoll.options.length,
       } : null,
-    }); */
+    });
   }, [polls, userId, isEducator, activePoll]);
 
   // 투표 이벤트 리스너 (Student에게 알림)
   useEventListener(({ event }) => {
     if (event.type === "POLL_CREATED") {
-      // console.log(`[Poll Panel] 새 투표 생성됨:`, event.question);
+      console.log(`[Poll Panel] 새 투표 생성됨:`, event.question);
       if (!isEducator) {
         setToastMessage(`새 투표가 시작되었습니다: ${event.question}`);
         setShowToast(true);
       }
     } else if (event.type === "POLL_ENDED") {
-      // console.log(`[Poll Panel] 투표 종료됨:`, event.pollId);
+      console.log(`[Poll Panel] 투표 종료됨:`, event.pollId);
       setToastMessage("투표가 종료되었습니다");
       setShowToast(true);
     } else if (event.type === "POLL_VOTE") {
-      // console.log(`[Poll Panel] 투표 참여:`, event);
+      console.log(`[Poll Panel] 투표 참여:`, event);
       // Educator만 투표 알림 받기
       if (isEducator) {
         // 조용히 로그만 (너무 많은 알림 방지)
@@ -87,10 +87,10 @@ export function PollPanel({
   // 투표 생성 Mutation (Educator만)
   const createPoll = useMutation(
     ({ storage }, question: string, options: string[]) => {
-      // console.log(`[Poll Mutation] Storage 접근 시작`);
+      console.log(`[Poll Mutation] Storage 접근 시작`);
       const polls = storage.get("polls");
-      // console.log(`[Poll Mutation] 현재 polls 배열:`, polls);
-      // console.log(`[Poll Mutation] polls 타입:`, typeof polls, Array.isArray(polls));
+      console.log(`[Poll Mutation] 현재 polls 배열:`, polls);
+      console.log(`[Poll Mutation] polls 타입:`, typeof polls, Array.isArray(polls));
 
       // 기존 활성 투표 비활성화 (LiveList 중첩 객체 문제 해결)
       for (let i = 0; i < polls.length; i++) {
@@ -114,9 +114,9 @@ export function PollPanel({
         isActive: true,
       };
 
-      // console.log(`[Poll Mutation] 새 투표 생성:`, newPoll);
+      console.log(`[Poll Mutation] 새 투표 생성:`, newPoll);
       polls.push(newPoll);
-      // console.log(`[Poll Mutation] 투표 추가 후 배열 길이:`, polls.length);
+      console.log(`[Poll Mutation] 투표 추가 후 배열 길이:`, polls.length);
     },
     [userId]
   );
@@ -167,18 +167,18 @@ export function PollPanel({
   const handleCreatePoll = () => {
     const validOptions = options.filter((opt) => opt.trim());
     if (question.trim() && validOptions.length >= 2) {
-      /* console.log(`[Poll Panel] 투표 생성 시작:`, {
+      console.log(`[Poll Panel] 투표 생성 시작:`, {
         userId,
         isEducator,
         question,
         options: validOptions,
-      }); */
+      });
 
       const pollId = `poll-${Date.now()}`;
 
       // 1. Storage에 저장
       createPoll(question, validOptions);
-      // console.log(`[Poll Panel] 투표 생성 완료 (Mutation 실행됨)`);
+      console.log(`[Poll Panel] 투표 생성 완료 (Mutation 실행됨)`);
 
       // 2. Broadcast로 즉시 알림
       broadcast({
@@ -186,7 +186,7 @@ export function PollPanel({
         pollId,
         question,
       });
-      // console.log(`[Poll Panel] 투표 생성 Broadcast 전송 완료`);
+      console.log(`[Poll Panel] 투표 생성 Broadcast 전송 완료`);
 
       setQuestion("");
       setOptions(["", ""]);
@@ -212,7 +212,7 @@ export function PollPanel({
 
   // 투표 참여 (Storage + Broadcast)
   const handleVote = (pollId: string, optionIndex: number) => {
-    // console.log(`[Poll Panel] 투표 참여:`, { pollId, optionIndex, userId });
+    console.log(`[Poll Panel] 투표 참여:`, { pollId, optionIndex, userId });
 
     // 1. Storage에 저장
     vote(pollId, optionIndex);
@@ -224,12 +224,12 @@ export function PollPanel({
       optionIndex,
       userId,
     });
-    // console.log(`[Poll Panel] 투표 Broadcast 전송 완료`);
+    console.log(`[Poll Panel] 투표 Broadcast 전송 완료`);
   };
 
   // 투표 종료 (Storage + Broadcast)
   const handleEndPoll = (pollId: string) => {
-    // console.log(`[Poll Panel] 투표 종료:`, { pollId });
+    console.log(`[Poll Panel] 투표 종료:`, { pollId });
 
     // 1. Storage에 저장
     endPoll(pollId);
@@ -239,7 +239,7 @@ export function PollPanel({
       type: "POLL_ENDED",
       pollId,
     });
-    // console.log(`[Poll Panel] 투표 종료 Broadcast 전송 완료`);
+    console.log(`[Poll Panel] 투표 종료 Broadcast 전송 완료`);
   };
 
   // Educator만 투표 생성 가능

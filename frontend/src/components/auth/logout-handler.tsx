@@ -12,7 +12,7 @@ export function LogoutHandler() {
   useEffect(() => {
     const performLogout = async () => {
       // 1. 먼저 localStorage 토큰 제거 (API 호출 전에)
-      // console.log("[Logout] Clearing local storage first...");
+      console.log("[Logout] Clearing local storage first...");
       localStorage.removeItem("syncnapse_access_token");
       localStorage.removeItem("syncnapse_refresh_token");
       localStorage.removeItem("authToken");
@@ -24,7 +24,7 @@ export function LogoutHandler() {
       document.cookie = "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
       // 2. React Query 캐시 완전 초기화
-      // console.log("[Logout] Clearing React Query cache...");
+      console.log("[Logout] Clearing React Query cache...");
       queryClient.removeQueries({ queryKey: ["auth"] });
       queryClient.removeQueries({ queryKey: ["notes"] });
       queryClient.removeQueries({ queryKey: ["folders"] });
@@ -33,7 +33,7 @@ export function LogoutHandler() {
       // 3. 백엔드 로그아웃 API 호출 (실패해도 계속 진행)
       try {
         await logout();
-        // console.log("[Logout] Backend logout completed");
+        console.log("[Logout] Backend logout completed");
       } catch (error) {
         console.warn("[Logout] Backend logout failed (ignored):", error);
       }
@@ -43,7 +43,7 @@ export function LogoutHandler() {
       // 4. 약간의 지연 후 리다이렉트 (캐시 정리 확실히)
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // console.log("[Logout] Redirecting to login...");
+      console.log("[Logout] Redirecting to login...");
 
       // window.location을 사용하여 완전한 페이지 새로고침
       window.location.href = "/login";

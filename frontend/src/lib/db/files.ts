@@ -14,7 +14,8 @@ export type { DBFile };
 export async function saveFile(
   noteId: string,
   file: File,
-  backendUrl?: string
+  backendUrl?: string,
+  backendId?: string
 ): Promise<DBFile> {
   const db = await initDB();
   const dbFile: DBFile = {
@@ -26,6 +27,7 @@ export async function saveFile(
     size: file.size,
     createdAt: Date.now(),
     backendUrl, // 백엔드 URL 저장
+    backendId, // 백엔드 파일 ID 저장
   };
 
   console.log('[IndexedDB] 파일 저장 시도:', {
@@ -92,7 +94,7 @@ export async function getFilesByNote(noteId: string): Promise<DBFile[]> {
 }
 
 /**
- * 파일 가져오기
+ * 파일 가져오기 (by ID)
  */
 export async function getFile(fileId: string): Promise<DBFile | undefined> {
   const db = await initDB();
@@ -107,6 +109,61 @@ export async function getFile(fileId: string): Promise<DBFile | undefined> {
 
     request.onerror = () => {
       reject(new Error("파일을 가져올 수 없습니다."));
+    };
+  });
+}
+
+// Alias for sync-manager compatibility
+export const getFileById = getFile;
+
+/**
+ * 파일의 백엔드 URL 업데이트 (동기화 완료 후)
+ * @deprecated Use updateFileBackendInfo instead
+ */
+export async function updateFileBackendUrl(fileId: string, backendUrl: string): Promise<void> {
+  return updateFileBackendInfo(fileId, backendUrl);
+}
+
+/**
+ * 파일의 백엔드 정보 업데이트 (동기화 완료 후)
+ */
+export async function updateFileBackendInfo(
+  fileId: string,
+  backendUrl: string,
+  backendId?: string
+): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["files"], "readwrite");
+    const store = transaction.objectStore("files");
+    const getRequest = store.get(fileId);
+
+    getRequest.onsuccess = () => {
+      const file = getRequest.result as DBFile | undefined;
+      if (!file) {
+        reject(new Error(`File not found: ${fileId}`));
+        return;
+      }
+
+      // 백엔드 URL 및 ID 업데이트
+      file.backendUrl = backendUrl;
+      if (backendId) {
+        file.backendId = backendId;
+      }
+      const putRequest = store.put(file);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] 파일 백엔드 정보 업데이트: ${fileId} -> url: ${backendUrl}, id: ${backendId}`);
+        resolve();
+      };
+
+      putRequest.onerror = () => {
+        reject(new Error(`파일 업데이트 실패: ${putRequest.error?.message}`));
+      };
+    };
+
+    getRequest.onerror = () => {
+      reject(new Error(`파일 조회 실패: ${getRequest.error?.message}`));
     };
   });
 }
@@ -168,13 +225,15 @@ export async function deleteFilesByNote(noteId: string): Promise<void> {
 export async function saveMultipleFiles(
   noteId: string,
   files: File[],
-  backendUrlMap?: Map<string, string>
+  backendUrlMap?: Map<string, string>,
+  backendIdMap?: Map<string, string>
 ): Promise<DBFile[]> {
   const savedFiles: DBFile[] = [];
 
   for (const file of files) {
     const backendUrl = backendUrlMap?.get(file.name);
-    const dbFile = await saveFile(noteId, file, backendUrl);
+    const backendId = backendIdMap?.get(file.name);
+    const dbFile = await saveFile(noteId, file, backendUrl, backendId);
     savedFiles.push(dbFile);
   }
 

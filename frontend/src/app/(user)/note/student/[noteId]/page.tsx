@@ -49,8 +49,8 @@ export default function StudentNotePage({
       {/* Data Loader - Client Component (파일 목록 로드 + 노트 검증) */}
       <NoteDataLoader noteId={noteId}>
         {/* Main Layout - 뷰어 + 패널 + 아이콘 Flexbox 배치 */}
-        <main className="flex-1 h-full min-w-0 overflow-hidden">
-          <div className="flex gap-1 h-full pt-20 px-2 pb-4 overflow-hidden">
+        <main className="flex-1 h-full">
+          <div className="flex gap-1 h-full pt-20 px-2 pb-4">
             {/* Main Content Area - PDF 뷰어 + BlockNote 에디터 */}
             <NoteContentArea noteId={noteId} noteTitle={noteTitle} />
 

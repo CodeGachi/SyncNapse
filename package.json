@@ -49,11 +49,5 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.705.0",
     "concurrently": "^9.0.0"
-  },
-  "dependencies": {
-    "@nestjs/bullmq": "^11.0.4",
-    "@nestjs/throttler": "^6.4.0",
-    "bullmq": "^5.64.1",
-    "helmet": "^8.1.0"
   }
 }
