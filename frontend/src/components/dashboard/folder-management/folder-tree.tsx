@@ -69,7 +69,7 @@ export function FolderTree({
   const handleDrop = async (e: React.DragEvent, targetType: 'folder' | 'note', targetId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!draggedItem || (draggedItem.type === targetType && draggedItem.id === targetId)) {
       setDraggedItem(null);
       setDragOverItem(null);
@@ -88,14 +88,14 @@ export function FolderTree({
           const { updateNote } = await import('@/lib/api/services/notes.api');
           await updateNote(draggedItem.id, { folderId: targetId });
         }
-        
+
         // Invalidate React Query caches to refresh data
         const { useQueryClient } = await import('@tanstack/react-query');
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('folders-updated'));
           window.dispatchEvent(new CustomEvent('notes-synced'));
         }
-        
+
         // Force reload after a short delay to ensure backend sync
         setTimeout(() => {
           window.location.reload();
@@ -105,7 +105,7 @@ export function FolderTree({
         alert('이동에 실패했습니다. 다시 시도해주세요.');
       }
     }
-    
+
     setDraggedItem(null);
     setDragOverItem(null);
   };
@@ -128,12 +128,11 @@ export function FolderTree({
                 onDragOver={(e) => handleDragOver(e, 'folder', node.folder.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, 'folder', node.folder.id)}
-                className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group ${
-                  isSelected
-                    ? "text-[#AFC02B]"
-                    : "text-gray-300 hover:text-white"
-                } ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
-                style={{ 
+                className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group ${isSelected
+                    ? "bg-[#AFC02B]/10 text-[#AFC02B]"
+                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  } ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
+                style={{
                   marginLeft: level > 0 ? `${level * 16}px` : '0px',
                   paddingLeft: level > 0 ? '12px' : '8px'
                 }}
@@ -144,26 +143,26 @@ export function FolderTree({
                 {level > 0 && (
                   <>
                     {/* Vertical line from top */}
-                    <div 
-                      className="absolute top-0 w-px bg-gray-600"
-                      style={{ 
+                    <div
+                      className="absolute top-0 w-px bg-white/10"
+                      style={{
                         left: '4px',
                         height: '50%'
                       }}
                     />
                     {/* Vertical line to bottom (if not last item) */}
                     {!isLastItem && (
-                      <div 
-                        className="absolute top-1/2 w-px bg-gray-600"
-                        style={{ 
+                      <div
+                        className="absolute top-1/2 w-px bg-white/10"
+                        style={{
                           left: '4px',
                           height: '100%'
                         }}
                       />
                     )}
                     {/* Horizontal line */}
-                    <div 
-                      className="absolute top-1/2 w-2 h-px bg-gray-600"
+                    <div
+                      className="absolute top-1/2 w-2 h-px bg-white/10"
                       style={{ left: '4px' }}
                     />
                   </>
@@ -178,9 +177,8 @@ export function FolderTree({
                     className="w-4 h-4 flex items-center justify-center"
                   >
                     <svg
-                      className={`w-3 h-3 transition-transform ${
-                        isExpanded ? "rotate-90" : ""
-                      }`}
+                      className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-90" : ""
+                        }`}
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -228,9 +226,9 @@ export function FolderTree({
 
               {/* 노트 목록 표시 (폴더 다음에 표시) */}
               {isExpanded && (
-                <FolderNotes 
-                  folderId={node.folder.id} 
-                  level={level + 1} 
+                <FolderNotes
+                  folderId={node.folder.id}
+                  level={level + 1}
                   onDeleteNote={onDeleteNote}
                   draggedItem={draggedItem}
                   dragOverItem={dragOverItem}
@@ -334,9 +332,9 @@ export function FolderTree({
 /**
  * 폴더 내 노트 목록 컴포넌트
  */
-function FolderNotes({ 
-  folderId, 
-  level, 
+function FolderNotes({
+  folderId,
+  level,
   onDeleteNote,
   draggedItem,
   dragOverItem,
@@ -344,9 +342,9 @@ function FolderNotes({
   onDragOver,
   onDragLeave,
   onDrop,
-}: { 
-  folderId: string; 
-  level: number; 
+}: {
+  folderId: string;
+  level: number;
   onDeleteNote?: (noteId: string) => void;
   draggedItem: { type: 'folder' | 'note', id: string } | null;
   dragOverItem: { type: 'folder' | 'note', id: string } | null;
@@ -387,95 +385,95 @@ function FolderNotes({
         {notes.map((note, index) => {
           const isDragOver = dragOverItem?.type === 'note' && dragOverItem?.id === note.id;
           const isLastNote = index === notes.length - 1;
-          
+
           return (
-          <div
-            key={note.id}
-            draggable
-            onDragStart={(e) => onDragStart(e, 'note', note.id)}
-            onDragOver={(e) => onDragOver(e, 'note', note.id)}
-            onDragLeave={onDragLeave}
-            onDrop={(e) => onDrop(e, 'note', note.id)}
-            className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group text-gray-400 hover:bg-[#2F2F2F] hover:text-white ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
-            style={{ 
-              marginLeft: `${level * 16}px`,
-              paddingLeft: '12px'
-            }}
-            onClick={() => handleNoteClick(note)}
-            onContextMenu={(e) => handleNoteContextMenu(e, note.id)}
-          >
-            {/* Tree connector */}
-            <>
-              {/* Vertical line from top */}
-              <div 
-                className="absolute top-0 w-px bg-gray-600"
-                style={{ 
-                  left: '4px',
-                  height: '50%'
-                }}
-              />
-              {/* Vertical line to bottom (if not last note) */}
-              {!isLastNote && (
-                <div 
-                  className="absolute top-1/2 w-px bg-gray-600"
-                  style={{ 
+            <div
+              key={note.id}
+              draggable
+              onDragStart={(e) => onDragStart(e, 'note', note.id)}
+              onDragOver={(e) => onDragOver(e, 'note', note.id)}
+              onDragLeave={onDragLeave}
+              onDrop={(e) => onDrop(e, 'note', note.id)}
+              className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group text-gray-400 hover:bg-white/5 hover:text-white ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
+              style={{
+                marginLeft: `${level * 16}px`,
+                paddingLeft: '12px'
+              }}
+              onClick={() => handleNoteClick(note)}
+              onContextMenu={(e) => handleNoteContextMenu(e, note.id)}
+            >
+              {/* Tree connector */}
+              <>
+                {/* Vertical line from top */}
+                <div
+                  className="absolute top-0 w-px bg-white/10"
+                  style={{
                     left: '4px',
-                    height: '100%'
+                    height: '50%'
                   }}
                 />
-              )}
-              {/* Horizontal line */}
-              <div 
-                className="absolute top-1/2 w-2 h-px bg-gray-600"
-                style={{ left: '4px' }}
-              />
-            </>
-            {/* 노트 아이콘 */}
-            <svg
-              className="w-4 h-4 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
-              <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-            </svg>
-
-            {/* 노트 이름 */}
-            <span className="flex-1 text-sm truncate">{note.title}</span>
-
-            {/* 노트 타입 뱃지 */}
-            {note.type === 'educator' && (
-              <span className="text-xs px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded">
-                강의
-              </span>
-            )}
-
-            {/* 삭제 버튼 (hover 시 표시) */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onDeleteNote) {
-                  onDeleteNote(note.id);
-                }
-              }}
-              className="p-1 hover:bg-[#3C3C3C] rounded transition-colors opacity-0 group-hover:opacity-100"
-              title="Delete note"
-            >
-              <svg
-                className="w-4 h-4 text-gray-400 hover:text-red-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                {/* Vertical line to bottom (if not last note) */}
+                {!isLastNote && (
+                  <div
+                    className="absolute top-1/2 w-px bg-white/10"
+                    style={{
+                      left: '4px',
+                      height: '100%'
+                    }}
+                  />
+                )}
+                {/* Horizontal line */}
+                <div
+                  className="absolute top-1/2 w-2 h-px bg-white/10"
+                  style={{ left: '4px' }}
                 />
+              </>
+              {/* 노트 아이콘 */}
+              <svg
+                className="w-4 h-4 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+                <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
               </svg>
-            </button>
-          </div>
+
+              {/* 노트 이름 */}
+              <span className="flex-1 text-sm truncate">{note.title}</span>
+
+              {/* 노트 타입 뱃지 */}
+              {note.type === 'educator' && (
+                <span className="text-xs px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded">
+                  강의
+                </span>
+              )}
+
+              {/* 삭제 버튼 (hover 시 표시) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onDeleteNote) {
+                    onDeleteNote(note.id);
+                  }
+                }}
+                className="p-1 hover:bg-[#3C3C3C] rounded transition-colors opacity-0 group-hover:opacity-100"
+                title="Delete note"
+              >
+                <svg
+                  className="w-4 h-4 text-gray-400 hover:text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </button>
+            </div>
           );
         })}
       </div>

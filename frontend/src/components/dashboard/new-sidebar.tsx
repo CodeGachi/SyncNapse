@@ -106,8 +106,7 @@ export function NewSidebar({
                 )}
 
                 <div className="flex flex-col gap-1 flex-1 text-left">
-                  <div className="text-white font-bold text-xl leading-6 font-['Inter']"
-                    style={{ textShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)' }}>
+                  <div className="text-white font-bold text-xl leading-6 font-['Inter']">
                     {user?.name || "박태현"}
                   </div>
                   <div className="text-white font-bold text-[8px] leading-[10px] font-['Inter']">
@@ -116,8 +115,8 @@ export function NewSidebar({
                 </div>
               </button>
 
-              {/* Button Container - gap: 24px */}
-              <div className="flex justify-center items-center gap-6 w-full">
+              {/* Button Container - gap: 12px */}
+              <div className="flex justify-center items-center gap-3 w-full">
                 {/* 새 노트 Button - Expandable */}
                 <div className="relative">
                   {/* Backdrop */}
@@ -193,8 +192,7 @@ export function NewSidebar({
                 {/* 새 폴더 Button */}
                 <button
                   onClick={() => setIsCreateFolderModalOpen(true)}
-                  className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[10px]"
-                  style={{ background: 'rgba(185, 185, 185, 0.4)' }}
+                  className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] bg-white/5 border border-white/10 hover:bg-white/10 hover:scale-105 transition-all duration-300"
                 >
                   <div className="flex items-center gap-1">
                     <Image
