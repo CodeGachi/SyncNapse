@@ -3,26 +3,17 @@
 import Link from "next/link";
 import { useAuth } from "@/features/auth/use-auth";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoadingScreen } from "@/components/common/loading-screen";
-import { motion } from "framer-motion";
+import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
 import Image from "next/image";
-import {
-  Mic,
-  Subtitles,
-  PenTool,
-  FolderOpen,
-  Cloud,
-  Clock,
-  ArrowRight,
-  CheckCircle2
-} from "lucide-react";
+import { ArrowRight, Mic, FileText, PenTool, Zap, Shield, Smartphone, ChevronRight, Play, Layers, Sparkles, FolderOpen, StickyNote, Image as ImageIcon, Folder, Link2, Database, LogIn } from "lucide-react";
 
 export default function LandingPage() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users
   useEffect(() => {
     if (!loading && isAuthenticated) {
       router.replace("/dashboard/main");
@@ -33,220 +24,471 @@ export default function LandingPage() {
     return <LoadingScreen fullScreen message="로딩 중..." />;
   }
 
-  const fadeInUp = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
-  };
+  return (
+    <main className="min-h-screen bg-[#1a1a1a] text-white selection:bg-[#AFC02B] selection:text-black font-sans overflow-x-hidden">
+      <Navbar />
+      <HeroSection />
+      <BentoGridSection />
 
-  const staggerContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
+      <Footer />
+    </main>
+  );
+}
+
+function Navbar() {
+  return (
+    <nav className="fixed top-0 w-full z-50 bg-[#1a1a1a]/80 backdrop-blur-md border-b border-white/5">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative w-9 h-9">
+            <Image
+              src="/대시보드/Logo.svg"
+              alt="SyncNapse"
+              fill
+              className="object-contain"
+            />
+          </div>
+          <span className="text-lg font-bold tracking-tight text-white group-hover:text-[#AFC02B] transition-colors">
+            SyncNapse
+          </span>
+        </Link>
+        <div className="flex items-center gap-6">
+          <Link
+            href="/login"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-white/5 border border-white/10 rounded-full hover:bg-white/10 hover:border-white/20 transition-all"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>로그인</span>
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+function HeroSection() {
+  return (
+    <section className="pt-32 pb-20 px-6 relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#AFC02B]/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
+            지식이,<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">동기화되다.</span>
+          </h1>
+        </motion.div>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-lg text-gray-400 max-w-xl mx-auto leading-relaxed"
+        >
+          듣고, 기록하고, 연결하는 실시간 학습 워크스페이스.<br />
+          복잡함은 덜어내고, 학습의 본질에만 집중하세요.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="flex justify-center gap-4 pt-4"
+        >
+          <Link
+            href="/login"
+            className="px-8 py-3 bg-[#9db026] text-black text-sm font-bold rounded-full hover:bg-[#AFC02B] transition-colors shadow-[0_0_20px_rgba(157,176,38,0.2)] hover:shadow-[0_0_20px_rgba(175,192,43,0.4)]"
+          >
+            무료로 시작하기
+          </Link>
+        </motion.div>
+
+        {/* Dashboard Preview */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
+          className="pt-16 relative"
+        >
+          <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-[#0a0a0a] aspect-[16/9] max-w-4xl mx-auto">
+            {/* Mockup Header */}
+            <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 bg-[#111]">
+              <div className="flex items-center gap-4">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-[#333]" />
+                  <div className="w-3 h-3 rounded-full bg-[#333]" />
+                  <div className="w-3 h-3 rounded-full bg-[#333]" />
+                </div>
+                <div className="h-4 w-32 bg-[#222] rounded-full hidden sm:block" />
+              </div>
+              <div className="flex gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#222]" />
+                <div className="w-6 h-6 rounded-full bg-[#222]" />
+              </div>
+            </div>
+            {/* Mockup Body */}
+            <div className="flex h-full">
+              {/* Main Content (Player) */}
+              <div className="flex-1 p-8 bg-[#0a0a0a] flex items-center justify-center relative overflow-hidden group">
+                <div className="w-full max-w-md aspect-video rounded-xl bg-[#111] border border-white/10 flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#AFC02B]/5 to-transparent opacity-50" />
+                  <div className="flex gap-1 h-12 items-center relative z-10">
+                    {[...Array(16)].map((_, i) => (
+                      <div key={i} className="w-1.5 bg-[#AFC02B] rounded-full animate-pulse" style={{ height: Math.random() * 100 + '%', animationDelay: i * 0.05 + 's' }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Panel (Script) */}
+              <div className="w-64 border-l border-white/5 bg-[#111] hidden md:flex flex-col">
+                {/* Panel Header */}
+                <div className="h-10 border-b border-white/5 flex items-center justify-between px-4">
+                  <div className="h-3 w-16 bg-[#333] rounded-full" />
+                  <div className="w-8 h-4 bg-[#222] rounded-full" />
+                </div>
+                {/* Panel Content */}
+                <div className="p-4 space-y-4">
+                  <div className="space-y-2">
+                    <div className="h-2 w-full bg-[#222] rounded-full" />
+                    <div className="h-2 w-full bg-[#222] rounded-full" />
+                    <div className="h-2 w-3/4 bg-[#222] rounded-full" />
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-2 w-full bg-[#222] rounded-full" />
+                    <div className="h-2 w-full bg-[#222] rounded-full" />
+                    <div className="h-2 w-full bg-[#222] rounded-full" />
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-2 w-full bg-[#222] rounded-full" />
+                    <div className="h-2 w-2/3 bg-[#222] rounded-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Far Right Sidebar (Nav) */}
+              <div className="w-16 border-l border-white/5 bg-[#0f0f0f] hidden sm:flex flex-col items-center py-4 gap-4">
+                <div className="w-10 h-10 rounded-full bg-[#222] border border-white/5" />
+                <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-white/5" />
+                <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-white/5" />
+                <div className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-white/5" />
+                <div className="mt-auto w-8 h-8 rounded-full bg-[#222]" />
+              </div>
+            </div>
+          </div>
+          {/* Bottom Fade */}
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#050505] to-transparent" />
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function BentoGridSection() {
+  return (
+    <section className="py-20 px-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-[300px]">
+
+          {/* Small Card 1: Integrated Management */}
+          <SpotlightCard className="md:col-span-2">
+            <motion.div
+              className="h-full p-8 flex flex-col justify-between relative overflow-hidden"
+              initial="idle"
+              whileHover="hover"
+            >
+              <div className="relative z-10">
+                <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center text-[#AFC02B] mb-4">
+                  <FolderOpen className="w-5 h-5" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2">모든 자료를 한곳에</h3>
+                <p className="text-gray-400 text-sm max-w-sm">
+                  PDF, 녹음, 스크립트, 메모를 한 화면에서 관리하세요. 더 이상 여러 앱을 오갈 필요가 없습니다.
+                </p>
+              </div>
+              {/* Visual */}
+              <div className="absolute right-0 bottom-0 w-full h-full overflow-hidden pointer-events-none">
+                {/* Central Glow */}
+                <div className="absolute right-10 bottom-10 w-32 h-32 bg-[#AFC02B]/10 blur-[50px] rounded-full" />
+
+                {/* Floating Icons Cloud */}
+                <div className="absolute right-4 bottom-4 w-64 h-64 opacity-30">
+                  {/* Icon 1: FileText (Main) */}
+                  <motion.div
+                    className="absolute top-1/4 left-1/4 text-[#AFC02B]"
+                    variants={{
+                      idle: { y: 0, rotate: -10, scale: 1 },
+                      hover: { y: -15, rotate: -20, scale: 1.1, transition: { duration: 3, repeat: Infinity, repeatType: "reverse" } }
+                    }}
+                  >
+                    <FileText className="w-14 h-14" />
+                  </motion.div>
+
+                  {/* Icon 2: Mic */}
+                  <motion.div
+                    className="absolute bottom-1/4 right-1/4 text-white"
+                    variants={{
+                      idle: { y: 0, rotate: 10, scale: 1 },
+                      hover: { y: -20, rotate: 5, scale: 1.1, transition: { duration: 4, repeat: Infinity, repeatType: "reverse", delay: 0.5 } }
+                    }}
+                  >
+                    <Mic className="w-12 h-12" />
+                  </motion.div>
+
+                  {/* Icon 3: Note */}
+                  <motion.div
+                    className="absolute top-1/3 right-1/3 text-gray-400"
+                    variants={{
+                      idle: { y: 0, rotate: 5 },
+                      hover: { y: -10, rotate: 15, transition: { duration: 3.5, repeat: Infinity, repeatType: "reverse", delay: 1 } }
+                    }}
+                  >
+                    <StickyNote className="w-10 h-10" />
+                  </motion.div>
+
+                  {/* Icon 4: Image */}
+                  <motion.div
+                    className="absolute bottom-1/3 left-1/3 text-gray-500"
+                    variants={{
+                      idle: { x: 0, y: 0, rotate: -5 },
+                      hover: { x: -10, y: -10, rotate: -15, transition: { duration: 4.5, repeat: Infinity, repeatType: "reverse", delay: 1.5 } }
+                    }}
+                  >
+                    <ImageIcon className="w-8 h-8" />
+                  </motion.div>
+
+                  {/* Icon 5: Folder */}
+                  <motion.div
+                    className="absolute top-10 right-10 text-[#AFC02B]/60"
+                    variants={{
+                      idle: { scale: 0.8, rotate: 15 },
+                      hover: { scale: 1, rotate: 0, transition: { duration: 5, repeat: Infinity, repeatType: "reverse", delay: 2 } }
+                    }}
+                  >
+                    <Folder className="w-6 h-6" />
+                  </motion.div>
+
+                  {/* Icon 6: Link */}
+                  <motion.div
+                    className="absolute bottom-10 left-10 text-white/40"
+                    variants={{
+                      idle: { scale: 0.8, rotate: -15 },
+                      hover: { scale: 1, rotate: -5, transition: { duration: 4, repeat: Infinity, repeatType: "reverse", delay: 0.8 } }
+                    }}
+                  >
+                    <Link2 className="w-6 h-6" />
+                  </motion.div>
+                </div>
+              </div>
+            </motion.div>
+          </SpotlightCard>
+
+          {/* Card: Transcription */}
+          <SpotlightCard>
+            <motion.div
+              className="h-full p-8 flex flex-col justify-between"
+              initial="idle"
+              whileHover="hover"
+            >
+              <div>
+                <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center text-[#AFC02B] mb-4">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">AI 실시간 자막</h3>
+                <p className="text-gray-400 text-sm">
+                  말하는 순간 텍스트로 변환됩니다.
+                </p>
+              </div>
+              <div className="space-y-2 mt-4">
+                {[...Array(3)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="h-2 bg-white rounded"
+                    style={{ width: i === 1 ? '75%' : '100%' }}
+                    variants={{
+                      idle: { opacity: 0.3 },
+                      hover: {
+                        opacity: [0.1, 0.3, 0.1],
+                        transition: { duration: 2, repeat: Infinity, delay: i * 0.4 }
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </SpotlightCard>
+
+          {/* Card: Note */}
+          <SpotlightCard>
+            <motion.div
+              className="h-full p-8 flex flex-col justify-between"
+              initial="idle"
+              whileHover="hover"
+            >
+              <div>
+                <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center text-[#AFC02B] mb-4">
+                  <PenTool className="w-5 h-5" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">스마트 노트</h3>
+                <p className="text-gray-400 text-sm">
+                  필기와 녹음이 타임라인으로 연결됩니다.
+                </p>
+              </div>
+              <div className="flex gap-3 mt-4 relative">
+                {/* Timeline Line */}
+                <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-white/10 overflow-hidden">
+                  <motion.div
+                    className="w-full h-1/2 bg-gradient-to-b from-transparent via-[#AFC02B] to-transparent"
+                    variants={{
+                      idle: { y: -50 },
+                      hover: {
+                        y: [-50, 100],
+                        transition: { duration: 2, repeat: Infinity, ease: "linear" }
+                      }
+                    }}
+                  />
+                </div>
+                <motion.div
+                  className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex-shrink-0 z-10"
+                  variants={{
+                    idle: { boxShadow: "0 0 0 0px rgba(175,192,43,0)", borderColor: "rgba(255,255,255,0.2)" },
+                    hover: {
+                      boxShadow: ["0 0 0 0px rgba(175,192,43,0)", "0 0 0 4px rgba(175,192,43,0.1)", "0 0 0 0px rgba(175,192,43,0)"],
+                      borderColor: ["rgba(255,255,255,0.2)", "#AFC02B", "rgba(255,255,255,0.2)"],
+                      transition: { duration: 2, repeat: Infinity }
+                    }
+                  }}
+                />
+                <div className="flex-1 space-y-2 pt-1 opacity-40">
+                  <div className="h-2 w-full bg-white rounded" />
+                  <div className="h-2 w-2/3 bg-white rounded" />
+                </div>
+              </div>
+            </motion.div>
+          </SpotlightCard>
+
+          {/* Large Card: AI Chatbot */}
+          <SpotlightCard className="md:col-span-2">
+            <motion.div
+              className="h-full p-8 flex flex-col justify-between relative overflow-hidden"
+              initial="idle"
+              whileHover="hover"
+            >
+              <div className="relative z-10">
+                <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center text-[#AFC02B] mb-4">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2">AI 학습 비서</h3>
+                <p className="text-gray-400 text-sm max-w-sm">
+                  궁금한 점은 바로 질문하세요. AI가 강의 내용을 분석하여 즉시 답변하고 요약해줍니다.
+                </p>
+              </div>
+              {/* Visual */}
+              <div className="absolute right-8 bottom-8 w-64 flex flex-col gap-3 opacity-50">
+                {/* User Message */}
+                <motion.div
+                  className="self-end bg-white/10 rounded-2xl rounded-tr-sm px-4 py-2 text-xs text-right"
+                  variants={{
+                    idle: { y: 0, opacity: 0.5 },
+                    hover: {
+                      y: [0, -5, 0],
+                      opacity: 1,
+                      transition: { duration: 2, repeat: Infinity, delay: 0 }
+                    }
+                  }}
+                >
+                  <div className="w-24 h-2 bg-white/50 rounded-full ml-auto" />
+                </motion.div>
+                {/* AI Message */}
+                <motion.div
+                  className="self-start bg-[#AFC02B]/20 border border-[#AFC02B]/30 rounded-2xl rounded-tl-sm px-4 py-3 text-xs"
+                  variants={{
+                    idle: { y: 0, opacity: 0.5 },
+                    hover: {
+                      y: [0, -5, 0],
+                      opacity: 1,
+                      borderColor: "rgba(175,192,43,0.8)",
+                      transition: { duration: 2, repeat: Infinity, delay: 1 }
+                    }
+                  }}
+                >
+                  <div className="space-y-1.5">
+                    <div className="w-32 h-2 bg-[#AFC02B]/50 rounded-full" />
+                    <div className="w-24 h-2 bg-[#AFC02B]/30 rounded-full" />
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          </SpotlightCard>
+
+        </div >
+      </div >
+    </section >
+  );
+}
+
+
+
+function Footer() {
+  return (
+    <footer className="py-12 px-6 border-t border-white/5 bg-[#1a1a1a]">
+      <div className="max-w-5xl mx-auto flex justify-between items-center text-gray-500 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="relative w-5 h-5 opacity-50">
+            <Image
+              src="/대시보드/Logo.svg"
+              alt="SyncNapse"
+              fill
+              className="object-contain"
+            />
+          </div>
+          <span>&copy; 2025 SyncNapse.</span>
+        </div>
+        <div className="flex gap-6">
+          <a href="#" className="hover:text-white transition-colors">Privacy</a>
+          <a href="#" className="hover:text-white transition-colors">Terms</a>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+// --- Components ---
+
+function SpotlightCard({ children, className = "" }: { children: React.ReactNode, className?: string }) {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  function handleMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent) {
+    const { left, top } = currentTarget.getBoundingClientRect();
+    mouseX.set(clientX - left);
+    mouseY.set(clientY - top);
+  }
 
   return (
-    <main className="min-h-screen bg-[#1a1a1a] text-white selection:bg-[#AFC02B] selection:text-black overflow-x-hidden">
-      {/* Background Gradients - Made subtler */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#AFC02B]/3 rounded-full blur-[150px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#AFC02B]/3 rounded-full blur-[150px]" />
-      </div>
-
-      {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 bg-[#1a1a1a]/80 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-8 h-8">
-              <Image
-                src="/대시보드/Logo.svg"
-                alt="SyncNapse"
-                fill
-                className="object-contain"
-              />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white group-hover:text-[#AFC02B] transition-colors">
-              SyncNapse
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
-            >
-              로그인
-            </Link>
-            <Link
-              href="/login"
-              className="px-4 py-2 text-sm font-bold bg-[#AFC02B] text-black rounded-lg hover:bg-[#c2d43b] transition-all shadow-lg shadow-[#AFC02B]/20"
-            >
-              시작하기
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6 min-h-screen flex flex-col items-center justify-center text-center z-10">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-          className="max-w-5xl mx-auto space-y-8"
-        >
-          {/* Badge Removed as per feedback */}
-
-          <motion.h1 variants={fadeInUp} className="text-6xl md:text-8xl font-bold tracking-tight leading-tight">
-            학습의 모든 순간을<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#AFC02B] to-[#e4f060]">완벽하게 동기화</span>
-          </motion.h1>
-
-          <motion.p variants={fadeInUp} className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto font-light leading-relaxed">
-            실시간 녹음, AI 자막, 그리고 필기까지.<br />
-            당신의 학습 흐름이 끊기지 않도록 SyncNapse가 도와드립니다.
-          </motion.p>
-
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
-            <Link
-              href="/login"
-              className="group px-8 py-4 bg-[#AFC02B] hover:bg-[#c2d43b] text-black text-lg font-bold rounded-xl transition-all duration-200 shadow-xl shadow-[#AFC02B]/20 flex items-center gap-2"
-            >
-              무료로 시작하기
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <a
-              href="#features"
-              className="px-8 py-4 bg-[#262626] hover:bg-[#2F2F2F] border border-white/10 text-white text-lg font-medium rounded-xl transition-all duration-200"
-            >
-              기능 살펴보기
-            </a>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-32 px-6 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              학습을 위한 <span className="text-[#AFC02B]">최고의 도구들</span>
-            </h2>
-            <p className="text-xl text-gray-400">
-              더 이상 여러 앱을 오가며 시간을 낭비하지 마세요.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: <Mic className="w-8 h-8" />,
-                title: "실시간 녹음",
-                desc: "고품질 녹음과 함께 중요한 순간을 놓치지 마세요."
-              },
-              {
-                icon: <Subtitles className="w-8 h-8" />,
-                title: "AI 자막 생성",
-                desc: "음성을 실시간 텍스트로 변환하여 자막을 생성합니다."
-              },
-              {
-                icon: <PenTool className="w-8 h-8" />,
-                title: "스마트 필기",
-                desc: "PDF 위에 자유롭게 필기하고 음성과 동기화하세요."
-              },
-              {
-                icon: <FolderOpen className="w-8 h-8" />,
-                title: "폴더 관리",
-                desc: "과목별로 깔끔하게 정리하고 쉽게 찾아보세요."
-              },
-              {
-                icon: <Cloud className="w-8 h-8" />,
-                title: "클라우드 동기화",
-                desc: "어디서든 접속하여 학습을 이어가세요."
-              },
-              {
-                icon: <Clock className="w-8 h-8" />,
-                title: "타임라인 링킹",
-                desc: "필기한 시점의 녹음 내용을 즉시 다시 들어보세요."
-              }
-            ].map((feature, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1, duration: 0.5 }}
-                whileHover={{ y: -5 }}
-                className="bg-[#262626] border border-[#333] p-8 rounded-3xl hover:border-[#AFC02B]/50 hover:bg-[#2F2F2F] transition-all duration-300 group"
-              >
-                <div className="w-14 h-14 bg-[#1a1a1a] rounded-2xl flex items-center justify-center mb-6 text-[#AFC02B] group-hover:scale-110 transition-transform duration-300 border border-[#333]">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                <p className="text-gray-400 leading-relaxed">
-                  {feature.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-32 px-6 relative z-10">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-[#262626] border border-[#333] rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#AFC02B]/5 rounded-full blur-[100px]" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#AFC02B]/5 rounded-full blur-[100px]" />
-
-            <h2 className="text-4xl md:text-6xl font-bold mb-8 relative z-10">
-              지금 바로 <span className="text-[#AFC02B]">SyncNapse</span>와<br />
-              함께하세요
-            </h2>
-            <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto relative z-10">
-              복잡한 설정 없이 바로 시작할 수 있습니다.<br />
-              새로운 학습 경험이 당신을 기다립니다.
-            </p>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-10 py-5 bg-[#AFC02B] hover:bg-[#c2d43b] text-black text-xl font-bold rounded-2xl transition-all duration-200 shadow-xl shadow-[#AFC02B]/20 hover:scale-105 relative z-10"
-            >
-              무료로 시작하기
-              <ArrowRight className="w-6 h-6" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-white/5 bg-[#1a1a1a]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-3 opacity-50 grayscale hover:grayscale-0 transition-all">
-            <div className="relative w-8 h-8">
-              <Image
-                src="/대시보드/Logo.svg"
-                alt="SyncNapse"
-                fill
-                className="object-contain"
-              />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">
-              SyncNapse
-            </span>
-          </div>
-          <p className="text-gray-600 text-sm">
-            &copy; 2025 SyncNapse. All rights reserved.
-          </p>
-        </div>
-      </footer>
-    </main>
+    <div
+      className={`group relative border border-[#333] bg-[#262626]/80 backdrop-blur-xl rounded-2xl overflow-hidden ${className}`}
+      onMouseMove={handleMouseMove}
+    >
+      <motion.div
+        className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition duration-300 group-hover:opacity-100"
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              650px circle at ${mouseX}px ${mouseY}px,
+              rgba(175, 192, 43, 0.1),
+              transparent 80%
+            )
+          `,
+        }}
+      />
+      <div className="relative h-full">{children}</div>
+    </div>
   );
 }
