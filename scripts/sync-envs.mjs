@@ -51,48 +51,32 @@ console.log(`[env] Using environment file: ${rootEnvPath}`);
 
 // Backend environment variables
 const backendEnvPath = path.join(repoRoot, 'backend', '.env');
+
+// Read existing backend .env if exists
+const existingBackendEnv = readDotenv(backendEnvPath);
+
+// Start with rootEnv (propagate everything by default for backend)
+// Then override/map specific keys
 const backendEnv = {
-  NODE_ENV: rootEnv.NODE_ENV,
-  PORT: rootEnv.PORT,
-  DEBUG_LEVEL: rootEnv.DEBUG_LEVEL,
-  DATABASE_URL: rootEnv.DATABASE_URL,
-  // Frontend URL (for CORS, OAuth callbacks, etc.)
-  FRONTEND_URL: rootEnv.FRONTEND_URL,
-  // OAuth Configuration
-  GOOGLE_CLIENT_ID: rootEnv.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: rootEnv.GOOGLE_CLIENT_SECRET,
-  GOOGLE_CALLBACK_URL: rootEnv.GOOGLE_CALLBACK_URL,
-  // JWT Configuration
-  JWT_SECRET: rootEnv.JWT_SECRET,
-  JWT_ACCESS_EXPIRATION: rootEnv.JWT_ACCESS_EXPIRATION,
-  JWT_REFRESH_EXPIRATION: rootEnv.JWT_REFRESH_EXPIRATION,
-  // Storage Configuration
-  STORAGE_PROVIDER: rootEnv.STORAGE_PROVIDER,
-  STORAGE_BUCKET: rootEnv.STORAGE_BUCKET,
-  STORAGE_REGION: rootEnv.STORAGE_REGION,
-  STORAGE_ENDPOINT: rootEnv.STORAGE_ENDPOINT,
-  STORAGE_ACCESS_KEY_ID: rootEnv.STORAGE_ACCESS_KEY_ID,
-  STORAGE_SECRET_ACCESS_KEY: rootEnv.STORAGE_SECRET_ACCESS_KEY,
+  ...existingBackendEnv, // Preserve existing backend-specific values
+  ...rootEnv, // Propagate all root values (overwrite backend ones with root truth)
+  
+  // Explicit mappings (if keys differ)
   STORAGE_LOCAL_PATH: rootEnv.STORAGE_LOCAL_PATH || './var/storage',
-  // MinIO Configuration (map from STORAGE_* and MINIO_ROOT_*)
+  
+  // MinIO Configuration mapping (if not already in rootEnv)
   MINIO_ENDPOINT: rootEnv.STORAGE_ENDPOINT,
   MINIO_PUBLIC_URL: rootEnv.MINIO_SERVER_URL,
   MINIO_REGION: rootEnv.STORAGE_REGION,
   MINIO_BUCKET: rootEnv.STORAGE_BUCKET,
   MINIO_ACCESS_KEY: rootEnv.STORAGE_ACCESS_KEY_ID || rootEnv.MINIO_ROOT_USER,
   MINIO_SECRET_KEY: rootEnv.STORAGE_SECRET_ACCESS_KEY || rootEnv.MINIO_ROOT_PASSWORD,
-  // Cache & Performance
-  CACHE_TTL: rootEnv.CACHE_TTL,
-  // Rate Limiting
-  ENABLE_RATE_LIMITING: rootEnv.ENABLE_RATE_LIMITING,
-  RATE_LIMIT_MAX: rootEnv.RATE_LIMIT_MAX,
-  RATE_LIMIT_TTL: rootEnv.RATE_LIMIT_TTL,
 };
 
 fs.mkdirSync(path.dirname(backendEnvPath), { recursive: true });
 writeEnvFile(backendEnvPath, backendEnv);
 
-console.log(`[env] backend/.env generated from root .env.${environment} (${rootEnvPath})`);
+console.log(`[env] backend/.env updated (Merged: Root .env + Existing Backend .env)`);
 
 // Frontend environment variables
 const frontendEnvPath = path.join(repoRoot, 'frontend', '.env');

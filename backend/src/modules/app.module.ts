@@ -20,6 +20,10 @@ import { TypingModule } from './typing/typing.module';
 import { SearchModule } from './search/search.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { LiveblocksModule } from './liveblocks/liveblocks.module';
+import { SharingModule } from './sharing/sharing.module';
+import { EmailModule } from './email/email.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -45,6 +49,10 @@ import { APP_GUARD } from '@nestjs/core';
     FilesModule,
     TypingModule,
     SearchModule,
+    LiveblocksModule,
+    SharingModule,
+    EmailModule,
+    AiModule,
   ],
   controllers: [RootController],
   providers: [

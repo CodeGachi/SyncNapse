@@ -1,6 +1,12 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- CreateEnum
+CREATE TYPE "NotePermission" AS ENUM ('VIEWER', 'EDITOR');
+
+-- CreateEnum
+CREATE TYPE "PublicAccess" AS ENUM ('PRIVATE', 'PUBLIC_READ', 'PUBLIC_EDIT');
+
+-- CreateEnum
 CREATE TYPE "UploadStatus" AS ENUM ('PENDING', 'RECEIVING', 'ASSEMBLING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- CreateTable
@@ -41,8 +47,31 @@ CREATE TABLE "LectureNote" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
+    "publicAccess" "PublicAccess" NOT NULL DEFAULT 'PRIVATE',
 
     CONSTRAINT "LectureNote_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NoteCollaborator" (
+    "id" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+    "userId" TEXT,
+    "email" CITEXT NOT NULL,
+    "permission" "NotePermission" NOT NULL DEFAULT 'VIEWER',
+    "invitedBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NoteCollaborator_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "FolderLectureNote" (
+    "folderId" TEXT NOT NULL,
+    "noteId" TEXT NOT NULL,
+
+    CONSTRAINT "FolderLectureNote_pkey" PRIMARY KEY ("folderId","noteId")
 );
 
 -- CreateTable
@@ -500,6 +529,19 @@ CREATE INDEX "Folder_userId_idx" ON "Folder"("userId");
 CREATE INDEX "Folder_parentId_idx" ON "Folder"("parentId");
 
 -- CreateIndex
+CREATE INDEX "NoteCollaborator_noteId_idx" ON "NoteCollaborator"("noteId");
+
+-- CreateIndex
+CREATE INDEX "NoteCollaborator_userId_idx" ON "NoteCollaborator"("userId");
+
+-- CreateIndex
+CREATE INDEX "NoteCollaborator_email_idx" ON "NoteCollaborator"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NoteCollaborator_noteId_email_key" ON "NoteCollaborator"("noteId", "email");
+
+-- CreateIndex
+CREATE INDEX "File_noteId_fileName_idx" ON "File"("noteId", "fileName");
 CREATE INDEX "LectureNote_sourceBlobId_idx" ON "LectureNote"("sourceBlobId");
 
 -- CreateIndex
@@ -704,6 +746,10 @@ ALTER TABLE "Folder" ADD CONSTRAINT "Folder_userId_fkey" FOREIGN KEY ("userId") 
 ALTER TABLE "Folder" ADD CONSTRAINT "Folder_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Folder"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "NoteCollaborator" ADD CONSTRAINT "NoteCollaborator_noteId_fkey" FOREIGN KEY ("noteId") REFERENCES "LectureNote"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NoteCollaborator" ADD CONSTRAINT "NoteCollaborator_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "LectureNote" ADD CONSTRAINT "LectureNote_sourceBlobId_fkey" FOREIGN KEY ("sourceBlobId") REFERENCES "FileBlob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards, Logger, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Body, UseGuards, Logger, NotFoundException } from '@nestjs/common';
 import { ApiOkResponse, ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -45,6 +45,7 @@ export class UsersController {
       {
         self: this.links.self('/api/users/me'),
         update: this.links.action('/api/users/me', 'PATCH'),
+        delete: this.links.action('/api/users/me', 'DELETE'),
         spaces: this.links.action('/api/spaces', 'GET'),
       },
     );
@@ -80,5 +81,14 @@ export class UsersController {
         self: this.links.self('/api/users/me'),
       },
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  @ApiOperation({ summary: 'Soft delete current user account' })
+  @ApiOkResponse({ description: 'User account deactivated' })
+  async deleteMe(@CurrentUser() user: { id: string }) {
+    this.logger.log(`deleteMe called userId=${user?.id}`);
+    return this.usersService.softDeleteUser(user.id);
   }
 }

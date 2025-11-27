@@ -95,13 +95,74 @@ function copyEnvFile() {
   }
   
   console.log(`📋 Copying .env from ${CONFIG.branch} branch to .env.${CONFIG.environment}...`);
-  fs.copyFileSync(sourceEnvFile, CONFIG.targetEnvFile);
-  console.log(`✅ .env.${CONFIG.environment} file copied to: ${CONFIG.targetEnvFile}`);
+  
+  // Check if target file exists and we don't have force flag (implicit check)
+  // Since we want to preserve local changes like SMTP settings, we should be careful.
+  // For now, let's warn if we are overwriting, or maybe backup?
+  // Or simpler: if file exists, read it, merge with source, and write back?
+  // Merging is safer for preserving local secrets.
+  
+  if (fs.existsSync(CONFIG.targetEnvFile)) {
+    console.log(`⚠️  Target file ${CONFIG.targetEnvFile} already exists.`);
+    console.log(`   Merging with remote .env (Local values take precedence for existing keys)...`);
+    
+    const sourceContent = fs.readFileSync(sourceEnvFile, 'utf8');
+    const targetContent = fs.readFileSync(CONFIG.targetEnvFile, 'utf8');
+    
+    const sourceConfig = parseEnv(sourceContent);
+    const targetConfig = parseEnv(targetContent);
+    
+    // Merge: Source (Remote) + Target (Local) -> Result
+    // Keys in Target (Local) override Source (Remote) to preserve local secrets
+    // But wait, usually Remote is "truth".
+    // However, user explicitly said "I changed local .env, don't overwrite".
+    // So we treat Local as override.
+    
+    const mergedConfig = { ...sourceConfig, ...targetConfig };
+    
+    const mergedContent = Object.entries(mergedConfig)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+      
+    fs.writeFileSync(CONFIG.targetEnvFile, mergedContent);
+    console.log(`✅ Merged .env.${CONFIG.environment} (Preserved local overrides)`);
+  } else {
+    fs.copyFileSync(sourceEnvFile, CONFIG.targetEnvFile);
+    console.log(`✅ .env.${CONFIG.environment} file copied to: ${CONFIG.targetEnvFile}`);
+  }
   
   // Copy to .env for Docker Compose (it always looks for .env)
   const dotEnvPath = path.join(repoRoot, '.env');
-  fs.copyFileSync(sourceEnvFile, dotEnvPath);
-  console.log(`✅ Copied to .env (Docker Compose compatibility)`);
+  if (fs.existsSync(dotEnvPath)) {
+     // Same merge logic for .env
+     const sourceContent = fs.readFileSync(sourceEnvFile, 'utf8');
+     const targetContent = fs.readFileSync(dotEnvPath, 'utf8');
+     const sourceConfig = parseEnv(sourceContent);
+     const targetConfig = parseEnv(targetContent);
+     const mergedConfig = { ...sourceConfig, ...targetConfig };
+     const mergedContent = Object.entries(mergedConfig).map(([k, v]) => `${k}=${v}`).join('\n');
+     fs.writeFileSync(dotEnvPath, mergedContent);
+     console.log(`✅ Merged .env (Preserved local overrides)`);
+  } else {
+     fs.copyFileSync(sourceEnvFile, dotEnvPath);
+     console.log(`✅ Copied to .env (Docker Compose compatibility)`);
+  }
+}
+
+/**
+ * Simple .env parser
+ */
+function parseEnv(content) {
+  const config = {};
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const [key, ...values] = trimmed.split('=');
+      config[key.trim()] = values.join('=').trim();
+    }
+  }
+  return config;
 }
 
 /**

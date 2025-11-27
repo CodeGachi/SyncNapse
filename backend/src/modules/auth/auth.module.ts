@@ -6,6 +6,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { OAuthService } from './services/oauth.service';
 import { RefreshTokenService } from './services/refresh-token.service';
 import { OAuthStateService } from './services/oauth-state.service';
@@ -27,6 +28,7 @@ import { AuthConfig } from './config/auth.config';
   providers: [
     AuthService,
     JwtStrategy,
+    GoogleStrategy,
     OAuthService,
     RefreshTokenService,
     OAuthStateService,

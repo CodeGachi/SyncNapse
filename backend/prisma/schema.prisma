@@ -29,6 +29,9 @@ model User {
   refreshTokens          RefreshToken[]
   trustedDevices         TrustedDevice[]
   transcriptionSessions  TranscriptionSession[]
+  
+  // Sharing relations
+  collaborations         NoteCollaborator[]
 }
 
 model Folder {
@@ -80,6 +83,48 @@ model LectureNote {
   
   // Linked Transcription Sessions
   transcriptionSessions TranscriptionSession[]
+
+  // Sharing settings
+  publicAccess PublicAccess @default(PRIVATE)
+  collaborators NoteCollaborator[]
+}
+
+// Permission Levels
+enum NotePermission {
+  VIEWER // Read-only
+  EDITOR // Read-write
+}
+
+// Public Access Levels
+enum PublicAccess {
+  PRIVATE      // Only owner and collaborators
+  PUBLIC_READ  // Anyone with link can view
+  PUBLIC_EDIT  // Anyone with link can edit (use with caution)
+}
+
+// Collaborators (User or Email Invite)
+model NoteCollaborator {
+  id        String   @id @default(cuid())
+  noteId    String
+  
+  // If user is registered, link to User model
+  userId    String?
+  // Always store email for invites (even if not registered yet)
+  email     String   @db.Citext
+  
+  permission NotePermission @default(VIEWER)
+  
+  invitedBy String   // userId of inviter
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  note      LectureNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User?       @relation(fields: [userId], references: [id])
+
+  @@unique([noteId, email]) // Prevent duplicate invites for same email on same note
+  @@index([noteId])
+  @@index([userId])
+  @@index([email])
 }
 
 // Explicit join table mapping for Folder <-> LectureNote

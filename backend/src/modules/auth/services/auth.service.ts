@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
 import { OAuthService } from './oauth.service';
@@ -28,6 +28,18 @@ export class AuthService {
   async validateUserByEmail(email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
+    
+    // Check if soft deleted
+    if (user.deletedAt) {
+      this.logger.warn(`Login attempt for soft-deleted user: ${user.email}`);
+      throw new ForbiddenException({
+        message: 'User is soft deleted',
+        code: 'USER_SOFT_DELETED',
+        userId: user.id,
+        deletedAt: user.deletedAt,
+      });
+    }
+
     return user;
   }
 
@@ -36,17 +48,31 @@ export class AuthService {
   }
 
   // Sign access token with JTI (JWT ID) for blacklisting support
-  async signAccessToken(userId: string): Promise<string> {
+  async signAccessToken(userId: string, payloadExt: Record<string, any> = {}): Promise<string> {
     const jti = crypto.randomUUID();
     return this.jwtService.signAsync(
       {
         sub: userId,
         jti,
         type: 'access',
+        ...payloadExt,
       },
       {
         expiresIn: AuthConfig.JWT_ACCESS_EXPIRATION,
       },
+    );
+  }
+
+  // Sign a temporary restore token (short lived)
+  async signRestoreToken(userId: string): Promise<string> {
+    return this.jwtService.signAsync(
+      {
+        sub: userId,
+        type: 'restore_token',
+      },
+      {
+        expiresIn: '5m', // 5 minutes to decide
+      }
     );
   }
 
@@ -89,6 +115,12 @@ export class AuthService {
       refreshToken,
       metadata,
     );
+    
+    // Check deletion status
+    const user = await this.usersService.findById(userId);
+    if (user?.deletedAt) {
+       throw new ForbiddenException('User account is deleted');
+    }
 
     // Create new access token
     const accessToken = await this.signAccessToken(userId);
@@ -125,12 +157,16 @@ export class AuthService {
   }
 
   // Validate JWT and check blacklist
-  async validateToken(token: string): Promise<{ userId: string; jti: string }> {
+  async validateToken(token: string): Promise<{ userId: string; jti: string; type?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const decoded = this.jwtService.decode(token) as any;
 
     if (!decoded || !decoded.jti) {
-      throw new UnauthorizedException('Invalid token format');
+       // Restore token might not have JTI if not strictly required, but let's enforce standard structure
+       if (decoded && decoded.type === 'restore_token' && decoded.sub) {
+         return { userId: decoded.sub, jti: 'restore', type: 'restore_token' };
+       }
+       throw new UnauthorizedException('Invalid token format');
     }
 
     // Check blacklist
@@ -142,6 +178,7 @@ export class AuthService {
     return {
       userId: decoded.sub,
       jti: decoded.jti,
+      type: decoded.type,
     };
   }
 
@@ -154,8 +191,19 @@ export class AuthService {
     code: string,
     state: string,
     metadata?: { ipAddress?: string; userAgent?: string },
-  ): Promise<TokenPair> {
+  ): Promise<TokenPair | { restoreToken: string; message: string }> {
     const { user } = await this.oauthService.handleCallback(provider, code, state);
+    
+    // [NEW] Check if Soft Deleted
+    if (user.deletedAt) {
+      this.logger.warn(`[OAuth] Soft deleted user attempted login: ${user.email}`);
+      const restoreToken = await this.signRestoreToken(user.id);
+      return {
+        restoreToken,
+        message: 'Account is soft deleted. Use this token to restore or permanently delete.',
+      };
+    }
+
     return this.createTokenPair(user.id, metadata);
   }
 

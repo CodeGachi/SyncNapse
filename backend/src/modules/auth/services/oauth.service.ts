@@ -120,6 +120,6 @@ export class OAuthService {
       email: mapped.email,
       displayName: mapped.displayName,
     });
-    return { user } as { user: { id: string } };
+    return { user } as { user: { id: string; deletedAt: Date | null; email: string } };
   }
 }
