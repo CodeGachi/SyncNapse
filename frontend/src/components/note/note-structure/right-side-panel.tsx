@@ -12,7 +12,6 @@ import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteU
 import type { PageContext } from "@/lib/types";
 import {
   useFileManagement,
-  useTranscriptTranslation,
 } from "@/features/note/right-panel";
 import { useAudioPlayer, useAudioPlayback } from "@/features/note/recording";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
@@ -114,7 +113,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
   // ✅ noteId 전달하여 IndexedDB에 저장되도록 수정
   const { handleAddFile, handleRemoveFile } = useFileManagement({ noteId });
 
-  const { isTranslating, translationSupported } = useTranscriptTranslation();
+  // DeepL 번역 Hook은 ScriptPanel 내부에서 직접 사용됨
 
   // 페이지 컨텍스트 클릭 핸들러 - 해당 파일/페이지로 이동
   // backendId (fileId)를 사용하여 안정적으로 파일 식별
@@ -168,8 +167,6 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
               onClose={toggleScript}
               audioRef={audioRef}
               activeSegmentId={activeSegmentId}
-              isTranslating={isTranslating}
-              translationSupported={translationSupported}
               onPageContextClick={handlePageContextClick}
               files={filesForScriptPanel}
             />

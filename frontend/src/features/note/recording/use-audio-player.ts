@@ -11,6 +11,9 @@ import * as transcriptionApi from "@/lib/api/transcription.api";
 import * as audioApi from "@/lib/api/audio.api";
 import type { WordWithTime, PageContext } from "@/lib/types";
 
+// 🔥 스토어 직접 접근 (stale closure 방지)
+const getAudioPlayerStore = () => useAudioPlayerStore.getState();
+
 // 🔥 싱글톤 Audio 인스턴스 - 여러 컴포넌트에서 공유
 let sharedAudioInstance: HTMLAudioElement | null = null;
 
@@ -217,25 +220,27 @@ export function useAudioPlayer() {
       console.log('[useAudioPlayer] 🔍 audioRecordingIdParam:', audioRecordingIdParam);
 
       // 타임라인 이벤트 로드 (audioRecordingId가 있는 경우)
+      // 🔥 스토어 직접 접근으로 stale closure 방지
+      const store = getAudioPlayerStore();
       if (audioRecordingIdParam) {
         try {
           console.log('[useAudioPlayer] 📥 Loading timeline events for:', audioRecordingIdParam);
           const events = await audioApi.getTimelineEvents(audioRecordingIdParam);
           console.log('[useAudioPlayer] 📤 Saving to store:', events.length, 'events');
-          setTimelineEvents(events);
+          store.setTimelineEvents(events);
           console.log('[useAudioPlayer] ✅ Stored', events.length, 'timeline events');
 
           // 초기 페이지 컨텍스트 설정 (첫 번째 이벤트)
           if (events.length > 0) {
             const initialContext = audioApi.getPageContextAtTime(events, 0);
-            setCurrentPageContext(initialContext);
+            store.setCurrentPageContext(initialContext);
           }
         } catch (timelineError) {
           console.error('[useAudioPlayer] Failed to load timeline events:', timelineError);
-          clearTimeline();
+          store.clearTimeline();
         }
       } else {
-        clearTimeline();
+        store.clearTimeline();
       }
 
     } catch (error) {
@@ -267,7 +272,7 @@ export function useAudioPlayer() {
     setDuration(0);
     setCurrentRecordingId(null);
     setCurrentAudioRecordingId(null);
-    clearTimeline(); // 🔥 전역 스토어 초기화
+    getAudioPlayerStore().clearTimeline(); // 🔥 스토어 직접 접근
     console.log('[useAudioPlayer] Audio player reset');
   };
 

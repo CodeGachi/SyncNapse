@@ -8,7 +8,7 @@
 // ============================================================================
 
 /**
- * Language code
+ * Language code (DeepL 지원 언어)
  */
 export type SupportedLanguage =
   | "ko" // Korean
@@ -19,8 +19,10 @@ export type SupportedLanguage =
   | "fr" // French
   | "de" // German
   | "ru" // Russian
-  | "ar" // Arabic
-  | "pt"; // Portuguese
+  | "pt" // Portuguese
+  | "it" // Italian
+  | "nl" // Dutch
+  | "pl"; // Polish
 
 /**
  * Language selection option

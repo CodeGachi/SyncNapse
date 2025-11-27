@@ -1,6 +1,6 @@
 /**
  * Script Panel Component
- * Record Script Display and Translation feature
+ * Record Script Display and Translation feature (DeepL API)
  */
 
 "use client";
@@ -11,20 +11,20 @@ import { Panel } from "./panel";
 import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight } from "lucide-react";
 import type { SupportedLanguage, LanguageOption, WordWithTime, PageContext } from "@/lib/types";
 import { getPageContextAtTime } from "@/lib/api/audio.api";
+import { useTranscriptTranslation } from "@/features/note/right-panel/use-transcript-translation";
 
 interface ScriptPanelProps {
   isOpen: boolean;
   onClose: () => void;
   audioRef?: React.RefObject<HTMLAudioElement>;
   activeSegmentId?: string | null;
-  isTranslating?: boolean;
-  translationSupported?: boolean | null;
   isRecording?: boolean; // Track if currently recording
   // 타임라인 관련 props
   onPageContextClick?: (context: PageContext) => void; // 페이지 배지 클릭 시 호출
   files?: { id: string; name: string; backendId?: string }[]; // 파일 이름 표시용 (backendId 포함)
 }
 
+// DeepL 지원 언어만 표시 (아랍어 제외)
 const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "ko", name: "Korean", nativeName: "한국어" },
   { code: "en", name: "English", nativeName: "English" },
@@ -34,8 +34,10 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "fr", name: "French", nativeName: "Français" },
   { code: "de", name: "German", nativeName: "Deutsch" },
   { code: "ru", name: "Russian", nativeName: "Русский" },
-  { code: "ar", name: "Arabic", nativeName: "العربية" },
   { code: "pt", name: "Portuguese", nativeName: "Português" },
+  { code: "it", name: "Italian", nativeName: "Italiano" },
+  { code: "nl", name: "Dutch", nativeName: "Nederlands" },
+  { code: "pl", name: "Polish", nativeName: "Polski" },
 ];
 
 export function ScriptPanel({
@@ -43,8 +45,6 @@ export function ScriptPanel({
   onClose,
   audioRef,
   activeSegmentId,
-  isTranslating,
-  translationSupported,
   isRecording = false,
   onPageContextClick,
   files = [],
@@ -62,9 +62,25 @@ export function ScriptPanel({
     isTranslationEnabled,
     targetLanguage,
     originalLanguage,
+    isTranslating,
+    translationError,
+    usageInfo,
     toggleTranslation,
     setTargetLanguage,
   } = useScriptTranslationStore();
+
+  // DeepL 번역 Hook 사용
+  useTranscriptTranslation();
+
+  // Debug: Log segments with translation status
+  useEffect(() => {
+    console.log('[ScriptPanel] 📝 Segments update:', scriptSegments.map(s => ({
+      id: s.id,
+      original: s.originalText?.substring(0, 20),
+      translated: s.translatedText?.substring(0, 20),
+      hasTranslation: !!s.translatedText,
+    })));
+  }, [scriptSegments]);
 
   // Track current playback time for word-level highlighting
   const [currentTime, setCurrentTime] = useState(0);
@@ -266,14 +282,46 @@ export function ScriptPanel({
                 <span className="text-[10px] text-[#AFC02B]">번역 중...</span>
               </div>
             )}
-            {translationSupported === false && isTranslationEnabled && (
-              <div className="flex items-center gap-1.5 text-yellow-500">
-                <AlertCircle size={10} />
-                <span className="text-[10px]">브라우저 미지원</span>
+            {/* 사용량 표시 */}
+            {isTranslationEnabled && usageInfo && (
+              <div className="flex items-center gap-2">
+                <div className="w-12 h-1.5 bg-[#333] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      usageInfo.remaining < 50000 ? 'bg-yellow-500' : 'bg-[#AFC02B]'
+                    }`}
+                    style={{ width: `${Math.min(100, (usageInfo.used / usageInfo.limit) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-gray-500">
+                  {Math.round(usageInfo.remaining / 1000)}K
+                </span>
               </div>
             )}
           </div>
         </div>
+
+        {/* 번역 에러 배너 */}
+        {translationError && (
+          <div className={`px-4 py-2 border-b flex-shrink-0 ${
+            translationError === 'quota_exceeded'
+              ? 'bg-yellow-500/10 border-yellow-500/20'
+              : 'bg-red-500/10 border-red-500/20'
+          }`}>
+            <div className={`flex items-center gap-2 text-xs ${
+              translationError === 'quota_exceeded' ? 'text-yellow-500' : 'text-red-400'
+            }`}>
+              <AlertCircle size={14} />
+              <span>
+                {translationError === 'config_error' && 'API 키가 설정되지 않았습니다.'}
+                {translationError === 'auth_error' && 'API 키가 유효하지 않습니다.'}
+                {translationError === 'quota_exceeded' && '월간 번역 한도를 초과했습니다.'}
+                {translationError === 'api_error' && '번역 중 오류가 발생했습니다.'}
+                {translationError === 'network_error' && '네트워크 오류가 발생했습니다.'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Script Content Area */}
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#1e1e1e]">
@@ -369,8 +417,8 @@ export function ScriptPanel({
                         </p>
                       )}
 
-                      {/* Translation */}
-                      {isTranslationEnabled && segment.translatedText && (
+                      {/* Translation - 번역 텍스트가 있으면 항상 표시 */}
+                      {segment.translatedText && (
                         <div className="mt-3 pt-2 border-t border-[#333] flex gap-2">
                           <Languages size={14} className="text-[#AFC02B] mt-0.5 flex-shrink-0 opacity-70" />
                           <p className="text-gray-400 text-sm leading-relaxed">
