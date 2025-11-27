@@ -200,13 +200,16 @@ describe('Recording Integration Test', () => {
       mockMediaRecorder.onstop(new Event('stop'));
     }
 
-    // API 호출 확인 - createSession은 (title, noteId) 두 인자를 받음
+    // API 호출 확인 - createSession이 호출되었는지 확인
     await waitFor(() => {
-      expect(transcriptionApi.createSession).toHaveBeenCalledWith(
-        '테스트',
-        'test-note-1'
-      );
+      expect(transcriptionApi.createSession).toHaveBeenCalled();
     });
+
+    // 호출된 인자 확인 - title과 noteId가 일치하는지 확인
+    const calls = vi.mocked(transcriptionApi.createSession).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0][0]).toBe('테스트');
+    expect(calls[0][1]).toBe('test-note-1');
 
     // 3. 녹음 목록에 "테스트"가 존재한다
     vi.mocked(transcriptionApi.getSessions).mockResolvedValue([
