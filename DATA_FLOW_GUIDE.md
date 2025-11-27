@@ -259,3 +259,4 @@ async def get_transcripts(self, note_id: str):
 **질문 있으시면 말씀해주세요!** 😊
 
 
+

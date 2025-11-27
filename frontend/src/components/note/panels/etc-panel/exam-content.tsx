@@ -247,3 +247,4 @@ export function ExamContent({ noteId, onBack }: ExamContentProps) {
   );
 }
 
+

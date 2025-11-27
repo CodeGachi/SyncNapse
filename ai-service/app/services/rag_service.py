@@ -214,7 +214,7 @@ class RAGService:
     
     async def summarize(self, note_id: str, lines: int = 3, use_pdf: bool = True) -> str:
         """
-        강의 내용 요약
+        강의 내용 요약 - 전체 내용을 일관되게 요약
         
         Args:
             note_id: 노트 ID
@@ -230,32 +230,113 @@ class RAGService:
             # 인덱스 가져오기
             index = await self.get_or_create_index(note_id)
             
-            # 쿼리 엔진 생성
-            query_engine = index.as_query_engine()
+            # 전체 문서 텍스트 가져오기 (query engine 대신 직접 접근)
+            all_texts = []
+            docstore = index.docstore
+            for doc_id in docstore.docs.keys():
+                doc = docstore.get_document(doc_id)
+                if doc and doc.text:
+                    all_texts.append(doc.text)
             
-            # 프롬프트 구성
-            prompt = f"""이 강의 자료의 내용을 정확히 {lines}줄로 요약해주세요.
-
-규칙:
-- 정확히 {lines}개의 문장으로 작성
-- 각 문장은 "1. ", "2. ", "3. " 등으로 시작
-- 강의의 핵심 개념과 중요한 내용 위주로 작성
-- 한국어로 작성
-- 번호와 함께 핵심만 간결하게
-
-요약:"""
+            # 전체 텍스트 결합
+            full_text = "\n\n".join(all_texts)
+            logger.info(f"[SUMMARY] Full text length: {len(full_text)} characters")
             
-            # 쿼리 실행
-            response = query_engine.query(prompt)
+            # 텍스트가 너무 길면 청크로 나누어 요약 후 재요약
+            from llama_index.llms.openai import OpenAI
+            llm = OpenAI(model="gpt-4o-mini", api_key=self.api_key, temperature=0.5)
             
-            summary = str(response)
+            # GPT-4o-mini의 컨텍스트 윈도우를 고려 (약 120K 토큰, 안전하게 60K 문자로 제한)
+            if len(full_text) > 60000:
+                logger.info(f"[SUMMARY] Text too long, using hierarchical summarization")
+                summary = await self._hierarchical_summarize(full_text, lines, llm)
+            else:
+                # 한 번에 요약 가능
+                summary = await self._direct_summarize(full_text, lines, llm)
+            
             logger.info(f"[SUMMARY] Summary generated ({len(summary)} chars)")
-            
             return summary
             
         except Exception as e:
             logger.error(f"[SUMMARY] Error: {e}")
             raise
+    
+    async def _direct_summarize(self, text: str, lines: int, llm) -> str:
+        """
+        텍스트를 직접 요약 (작은 문서용)
+        """
+        prompt = f"""다음은 강의 자료의 전체 내용입니다. 이 내용을 정확히 {lines}줄로 일관성 있게 요약해주세요.
+
+강의 내용:
+{text}
+
+요약 규칙:
+- 정확히 {lines}개의 문장으로 작성
+- 번호나 기호 없이 자연스러운 문단 형식으로 작성
+- 각 문장은 새로운 줄에 작성 (줄바꿈으로 구분)
+- 전체 강의의 흐름과 맥락을 유지하며 핵심 내용을 포함
+- 각 문장은 서로 연결되어 하나의 일관된 이야기가 되도록 작성
+- 주요 개념, 중요한 정의, 핵심 논점을 우선적으로 포함
+- 한국어로 명확하고 간결하게 작성
+- 부가 설명 없이 요약 내용만 제공
+
+요약:"""
+        
+        response = await llm.acomplete(prompt)
+        return str(response)
+    
+    async def _hierarchical_summarize(self, text: str, lines: int, llm) -> str:
+        """
+        계층적 요약 (큰 문서용)
+        1단계: 텍스트를 청크로 나누어 각각 요약
+        2단계: 요약들을 다시 종합하여 최종 요약
+        """
+        logger.info("[SUMMARY] Starting hierarchical summarization")
+        
+        # 1단계: 텍스트를 적절한 크기로 분할 (약 20K 문자씩)
+        chunk_size = 20000
+        chunks = []
+        for i in range(0, len(text), chunk_size):
+            chunks.append(text[i:i + chunk_size])
+        
+        logger.info(f"[SUMMARY] Split into {len(chunks)} chunks")
+        
+        # 2단계: 각 청크를 요약
+        chunk_summaries = []
+        for i, chunk in enumerate(chunks):
+            prompt = f"""다음 강의 자료의 일부 내용을 핵심만 간단히 요약해주세요 (3-5문장):
+
+내용:
+{chunk}
+
+요약:"""
+            response = await llm.acomplete(prompt)
+            chunk_summaries.append(str(response))
+            logger.info(f"[SUMMARY] Summarized chunk {i+1}/{len(chunks)}")
+        
+        # 3단계: 청크 요약들을 결합하여 최종 요약 생성
+        combined_summaries = "\n\n".join(chunk_summaries)
+        
+        final_prompt = f"""다음은 강의 자료를 여러 부분으로 나누어 요약한 내용입니다. 
+이 요약들을 종합하여 정확히 {lines}줄로 일관성 있는 전체 요약을 만들어주세요.
+
+부분 요약들:
+{combined_summaries}
+
+최종 요약 규칙:
+- 정확히 {lines}개의 문장으로 작성
+- 번호나 기호 없이 자연스러운 문단 형식으로 작성
+- 각 문장은 새로운 줄에 작성 (줄바꿈으로 구분)
+- 전체 강의의 흐름과 맥락을 유지하며 핵심 내용을 통합
+- 각 문장은 서로 연결되어 하나의 일관된 이야기가 되도록 작성
+- 중복된 내용은 제거하고 가장 중요한 핵심만 포함
+- 한국어로 명확하고 간결하게 작성
+- 부가 설명 없이 요약 내용만 제공
+
+최종 요약:"""
+        
+        response = await llm.acomplete(final_prompt)
+        return str(response)
     
     async def generate_quiz(self, note_id: str, count: int = 5, use_pdf: bool = True) -> list:
         """
