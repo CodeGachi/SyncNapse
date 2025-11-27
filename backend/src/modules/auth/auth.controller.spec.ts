@@ -1,21 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpException, HttpStatus } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
-import { LinkBuilderService } from '../hypermedia/link-builder.service';
+import { UsersService } from '../users/users.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
 
   const mockAuthService = {
-    getOAuthAuthorizationUrl: jest.fn(),
-    authenticateWithOAuth: jest.fn(),
+    createTokenPair: jest.fn(),
+    refreshAccessToken: jest.fn(),
+    logout: jest.fn(),
+    validateToken: jest.fn(),
+    signRestoreToken: jest.fn(),
   };
 
-  const mockLinkBuilder = {
-    action: jest.fn((path: string, method: string) => ({ href: path, method })),
-    self: jest.fn((path: string) => ({ href: path, rel: 'self' })),
-    up: jest.fn((path: string) => ({ href: path, rel: 'up' })),
+  const mockUsersService = {
+    restoreUser: jest.fn(),
+    hardDeleteUser: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -25,212 +26,115 @@ describe('AuthController', () => {
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: mockAuthService },
-        { provide: LinkBuilderService, useValue: mockLinkBuilder },
+        { provide: UsersService, useValue: mockUsersService },
       ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
   });
 
-  describe('loginOptions', () => {
-    it('should return available OAuth providers with HATEOAS links', async () => {
-      // Act
-      const result = await controller.loginOptions();
-
-      // Assert
-      expect(result).toHaveProperty('providers');
-      expect(result.providers).toHaveLength(1);
-      expect(result.providers[0]).toMatchObject({
-        id: 'google',
-        label: 'Google',
-      });
-      expect(result.providers[0]._links).toHaveProperty('start');
-      expect(result._links).toHaveProperty('self');
-      expect(result._links).toHaveProperty('up');
-      expect(mockLinkBuilder.action).toHaveBeenCalledWith('/api/auth/google', 'GET');
-      expect(mockLinkBuilder.self).toHaveBeenCalledWith('/api/auth/login');
-      expect(mockLinkBuilder.up).toHaveBeenCalledWith('/api');
-    });
-
-    it('should include timestamp in debug log', async () => {
-      // Arrange
-      const beforeTs = Date.now();
-      
-      // Act
-      await controller.loginOptions();
-      
-      // Assert
-      const afterTs = Date.now();
-      expect(afterTs).toBeGreaterThanOrEqual(beforeTs);
-    });
-  });
-
   describe('googleAuth', () => {
-    it('should redirect to Google OAuth URL', async () => {
-      // Arrange
-      const mockAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test&redirect_uri=callback';
-      mockAuthService.getOAuthAuthorizationUrl.mockResolvedValue(mockAuthUrl);
-      const mockRes = { redirect: jest.fn() };
-
-      // Act
-      await controller.googleAuth(mockRes as { redirect: (url: string) => void });
-
-      // Assert
-      expect(mockAuthService.getOAuthAuthorizationUrl).toHaveBeenCalledWith('google');
-      expect(mockRes.redirect).toHaveBeenCalledWith(mockAuthUrl);
-    });
-
-    it('should log the redirect URL for debugging', async () => {
-      // Arrange
-      const mockAuthUrl = 'https://accounts.google.com/o/oauth2/auth';
-      mockAuthService.getOAuthAuthorizationUrl.mockResolvedValue(mockAuthUrl);
-      const mockRes = { redirect: jest.fn() };
-
-      // Act
-      await controller.googleAuth(mockRes as { redirect: (url: string) => void });
-
-      // Assert - verify service was called (logger spy would be needed for actual log verification)
-      expect(mockAuthService.getOAuthAuthorizationUrl).toHaveBeenCalled();
+    it('should be defined', async () => {
+      expect(controller.googleAuth).toBeDefined();
+      await expect(controller.googleAuth()).resolves.not.toThrow();
     });
   });
 
-  describe('googleCallback', () => {
+  describe('googleAuthCallback', () => {
     it('should redirect to frontend with tokens on successful OAuth callback', async () => {
       // Arrange
-      const mockCode = 'auth-code-xyz';
-      const mockState = 'state-abc';
-      const mockToken = 'jwt-token-abc';
-      const mockRefreshToken = 'refresh-token';
-      const mockExpiresIn = 900;
-      const mockReq = { query: { code: mockCode, state: mockState }, ip: '127.0.0.1', headers: { 'user-agent': 'test' } };
-      const mockRes = { redirect: jest.fn() };
+      const mockUser = { id: 'user-123' };
+      const mockReq = { user: mockUser, ip: '127.0.0.1', headers: { 'user-agent': 'test' } };
+      const mockRes = { redirect: jest.fn(), cookie: jest.fn() };
+      const mockTokens = { accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 };
       
-      mockAuthService.authenticateWithOAuth.mockResolvedValue({ 
-        accessToken: mockToken,
-        refreshToken: mockRefreshToken,
-        expiresIn: mockExpiresIn
-      });
+      mockAuthService.createTokenPair.mockResolvedValue(mockTokens);
 
       // Act
-      await controller.googleCallback(
-        mockReq as { query: { code: string; state: string }; ip: string; headers: { 'user-agent': string } },
-        mockRes as { redirect: (url: string) => void }
-      );
+      await controller.googleAuthCallback(mockReq, mockRes as any);
 
       // Assert
-      expect(mockAuthService.authenticateWithOAuth).toHaveBeenCalledWith('google', mockCode, mockState, expect.any(Object));
-      expect(mockRes.redirect).toHaveBeenCalledWith(
-        expect.stringContaining(`accessToken=${mockToken}`)
-      );
-      expect(mockRes.redirect).toHaveBeenCalledWith(
-        expect.stringContaining(`refreshToken=${mockRefreshToken}`)
-      );
-      expect(mockRes.redirect).toHaveBeenCalledWith(
-        expect.stringContaining(`expiresIn=${mockExpiresIn}`)
-      );
+      expect(mockAuthService.createTokenPair).toHaveBeenCalledWith(mockUser.id, expect.any(Object));
+      expect(mockRes.cookie).toHaveBeenCalledWith('refreshToken', 'rt', expect.any(Object));
+      expect(mockRes.cookie).toHaveBeenCalledWith('authToken', 'at', expect.any(Object));
+      expect(mockRes.redirect).toHaveBeenCalledWith(expect.stringContaining('accessToken=at'));
     });
 
-    it('should throw HttpException when code is missing', async () => {
+    it('should redirect to restore page if user is soft deleted', async () => {
       // Arrange
-      const mockReq = { query: { state: 'state-123' } };
+      const mockUser = { id: 'user-123', deletedAt: new Date() };
+      const mockReq = { user: mockUser };
       const mockRes = { redirect: jest.fn() };
+      const mockRestoreToken = 'restore-token';
+      
+      mockAuthService.signRestoreToken.mockResolvedValue(mockRestoreToken);
 
-      // Act & Assert
-      await expect(
-        controller.googleCallback(
-          mockReq as { query: { state: string } },
-          mockRes as { redirect: (url: string) => void }
-        )
-      ).rejects.toThrow(
-        new HttpException('Missing code', HttpStatus.BAD_REQUEST),
-      );
-      expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
-    });
+      // Act
+      await controller.googleAuthCallback(mockReq, mockRes as any);
 
-    it('should throw HttpException when query is undefined', async () => {
-      // Arrange
-      const mockReq = {};
-      const mockRes = { redirect: jest.fn() };
-
-      // Act & Assert
-      await expect(
-        controller.googleCallback(
-          mockReq as Record<string, never>,
-          mockRes as { redirect: (url: string) => void }
-        )
-      ).rejects.toThrow(
-        new HttpException('Missing code', HttpStatus.BAD_REQUEST),
-      );
-      expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
-    });
-
-    it('should throw HttpException when code is empty string', async () => {
-      // Arrange
-      const mockReq = { query: { code: '', state: 'state-123' } };
-      const mockRes = { redirect: jest.fn() };
-
-      // Act & Assert
-      await expect(
-        controller.googleCallback(
-          mockReq as { query: { code: string; state: string } },
-          mockRes as { redirect: (url: string) => void }
-        )
-      ).rejects.toThrow(
-        new HttpException('Missing code', HttpStatus.BAD_REQUEST),
-      );
-      expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
-    });
-    
-    it('should throw HttpException when state is missing', async () => {
-      // Arrange
-      const mockReq = { query: { code: 'code-123' } };
-      const mockRes = { redirect: jest.fn() };
-
-      // Act & Assert
-      await expect(
-        controller.googleCallback(
-          mockReq as { query: { code: string } },
-          mockRes as { redirect: (url: string) => void }
-        )
-      ).rejects.toThrow(
-        new HttpException('Missing state', HttpStatus.BAD_REQUEST),
-      );
-      expect(mockAuthService.authenticateWithOAuth).not.toHaveBeenCalled();
+      // Assert
+      expect(mockAuthService.signRestoreToken).toHaveBeenCalledWith(mockUser.id);
+      expect(mockRes.redirect).toHaveBeenCalledWith(expect.stringContaining(`restore?token=${mockRestoreToken}`));
     });
   });
 
-  describe('check', () => {
-    it('should return ok:true when authenticated with valid JWT', async () => {
+  describe('refresh', () => {
+    it('should refresh tokens', async () => {
       // Arrange
-      const mockReq = { user: { id: 'user-123' } };
+      const mockReq = { cookies: { refreshToken: 'old-rt' }, ip: '127.0.0.1', headers: { 'user-agent': 'test' } };
+      const mockRes = { cookie: jest.fn() };
+      const mockTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
+      
+      mockAuthService.refreshAccessToken.mockResolvedValue(mockTokens);
 
       // Act
-      const result = await controller.check(mockReq as { user: { id: string } });
+      const result = await controller.refresh(mockReq, mockRes as any);
 
       // Assert
-      expect(result).toEqual({ ok: true });
+      expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith('old-rt', expect.any(Object));
+      expect(mockRes.cookie).toHaveBeenCalledWith('refreshToken', 'new-rt', expect.any(Object));
+      expect(result).toEqual({ accessToken: 'new-at', expiresIn: 3600 });
     });
+  });
 
-    it('should handle user without id gracefully in logging', async () => {
+  describe('logout', () => {
+    it('should logout user', async () => {
       // Arrange
-      const mockReq = { user: {} };
+      const mockUser = { id: 'user-123' };
+      const mockReq = { cookies: { refreshToken: 'rt' }, headers: { authorization: 'Bearer at' } };
+      const mockRes = { clearCookie: jest.fn() };
 
       // Act
-      const result = await controller.check(mockReq as { user: Record<string, never> });
+      await controller.logout(mockUser, mockReq, mockRes as any);
 
-      // Assert - should still return ok (guard already verified JWT)
-      expect(result).toEqual({ ok: true });
+      // Assert
+      expect(mockAuthService.logout).toHaveBeenCalledWith('at', 'rt');
+      expect(mockRes.clearCookie).toHaveBeenCalledWith('refreshToken');
+      expect(mockRes.clearCookie).toHaveBeenCalledWith('authToken');
     });
+  });
 
-    it('should handle undefined user gracefully in logging', async () => {
-      // Arrange
-      const mockReq = {};
+  describe('restoreAccount', () => {
+    it('should restore user account', async () => {
+      const token = 'valid-token';
+      mockAuthService.validateToken.mockResolvedValue({ userId: 'user-1', type: 'restore_token' });
+      mockUsersService.restoreUser.mockResolvedValue({ message: 'Restored' });
 
-      // Act
-      const result = await controller.check(mockReq as Record<string, never>);
+      const result = await controller.restoreAccount(token);
+      expect(result).toEqual({ message: 'Restored' });
+      expect(mockUsersService.restoreUser).toHaveBeenCalledWith('user-1');
+    });
+  });
 
-      // Assert - should still return ok (guard already verified JWT)
-      expect(result).toEqual({ ok: true });
+  describe('permanentDelete', () => {
+    it('should permanently delete user account', async () => {
+      const token = 'valid-token';
+      mockAuthService.validateToken.mockResolvedValue({ userId: 'user-1', type: 'restore_token' });
+      mockUsersService.hardDeleteUser.mockResolvedValue(undefined);
+
+      const result = await controller.permanentDelete(token);
+      expect(result).toEqual({ message: 'Account permanently deleted' });
+      expect(mockUsersService.hardDeleteUser).toHaveBeenCalledWith('user-1');
     });
   });
 });
