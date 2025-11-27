@@ -85,11 +85,12 @@ async def ask_question(request: AskRequest):
     
     - **note_id**: 노트 ID (예: note-001)
     - **question**: 질문 내용
+    - **use_pdf**: PDF 파일 사용 (기본값: True), False면 전사 데이터 사용
     """
     try:
-        logger.info(f"[ASK] Request - note_id: {request.note_id}, question: {request.question[:50]}...")
+        logger.info(f"[ASK] Request - note_id: {request.note_id}, question: {request.question[:50]}..., use_pdf: {request.use_pdf}")
         
-        answer = await rag_service.ask(request.note_id, request.question)
+        answer = await rag_service.ask(request.note_id, request.question, request.use_pdf)
         
         return {"answer": answer}
         
@@ -108,11 +109,12 @@ async def generate_summary(request: SummaryRequest):
     
     - **note_id**: 노트 ID (예: note-001)
     - **lines**: 요약할 줄 수 (기본: 3, 최소: 1, 최대: 10)
+    - **use_pdf**: PDF 파일 사용 (기본값: True), False면 전사 데이터 사용
     """
     try:
-        logger.info(f"[SUMMARY] Request - note_id: {request.note_id}, lines: {request.lines}")
+        logger.info(f"[SUMMARY] Request - note_id: {request.note_id}, lines: {request.lines}, use_pdf: {request.use_pdf}")
         
-        summary = await rag_service.summarize(request.note_id, request.lines)
+        summary = await rag_service.summarize(request.note_id, request.lines, request.use_pdf)
         
         return {"summary": summary}
         
@@ -131,11 +133,12 @@ async def generate_quiz(request: QuizRequest):
     
     - **note_id**: 노트 ID (예: note-001)
     - **count**: 퀴즈 문제 수 (기본: 5, 최소: 1, 최대: 10)
+    - **use_pdf**: PDF 파일 사용 (기본값: True), False면 전사 데이터 사용
     """
     try:
-        logger.info(f"[QUIZ] Request - note_id: {request.note_id}, count: {request.count}")
+        logger.info(f"[QUIZ] Request - note_id: {request.note_id}, count: {request.count}, use_pdf: {request.use_pdf}")
         
-        quizzes = await rag_service.generate_quiz(request.note_id, request.count)
+        quizzes = await rag_service.generate_quiz(request.note_id, request.count, request.use_pdf)
         
         return {"quizzes": quizzes}
         
