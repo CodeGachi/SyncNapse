@@ -24,8 +24,8 @@ import { APP_GUARD } from '@nestjs/core';
 @Module({
   imports: [
     ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 100, // Global limit: 100 requests per minute per IP
+      ttl: parseInt(process.env.RATE_LIMIT_TTL || '60', 10) * 1000,
+      limit: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
     }]),
     DbModule,
     UsersModule,
