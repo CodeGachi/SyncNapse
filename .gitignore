@@ -8,6 +8,9 @@ frontend/node_modules/
 .env.dev
 .env.prod
 .env.local
+.env.backup
+*.env.backup
+backend/.env*
 !.env.example
 .test-token
 
