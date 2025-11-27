@@ -13,6 +13,7 @@ import { FoldersModule } from './folders/folders.module';
 import { NotesModule } from './notes/notes.module';
 import { StorageModule } from './storage/storage.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { UploadsModule } from './uploads/uploads.module';
     StorageModule,
     TranscriptionModule,
     UploadsModule,
+    AiModule,
   ],
   controllers: [RootController],
 })

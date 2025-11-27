@@ -7,6 +7,7 @@ import { UsersModule } from './modules/users/users.module';
 import { ExportsModule } from './modules/exports/exports.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { AiModule } from './modules/ai/ai.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
 import { json, urlencoded } from 'express';
@@ -60,7 +61,7 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config, {
-    include: [AuthModule, UsersModule, ExportsModule, UploadsModule, StorageModule],
+    include: [AuthModule, UsersModule, ExportsModule, UploadsModule, StorageModule, AiModule],
   });
   SwaggerModule.setup('docs', app, document);
 
