@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../db/prisma.service';
+import { StorageService } from '../storage/storage.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -12,6 +13,10 @@ describe('UsersService', () => {
       update: jest.fn(),
       upsert: jest.fn(),
     },
+  };
+
+  const mockStorageService = {
+    uploadBuffer: jest.fn(),
   };
 
   const mockUser = {
@@ -31,6 +36,7 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: StorageService, useValue: mockStorageService },
       ],
     }).compile();
 
@@ -132,7 +138,7 @@ describe('UsersService', () => {
   });
 
   describe('upsertGoogleUser', () => {
-    it('should create new user when not exists', async () => {
+    it('should create new user and ensure deleted folder created', async () => {
       // Arrange
       const params = {
         email: 'new@example.com',
@@ -143,12 +149,20 @@ describe('UsersService', () => {
         email: params.email,
         displayName: params.displayName,
       });
+      mockStorageService.uploadBuffer.mockResolvedValue(undefined);
 
       // Act
       const result = await service.upsertGoogleUser(params);
 
       // Assert
       expect(result.email).toBe(params.email);
+      // Verify .deleted folder creation (ensureDeletedFolder)
+      expect(mockStorageService.uploadBuffer).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        `users/${params.email}/.deleted/.gitkeep`,
+        'text/plain'
+      );
+
       expect(mockPrismaService.user.upsert).toHaveBeenCalledWith({
         where: { email: params.email },
         update: expect.objectContaining({

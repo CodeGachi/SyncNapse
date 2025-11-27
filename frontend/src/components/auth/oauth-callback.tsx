@@ -44,7 +44,7 @@ export function OAuthCallback() {
           const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
           localStorage.removeItem("redirectAfterLogin"); // Clean up
           
-          console.log("[OAuthCallback] ✅ Login successful, redirecting to:", redirectUrl);
+          // console.log("[OAuthCallback] ✅ Login successful, redirecting to:", redirectUrl);
           router.replace(redirectUrl);
         } catch (error) {
           console.error("Failed to fetch user info:", error);

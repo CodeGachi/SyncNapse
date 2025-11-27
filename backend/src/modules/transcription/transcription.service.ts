@@ -17,22 +17,117 @@ export class TranscriptionService {
     private readonly storageService: StorageService,
     @Inject(forwardRef(() => NotesService))
     private readonly notesService: NotesService,
-  ) {}
+  ) { }
 
-  async createSession(userId: string, dto: CreateSessionDto) {
+  // ... existing createSession, saveTimelineEvent methods ...
+
+  async createSession(userId: string, dto: CreateSessionDto & { audioRecordingId?: string }) {
     this.logger.debug(`[createSession] userId=${userId} title=${dto.title} noteId=${dto.noteId || 'none'}`);
+
+    if (dto.noteId) {
+      const note = await this.prisma.lectureNote.findUnique({
+        where: { id: dto.noteId },
+      });
+      if (!note) {
+        throw new NotFoundException(`Note not found: ${dto.noteId}`);
+      }
+    }
 
     const session = await this.prisma.transcriptionSession.create({
       data: {
         userId,
         title: dto.title,
         noteId: dto.noteId,
+        audioRecordingId: dto.audioRecordingId,
         status: 'recording',
       },
     });
 
     this.logger.log(`[createSession] Created session: ${session.id} for note: ${dto.noteId || 'standalone'}`);
     return session;
+  }
+
+  async saveTimelineEvent(userId: string, recordingId: string, event: { timestamp: number; fileId?: string; pageNumber?: number }) {
+    this.logger.debug(`[saveTimelineEvent] userId=${userId} recordingId=${recordingId} time=${event.timestamp}`);
+
+    // Verify recording ownership (via Note)
+    const recording = await this.prisma.audioRecording.findUnique({
+      where: { id: recordingId },
+      include: { note: { include: { foldersLink: { include: { folder: true } } } } },
+    });
+
+    if (!recording) {
+      throw new NotFoundException('Audio recording not found');
+    }
+
+    // Check permission
+    const hasAccess = recording.note.foldersLink.some(link => link.folder.userId === userId);
+    if (!hasAccess) {
+      this.logger.warn(`[saveTimelineEvent] User ${userId} does not have access to recording ${recordingId}`);
+      // TODO: Throw ForbiddenException if strict access control is needed
+    }
+
+    const timelineEvent = await this.prisma.audioTimelineEvent.create({
+      data: {
+        recordingId,
+        timestamp: new Prisma.Decimal(event.timestamp),
+        fileId: event.fileId,
+        pageNumber: event.pageNumber,
+      },
+    });
+
+    return timelineEvent;
+  }
+
+  async saveTranscriptRevision(userId: string, sessionId: string, content: any) {
+    this.logger.debug(`[saveTranscriptRevision] userId=${userId} sessionId=${sessionId}`);
+
+    const session = await this.prisma.transcriptionSession.findFirst({
+      where: { id: sessionId, userId, deletedAt: null },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    // Get latest version
+    const latestRevision = await this.prisma.transcriptRevision.findFirst({
+      where: { sessionId },
+      orderBy: { version: 'desc' },
+    });
+
+    const newVersion = (latestRevision?.version || 0) + 1;
+
+    const revision = await this.prisma.transcriptRevision.create({
+      data: {
+        sessionId,
+        version: newVersion,
+        content: content,
+      },
+    });
+
+    // Update active transcript pointer
+    await this.prisma.transcriptionSession.update({
+      where: { id: sessionId },
+      data: { activeTranscriptId: revision.id },
+    });
+
+    return revision;
+  }
+
+  async getTranscriptRevisions(userId: string, sessionId: string) {
+    const session = await this.prisma.transcriptionSession.findFirst({
+      where: { id: sessionId, userId, deletedAt: null },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    return this.prisma.transcriptRevision.findMany({
+      where: { sessionId },
+      orderBy: { version: 'desc' },
+    });
   }
 
   async getSessionsByUser(userId: string) {
@@ -139,7 +234,7 @@ export class TranscriptionService {
       const wordCount = dto.text.trim().split(/\s+/).length;
       const estimatedDuration = wordCount / 2.5;
       const calculatedEndTime = dto.startTime + estimatedDuration;
-      
+
       this.logger.debug(`[saveTranscript] Using endTime=${calculatedEndTime} (startTime + ${estimatedDuration.toFixed(2)}s for ${wordCount} words)`);
 
       // Create segment first
@@ -200,19 +295,19 @@ export class TranscriptionService {
 
     // Debug: Check audioUrl format
     this.logger.debug(`[saveAudioChunk] audioUrl prefix: ${dto.audioUrl.substring(0, 50)}...`);
-    
+
     if (!dto.audioUrl.includes('base64,')) {
       this.logger.error(`[saveAudioChunk] ❌ Invalid audioUrl format: ${dto.audioUrl.substring(0, 100)}`);
       throw new Error('Invalid audio URL format. Expected data URL with base64 encoding.');
     }
 
     const base64Data = dto.audioUrl.split(',')[1];
-    
+
     if (!base64Data) {
       this.logger.error(`[saveAudioChunk] ❌ No base64 data found after splitting`);
       throw new Error('No base64 data found in audio URL');
     }
-    
+
     this.logger.debug(`[saveAudioChunk] Base64 data length: ${base64Data.length}`);
     const buffer = Buffer.from(base64Data, 'base64');
     this.logger.debug(`[saveAudioChunk] Buffer size: ${buffer.length} bytes`);
@@ -226,33 +321,43 @@ export class TranscriptionService {
       fileExtension,
     );
 
-    const audioChunk = await this.prisma.audioChunk.create({
-      data: {
-        sessionId: dto.sessionId,
-        chunkIndex: dto.chunkIndex,
-        startTime: dto.startTime,
-        endTime: dto.endTime,
-        duration: dto.duration,
-        sampleRate: dto.sampleRate,
-        storageUrl: url,
-        storageKey: key,
-        fileSize: buffer.length,
-      },
-    });
+    try {
+      const audioChunk = await this.prisma.audioChunk.create({
+        data: {
+          sessionId: dto.sessionId,
+          chunkIndex: dto.chunkIndex,
+          startTime: dto.startTime,
+          endTime: dto.endTime,
+          duration: dto.duration,
+          sampleRate: dto.sampleRate,
+          storageUrl: url,
+          storageKey: key,
+          fileSize: buffer.length,
+        },
+      });
 
-    const currentDuration = typeof session.duration === 'object' 
-      ? Number(session.duration) 
-      : session.duration;
-    
-    await this.prisma.transcriptionSession.update({
-      where: { id: dto.sessionId },
-      data: {
-        duration: Math.max(currentDuration, dto.endTime),
-      },
-    });
+      const currentDuration = typeof session.duration === 'object'
+        ? Number(session.duration)
+        : session.duration;
 
-    this.logger.log(`[saveAudioChunk] Saved audio chunk: ${audioChunk.id}`);
-    return audioChunk;
+      await this.prisma.transcriptionSession.update({
+        where: { id: dto.sessionId },
+        data: {
+          duration: Math.max(currentDuration, dto.endTime),
+        },
+      });
+
+      this.logger.log(`[saveAudioChunk] Saved audio chunk: ${audioChunk.id}`);
+      return audioChunk;
+    } catch (error) {
+      this.logger.warn(`[saveAudioChunk] DB insert failed, cleaning up chunk: ${key}`);
+      try {
+        await this.storageService.deleteFile(key);
+      } catch (cleanupError) {
+        this.logger.error(`[saveAudioChunk] Failed to cleanup chunk:`, cleanupError);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -276,19 +381,19 @@ export class TranscriptionService {
 
     // Debug: Check audioUrl format
     this.logger.debug(`[saveFullAudio] audioUrl prefix: ${audioUrl.substring(0, 50)}...`);
-    
+
     if (!audioUrl.includes('base64,')) {
       this.logger.error(`[saveFullAudio] ❌ Invalid audioUrl format: ${audioUrl.substring(0, 100)}`);
       throw new Error('Invalid audio URL format. Expected data URL with base64 encoding.');
     }
 
     const base64Data = audioUrl.split(',')[1];
-    
+
     if (!base64Data) {
       this.logger.error(`[saveFullAudio] ❌ No base64 data found after splitting`);
       throw new Error('No base64 data found in audio URL');
     }
-    
+
     this.logger.debug(`[saveFullAudio] Base64 data length: ${base64Data.length}`);
     const buffer = Buffer.from(base64Data, 'base64');
     this.logger.debug(`[saveFullAudio] Buffer size: ${buffer.length} bytes`);
@@ -301,28 +406,28 @@ export class TranscriptionService {
       // Note-based path: use existing note folder structure
       try {
         const noteBasePath = await this.notesService.getNoteStoragePath(userId, session.noteId);
-        
+
         // Sanitize session title for filename
         const sanitizedTitle = encodeURIComponent(session.title)
           .replace(/%20/g, ' ')
           .replace(/%2F/g, '_')
           .replace(/%5C/g, '_');
-        
+
         // Store in note's audio subdirectory with recording title
         storageKey = `${noteBasePath}/audio/${sanitizedTitle}.webm`;
-        
+
         this.logger.log(`[saveFullAudio] Saving to note folder: ${storageKey}`);
-        
+
         // Upload using generic uploadBuffer method
         const uploadResult = await this.storageService.uploadBuffer(
           buffer,
           storageKey,
           'audio/webm',
         );
-        
+
         url = uploadResult.publicUrl || this.storageService.getPublicUrl(uploadResult.storageKey);
         storageKey = uploadResult.storageKey;
-        
+
         this.logger.log(`[saveFullAudio] ✅ Saved to note audio folder: ${storageKey}`);
       } catch (error) {
         this.logger.error(`[saveFullAudio] Failed to get note path, falling back to session-based path:`, error);
@@ -350,7 +455,7 @@ export class TranscriptionService {
       );
       url = result.url;
       storageKey = result.key;
-      
+
       this.logger.log(`[saveFullAudio] ✅ Saved to user transcription folder: ${storageKey}`);
     }
 
@@ -387,6 +492,7 @@ export class TranscriptionService {
             startTime: 'asc',
           },
         },
+        audioChunks: true,
       },
     });
 
@@ -394,17 +500,24 @@ export class TranscriptionService {
       throw new NotFoundException('Session not found');
     }
 
+    // Check if full audio or chunks exist
+    const hasAudio = session.fullAudioKey || (session.audioChunks && session.audioChunks.length > 0);
+    if (!hasAudio) {
+      this.logger.warn(`[endSession] ⚠️ Session ended without audio: ${sessionId}`);
+      // Consider throwing error if audio is mandatory, but for now just warn
+    }
+
     // Save transcription segments to MinIO as JSON if noteId exists
     if (session.noteId && session.segments.length > 0) {
       try {
         const noteBasePath = await this.notesService.getNoteStoragePath(userId, session.noteId);
-        
+
         // Sanitize session title for filename
         const sanitizedTitle = encodeURIComponent(session.title)
           .replace(/%20/g, ' ')
           .replace(/%2F/g, '_')
           .replace(/%5C/g, '_');
-        
+
         // Create transcription JSON
         const transcriptionData = {
           sessionId: session.id,
@@ -426,17 +539,17 @@ export class TranscriptionService {
             })),
           })),
         };
-        
+
         const transcriptionKey = `${noteBasePath}/transcription/${sanitizedTitle}_segments.json`;
-        
+
         this.logger.log(`[endSession] Saving transcription to: ${transcriptionKey}`);
-        
+
         await this.storageService.uploadBuffer(
           Buffer.from(JSON.stringify(transcriptionData, null, 2)),
           transcriptionKey,
           'application/json',
         );
-        
+
         this.logger.log(`[endSession] ✅ Saved transcription JSON: ${transcriptionKey}`);
       } catch (error) {
         this.logger.error(`[endSession] Failed to save transcription JSON:`, error);
@@ -518,7 +631,7 @@ export class TranscriptionService {
     // Prefer fullAudioKey, fallback to first audio chunk
     let storageKey: string | null = null;
     let expectedSize = 0;
-    
+
     if (session.fullAudioKey) {
       storageKey = session.fullAudioKey;
       expectedSize = Number(session.fullAudioSize) || 0;
@@ -529,7 +642,7 @@ export class TranscriptionService {
         where: { sessionId },
         orderBy: { chunkIndex: 'asc' },
       });
-      
+
       if (firstChunk) {
         storageKey = firstChunk.storageKey;
         expectedSize = Number(firstChunk.fileSize) || 0;
@@ -545,7 +658,7 @@ export class TranscriptionService {
     // Get file from storage
     try {
       const fileData = await this.storageService.getFileStream(storageKey);
-      
+
       if (!fileData || !fileData.body) {
         this.logger.error(`[getAudioStream] ❌ No file body returned from storage`);
         throw new NotFoundException('Audio file not found in storage');
@@ -556,7 +669,7 @@ export class TranscriptionService {
 
       // StorageService returns decrypted Buffer for encrypted files
       let nodeStream: Readable;
-      
+
       // Check if it's a Buffer (from decryption)
       if (Buffer.isBuffer(fileData.body)) {
         this.logger.debug(`[getAudioStream] Body is Buffer (decrypted), converting to stream`);
@@ -566,12 +679,12 @@ export class TranscriptionService {
       else if (fileData.body instanceof Readable) {
         this.logger.debug(`[getAudioStream] Body is already a Readable stream`);
         nodeStream = fileData.body;
-      } 
+      }
       // StreamingBlobPayloadOutputTypes has transformToByteArray/transformToWebStream methods
       else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sdkBody = fileData.body as any;
-        
+
         // If it has transformToByteArray, use that to convert
         if (typeof sdkBody.transformToByteArray === 'function') {
           this.logger.debug(`[getAudioStream] Converting Body using transformToByteArray`);

@@ -2,14 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './modules/app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ApiLinksService } from './modules/hypermedia/api-links.service';
-import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
-import { ExportsModule } from './modules/exports/exports.module';
-import { UploadsModule } from './modules/uploads/uploads.module';
-import { StorageModule } from './modules/storage/storage.module';
 import { HalExceptionFilter } from './modules/hypermedia/hal-exception.filter';
 import { RequestLoggingInterceptor } from './modules/logging/request-logging.interceptor';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const portFromEnv = process.env.PORT;
@@ -20,6 +16,11 @@ async function bootstrap() {
     bodyParser: true,
     rawBody: true,
   });
+
+  // Security Headers
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resource sharing for audio/files
+  }));
 
   // Increase body size limit for audio chunks (50MB)
   app.use(json({ limit: '50mb' }));
@@ -59,9 +60,7 @@ async function bootstrap() {
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, config, {
-    include: [AuthModule, UsersModule, ExportsModule, UploadsModule, StorageModule],
-  });
+  const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
   // Expose raw OpenAPI JSON for external tools (e.g., APIDog)

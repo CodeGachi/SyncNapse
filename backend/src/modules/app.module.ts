@@ -13,9 +13,20 @@ import { FoldersModule } from './folders/folders.module';
 import { NotesModule } from './notes/notes.module';
 import { StorageModule } from './storage/storage.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { QueueModule } from './queue/queue.module';
+import { AudioModule } from './audio/audio.module';
+import { FilesModule } from './files/files.module';
+import { TypingModule } from './typing/typing.module';
+import { SearchModule } from './search/search.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{
+      ttl: parseInt(process.env.RATE_LIMIT_TTL || '60', 10) * 1000,
+      limit: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+    }]),
     DbModule,
     UsersModule,
     AuthModule,
@@ -29,7 +40,18 @@ import { UploadsModule } from './uploads/uploads.module';
     StorageModule,
     TranscriptionModule,
     UploadsModule,
+    QueueModule,
+    AudioModule,
+    FilesModule,
+    TypingModule,
+    SearchModule,
   ],
   controllers: [RootController],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -35,6 +35,6 @@ import { AuthConfig } from './config/auth.config';
     AuthCleanupService,
   ],
   controllers: [AuthController],
-  exports: [AuthService, AuthCacheService], // Export cache for use in guards
+  exports: [AuthService, AuthCacheService, JwtModule], // Export cache for use in guards
 })
 export class AuthModule {}

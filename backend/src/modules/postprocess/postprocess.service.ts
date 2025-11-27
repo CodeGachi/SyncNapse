@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export type ConversionResult = {
   convertedPath?: string;
@@ -50,13 +53,13 @@ export class PostprocessService {
 
   async probeAudioDurationSec(inputPath: string): Promise<number | undefined> {
     try {
-      const out = execFileSync('ffprobe', [
+      const { stdout } = await execFileAsync('ffprobe', [
         '-v', 'error',
         '-show_entries', 'format=duration',
         '-of', 'default=nw=1:nk=1',
         inputPath,
       ], { encoding: 'utf8' });
-      const val = parseFloat((out || '').trim());
+      const val = parseFloat((stdout || '').trim());
       if (Number.isFinite(val)) return val;
       return undefined;
     } catch (err) {
