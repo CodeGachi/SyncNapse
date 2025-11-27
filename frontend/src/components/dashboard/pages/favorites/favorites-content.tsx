@@ -7,20 +7,32 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNotes } from "@/lib/api/queries/notes.queries";
-import { useUpdateNote } from "@/lib/api/mutations/notes.mutations";
+import { updateNote } from "@/lib/api/services/notes.api";
 import { useFolders } from "@/features/dashboard";
+import { LoadingScreen } from "@/components/common/loading-screen";
 import type { Note } from "@/lib/types";
+import { motion } from "framer-motion";
+import { Search, Star, FileText, Folder, Clock } from "lucide-react";
 
 export function FavoritesContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
 
   // 모든 노트 조회
   const { data: allNotes = [], isLoading } = useNotes();
-  const updateNoteMutation = useUpdateNote();
   const { folders } = useFolders();
+
+  // 노트 업데이트 뮤테이션
+  const updateNoteMutation = useMutation({
+    mutationFn: ({ noteId, updates }: { noteId: string; updates: Partial<Note> }) =>
+      updateNote(noteId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
 
   // 즐겨찾기 노트만 필터링
   const favoriteNotes = useMemo(() => {
@@ -88,136 +100,113 @@ export function FavoritesContent() {
     }
   };
 
+  if (isLoading) {
+    return <LoadingScreen message="즐겨찾기를 불러오는 중..." />;
+  }
+
   return (
-    <div className="flex flex-col w-full h-screen">
-      {/* Search Bar Container */}
-      <div className="flex flex-row justify-end items-center px-6 py-2.5 gap-6 h-[74px] bg-[#2F2F2F] border-b border-[#575757]">
-        {/* Search Input */}
-        <div className="flex flex-row items-center px-2.5 py-2.5 gap-2.5 w-[362px] h-[34px] bg-[#2F2F2F] border border-[#575757] rounded-lg">
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent text-white text-xs font-bold leading-[15px] text-center outline-none placeholder:text-[#575757]"
-          />
-          <div className="w-[18px] h-[19.5px]">
-            <svg
-              width="18"
-              height="20"
-              viewBox="0 0 18 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M7.5 13.5C10.5376 13.5 13 11.0376 13 8C13 4.96243 10.5376 2.5 7.5 2.5C4.46243 2.5 2 4.96243 2 8C2 11.0376 4.46243 13.5 7.5 13.5Z"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M16 17L11.5 12.5"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Container */}
-      <div className="flex flex-col items-start px-9 py-12 gap-12 flex-1 bg-[#262626] overflow-y-auto">
-        {/* Favorites Section */}
-        <div className="flex flex-col items-start gap-6 w-full">
-          {/* Section Title */}
-          <h2 className="text-white font-bold text-xl leading-6 text-center">
-            즐겨찾기
-          </h2>
-
-          {/* Table Container */}
-          <div className="flex flex-col items-start py-4 px-0 gap-4 w-full bg-[#2F2F2F] border border-[#575757] rounded-[10px]">
-            {/* Table Header */}
-            <div className="flex flex-row items-center px-5 gap-6 w-full h-[19px]">
-              <div className="flex-1 text-white font-medium text-base leading-[19px] text-center">
-                이름
-              </div>
-              <div className="w-[278px] px-2.5 text-white font-medium text-base leading-[19px] text-center">
-                위치
-              </div>
-              <div className="w-[150px] px-2.5 text-white font-medium text-base leading-[19px] text-center">
-                수정 날짜
-              </div>
-              <div className="w-[19px]"></div>
+    <main className="flex flex-col w-full h-screen overflow-y-auto p-8 bg-[#0A0A0A]">
+      <div className="max-w-6xl mx-auto w-full">
+        {/* Header - Glassmorphic */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col md:flex-row items-center justify-between mb-8 p-6 bg-[#1a1a1a]/80 backdrop-blur-md border border-white/5 rounded-2xl shadow-lg gap-4"
+        >
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="p-3 bg-white/5 rounded-xl">
+              <Star className="w-8 h-8 text-[#AFC02B] fill-[#AFC02B]" />
             </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">즐겨찾기</h1>
+              <p className="text-gray-400 text-sm mt-1">자주 찾는 중요한 노트들을 모아보세요</p>
+            </div>
+          </div>
 
-            {/* Divider */}
-            <div className="w-full h-0 border-t border-[#575757]" />
+          {/* Search Bar */}
+          <div className="relative w-full md:w-[320px] group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-500 group-focus-within:text-[#AFC02B] transition-colors" />
+            </div>
+            <input
+              type="text"
+              placeholder="즐겨찾기 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2.5 bg-[#1E1E1E]/60 border border-white/10 rounded-xl leading-5 text-white placeholder-gray-500 focus:outline-none focus:bg-[#1E1E1E] focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] sm:text-sm transition-all"
+            />
+          </div>
+        </motion.div>
 
-            {/* Table Rows */}
-            {isLoading ? (
-              <div className="px-5 py-4 text-white text-center w-full">
-                로딩 중...
-              </div>
-            ) : filteredNotes.length === 0 ? (
-              <div className="px-5 py-4 text-[#575757] text-center w-full">
-                {searchQuery
-                  ? "검색 결과가 없습니다"
-                  : "즐겨찾기한 노트가 없습니다"}
-              </div>
-            ) : (
-              filteredNotes.map((note) => (
-                <div key={note.id}>
-                  <div
-                    onClick={() => handleNoteClick(note)}
-                    className="flex flex-row items-center px-5 gap-6 w-full h-5 cursor-pointer hover:bg-[#3A3A3A] transition-colors"
-                  >
-                    {/* Note Icon + Name */}
-                    <div className="flex flex-row items-center gap-1 flex-1">
-                      <div className="w-5 h-5 flex items-center justify-center">
-                        <Image
-                          src="/대시보드/Text input-5.svg"
-                          alt="노트"
-                          width={20}
-                          height={20}
-                        />
-                      </div>
-                      <span className="text-white font-normal text-sm leading-[17px]">
-                        {note.title}
+        {/* Content */}
+        {filteredNotes.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-center py-20 bg-[#1E1E1E]/40 rounded-2xl border border-white/5 border-dashed"
+          >
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Star className="w-10 h-10 text-gray-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-300 mb-2">
+              {searchQuery ? "검색 결과가 없습니다" : "즐겨찾기한 노트가 없습니다"}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {searchQuery ? "다른 검색어로 시도해보세요" : "중요한 노트에 별표를 눌러 추가해보세요"}
+            </p>
+          </motion.div>
+        ) : (
+          <div className="space-y-3">
+            {filteredNotes.map((note, index) => (
+              <motion.div
+                key={note.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                onClick={() => handleNoteClick(note)}
+                className="bg-[#1E1E1E]/60 backdrop-blur-md hover:bg-[#1E1E1E]/80 border border-white/5 hover:border-white/10 rounded-xl p-5 flex items-center justify-between transition-all group shadow-md hover:shadow-lg cursor-pointer"
+              >
+                <div className="flex items-center gap-5 flex-1 min-w-0">
+                  {/* Icon */}
+                  <div className="w-12 h-12 bg-gradient-to-br from-white/5 to-white/0 border border-white/5 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                    <FileText className="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" />
+                  </div>
+
+                  {/* Note Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold text-lg mb-1 truncate group-hover:text-[#AFC02B] transition-colors">
+                      {note.title}
+                    </h3>
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <span className="flex items-center gap-1.5">
+                        <Folder className="w-3.5 h-3.5 text-gray-500" />
+                        <span className="truncate max-w-[150px]">{getFolderName(note.folderId)}</span>
                       </span>
-                    </div>
-
-                    {/* Folder Location */}
-                    <div className="w-[278px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                      {getFolderName(note.folderId)}
-                    </div>
-
-                    {/* Modified Date */}
-                    <div className="w-[150px] px-2.5 text-[#575757] font-normal text-sm leading-[17px] text-center">
-                      {formatDate(note.updatedAt || note.createdAt)}
-                    </div>
-
-                    {/* Favorite Icon (clickable) */}
-                    <div
-                      className="w-[19px] h-5 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
-                      onClick={(e) => handleToggleFavorite(e, note)}
-                    >
-                      <Image
-                        src="/대시보드/Text input-4.svg"
-                        alt="즐겨찾기"
-                        width={19}
-                        height={20}
-                      />
+                      <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-gray-500" />
+                        <span>{formatDate(note.updatedAt || note.createdAt)}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+
+                {/* Favorite Toggle */}
+                <button
+                  onClick={(e) => handleToggleFavorite(e, note)}
+                  className="p-3 rounded-full hover:bg-white/5 transition-colors group/star"
+                >
+                  <Star
+                    className="w-6 h-6 text-[#AFC02B] fill-[#AFC02B] group-hover/star:scale-110 transition-transform filter drop-shadow-[0_0_8px_rgba(175,192,43,0.5)]"
+                  />
+                </button>
+              </motion.div>
+            ))}
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </main>
   );
 }

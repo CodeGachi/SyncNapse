@@ -40,6 +40,7 @@ interface PDFDrawingOverlayProps {
   isPdf?: boolean;
   onSave?: (data: DrawingData) => Promise<void>;
   isCollaborative?: boolean;
+  isSharedView?: boolean;   // 공유 뷰 모드 (학생용 - 읽기 전용)
 }
 
 export const PDFDrawingOverlay = forwardRef<
@@ -61,11 +62,12 @@ export const PDFDrawingOverlay = forwardRef<
       isPdf,
       onSave,
       isCollaborative = false,
+      isSharedView = false,
     },
     ref
   ) => {
-    // 🔍 DEBUG: 컴포넌트 렌더링 로그
-    console.log('[Drawing] 🔄 Render - pageNum:', pageNum, 'noteId:', noteId, 'fileId:', fileId, 'isCollaborative:', isCollaborative);
+    // 같은 Liveblocks Room에 있으면 드로잉 동기화 활성화
+    // isSharedView(학생)일 때는 readOnly 모드로 보기만 가능
 
     // div container를 사용 - Fabric.js가 canvas를 동적 생성
     const containerRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,9 @@ export const PDFDrawingOverlay = forwardRef<
 
     // syncToStorage 함수 ref (협업 래퍼에서 설정됨)
     const syncToStorageRef = useRef<((canvas: fabric.Canvas) => void) | null>(null);
+
+    // 캔버스 준비 상태 (CollaborativeCanvasWrapper 렌더링 제어용)
+    const [isCanvasReady, setIsCanvasReady] = useState(false);
 
     // 현재 캔버스 크기 추적 (리사이즈 감지용)
     const currentCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -133,9 +138,11 @@ export const PDFDrawingOverlay = forwardRef<
       currentCanvasSizeRef.current = { width: finalWidth, height: finalHeight };
       initialCanvasSizeRef.current = { width: finalWidth, height: finalHeight }; // 초기 크기 저장
       setContainerSize({ width: finalWidth, height: finalHeight });
+      setIsCanvasReady(true); // 캔버스 준비 완료
 
       return () => {
         try {
+          setIsCanvasReady(false); // 캔버스 정리 시 상태 초기화
           if (fabricCanvasRef.current) {
             const canvasToDispose = fabricCanvasRef.current;
             fabricCanvasRef.current = null;
@@ -143,7 +150,20 @@ export const PDFDrawingOverlay = forwardRef<
             setContainerSize(null);
 
             canvasToDispose.off();
-            canvasToDispose.clear();
+
+            // 캔버스 컨텍스트가 유효할 때만 clear 호출
+            try {
+              // lowerCanvasEl이 존재하고 DOM에 연결되어 있는지 확인
+              const lowerCanvas = (canvasToDispose as any).lowerCanvasEl;
+              if (lowerCanvas && lowerCanvas.getContext && lowerCanvas.isConnected !== false) {
+                const ctx = lowerCanvas.getContext('2d');
+                if (ctx) {
+                  canvasToDispose.clear();
+                }
+              }
+            } catch (clearError) {
+              // clear 에러는 무시
+            }
 
             try {
               canvasToDispose.dispose();
@@ -186,9 +206,20 @@ export const PDFDrawingOverlay = forwardRef<
         if (!isCollaborative) {
           const canvas = fabricCanvasRef.current;
           if (canvas) {
-            canvas.clear();
-            canvas.renderAll();
-            console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+            try {
+              // lowerCanvasEl이 존재하고 DOM에 연결되어 있는지 확인
+              const lowerCanvas = (canvas as any).lowerCanvasEl;
+              if (lowerCanvas && lowerCanvas.getContext && lowerCanvas.isConnected !== false) {
+                const ctx = lowerCanvas.getContext('2d');
+                if (ctx) {
+                  canvas.clear();
+                  canvas.renderAll();
+                  console.log('[Drawing] 🧹 Canvas cleared for page change (non-collaborative)');
+                }
+              }
+            } catch (e) {
+              console.warn('[Drawing] Canvas clear skipped - context unavailable');
+            }
           }
           hasLoadedRef.current = false;
           setShouldLoadContent(true);
@@ -617,9 +648,20 @@ export const PDFDrawingOverlay = forwardRef<
       undoStackRef.current = [];
       lastActionRef.current = null;
 
-      canvas.clear();
-      canvas.renderAll();
-      triggerAutoSave();
+      try {
+        // lowerCanvasEl이 존재하고 DOM에 연결되어 있는지 확인
+        const lowerCanvas = (canvas as any).lowerCanvasEl;
+        if (lowerCanvas && lowerCanvas.getContext && lowerCanvas.isConnected !== false) {
+          const ctx = lowerCanvas.getContext('2d');
+          if (ctx) {
+            canvas.clear();
+            canvas.renderAll();
+            triggerAutoSave();
+          }
+        }
+      } catch (e) {
+        console.warn('[Drawing] Canvas clear skipped - context unavailable');
+      }
     }, [triggerAutoSave]);
 
     // Expose methods via ref
@@ -661,13 +703,15 @@ export const PDFDrawingOverlay = forwardRef<
           }}
         />
 
-        {/* 협업 모드일 때만 Liveblocks 동기화 활성화 */}
-        {isCollaborative && (
+        {/* 협업 모드일 때 Liveblocks 동기화 활성화 (같은 Room이면 드로잉 공유) */}
+        {/* 캔버스가 준비된 후에만 렌더링 (fabricCanvas가 null이면 동기화 불가) */}
+        {isCollaborative && isCanvasReady && fabricCanvasRef.current && (
           <CollaborativeCanvasWrapper
             fabricCanvas={fabricCanvasRef.current}
             fileId={fileId}
             pageNum={pageNum}
             syncToStorageRef={syncToStorageRef}
+            readOnly={false}
           />
         )}
       </>

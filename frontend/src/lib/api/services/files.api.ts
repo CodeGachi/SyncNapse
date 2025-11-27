@@ -21,9 +21,6 @@ import {
 import { useSyncStore } from "@/lib/sync/sync-store";
 import { uploadFileToServer } from "@/lib/api/file-upload.api";
 
-// 백엔드 파일 저장 사용 여부
-const USE_BACKEND_FILES = process.env.NEXT_PUBLIC_USE_BACKEND_FILES === "true";
-
 /**
  * Decode filename from Latin-1 to UTF-8
  * Multer encodes non-ASCII filenames as Latin-1, so we need to decode them properly
@@ -68,6 +65,7 @@ export interface FileWithId {
   id: string;
   file: File;
   createdAt: number;
+  backendId?: string; // Backend File ID (for timeline events)
 }
 
 /**
@@ -94,11 +92,12 @@ export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId
   // 2. 백그라운드에서 백엔드 동기화
   syncFilesInBackground(noteId);
   
-  // 3. 로컬 파일 즉시 반환
+  // 3. 로컬 파일 즉시 반환 (backendId 포함)
   return dbFiles.map((dbFile) => ({
     id: dbFile.id,
     file: dbFileToFile(dbFile),
     createdAt: dbFile.createdAt,
+    backendId: dbFile.backendId, // Backend File ID (for timeline events)
   }));
 }
 
@@ -134,11 +133,34 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
 
     // 백엔드 파일을 IndexedDB와 동기화
     if (backendFiles.length > 0) {
-      // 로컬에 없는 파일 찾기
+      // 로컬 파일 목록 가져오기
       const localFiles = await getFilesByNoteFromDB(noteId);
       const localFileNames = new Set(localFiles.map(f => f.fileName));
 
-      // Backend filenames need to be decoded for proper comparison
+      // 1. 기존 로컬 파일에 backendId가 없으면 매칭하여 업데이트
+      const { updateFileBackendId } = await import("@/lib/db/files");
+      let backendIdUpdated = false;
+      for (const localFile of localFiles) {
+        if (!localFile.backendId) {
+          // 백엔드 파일과 이름으로 매칭
+          const matchingBackend = backendFiles.find((bf: any) => {
+            const decodedName = decodeFilename(bf.fileName);
+            return decodedName === localFile.fileName || bf.fileName === localFile.fileName;
+          });
+          if (matchingBackend) {
+            await updateFileBackendId(localFile.id, matchingBackend.id);
+            console.log(`[FilesAPI] ✅ Updated backendId for existing file: ${localFile.fileName} -> ${matchingBackend.id}`);
+            backendIdUpdated = true;
+          }
+        }
+      }
+
+      // backendId가 업데이트되었으면 캐시 무효화
+      if (backendIdUpdated && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('files-synced', { detail: { noteId } }));
+      }
+
+      // 2. 로컬에 없는 파일 찾기 (Backend filenames need to be decoded for proper comparison)
       const filesToDownload = backendFiles.filter((bf: any) => {
         const decodedName = decodeFilename(bf.fileName);
         return !localFileNames.has(decodedName) && !localFileNames.has(bf.fileName);
@@ -195,9 +217,9 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
               type: downloadData.fileType,
             });
             
-            // IndexedDB에 저장
-            await saveFileInDB(noteId, file, backendFile.url);
-            console.log(`[FilesAPI] ✅ File saved to IndexedDB: ${file.name}`);
+            // IndexedDB에 저장 (backendId 포함)
+            await saveFileInDB(noteId, file, backendFile.url, backendFile.id);
+            console.log(`[FilesAPI] ✅ File saved to IndexedDB: ${file.name}, backendId: ${backendFile.id}`);
           } catch (error) {
             console.error(`[FilesAPI] Failed to download/save file ${backendFile.fileName}:`, error);
           }
@@ -218,9 +240,8 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
 
 /**
  * Save a file
- * - 백엔드 사용 시: 백엔드로 업로드하고 영구 URL 받기
- * - 로컬 사용 시: IndexedDB에 즉시 저장
- * - 동기화 큐에 추가
+ * - 온라인: 백엔드로 즉시 업로드 → 성공 시 IndexedDB 저장 (백엔드 URL 포함)
+ * - 오프라인/실패: IndexedDB에 저장 → 동기화 큐에 추가 (나중에 동기화)
  */
 export async function saveFile(noteId: string, file: File): Promise<DBFile> {
   console.log('[FilesAPI V2] saveFile 호출:', {
@@ -231,106 +252,36 @@ export async function saveFile(noteId: string, file: File): Promise<DBFile> {
   });
 
   let backendUrl: string | undefined;
+  let backendId: string | undefined;
+  let backendUploadSuccess = false;
 
-  // 1. 백엔드 파일 저장 사용 시 백엔드로 업로드
-  if (USE_BACKEND_FILES) {
+  // 1. 백엔드로 즉시 업로드 시도 (온라인 상태 확인)
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+  if (isOnline) {
     try {
       console.log(`[FilesAPI V2] 백엔드로 업로드 시도: ${file.name}`);
       const backendResponse = await uploadFileToServer(file, noteId);
-      backendUrl = backendResponse.fileUrl;
-      console.log(`[FilesAPI V2] 백엔드 업로드 완료: ${backendUrl}`);
+      backendUrl = backendResponse.storageUrl || backendResponse.fileUrl;
+      backendId = backendResponse.id; // 백엔드 파일 ID 저장
+      backendUploadSuccess = true;
+      console.log(`[FilesAPI V2] ✅ 백엔드 업로드 완료: url=${backendUrl}, id=${backendId}`);
     } catch (error) {
-      console.error("[FilesAPI V2] 백엔드 업로드 실패, 로컬 저장으로 폴백:", error);
-      // 백엔드 실패 시 로컬 저장으로 폴백
+      console.warn("[FilesAPI V2] ⚠️ 백엔드 업로드 실패, IndexedDB에 저장 후 나중에 동기화:", error);
+      backendUploadSuccess = false;
     }
+  } else {
+    console.log("[FilesAPI V2] 오프라인 상태, IndexedDB에 저장 후 나중에 동기화");
   }
 
-  // 2. IndexedDB에 저장 (항상 로컬 백업 유지, 백엔드 URL 포함)
+  // 2. IndexedDB에 저장 (로컬 백업, 백엔드 URL 및 ID 있으면 포함)
   console.log('[FilesAPI V2] IndexedDB 저장 시작...');
-  const dbFile = await saveFileInDB(noteId, file, backendUrl);
-  console.log('[FilesAPI V2] IndexedDB 저장 완료:', dbFile.id);
+  const dbFile = await saveFileInDB(noteId, file, backendUrl, backendId);
+  console.log('[FilesAPI V2] IndexedDB 저장 완료:', dbFile.id, 'backendId:', backendId || 'none');
 
-  // 3. 동기화 큐에 추가
-  const syncStore = useSyncStore.getState();
-  syncStore.addToSyncQueue({
-    entityType: "file",
-    entityId: dbFile.id,
-    operation: "create",
-    data: {
-      note_id: noteId,
-      file_name: dbFile.fileName,
-      file_type: dbFile.fileType,
-      file_size: dbFile.size,
-      created_at: new Date(dbFile.createdAt).toISOString(),
-      backend_url: backendUrl, // 백엔드 URL 추가
-    },
-  });
-  console.log('[FilesAPI V2] 동기화 큐에 추가 완료');
-
-  // 4. 즉시 반환
-  return dbFile;
-}
-
-/**
- * Delete a file
- * - IndexedDB에서 즉시 삭제
- * - 동기화 큐에 추가
- */
-export async function deleteFile(fileId: string): Promise<void> {
-  // 1. IndexedDB에서 즉시 삭제
-  await deleteFileInDB(fileId);
-
-  // 2. 동기화 큐에 추가
-  const syncStore = useSyncStore.getState();
-  syncStore.addToSyncQueue({
-    entityType: "file",
-    entityId: fileId,
-    operation: "delete",
-  });
-}
-
-/**
- * Save multiple files
- * - 백엔드 사용 시: 백엔드로 업로드하고 영구 URL 받기
- * - 로컬 사용 시: IndexedDB에 즉시 저장
- * - 동기화 큐에 추가
- */
-export async function saveMultipleFiles(
-  noteId: string,
-  files: File[]
-): Promise<DBFile[]> {
-  // 백엔드 URL 매핑 (파일명 -> URL)
-  const backendUrlMap = new Map<string, string>();
-
-  // 1. 백엔드 파일 저장 사용 시 각 파일을 백엔드로 업로드
-  if (USE_BACKEND_FILES) {
-    console.log(`[다중 파일 저장] 백엔드로 ${files.length}개 파일 업로드 시도`);
-
-    await Promise.all(
-      files.map(async (file) => {
-        try {
-          const backendResponse = await uploadFileToServer(file, noteId);
-          backendUrlMap.set(file.name, backendResponse.fileUrl);
-          console.log(`[다중 파일 저장] ${file.name} 백엔드 업로드 완료`);
-        } catch (error) {
-          console.error(`[다중 파일 저장] ${file.name} 백엔드 업로드 실패:`, error);
-          // 실패한 파일은 로컬만 저장
-        }
-      })
-    );
-  }
-
-  // 2. IndexedDB에 저장 (항상 로컬 백업 유지, 백엔드 URL 포함)
-  const { saveMultipleFiles: saveMultipleFilesInDB } = await import(
-    "@/lib/db/files"
-  );
-  const dbFiles = await saveMultipleFilesInDB(noteId, files, backendUrlMap);
-
-  // 3. 각 파일을 동기화 큐에 추가
-  const syncStore = useSyncStore.getState();
-  dbFiles.forEach((dbFile) => {
-    const backendUrl = backendUrlMap.get(dbFile.fileName);
-
+  // 3. 백엔드 업로드 실패 시에만 동기화 큐에 추가 (나중에 재시도)
+  if (!backendUploadSuccess) {
+    const syncStore = useSyncStore.getState();
     syncStore.addToSyncQueue({
       entityType: "file",
       entityId: dbFile.id,
@@ -341,9 +292,116 @@ export async function saveMultipleFiles(
         file_type: dbFile.fileType,
         file_size: dbFile.size,
         created_at: new Date(dbFile.createdAt).toISOString(),
-        backend_url: backendUrl, // 백엔드 URL 추가 (있으면)
+        // 파일 바이너리는 IndexedDB에서 조회해야 함 (Sync Manager에서 처리)
       },
     });
+    console.log('[FilesAPI V2] 동기화 큐에 추가 완료 (나중에 백엔드 동기화)');
+  }
+
+  // 4. 즉시 반환
+  return dbFile;
+}
+
+/**
+ * Delete a file
+ * - 먼저 파일 정보 조회 (backendId 확인)
+ * - IndexedDB에서 즉시 삭제
+ * - 동기화 큐에 추가 (backendId 포함)
+ */
+export async function deleteFile(fileId: string): Promise<void> {
+  // 1. 먼저 파일 정보 조회 (backendId 확인)
+  const { getFile } = await import("@/lib/db/files");
+  const file = await getFile(fileId);
+  const backendId = file?.backendId;
+
+  console.log(`[FilesAPI] Deleting file: ${fileId}, backendId: ${backendId || 'none'}`);
+
+  // 2. IndexedDB에서 즉시 삭제
+  await deleteFileInDB(fileId);
+
+  // 3. 동기화 큐에 추가 (backendId 포함)
+  const syncStore = useSyncStore.getState();
+  syncStore.addToSyncQueue({
+    entityType: "file",
+    entityId: fileId,
+    operation: "delete",
+    data: {
+      backend_id: backendId, // 백엔드 파일 ID (없으면 undefined)
+    },
+  });
+}
+
+/**
+ * Save multiple files
+ * - 온라인: 각 파일을 백엔드로 즉시 업로드 시도
+ * - 성공한 파일: IndexedDB 저장 (백엔드 URL 포함)
+ * - 실패한 파일: IndexedDB 저장 + 동기화 큐에 추가 (나중에 동기화)
+ */
+export async function saveMultipleFiles(
+  noteId: string,
+  files: File[]
+): Promise<DBFile[]> {
+  // 백엔드 URL 매핑 (파일명 -> URL)
+  const backendUrlMap = new Map<string, string>();
+  // 백엔드 ID 매핑 (파일명 -> ID)
+  const backendIdMap = new Map<string, string>();
+  // 업로드 실패한 파일명 추적
+  const failedUploads = new Set<string>();
+
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+  // 1. 온라인이면 각 파일을 백엔드로 업로드 시도
+  if (isOnline) {
+    console.log(`[다중 파일 저장] 백엔드로 ${files.length}개 파일 업로드 시도`);
+
+    await Promise.all(
+      files.map(async (file) => {
+        try {
+          const backendResponse = await uploadFileToServer(file, noteId);
+          const url = backendResponse.storageUrl || backendResponse.fileUrl || '';
+          if (url) {
+            backendUrlMap.set(file.name, url);
+          }
+          if (backendResponse.id) {
+            backendIdMap.set(file.name, backendResponse.id);
+          }
+          console.log(`[다중 파일 저장] ✅ ${file.name} 백엔드 업로드 완료, id=${backendResponse.id}`);
+        } catch (error) {
+          console.warn(`[다중 파일 저장] ⚠️ ${file.name} 백엔드 업로드 실패:`, error);
+          failedUploads.add(file.name);
+        }
+      })
+    );
+  } else {
+    console.log("[다중 파일 저장] 오프라인 상태, 모든 파일을 로컬에 저장 후 나중에 동기화");
+    files.forEach((file) => failedUploads.add(file.name));
+  }
+
+  // 2. IndexedDB에 저장 (항상 로컬 백업 유지, 백엔드 URL 및 ID 포함)
+  const { saveMultipleFiles: saveMultipleFilesInDB } = await import(
+    "@/lib/db/files"
+  );
+  const dbFiles = await saveMultipleFilesInDB(noteId, files, backendUrlMap, backendIdMap);
+
+  // 3. 백엔드 업로드 실패한 파일만 동기화 큐에 추가
+  const syncStore = useSyncStore.getState();
+  dbFiles.forEach((dbFile) => {
+    if (failedUploads.has(dbFile.fileName)) {
+      syncStore.addToSyncQueue({
+        entityType: "file",
+        entityId: dbFile.id,
+        operation: "create",
+        data: {
+          note_id: noteId,
+          file_name: dbFile.fileName,
+          file_type: dbFile.fileType,
+          file_size: dbFile.size,
+          created_at: new Date(dbFile.createdAt).toISOString(),
+          // 파일 바이너리는 IndexedDB에서 조회해야 함 (Sync Manager에서 처리)
+        },
+      });
+      console.log(`[다중 파일 저장] ${dbFile.fileName} 동기화 큐에 추가 (나중에 백엔드 동기화)`);
+    }
   });
 
   // 4. 즉시 반환

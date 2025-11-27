@@ -20,6 +20,7 @@ export function useRecordingControl(noteId?: string | null) {
     recordingStartTime, // Recording start timestamp
     formattedTime: recordingTime,
     error: recordingError,
+    audioRecordingId, // AudioRecording ID for timeline
     startRecording: startBasicRecording,
     pauseRecording,
     resumeRecording,
@@ -100,31 +101,35 @@ export function useRecordingControl(noteId?: string | null) {
 
       console.log('[RecordingControl] Recording saved:', recordingData);
 
-      // Optimistic Update: 캐시에 즉시 새 녹음 추가
+      // 🔥 Optimistic Update: 백엔드 응답 기다리지 않고 즉시 UI 업데이트
       if (recordingData.sessionId) {
         const newSession: TranscriptionSession = {
           id: recordingData.sessionId,
-          userId: '', // 백엔드에서 설정됨
+          userId: '',
           title: finalTitle,
           noteId: noteId || undefined,
+          audioRecordingId: recordingData.audioRecordingId,
           duration: recordingData.duration,
           status: 'completed',
           createdAt: recordingData.createdAt.toISOString(),
           updatedAt: recordingData.createdAt.toISOString(),
         };
 
+        // 캐시에 즉시 추가 (UI 즉시 업데이트)
         queryClient.setQueryData<TranscriptionSession[]>(
           ["recordings"],
           (old = []) => [newSession, ...old]
         );
-        console.log('[RecordingControl] ✅ Optimistic update: Added to cache');
+        console.log('[RecordingControl] ✅ Optimistic update: Added to cache immediately');
+
+        // 백그라운드에서 백엔드 동기화 (5초 후)
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["recordings"] });
+          console.log('[RecordingControl] 🔄 Background sync with backend');
+        }, 5000);
       }
 
-      // Optimistic Update 후 즉시 invalidateQueries 하지 않음
-      // 백엔드에서 세션이 완료되기까지 시간이 걸릴 수 있어서
-      // invalidateQueries가 아직 완료되지 않은 세션을 가져오면 Optimistic 데이터가 사라짐
-      // 대신 윈도우 포커스 시 자동으로 refetch됨 (staleTime: 0, refetchOnWindowFocus: true)
-      console.log('[RecordingControl] ✅ Recording saved with optimistic update (no immediate refetch)');
+      console.log('[RecordingControl] ✅ Recording saved with optimistic update');
 
       setIsNameModalOpen(false);
     } catch (error) {
@@ -149,6 +154,7 @@ export function useRecordingControl(noteId?: string | null) {
     recordingTime,
     recordingTimeSeconds,
     recordingError,
+    audioRecordingId, // AudioRecording ID for timeline
     isNameModalOpen,
     isSavingRecording,
     handlePlayPause,

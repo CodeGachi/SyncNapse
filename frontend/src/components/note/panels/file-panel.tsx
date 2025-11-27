@@ -7,6 +7,7 @@
 import type { FileItem } from "@/lib/types";
 import { useFilePanelUI } from "@/features/note";
 import { Panel } from "./panel";
+import { FileText, FileUp, Plus, Trash2, Pencil, Copy } from "lucide-react";
 
 interface FilePanelProps {
   isOpen: boolean;
@@ -58,16 +59,20 @@ export function FilePanel({
   });
 
   return (
-    <Panel isOpen={isOpen} borderColor="gray" title="files" onClose={onClose}>
+    <Panel isOpen={isOpen} borderColor="gray" title="파일" onClose={onClose}>
       {/* 파일 목록 */}
-      <div className="px-4 py-3 flex-1 overflow-y-auto">
+      <div className="px-3 py-2 flex-1 overflow-y-auto custom-scrollbar">
         {files.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-[#666666] text-sm">업로드된 파일이 없습니다</p>
-            <p className="text-[#555555] text-xs mt-1">아래 버튼으로 파일을 추가하세요</p>
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-2 opacity-60">
+            <div className="w-10 h-10 bg-[#333] rounded-full flex items-center justify-center mb-1">
+              <FileUp size={20} className="text-gray-500" />
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs font-medium">파일이 없습니다</p>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col">
             {files.map((file) => (
               <div
                 key={file.id}
@@ -77,27 +82,23 @@ export function FilePanel({
                 onKeyDown={(e) => handleKeyDown(e, file.id)}
                 onFocus={() => setFocusedFileId(file.id)}
                 onBlur={() => setFocusedFileId(null)}
-                className={`flex items-center justify-between p-2 rounded-lg transition-all cursor-pointer outline-none ${
-                  selectedFileId === file.id
-                    ? "bg-[#4f4f4f] ring-2 ring-[#007aff]"
-                    : "bg-[#363636] hover:bg-[#3f3f3f]"
-                } group`}
+                className={`flex items-center justify-between px-3 py-2 rounded-md transition-all cursor-pointer outline-none group relative ${selectedFileId === file.id
+                    ? "bg-white/5"
+                    : "hover:bg-white/5"
+                  }`}
               >
-                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                {/* Selection Indicator */}
+                {selectedFileId === file.id && (
+                  <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-[#AFC02B] rounded-r-full" />
+                )}
+
+                <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden pl-1">
                   {/* 파일 아이콘 */}
-                  <div className="w-6 h-6 bg-[#444444] rounded flex items-center justify-center flex-shrink-0">
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M9 1H3v14h10V5L9 1z" />
-                      <path d="M9 1v4h4" />
-                    </svg>
-                  </div>
+                  <FileText
+                    size={16}
+                    className={`flex-shrink-0 transition-colors ${selectedFileId === file.id ? "text-[#AFC02B]" : "text-gray-500 group-hover:text-gray-400"
+                      }`}
+                  />
 
                   {/* 파일 정보 */}
                   <div className="flex-1 min-w-0">
@@ -119,10 +120,13 @@ export function FilePanel({
                         }}
                         onClick={(e) => e.stopPropagation()}
                         autoFocus
-                        className="bg-[#444444] text-white text-sm font-medium px-2 py-1 rounded w-full outline-none focus:ring-2 focus:ring-[#007aff]"
+                        className="bg-transparent border-b border-[#AFC02B] text-white text-xs py-0.5 w-full outline-none"
                       />
                     ) : (
-                      <p className="text-white text-sm font-medium truncate">{file.name}</p>
+                      <p className={`text-xs truncate transition-colors ${selectedFileId === file.id ? "text-[#AFC02B] font-medium" : "text-gray-300 group-hover:text-gray-200"
+                        }`}>
+                        {file.name}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -133,18 +137,10 @@ export function FilePanel({
                     e.stopPropagation();
                     await onRemoveFile(file.id);
                   }}
-                  className="w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-[#ff4444] transition-all"
+                  className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all"
+                  title="파일 삭제"
                 >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="2"
-                  >
-                    <path d="M2 2l8 8M10 2l-8 8" />
-                  </svg>
+                  <Trash2 size={13} />
                 </button>
               </div>
             ))}
@@ -155,7 +151,7 @@ export function FilePanel({
       {/* 컨텍스트 메뉴 */}
       {contextMenu.visible && contextMenu.fileId && (
         <div
-          className="fixed bg-[#2f2f2f] border border-[#666666] rounded-lg shadow-2xl py-2 z-50 min-w-[180px]"
+          className="fixed bg-[#252525] border border-[#3c3c3c] rounded-lg shadow-xl py-1 z-50 min-w-[140px] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
           style={{
             left: `${contextMenu.x}px`,
             top: `${contextMenu.y}px`,
@@ -164,45 +160,37 @@ export function FilePanel({
           {/* 이름 변경 */}
           <button
             onClick={() => handleRename(contextMenu.fileId!)}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#3f3f3f] transition-colors flex items-center gap-2"
+            className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:bg-[#333] hover:text-white transition-colors flex items-center gap-2"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M10 1l3 3-8 8H2v-3l8-8z" />
-            </svg>
-            이름 변경 (F2)
+            <Pencil size={12} />
+            이름 변경
           </button>
 
           {/* 복사 */}
           <button
             onClick={() => handleCopy(contextMenu.fileId!)}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#3f3f3f] transition-colors flex items-center gap-2"
+            className="w-full px-3 py-2 text-left text-xs text-gray-300 hover:bg-[#333] hover:text-white transition-colors flex items-center gap-2"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="4" y="4" width="8" height="8" />
-              <path d="M2 10V2h8" />
-            </svg>
+            <Copy size={12} />
             복사
           </button>
 
           {/* 구분선 */}
-          <div className="my-1 border-t border-[#444444]"></div>
+          <div className="my-1 border-t border-[#3c3c3c]"></div>
 
           {/* 삭제 */}
           <button
             onClick={() => handleDelete(contextMenu.fileId!)}
-            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#ff4444] transition-colors flex items-center gap-2"
+            className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M1 3h12M5 3V1h4v2M3 3v9a1 1 0 001 1h6a1 1 0 001-1V3" />
-            </svg>
-            삭제 (Delete)
+            <Trash2 size={12} />
+            삭제
           </button>
         </div>
       )}
 
-
       {/* 파일 추가 버튼 - sticky footer */}
-      <div className="px-4 py-3 border-t border-[#444444] flex-shrink-0 sticky bottom-0 bg-[#2f2f2f]">
+      <div className="p-3 border-t border-[#3c3c3c] flex-shrink-0 sticky bottom-0 bg-[#2f2f2f]">
         <input
           ref={fileInputRef}
           type="file"
@@ -214,19 +202,10 @@ export function FilePanel({
         />
         <label
           htmlFor="file-upload"
-          className="flex items-center justify-center gap-1.5 w-full py-2 bg-[#444444] hover:bg-[#4f4f4f] rounded-lg cursor-pointer transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-2 bg-[#333] border border-[#444] text-gray-300 rounded-lg cursor-pointer transition-all hover:bg-[#3a3a3a] hover:text-white hover:border-[#555] active:scale-[0.98]"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-          >
-            <path d="M8 2v12M2 8h12" />
-          </svg>
-          <span className="text-white text-xs font-medium">추가</span>
+          <Plus size={16} />
+          <span className="text-xs font-medium">파일 추가</span>
         </label>
       </div>
     </Panel>

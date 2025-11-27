@@ -12,6 +12,7 @@
 import { useSyncStore } from "./sync-store";
 import type { SyncQueueItem } from "./sync-queue";
 import { apiClient } from "@/lib/api/client";
+import { getFileById } from "@/lib/db/files";
 
 /**
  * Backend에 단일 아이템 동기화 (HTTP Client V2 사용)
@@ -48,15 +49,61 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
 
     case "file":
       if (operation === "create") {
-        // POST /notes/:noteId/files
+        // POST /notes/:noteId/files - FormData로 파일 업로드
         const noteId = data?.note_id;
         if (!noteId) {
           throw new Error("file create requires note_id in data");
         }
-        endpoint = `/notes/${noteId}/files`;
+
+        // IndexedDB에서 파일 조회
+        const dbFile = await getFileById(entityId);
+        if (!dbFile) {
+          throw new Error(`File not found in IndexedDB: ${entityId}`);
+        }
+
+        // 이미 백엔드 URL이 있으면 스킵 (이미 동기화됨)
+        if (dbFile.backendUrl) {
+          console.log(`[Sync] File already synced to backend: ${entityId}`);
+          return; // 성공으로 처리
+        }
+
+        // FormData 생성하여 파일 업로드
+        const formData = new FormData();
+        const file = new File([dbFile.fileData], dbFile.fileName, { type: dbFile.fileType });
+        formData.append("file", file);
+
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+        const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+
+        const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/files`, {
+          method: "POST",
+          body: formData,
+          headers: token ? { "Authorization": `Bearer ${token}` } : {},
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`File upload failed: ${response.status} - ${errorText}`);
+        }
+
+        const uploadResult = await response.json();
+
+        // IndexedDB에 백엔드 URL 및 백엔드 ID 업데이트
+        const { updateFileBackendInfo } = await import("@/lib/db/files");
+        await updateFileBackendInfo(entityId, uploadResult.storageUrl, uploadResult.id);
+
+        console.log(`[Sync] ✅ File uploaded to backend: ${dbFile.fileName}, backendId: ${uploadResult.id}`);
+        return; // 성공으로 처리 (apiClient 호출 건너뜀)
       } else if (operation === "delete") {
-        // DELETE /files/:id
-        endpoint = `/files/${entityId}`;
+        // DELETE /api/files/:backendId - 백엔드 ID로 삭제
+        // data.backend_id가 있으면 백엔드에서 삭제, 없으면 스킵 (로컬에서만 삭제됨)
+        const backendId = data?.backend_id;
+        if (!backendId) {
+          console.log(`[Sync] File not synced to backend, skipping delete API call: ${entityId}`);
+          return; // 백엔드에 없는 파일은 스킵
+        }
+        endpoint = `/api/files/${backendId}`;
       } else {
         throw new Error(`file does not support ${operation} operation`);
       }

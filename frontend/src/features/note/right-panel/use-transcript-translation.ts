@@ -1,13 +1,21 @@
 /**
  * Transcript Translation Hook
- * Uses HTML Translation API or fallback to Google Translate
+ * DeepL API를 사용한 실시간 번역
  */
 
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useScriptTranslationStore } from "@/stores";
-import type { SupportedLanguage } from "@/lib/types";
+import type { TranslationErrorType } from "@/stores/script-translation-store";
+import {
+  translateBatch,
+  getUsage,
+  toDeepLLanguage,
+  TranslationConfigError,
+  TranslationAuthError,
+  TranslationQuotaError,
+} from "@/lib/api/services/translation.api";
 
 export function useTranscriptTranslation() {
   const {
@@ -15,199 +23,173 @@ export function useTranscriptTranslation() {
     isTranslationEnabled,
     targetLanguage,
     originalLanguage,
+    isTranslating,
     updateSegmentTranslation,
+    setIsTranslating,
+    setTranslationError,
+    setUsageInfo,
   } = useScriptTranslationStore();
 
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [translationSupported, setTranslationSupported] = useState<boolean | null>(null);
-  
-  // Track which segments have been translated to avoid re-translation
+  // 번역된 세그먼트 추적 (언어쌍별)
   const translatedSegmentIdsRef = useRef<Set<string>>(new Set());
 
-  // Check if Translation API is supported
-  useEffect(() => {
-    const checkSupport = async () => {
-      try {
-        // Check if the browser supports the Translation API
-        const canTranslate = "translation" in self && "canTranslate" in (self as any).translation;
-        setTranslationSupported(canTranslate);
-      } catch (error) {
-        console.error('[TranscriptTranslation] Error checking translation support:', error);
-        setTranslationSupported(false);
-      }
-    };
-
-    checkSupport();
+  /**
+   * 에러 타입 매핑
+   */
+  const handleError = useCallback((error: unknown): TranslationErrorType => {
+    if (error instanceof TranslationConfigError) {
+      return 'config_error';
+    } else if (error instanceof TranslationAuthError) {
+      return 'auth_error';
+    } else if (error instanceof TranslationQuotaError) {
+      return 'quota_exceeded';
+    } else if (error instanceof Error && error.message.includes('fetch')) {
+      return 'network_error';
+    }
+    return 'api_error';
   }, []);
 
   /**
-   * Translate text using HTML Translation API (Chrome 130+)
+   * 사용량 조회 및 업데이트
    */
-  const translateWithAPI = useCallback(async (text: string, from: string, to: string): Promise<string> => {
+  const updateUsage = useCallback(async () => {
     try {
-      // @ts-ignore - Translation API is experimental
-      const canTranslate = await self.translation.canTranslate({ sourceLanguage: from, targetLanguage: to });
-      
-      if (canTranslate === 'no') {
-        throw new Error('Translation not available for this language pair');
-      }
-
-      // @ts-ignore
-      const translator = await self.translation.createTranslator({ sourceLanguage: from, targetLanguage: to });
-      
-      if (canTranslate === 'after-download') {
-        // Wait for model download
-        console.log('[TranscriptTranslation] Downloading translation model...');
-      }
-
-      const result = await translator.translate(text);
-      return result;
+      const usage = await getUsage();
+      setUsageInfo({
+        used: usage.used,
+        limit: usage.limit,
+        remaining: usage.remaining,
+      });
     } catch (error) {
-      console.error('[TranscriptTranslation] Translation API failed:', error);
-      throw error;
+      console.warn('[Translation] Failed to fetch usage:', error);
     }
-  }, []);
+  }, [setUsageInfo]);
 
   /**
-   * Fallback: Use Google Translate page translate feature
-   */
-  const translateWithFallback = useCallback(async (text: string, from: string, to: string): Promise<string> => {
-    // Create a temporary element for translation
-    const tempDiv = document.createElement('div');
-    tempDiv.textContent = text;
-    tempDiv.setAttribute('translate', 'yes');
-    tempDiv.lang = from;
-    tempDiv.style.display = 'none';
-    document.body.appendChild(tempDiv);
-
-    // Wait for potential automatic translation (if Google Translate is active)
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const translated = tempDiv.textContent || text;
-    document.body.removeChild(tempDiv);
-
-    // If no translation occurred, return original
-    if (translated === text) {
-      console.warn('[TranscriptTranslation] Fallback translation not available');
-      return text;
-    }
-
-    return translated;
-  }, []);
-
-  /**
-   * Translate a single segment
-   */
-  const translateSegment = useCallback(
-    async (segmentId: string, text: string) => {
-      // Skip if already translated
-      if (translatedSegmentIdsRef.current.has(segmentId)) {
-        console.log('[TranscriptTranslation] Segment already translated:', segmentId);
-        return;
-      }
-
-      try {
-        let translatedText: string;
-
-        if (translationSupported) {
-          translatedText = await translateWithAPI(text, originalLanguage, targetLanguage);
-        } else {
-          translatedText = await translateWithFallback(text, originalLanguage, targetLanguage);
-        }
-
-        updateSegmentTranslation(segmentId, translatedText);
-        translatedSegmentIdsRef.current.add(segmentId);
-      } catch (error) {
-        console.error(`[TranscriptTranslation] Failed to translate segment ${segmentId}:`, error);
-        // Keep original text on error
-        updateSegmentTranslation(segmentId, text);
-        translatedSegmentIdsRef.current.add(segmentId);
-      }
-    },
-    [translationSupported, originalLanguage, targetLanguage, updateSegmentTranslation, translateWithAPI, translateWithFallback]
-  );
-
-  /**
-   * Translate all untranslated segments
+   * 모든 미번역 세그먼트 번역 (배치)
    */
   const translateAllSegments = useCallback(async () => {
     if (!isTranslationEnabled) return;
 
-    // Filter segments that need translation (skip partial and already translated)
+    // 언어 쌍 키 생성
+    const langPairKey = `${originalLanguage}-${targetLanguage}`;
+
+    // 미번역 세그먼트 필터링
     const untranslatedSegments = scriptSegments.filter(
-      (segment) => 
-        !segment.translatedText && 
-        segment.originalText && 
-        !(segment as any).isPartial &&
-        !translatedSegmentIdsRef.current.has(segment.id)
+      (segment) =>
+        !segment.translatedText &&
+        segment.originalText &&
+        !segment.isPartial &&
+        !translatedSegmentIdsRef.current.has(`${segment.id}-${langPairKey}`)
     );
 
     if (untranslatedSegments.length === 0) {
-      console.log('[TranscriptTranslation] No segments to translate');
+      console.log('[Translation] No segments to translate');
       return;
     }
 
     setIsTranslating(true);
+    setTranslationError(null);
 
     try {
-      console.log('[TranscriptTranslation] Translating', untranslatedSegments.length, 'segments');
-      
-      // Translate segments in batches to avoid overwhelming the API
-      const batchSize = 3;
+      // DeepL 언어 코드로 변환
+      const sourceLang = toDeepLLanguage(originalLanguage);
+      const targetLang = toDeepLLanguage(targetLanguage);
+
+      console.log('[Translation] Starting translation:', {
+        segments: untranslatedSegments.length,
+        from: sourceLang,
+        to: targetLang,
+      });
+
+      // 배치 사이즈 (DeepL 권장: 50개 이하)
+      const batchSize = 20;
 
       for (let i = 0; i < untranslatedSegments.length; i += batchSize) {
         const batch = untranslatedSegments.slice(i, i + batchSize);
-        await Promise.all(
-          batch.map((segment) =>
-            translateSegment(segment.id, segment.originalText)
-          )
-        );
-        
-        // Small delay between batches
+        const texts = batch.map((seg) => seg.originalText);
+
+        // 배치 번역 (단일 API 호출)
+        const translatedTexts = await translateBatch(texts, targetLang, sourceLang);
+
+        // 결과 업데이트
+        batch.forEach((segment, idx) => {
+          console.log('[Translation] Updating segment:', {
+            segmentId: segment.id,
+            original: segment.originalText,
+            translated: translatedTexts[idx],
+          });
+          updateSegmentTranslation(segment.id, translatedTexts[idx]);
+          translatedSegmentIdsRef.current.add(`${segment.id}-${langPairKey}`);
+        });
+
+        // 배치 간 딜레이 (rate limit 방지)
         if (i + batchSize < untranslatedSegments.length) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
-      
-      console.log('[TranscriptTranslation] Translation complete');
+
+      console.log('[Translation] Translation complete');
+
+      // 사용량 업데이트
+      await updateUsage();
     } catch (error) {
-      console.error('[TranscriptTranslation] Translation failed:', error);
+      console.error('[Translation] Translation failed:', error);
+      const errorType = handleError(error);
+      setTranslationError(errorType);
+
+      // 실패한 세그먼트는 원본 유지 (이미 translatedText가 없으므로 별도 처리 불필요)
     } finally {
       setIsTranslating(false);
     }
-  }, [isTranslationEnabled, scriptSegments, translateSegment]);
+  }, [
+    isTranslationEnabled,
+    scriptSegments,
+    originalLanguage,
+    targetLanguage,
+    updateSegmentTranslation,
+    setIsTranslating,
+    setTranslationError,
+    handleError,
+    updateUsage,
+  ]);
 
-  // Clear translation cache when language changes
+  // 언어 변경 시 에러 초기화 (캐시는 유지 - 다른 언어쌍은 별도 캐시)
   useEffect(() => {
-    translatedSegmentIdsRef.current.clear();
-    console.log('[TranscriptTranslation] Translation cache cleared');
-  }, [targetLanguage, originalLanguage]);
+    setTranslationError(null);
+  }, [targetLanguage, originalLanguage, setTranslationError]);
 
-  // Auto-translate when translation is enabled or target language changes
+  // 번역 활성화 또는 새 세그먼트 추가 시 자동 번역
   useEffect(() => {
-    if (!isTranslationEnabled) return;
-    if (isTranslating) return; // Prevent overlapping translations
-    
-    // Only translate segments that don't have translations yet
+    if (!isTranslationEnabled || isTranslating) return;
+
+    const langPairKey = `${originalLanguage}-${targetLanguage}`;
+
     const needsTranslation = scriptSegments.some(
-      seg => !seg.translatedText && 
-             seg.originalText && 
-             !(seg as any).isPartial &&
-             !translatedSegmentIdsRef.current.has(seg.id)
+      (seg) =>
+        !seg.translatedText &&
+        seg.originalText &&
+        !seg.isPartial &&
+        !translatedSegmentIdsRef.current.has(`${seg.id}-${langPairKey}`)
     );
-    
+
     if (needsTranslation) {
-      console.log('[TranscriptTranslation] New segments detected, starting translation...');
+      console.log('[Translation] New segments detected, starting translation...');
       translateAllSegments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTranslationEnabled, scriptSegments.length]);
+  }, [isTranslationEnabled, scriptSegments.length, targetLanguage]);
+
+  // 컴포넌트 마운트 시 사용량 조회
+  useEffect(() => {
+    if (isTranslationEnabled) {
+      updateUsage();
+    }
+  }, [isTranslationEnabled, updateUsage]);
 
   return {
     isTranslating,
-    translationSupported,
-    translateSegment,
     translateAllSegments,
+    updateUsage,
   };
 }
-

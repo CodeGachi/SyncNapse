@@ -12,6 +12,8 @@ import { useEducatorUIStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import Image from "next/image";
 
+import { motion } from "framer-motion";
+
 interface NoteHeaderProps {
   noteId: string | null;
   noteTitle?: string; // optional - fallback으로 사용
@@ -43,7 +45,12 @@ export function NoteHeader({
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-[#1e1e1e] border-b border-[#2f2f2f]">
+    <motion.div
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
+      className="fixed top-0 left-0 right-0 z-50 bg-[#1e1e1e] border-b border-[#2f2f2f]"
+    >
       <div className="flex items-center justify-between px-4 py-2 relative">
         {/* 왼쪽: 아이콘 + 제목 영역 */}
         <div className="flex items-center gap-3">
@@ -99,8 +106,8 @@ export function NoteHeader({
         </div>
 
         {/* 헤더 메뉴 */}
-        <HeaderMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+        <HeaderMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} noteId={noteId} />
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -10,6 +10,7 @@ import { SpeechRecognitionService, type SpeechSegment } from "@/lib/speech/speec
 import { useScriptTranslationStore } from "@/stores";
 import type { WordWithTime } from "@/lib/types";
 import * as transcriptionApi from "@/lib/api/transcription.api";
+import * as audioApi from "@/lib/api/audio.api";
 
 export interface RecordingData {
   id: string;
@@ -18,6 +19,7 @@ export interface RecordingData {
   duration: number;
   createdAt: Date;
   sessionId?: string; // Backend transcription session ID
+  audioRecordingId?: string; // Backend audio recording ID (for timeline events)
 }
 
 /**
@@ -67,6 +69,7 @@ export function useRecording(noteId?: string | null) {
   const [recordingStartTime, setRecordingStartTime] = useState<Date | null>(null); // Track when recording started
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [audioRecordingId, setAudioRecordingId] = useState<string | null>(null); // AudioRecording ID for timeline
 
   const queryClient = useQueryClient();
   const { setScriptSegments, clearScriptSegments} = useScriptTranslationStore();
@@ -95,7 +98,9 @@ export function useRecording(noteId?: string | null) {
   const startRecording = useCallback(async () => {
     try {
       setError(null);
-      setRecordingStartTime(new Date()); // Record start time
+      const startTime = new Date();
+      setRecordingStartTime(startTime); // Record start time
+      setAudioRecordingId(null); // Reset audio recording ID
 
       // Clear previous script segments and reset timing
       clearScriptSegments();
@@ -105,6 +110,24 @@ export function useRecording(noteId?: string | null) {
       speechRecognitionStartTimeRef.current = 0;
       audioRecordingTimeAtSpeechStartRef.current = 0;
       console.log('[useRecording] Cleared previous script segments and reset timing');
+
+      // Create AudioRecording for timeline events (if noteId exists)
+      let createdAudioRecordingId: string | null = null;
+      if (noteId) {
+        try {
+          const defaultTitle = `${startTime.getFullYear()}_${String(startTime.getMonth() + 1).padStart(2, '0')}_${String(startTime.getDate()).padStart(2, '0')}_${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}:${String(startTime.getSeconds()).padStart(2, '0')}`;
+          const audioRecording = await audioApi.createRecording({
+            noteId,
+            title: defaultTitle,
+          });
+          createdAudioRecordingId = audioRecording.id;
+          setAudioRecordingId(audioRecording.id);
+          console.log('[useRecording] Created AudioRecording for timeline:', audioRecording.id);
+        } catch (audioRecordingError) {
+          console.error('[useRecording] Failed to create AudioRecording:', audioRecordingError);
+          // Continue recording even if AudioRecording creation fails
+        }
+      }
 
       // 마이크 권한 요청 (최적화된 설정)
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -464,12 +487,12 @@ export function useRecording(noteId?: string | null) {
           let sessionId: string | undefined;
 
           try {
-            console.log('[useRecording] Creating transcription session:', recordingTitle, 'noteId:', noteId);
-            
-            // 1. Create session
-            const session = await transcriptionApi.createSession(recordingTitle, noteId || undefined);
+            console.log('[useRecording] Creating transcription session:', recordingTitle, 'noteId:', noteId, 'audioRecordingId:', audioRecordingId);
+
+            // 1. Create session (audioRecordingId 포함하여 타임라인 연동)
+            const session = await transcriptionApi.createSession(recordingTitle, noteId || undefined, audioRecordingId || undefined);
             sessionId = session.id;
-            console.log('[useRecording] Created session:', sessionId);
+            console.log('[useRecording] Created session:', sessionId, 'with audioRecordingId:', audioRecordingId);
 
             // 2. Convert audio blob to base64 data URL
             const audioDataUrl = await new Promise<string>((resolve) => {
@@ -555,6 +578,7 @@ export function useRecording(noteId?: string | null) {
             duration: recordingTime,
             createdAt: new Date(),
             sessionId, // Include backend session ID
+            audioRecordingId: audioRecordingId || undefined, // Include audio recording ID for timeline
           };
 
           // 상태 초기화
@@ -726,6 +750,7 @@ export function useRecording(noteId?: string | null) {
     formattedTime: formatTime(recordingTime),
     error,
     isSaving,
+    audioRecordingId, // Export audio recording ID for timeline events
     startRecording,
     pauseRecording,
     resumeRecording,

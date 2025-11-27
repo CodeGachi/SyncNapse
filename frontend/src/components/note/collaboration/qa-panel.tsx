@@ -16,7 +16,7 @@ import {
   useBroadcastEvent,
   useEventListener,
 } from "@/lib/liveblocks/liveblocks.config";
-import { ThumbsUp, Pin, Trash2, MessageCircle } from "lucide-react";
+import { ThumbsUp, Pin, Trash2, MessageCircle, CheckCircle } from "lucide-react";
 import * as questionsApi from "@/lib/api/services/questions.api";
 
 /**
@@ -439,7 +439,7 @@ export function QAPanel({
       )}
 
       {/* 질문 작성 폼 */}
-      <div className="border-b border-white/20 pb-3">
+      <div className="border-b border-[#3c3c3c] pb-4 px-1">
         <div className="flex gap-2">
           <input
             type="text"
@@ -447,12 +447,12 @@ export function QAPanel({
             onChange={(e) => setNewQuestionText(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleAddQuestion()}
             placeholder="질문을 입력하세요..."
-            className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-[#AFC02B]"
+            className="flex-1 bg-[#252525] border border-[#3c3c3c] rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all"
           />
           <button
             onClick={handleAddQuestion}
             disabled={!newQuestionText.trim()}
-            className="px-3 py-2 bg-[#AFC02B] text-black rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B]/90 transition-colors text-sm"
+            className="px-4 py-2 bg-[#AFC02B] text-black rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#c2d43b] transition-colors text-sm shadow-sm active:scale-95"
           >
             질문
           </button>
@@ -460,12 +460,16 @@ export function QAPanel({
       </div>
 
       {/* 질문 목록 */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
         {sortedQuestions.length === 0 ? (
-          <div className="text-center py-8 text-white/40 text-sm flex flex-col items-center gap-2">
-            <MessageCircle size={32} />
-            <p>아직 질문이 없습니다</p>
-            <p className="text-xs">첫 질문을 작성해보세요!</p>
+          <div className="flex flex-col items-center justify-center h-60 text-gray-500 gap-3">
+            <div className="w-16 h-16 rounded-full bg-[#252525] flex items-center justify-center">
+              <MessageCircle size={28} className="opacity-20" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium mb-1">아직 질문이 없습니다</p>
+              <p className="text-xs text-gray-600">첫 질문을 작성하여 대화를 시작해보세요!</p>
+            </div>
           </div>
         ) : (
           sortedQuestions.map((question) => (
@@ -551,67 +555,77 @@ function QuestionCard({
 
   return (
     <div
-      className={`bg-white/5 rounded-lg p-3 border transition-colors ${
-        question.isPinned
-          ? "border-yellow-400/50 bg-yellow-400/5"
-          : "border-white/10 hover:border-white/20"
-      }`}
+      className={`rounded-xl p-4 border transition-all shadow-sm ${question.isPinned
+        ? "border-[#AFC02B]/30 bg-[#AFC02B]/5"
+        : "border-transparent bg-[#252525] hover:border-[#3c3c3c]"
+        }`}
     >
       {/* 헤더 */}
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-white text-xs font-medium">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={`text-xs font-bold ${isMyQuestion ? "text-[#AFC02B]" : "text-white"}`}>
               {question.authorName}
-              {isMyQuestion && (
-                <span className="text-[#AFC02B] ml-1">(나)</span>
-              )}
+              {isMyQuestion && <span className="font-normal opacity-80 ml-1">(나)</span>}
             </span>
-            <span className="text-white/40 text-xs">
+            <span className="text-gray-500 text-[10px]">
               {new Date(question.createdAt).toLocaleTimeString("ko-KR", {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </span>
+            {/* 배지 */}
+            {question.isPinned && (
+              <div className="flex items-center gap-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded-full px-2 py-0.5 text-[10px] font-bold">
+                <Pin size={8} className="fill-current" />
+                <span>PINNED</span>
+              </div>
+            )}
           </div>
-          <p className="text-white text-sm break-words">{question.content}</p>
+          <p className="text-gray-200 text-sm leading-relaxed break-words">{question.content}</p>
         </div>
-
-        {/* 배지 */}
-        {question.isPinned && (
-          <div className="bg-yellow-400/20 text-yellow-400 rounded px-1.5 py-0.5 text-xs font-medium flex-shrink-0">
-            고정
-          </div>
-        )}
       </div>
 
       {/* 액션 버튼 */}
-      <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+      <div className="flex items-center gap-2 pt-3 border-t border-white/5">
         {/* 추천 */}
         <button
           onClick={onUpvote}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-            isUpvoted
-              ? "bg-blue-500/20 text-blue-400"
-              : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-          }`}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isUpvoted
+            ? "bg-[#AFC02B]/20 text-[#AFC02B]"
+            : "bg-[#333] text-gray-400 hover:bg-[#444] hover:text-white"
+            }`}
         >
-          <ThumbsUp size={12} className={isUpvoted ? "fill-blue-400" : ""} />
+          <ThumbsUp size={12} className={isUpvoted ? "fill-current" : ""} />
           <span>{question.upvotes?.length || 0}</span>
         </button>
+
+        {/* 답변 토글 버튼 */}
+        <button
+          onClick={() => setShowAnswers(!showAnswers)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${showAnswers || (question.answers?.length || 0) > 0
+            ? "bg-[#333] text-white"
+            : "bg-transparent text-gray-500 hover:bg-[#333] hover:text-gray-300"
+            }`}
+        >
+          <MessageCircle size={12} />
+          <span>{question.answers?.length || 0}</span>
+          <span className="ml-1">{showAnswers ? "접기" : "답변"}</span>
+        </button>
+
+        <div className="flex-1" />
 
         {/* Educator 전용 버튼 */}
         {isEducator && (
           <button
             onClick={onTogglePin}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-              question.isPinned
-                ? "bg-yellow-400/20 text-yellow-400"
-                : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-            }`}
-            title="고정"
+            className={`p-1.5 rounded-lg transition-colors ${question.isPinned
+              ? "text-[#AFC02B] bg-[#AFC02B]/10"
+              : "text-gray-500 hover:text-white hover:bg-[#333]"
+              }`}
+            title={question.isPinned ? "고정 해제" : "고정"}
           >
-            <Pin size={12} />
+            <Pin size={14} className={question.isPinned ? "fill-current" : ""} />
           </button>
         )}
 
@@ -619,50 +633,38 @@ function QuestionCard({
         {(isMyQuestion || isEducator) && (
           <button
             onClick={onDelete}
-            className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-white/5 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
             title="삭제"
           >
-            <Trash2 size={12} />
+            <Trash2 size={14} />
           </button>
         )}
-
-        {/* 답변 토글 버튼 */}
-        <button
-          onClick={() => setShowAnswers(!showAnswers)}
-          className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <MessageCircle size={12} />
-          <span>{question.answers?.length || 0}</span>
-        </button>
       </div>
 
       {/* 답변 섹션 */}
       {showAnswers && (
-        <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+        <div className="mt-3 pt-3 space-y-3 bg-[#1e1e1e] -mx-4 -mb-4 p-4 rounded-b-xl border-t border-[#333]">
           {/* 답변 목록 */}
           {question.answers && question.answers.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3 mb-4">
               {question.answers.map((answer) => {
                 const isMyAnswer = answer.authorId === currentUserId;
                 return (
                   <div
                     key={answer.id}
-                    className={`bg-white/5 rounded p-2 border ${
-                      answer.isBest
-                        ? "border-[#AFC02B]/50 bg-[#AFC02B]/5"
-                        : "border-white/10"
-                    }`}
+                    className={`rounded-lg p-3 border transition-all ${answer.isBest
+                      ? "border-[#AFC02B]/30 bg-[#AFC02B]/5"
+                      : "border-[#333] bg-[#2a2a2a]"
+                      }`}
                   >
                     {/* 답변 헤더 */}
-                    <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-white/80 text-xs font-medium">
+                        <span className={`text-xs font-bold ${isMyAnswer ? "text-[#AFC02B]" : "text-gray-300"}`}>
                           {answer.authorName}
-                          {isMyAnswer && (
-                            <span className="text-[#AFC02B] ml-1">(나)</span>
-                          )}
+                          {isMyAnswer && <span className="font-normal opacity-80 ml-1">(나)</span>}
                         </span>
-                        <span className="text-white/40 text-xs">
+                        <span className="text-gray-600 text-[10px]">
                           {new Date(answer.createdAt).toLocaleTimeString(
                             "ko-KR",
                             {
@@ -673,8 +675,9 @@ function QuestionCard({
                         </span>
                         {/* 베스트 답변 배지 */}
                         {answer.isBest && (
-                          <div className="bg-[#AFC02B]/20 text-[#AFC02B] rounded px-1.5 py-0.5 text-xs font-medium">
-                            ✓ 채택
+                          <div className="flex items-center gap-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded px-1.5 py-0.5 text-[10px] font-bold">
+                            <CheckCircle size={8} />
+                            <span>채택됨</span>
                           </div>
                         )}
                       </div>
@@ -685,10 +688,10 @@ function QuestionCard({
                         {isEducator && !answer.isBest && (
                           <button
                             onClick={() => onMarkAnswerAsBest(answer.id)}
-                            className="px-1.5 py-0.5 rounded text-xs bg-white/5 text-[#AFC02B]/60 hover:bg-[#AFC02B]/20 hover:text-[#AFC02B] transition-colors"
+                            className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#333] text-gray-400 hover:bg-[#AFC02B]/20 hover:text-[#AFC02B] transition-colors"
                             title="베스트 답변으로 표시"
                           >
-                            채택
+                            채택하기
                           </button>
                         )}
 
@@ -696,17 +699,17 @@ function QuestionCard({
                         {(isMyAnswer || isEducator) && (
                           <button
                             onClick={() => onDeleteAnswer(answer.id)}
-                            className="px-1.5 py-0.5 rounded text-xs bg-white/5 text-red-400/60 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                            className="p-1 rounded text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                             title="삭제"
                           >
-                            <Trash2 size={10} />
+                            <Trash2 size={12} />
                           </button>
                         )}
                       </div>
                     </div>
 
                     {/* 답변 내용 */}
-                    <p className="text-white/90 text-sm break-words">
+                    <p className="text-gray-300 text-sm leading-relaxed break-words">
                       {answer.content}
                     </p>
                   </div>
@@ -723,14 +726,14 @@ function QuestionCard({
               onChange={(e) => setNewAnswerText(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSubmitAnswer()}
               placeholder="답변을 입력하세요..."
-              className="flex-1 bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white text-xs placeholder:text-white/40 focus:outline-none focus:border-[#AFC02B]"
+              className="flex-1 bg-[#2a2a2a] border border-[#333] rounded-lg px-3 py-2 text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#AFC02B] transition-colors"
             />
             <button
               onClick={handleSubmitAnswer}
               disabled={!newAnswerText.trim()}
-              className="px-2 py-1.5 bg-[#AFC02B] text-black rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B]/90 transition-colors"
+              className="px-3 py-2 bg-[#333] text-gray-300 hover:text-white hover:bg-[#444] rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              답변
+              등록
             </button>
           </div>
         </div>

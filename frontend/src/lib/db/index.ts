@@ -59,6 +59,7 @@ export interface DBFile {
   size: number;
   createdAt: number;
   backendUrl?: string; // 백엔드 영구 URL (옵션)
+  backendId?: string; // 백엔드 파일 ID (동기화 후 저장)
 }
 
 export interface DBNoteContent {

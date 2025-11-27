@@ -43,7 +43,7 @@ export function PollPanel({
 
   // 투표 목록 변경 감지 (디버깅용)
   useEffect(() => {
-    /* console.log(`[Poll Panel] 투표 목록 업데이트:`, {
+    console.log(`[Poll Panel] 투표 목록 업데이트:`, {
       userId,
       isEducator,
       pollCount: polls.length,
@@ -52,23 +52,23 @@ export function PollPanel({
         question: activePoll.question,
         optionCount: activePoll.options.length,
       } : null,
-    }); */
+    });
   }, [polls, userId, isEducator, activePoll]);
 
   // 투표 이벤트 리스너 (Student에게 알림)
   useEventListener(({ event }) => {
     if (event.type === "POLL_CREATED") {
-      // console.log(`[Poll Panel] 새 투표 생성됨:`, event.question);
+      console.log(`[Poll Panel] 새 투표 생성됨:`, event.question);
       if (!isEducator) {
         setToastMessage(`새 투표가 시작되었습니다: ${event.question}`);
         setShowToast(true);
       }
     } else if (event.type === "POLL_ENDED") {
-      // console.log(`[Poll Panel] 투표 종료됨:`, event.pollId);
+      console.log(`[Poll Panel] 투표 종료됨:`, event.pollId);
       setToastMessage("투표가 종료되었습니다");
       setShowToast(true);
     } else if (event.type === "POLL_VOTE") {
-      // console.log(`[Poll Panel] 투표 참여:`, event);
+      console.log(`[Poll Panel] 투표 참여:`, event);
       // Educator만 투표 알림 받기
       if (isEducator) {
         // 조용히 로그만 (너무 많은 알림 방지)
@@ -87,10 +87,10 @@ export function PollPanel({
   // 투표 생성 Mutation (Educator만)
   const createPoll = useMutation(
     ({ storage }, question: string, options: string[]) => {
-      // console.log(`[Poll Mutation] Storage 접근 시작`);
+      console.log(`[Poll Mutation] Storage 접근 시작`);
       const polls = storage.get("polls");
-      // console.log(`[Poll Mutation] 현재 polls 배열:`, polls);
-      // console.log(`[Poll Mutation] polls 타입:`, typeof polls, Array.isArray(polls));
+      console.log(`[Poll Mutation] 현재 polls 배열:`, polls);
+      console.log(`[Poll Mutation] polls 타입:`, typeof polls, Array.isArray(polls));
 
       // 기존 활성 투표 비활성화 (LiveList 중첩 객체 문제 해결)
       for (let i = 0; i < polls.length; i++) {
@@ -114,9 +114,9 @@ export function PollPanel({
         isActive: true,
       };
 
-      // console.log(`[Poll Mutation] 새 투표 생성:`, newPoll);
+      console.log(`[Poll Mutation] 새 투표 생성:`, newPoll);
       polls.push(newPoll);
-      // console.log(`[Poll Mutation] 투표 추가 후 배열 길이:`, polls.length);
+      console.log(`[Poll Mutation] 투표 추가 후 배열 길이:`, polls.length);
     },
     [userId]
   );
@@ -138,11 +138,11 @@ export function PollPanel({
           votes:
             idx === optionIndex
               ? // 선택한 옵션: 기존 투표 제거 후 추가
-                option.votes.includes(userId)
+              option.votes.includes(userId)
                 ? option.votes // 이미 투표했으면 그대로
                 : [...option.votes, userId]
               : // 다른 옵션: 기존 투표 제거
-                option.votes.filter((id) => id !== userId),
+              option.votes.filter((id) => id !== userId),
         })),
       });
     },
@@ -167,18 +167,18 @@ export function PollPanel({
   const handleCreatePoll = () => {
     const validOptions = options.filter((opt) => opt.trim());
     if (question.trim() && validOptions.length >= 2) {
-      /* console.log(`[Poll Panel] 투표 생성 시작:`, {
+      console.log(`[Poll Panel] 투표 생성 시작:`, {
         userId,
         isEducator,
         question,
         options: validOptions,
-      }); */
+      });
 
       const pollId = `poll-${Date.now()}`;
 
       // 1. Storage에 저장
       createPoll(question, validOptions);
-      // console.log(`[Poll Panel] 투표 생성 완료 (Mutation 실행됨)`);
+      console.log(`[Poll Panel] 투표 생성 완료 (Mutation 실행됨)`);
 
       // 2. Broadcast로 즉시 알림
       broadcast({
@@ -186,7 +186,7 @@ export function PollPanel({
         pollId,
         question,
       });
-      // console.log(`[Poll Panel] 투표 생성 Broadcast 전송 완료`);
+      console.log(`[Poll Panel] 투표 생성 Broadcast 전송 완료`);
 
       setQuestion("");
       setOptions(["", ""]);
@@ -212,7 +212,7 @@ export function PollPanel({
 
   // 투표 참여 (Storage + Broadcast)
   const handleVote = (pollId: string, optionIndex: number) => {
-    // console.log(`[Poll Panel] 투표 참여:`, { pollId, optionIndex, userId });
+    console.log(`[Poll Panel] 투표 참여:`, { pollId, optionIndex, userId });
 
     // 1. Storage에 저장
     vote(pollId, optionIndex);
@@ -224,12 +224,12 @@ export function PollPanel({
       optionIndex,
       userId,
     });
-    // console.log(`[Poll Panel] 투표 Broadcast 전송 완료`);
+    console.log(`[Poll Panel] 투표 Broadcast 전송 완료`);
   };
 
   // 투표 종료 (Storage + Broadcast)
   const handleEndPoll = (pollId: string) => {
-    // console.log(`[Poll Panel] 투표 종료:`, { pollId });
+    console.log(`[Poll Panel] 투표 종료:`, { pollId });
 
     // 1. Storage에 저장
     endPoll(pollId);
@@ -239,7 +239,7 @@ export function PollPanel({
       type: "POLL_ENDED",
       pollId,
     });
-    // console.log(`[Poll Panel] 투표 종료 Broadcast 전송 완료`);
+    console.log(`[Poll Panel] 투표 종료 Broadcast 전송 완료`);
   };
 
   // Educator만 투표 생성 가능
@@ -266,36 +266,54 @@ export function PollPanel({
       {isEducator && !activePoll && (
         <>
           {!isCreating ? (
-            <button
-              onClick={() => setIsCreating(true)}
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-[#AFC02B] text-black rounded font-medium hover:bg-[#AFC02B]/90 transition-colors"
-            >
-              <Plus size={18} />
-              <span>새 투표 만들기</span>
-            </button>
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 bg-[#AFC02B]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 size={32} className="text-[#AFC02B]" />
+                </div>
+                <h4 className="text-white text-lg font-bold">새로운 투표 만들기</h4>
+                <p className="text-gray-400 text-sm">
+                  실시간 투표를 통해<br />학생들의 의견을 수집해보세요
+                </p>
+              </div>
+              <button
+                onClick={() => setIsCreating(true)}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#333] text-[#AFC02B] border border-[#AFC02B]/30 rounded-xl font-bold hover:bg-[#AFC02B] hover:text-black transition-all shadow-lg hover:scale-105 active:scale-95"
+              >
+                <Plus size={20} />
+                <span>투표 생성하기</span>
+              </button>
+            </div>
           ) : (
-            <div className="border border-white/20 rounded-lg p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-white text-sm font-bold">투표 생성</h4>
+            <div className="bg-[#252525] border border-[#3c3c3c] rounded-xl p-4 space-y-4 shadow-lg">
+              <div className="flex items-center justify-between border-b border-[#3c3c3c] pb-3">
+                <h4 className="text-white text-sm font-bold flex items-center gap-2">
+                  <BarChart3 size={16} className="text-[#AFC02B]" />
+                  투표 생성
+                </h4>
                 <button
                   onClick={() => setIsCreating(false)}
-                  className="text-white/60 hover:text-white"
+                  className="text-gray-500 hover:text-white transition-colors"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 
               {/* 질문 */}
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="투표 질문을 입력하세요..."
-                className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-[#AFC02B]"
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-400 font-medium ml-1">질문</label>
+                <input
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="투표 질문을 입력하세요..."
+                  className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#AFC02B] transition-colors"
+                />
+              </div>
 
               {/* 옵션 */}
               <div className="space-y-2">
+                <label className="text-xs text-gray-400 font-medium ml-1">옵션</label>
                 {options.map((option, index) => (
                   <div key={index} className="flex gap-2">
                     <input
@@ -303,12 +321,12 @@ export function PollPanel({
                       value={option}
                       onChange={(e) => handleOptionChange(index, e.target.value)}
                       placeholder={`옵션 ${index + 1}`}
-                      className="flex-1 bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-[#AFC02B]"
+                      className="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#AFC02B] transition-colors"
                     />
                     {options.length > 2 && (
                       <button
                         onClick={() => handleRemoveOption(index)}
-                        className="px-2 text-white/60 hover:text-red-400"
+                        className="px-2 text-gray-500 hover:text-red-400 transition-colors"
                       >
                         <X size={16} />
                       </button>
@@ -320,7 +338,7 @@ export function PollPanel({
               {/* 옵션 추가 */}
               <button
                 onClick={handleAddOption}
-                className="w-full px-3 py-2 bg-white/5 text-white/60 rounded text-xs hover:bg-white/10 hover:text-white transition-colors"
+                className="w-full px-3 py-2.5 bg-[#333] text-gray-400 rounded-lg text-xs font-medium hover:bg-[#444] hover:text-white transition-colors border border-dashed border-[#444]"
               >
                 + 옵션 추가
               </button>
@@ -332,7 +350,7 @@ export function PollPanel({
                   !question.trim() ||
                   options.filter((opt) => opt.trim()).length < 2
                 }
-                className="w-full px-4 py-2 bg-[#AFC02B] text-black rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B]/90 transition-colors"
+                className="w-full px-4 py-3 bg-[#333] text-[#AFC02B] border border-[#AFC02B]/30 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B] hover:text-black transition-all shadow-md mt-2"
               >
                 투표 시작
               </button>
@@ -343,22 +361,31 @@ export function PollPanel({
 
       {/* 활성 투표 */}
       {activePoll && (
-        <div className="flex-1 flex flex-col gap-3">
+        <div className="flex-1 flex flex-col gap-4 h-full">
           {/* 질문 */}
-          <div className="border-b border-white/20 pb-3">
-            <h3 className="text-white text-base font-bold">
-              {activePoll.question}
-            </h3>
-            <p className="text-white/60 text-xs mt-1">
-              {new Date(activePoll.createdAt).toLocaleTimeString("ko-KR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+          <div className="bg-[#252525] border border-[#3c3c3c] rounded-xl p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[#AFC02B]/20 text-[#AFC02B] mb-2">
+                  진행 중
+                </span>
+                <h3 className="text-white text-lg font-bold leading-tight">
+                  {activePoll.question}
+                </h3>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-500 text-[10px] font-mono">
+                  {new Date(activePoll.createdAt).toLocaleTimeString("ko-KR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* 옵션 */}
-          <div className="flex-1 overflow-y-auto space-y-2">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
             {activePoll.options.map((option, index) => {
               const totalVotes = activePoll.options.reduce(
                 (sum, opt) => sum + opt.votes.length,
@@ -375,39 +402,47 @@ export function PollPanel({
                   key={index}
                   onClick={() => handleVote(activePoll.id, index)}
                   disabled={!activePoll.isActive}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
-                    isVoted
-                      ? "border-[#AFC02B] bg-[#AFC02B]/10"
-                      : "border-white/20 bg-white/5 hover:border-white/30 hover:bg-white/10"
-                  } ${!activePoll.isActive ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`w-full text-left p-4 rounded-xl border transition-all relative overflow-hidden group ${isVoted
+                    ? "border-[#AFC02B] bg-[#AFC02B]/5 shadow-[0_0_15px_rgba(175,192,43,0.1)]"
+                    : "border-[#3c3c3c] bg-[#252525] hover:border-[#555] hover:bg-[#2a2a2a]"
+                    } ${!activePoll.isActive ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-white text-sm font-medium flex-1">
-                      {option.text}
-                    </span>
-                    {isVoted && (
-                      <CheckCircle2 size={16} className="text-[#AFC02B]" />
-                    )}
-                  </div>
-
-                  {/* 진행 바 */}
-                  <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className={`absolute inset-y-0 left-0 rounded-full transition-all duration-300 ${
-                        isVoted ? "bg-[#AFC02B]" : "bg-white/30"
+                  {/* 배경 진행 바 */}
+                  <div
+                    className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${isVoted ? "bg-[#AFC02B]/10" : "bg-white/5"
                       }`}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
+                    style={{ width: `${percentage}%` }}
+                  />
 
-                  {/* 통계 */}
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-white/60 text-xs">
-                      {option.votes.length}명 투표
-                    </span>
-                    <span className="text-white/60 text-xs font-bold">
-                      {percentage}%
-                    </span>
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <span className={`text-sm font-bold flex-1 ${isVoted ? "text-[#AFC02B]" : "text-white"}`}>
+                        {option.text}
+                      </span>
+                      {isVoted && (
+                        <div className="bg-[#AFC02B] text-black rounded-full p-0.5">
+                          <CheckCircle2 size={14} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 통계 */}
+                    <div className="flex items-end justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-24 bg-[#1e1e1e] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${isVoted ? "bg-[#AFC02B]" : "bg-gray-500"}`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-500 text-xs font-medium">
+                          {option.votes.length}명
+                        </span>
+                      </div>
+                      <span className={`text-lg font-bold ${isVoted ? "text-[#AFC02B]" : "text-white"}`}>
+                        {percentage}%
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
@@ -418,15 +453,15 @@ export function PollPanel({
           {isEducator && activePoll.isActive && (
             <button
               onClick={() => handleEndPoll(activePoll.id)}
-              className="w-full px-4 py-2 bg-red-500/20 text-red-400 rounded font-medium hover:bg-red-500/30 transition-colors"
+              className="w-full px-4 py-3 bg-[#252525] border border-red-500/30 text-red-400 rounded-xl font-bold hover:bg-red-500/10 hover:border-red-500/50 transition-all shadow-sm"
             >
-              투표 종료
+              투표 종료하기
             </button>
           )}
 
           {/* 투표 종료 메시지 */}
           {!activePoll.isActive && (
-            <div className="text-center py-2 text-white/60 text-sm bg-white/5 rounded">
+            <div className="text-center py-3 text-gray-500 text-sm bg-[#252525] rounded-xl border border-[#3c3c3c]">
               투표가 종료되었습니다
             </div>
           )}

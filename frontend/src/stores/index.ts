@@ -5,6 +5,7 @@ export { useScriptTranslationStore } from "./script-translation-store";
 export { useCollaborationStore } from "./collaboration-store";
 export { useDrawStore } from "./draw-store";
 export { useToolsStore } from "./tools-store";
+export { useAudioPlayerStore } from "./audio-player-store";
 
 // UI Stores
 export { useNoteUIStore } from "./ui/note-ui-store";

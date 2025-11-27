@@ -8,6 +8,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Modal } from "@/components/common/modal";
+import { Button } from "@/components/common/button";
 import { NoteSettingsModal } from "./create-note-modal";
 import type { NoteData } from "@/lib/types";
 
@@ -54,35 +55,9 @@ export function NoteTypeSelectorModal({
       <Modal
         isOpen={isOpen && !showSettingsModal}
         onClose={onClose}
-        overlayClassName="fixed inset-0 z-40 transition-opacity"
-        overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-        containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
-        contentClassName="bg-[#2F2F2F] rounded-lg p-8 flex flex-col gap-6 min-w-[500px]"
-        closeButton={false}
+        title="노트 유형 선택"
+        contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-lg p-8 flex flex-col gap-6 min-w-[500px]"
       >
-        {/* Title */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-white text-2xl font-bold">노트 유형 선택</h2>
-          <button
-            onClick={onClose}
-            className="text-[#9CA3AF] hover:text-white transition-colors"
-          >
-            <svg
-              width="18"
-              height="24"
-              viewBox="0 0 18 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M1 1L17 23M17 1L1 23"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        </div>
 
         {/* Type Selection Cards */}
         <div className="flex gap-6">
@@ -128,12 +103,11 @@ export function NoteTypeSelectorModal({
         </div>
 
         {/* Cancel Button */}
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors text-center text-sm py-2"
-        >
-          취소
-        </button>
+        <div className="flex justify-center">
+          <Button variant="ghost" onClick={onClose} className="text-gray-400 hover:text-white">
+            취소
+          </Button>
+        </div>
       </Modal>
 
       {/* Note Settings Modal */}

@@ -18,17 +18,19 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
   };
 
   return (
-    <div className="flex items-end w-full h-[32px]">
-      {files.map((file, index) => (
-        <div
-          key={file.id}
-          onClick={() => onTabChange(index)}
-          className={`${
-            activeTab === index
-              ? "bg-[#2f2f2f] border-t border-x border-[#3c3c3c]"
-              : "bg-[#1e1e1e] border-t border-r border-[#3c3c3c] border-b"
-          } h-full w-[130px] flex items-center justify-between gap-1 px-2 cursor-pointer hover:bg-[#2f2f2f] transition-colors group`}
-        >
+    <div className="flex items-end w-full h-[32px] overflow-hidden">
+      {/* 탭 스크롤 영역 */}
+      <div className="flex items-end h-full overflow-x-auto overflow-y-hidden scrollbar-hide min-w-0 flex-shrink">
+        {files.map((file, index) => (
+          <div
+            key={file.id}
+            onClick={() => onTabChange(index)}
+            className={`${
+              activeTab === index
+                ? "bg-[#2f2f2f] border-t border-x border-[#3c3c3c]"
+                : "bg-[#1e1e1e] border-t border-r border-[#3c3c3c] border-b"
+            } h-full w-[130px] min-w-[130px] flex items-center justify-between gap-1 px-2 cursor-pointer hover:bg-[#2f2f2f] transition-colors group flex-shrink-0`}
+          >
           <div className="flex items-center gap-1 flex-1 min-w-0">
             {/* 파일 아이콘 */}
             <svg width="14" height="14" viewBox="0 0 17 17" fill="none" className="flex-shrink-0">
@@ -58,12 +60,13 @@ export function FileTabs({ files, activeTab, onTabChange, onTabClose }: FileTabs
                 <path d="M1 1l8 8M9 1l-8 8" />
               </svg>
             </button>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* 빈 공간 하단 border */}
-      <div className="flex-1 border-b border-[#3c3c3c]" />
+      <div className="flex-1 border-b border-[#3c3c3c] min-w-[16px]" />
     </div>
   );
 }

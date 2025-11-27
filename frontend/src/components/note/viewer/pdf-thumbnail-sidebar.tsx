@@ -6,6 +6,7 @@
 "use client";
 
 import { useEffect, useRef, memo, useState } from "react";
+import { Spinner } from "@/components/common/spinner";
 
 interface PdfThumbnailSidebarProps {
   thumbnails: Map<number, HTMLCanvasElement>;
@@ -46,11 +47,10 @@ const ThumbnailItem = memo(({
   return (
     <div
       onClick={onClick}
-      className={`flex flex-col items-center p-2 rounded cursor-pointer transition-all ${
-        isActive
+      className={`flex flex-col items-center p-2 rounded cursor-pointer transition-all ${isActive
           ? "bg-[#AFC02B]/20 border-2 border-[#AFC02B]"
           : "bg-[#2f2f2f] border-2 border-transparent hover:border-[#3c3c3c]"
-      }`}
+        }`}
     >
       {/* 썸네일 이미지 */}
       <div
@@ -65,16 +65,13 @@ const ThumbnailItem = memo(({
             className="w-full h-auto"
           />
         ) : (
-          <div className="flex items-center justify-center text-gray-500 text-xs">
-            로딩 중...
-          </div>
+          <Spinner size="sm" />
         )}
       </div>
 
       {/* 페이지 번호 */}
-      <div className={`mt-1 text-xs font-medium ${
-        isActive ? "text-[#AFC02B]" : "text-gray-400"
-      }`}>
+      <div className={`mt-1 text-xs font-medium ${isActive ? "text-[#AFC02B]" : "text-gray-400"
+        }`}>
         {pageNum}
       </div>
     </div>

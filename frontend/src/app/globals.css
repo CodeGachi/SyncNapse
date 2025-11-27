@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: #1e1e1e;
+  color: white;
+}
+
 /* hide scrollbar for IE, Edge and Firefox */
 * {
   scrollbar-width: none; /* Firefox */
@@ -10,5 +15,96 @@
 
 /* hide scrollbar for Chrome, Safari and Opera */
 *::-webkit-scrollbar {
-  display: none; 
+  display: none;
+}
+
+/* PDF.js Text Layer Styles (3.x compatible) */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+  /* PDF.js 3.x 기본값 */
+  --scale-factor: 1;
+  /* 선택 영역이 밖으로 나가지 않도록 */
+  contain: paint;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  margin: 0;
+  padding: 0;
+  /* 글자 겹침 시 선택 영역이 넘치지 않도록 */
+  overflow: hidden;
+}
+
+/* PDF.js 3.x 스타일 - 텍스트 위치 및 크기 계산 */
+.textLayer span {
+  font-size: calc(10px * var(--scale-factor));
+}
+
+/* 텍스트 레이어 전체의 선택 스타일 - 겹침 방지 */
+.textLayer {
+  isolation: isolate;
+}
+
+/* 텍스트 선택 시 하이라이트가 글자 위에 보이도록 */
+.textLayer ::selection {
+  background: rgba(66, 133, 244, 0.5) !important;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.textLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.4);
+  border-radius: 4px;
+}
+
+.textLayer .highlight.appended {
+  position: initial;
+}
+
+.textLayer .highlight.begin {
+  border-radius: 4px 0 0 4px;
+}
+
+.textLayer .highlight.end {
+  border-radius: 0 4px 4px 0;
+}
+
+.textLayer .highlight.middle {
+  border-radius: 0;
+}
+
+.textLayer .highlight.selected {
+  background-color: rgba(0, 100, 0, 0.4);
+}
+
+/* PDF Search Highlight Styles */
+.search-highlight {
+  background-color: rgba(255, 255, 0, 0.4) !important;
+  color: transparent !important;
+}
+
+.search-highlight-current {
+  background-color: rgba(255, 150, 50, 0.5) !important;
+  color: transparent !important;
 }
