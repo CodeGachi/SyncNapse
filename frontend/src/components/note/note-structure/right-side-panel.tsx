@@ -7,8 +7,9 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteUIStore } from "@/stores";
+import type { PageContext } from "@/lib/types";
 import {
   useFileManagement,
   useTranscriptTranslation,
@@ -52,6 +53,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     openFileInTab,
     renameFile,
     copyFile,
+    setCurrentPage,
   } = useNoteEditorStore();
 
   const { scriptSegments, reset: resetScriptTranslation } = useScriptTranslationStore();
@@ -114,6 +116,39 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
   const { isTranslating, translationSupported } = useTranscriptTranslation();
 
+  // 페이지 컨텍스트 클릭 핸들러 - 해당 파일/페이지로 이동
+  // backendId (fileId)를 사용하여 안정적으로 파일 식별
+  const handlePageContextClick = useCallback((context: PageContext) => {
+    console.log('[RightSidePanel] 📍 Page context clicked:', {
+      fileId: context.fileId,
+      pageNumber: context.pageNumber,
+      uploadedFilesCount: uploadedFiles.length,
+      uploadedFiles: uploadedFiles.map(f => ({ id: f.id, name: f.name, backendId: f.backendId })),
+    });
+
+    // fileId (backendId)로 해당 파일 찾기
+    if (context.fileId) {
+      const targetFile = uploadedFiles.find((f) => f.backendId === context.fileId);
+      if (targetFile) {
+        console.log('[RightSidePanel] ✅ Opening file:', targetFile.name, 'at page', context.pageNumber);
+        openFileInTab(targetFile.id);
+      } else {
+        console.warn('[RightSidePanel] ⚠️ File not found with backendId:', context.fileId);
+      }
+    }
+
+    // 페이지 이동 (useNoteEditorStore의 setCurrentPage 사용)
+    console.log('[RightSidePanel] 📄 Setting current page to:', context.pageNumber);
+    setCurrentPage(context.pageNumber);
+  }, [uploadedFiles, openFileInTab, setCurrentPage]);
+
+  // 파일 목록을 ScriptPanel에 전달할 형식으로 변환 (backendId 포함)
+  const filesForScriptPanel = uploadedFiles.map((file) => ({
+    id: file.id,
+    name: file.name,
+    backendId: file.backendId,
+  }));
+
   return (
     <>
       {/* 사이드 패널 - 확장시에만 표시 */}
@@ -135,6 +170,8 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
               activeSegmentId={activeSegmentId}
               isTranslating={isTranslating}
               translationSupported={translationSupported}
+              onPageContextClick={handlePageContextClick}
+              files={filesForScriptPanel}
             />
 
             {/* 타임라인 (스크립트가 열려있고 세그먼트가 있을 때만 표시) */}

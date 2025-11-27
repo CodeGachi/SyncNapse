@@ -16,6 +16,7 @@ interface FormattedRecording {
   duration: string;
   sessionId?: string;
   noteId?: string;
+  audioRecordingId?: string; // 타임라인 이벤트 로드용
 }
 
 export function useRecordingList(noteId?: string | null) {
@@ -27,7 +28,9 @@ export function useRecordingList(noteId?: string | null) {
     queryFn: async () => {
       console.log('[useRecordingList] 🔄 Fetching recordings from backend...');
       const result = await transcriptionApi.getSessions();
-      console.log('[useRecordingList] ✅ Fetched', result.length, 'recordings');
+      console.log('[useRecordingList] ✅ Fetched', result.length, 'recordings:',
+        result.map(s => ({ id: s.id, title: s.title, audioRecordingId: s.audioRecordingId }))
+      );
       return result;
     },
     staleTime: 0, // 항상 stale 상태로 유지하여 invalidate 시 즉시 refetch
@@ -110,6 +113,7 @@ export function useRecordingList(noteId?: string | null) {
         duration,
         sessionId: session.id,
         noteId: session.noteId,
+        audioRecordingId: session.audioRecordingId, // 타임라인 이벤트 로드용
       };
     });
 

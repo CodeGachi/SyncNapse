@@ -40,6 +40,7 @@ export function useFileManagement(options?: UseFileManagementOptions) {
         uploadedAt: new Date(dbFile.createdAt).toISOString(),
         url,
         file,
+        backendId: dbFile.backendId, // Backend File ID (for timeline events)
       };
       addFile(fileItem);
       console.log('[FileManagement] Store에 파일 추가 완료:', fileItem.id);

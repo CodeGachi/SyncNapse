@@ -20,6 +20,7 @@ export function useRecordingControl(noteId?: string | null) {
     recordingStartTime, // Recording start timestamp
     formattedTime: recordingTime,
     error: recordingError,
+    audioRecordingId, // AudioRecording ID for timeline
     startRecording: startBasicRecording,
     pauseRecording,
     resumeRecording,
@@ -149,6 +150,7 @@ export function useRecordingControl(noteId?: string | null) {
     recordingTime,
     recordingTimeSeconds,
     recordingError,
+    audioRecordingId, // AudioRecording ID for timeline
     isNameModalOpen,
     isSavingRecording,
     handlePlayPause,

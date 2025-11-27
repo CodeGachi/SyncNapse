@@ -169,6 +169,46 @@ export async function updateFileBackendInfo(
 }
 
 /**
+ * 파일의 백엔드 ID만 업데이트 (기존 파일에 backendId 추가)
+ */
+export async function updateFileBackendId(
+  fileId: string,
+  backendId: string
+): Promise<void> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["files"], "readwrite");
+    const store = transaction.objectStore("files");
+    const getRequest = store.get(fileId);
+
+    getRequest.onsuccess = () => {
+      const file = getRequest.result as DBFile | undefined;
+      if (!file) {
+        reject(new Error(`File not found: ${fileId}`));
+        return;
+      }
+
+      // 백엔드 ID만 업데이트
+      file.backendId = backendId;
+      const putRequest = store.put(file);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] 파일 백엔드 ID 업데이트: ${file.fileName} -> ${backendId}`);
+        resolve();
+      };
+
+      putRequest.onerror = () => {
+        reject(new Error(`파일 업데이트 실패: ${putRequest.error?.message}`));
+      };
+    };
+
+    getRequest.onerror = () => {
+      reject(new Error(`파일 조회 실패: ${getRequest.error?.message}`));
+    };
+  });
+}
+
+/**
  * 파일 삭제
  */
 export async function deleteFile(fileId: string): Promise<void> {

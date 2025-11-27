@@ -14,13 +14,14 @@ interface Recording {
   date: string;
   duration: string;
   sessionId?: string;
+  audioRecordingId?: string; // 타임라인 이벤트 로드용
 }
 
 interface RecordingListDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   recordings: Recording[];
-  onSelectRecording: (sessionId: string) => void;
+  onSelectRecording: (sessionId: string, audioRecordingId?: string) => void;
   onDeleteRecording: (sessionId: string) => void;
 }
 
@@ -87,7 +88,7 @@ export function RecordingListDropdown({
                     className="flex-1 min-w-0"
                     onClick={() => {
                       if (recording.sessionId) {
-                        onSelectRecording(recording.sessionId);
+                        onSelectRecording(recording.sessionId, recording.audioRecordingId);
                         onClose();
                       }
                     }}

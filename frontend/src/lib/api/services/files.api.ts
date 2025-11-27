@@ -65,6 +65,7 @@ export interface FileWithId {
   id: string;
   file: File;
   createdAt: number;
+  backendId?: string; // Backend File ID (for timeline events)
 }
 
 /**
@@ -91,11 +92,12 @@ export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId
   // 2. 백그라운드에서 백엔드 동기화
   syncFilesInBackground(noteId);
   
-  // 3. 로컬 파일 즉시 반환
+  // 3. 로컬 파일 즉시 반환 (backendId 포함)
   return dbFiles.map((dbFile) => ({
     id: dbFile.id,
     file: dbFileToFile(dbFile),
     createdAt: dbFile.createdAt,
+    backendId: dbFile.backendId, // Backend File ID (for timeline events)
   }));
 }
 
@@ -131,11 +133,34 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
 
     // 백엔드 파일을 IndexedDB와 동기화
     if (backendFiles.length > 0) {
-      // 로컬에 없는 파일 찾기
+      // 로컬 파일 목록 가져오기
       const localFiles = await getFilesByNoteFromDB(noteId);
       const localFileNames = new Set(localFiles.map(f => f.fileName));
 
-      // Backend filenames need to be decoded for proper comparison
+      // 1. 기존 로컬 파일에 backendId가 없으면 매칭하여 업데이트
+      const { updateFileBackendId } = await import("@/lib/db/files");
+      let backendIdUpdated = false;
+      for (const localFile of localFiles) {
+        if (!localFile.backendId) {
+          // 백엔드 파일과 이름으로 매칭
+          const matchingBackend = backendFiles.find((bf: any) => {
+            const decodedName = decodeFilename(bf.fileName);
+            return decodedName === localFile.fileName || bf.fileName === localFile.fileName;
+          });
+          if (matchingBackend) {
+            await updateFileBackendId(localFile.id, matchingBackend.id);
+            console.log(`[FilesAPI] ✅ Updated backendId for existing file: ${localFile.fileName} -> ${matchingBackend.id}`);
+            backendIdUpdated = true;
+          }
+        }
+      }
+
+      // backendId가 업데이트되었으면 캐시 무효화
+      if (backendIdUpdated && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('files-synced', { detail: { noteId } }));
+      }
+
+      // 2. 로컬에 없는 파일 찾기 (Backend filenames need to be decoded for proper comparison)
       const filesToDownload = backendFiles.filter((bf: any) => {
         const decodedName = decodeFilename(bf.fileName);
         return !localFileNames.has(decodedName) && !localFileNames.has(bf.fileName);
@@ -192,9 +217,9 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
               type: downloadData.fileType,
             });
             
-            // IndexedDB에 저장
-            await saveFileInDB(noteId, file, backendFile.url);
-            console.log(`[FilesAPI] ✅ File saved to IndexedDB: ${file.name}`);
+            // IndexedDB에 저장 (backendId 포함)
+            await saveFileInDB(noteId, file, backendFile.url, backendFile.id);
+            console.log(`[FilesAPI] ✅ File saved to IndexedDB: ${file.name}, backendId: ${backendFile.id}`);
           } catch (error) {
             console.error(`[FilesAPI] Failed to download/save file ${backendFile.fileName}:`, error);
           }

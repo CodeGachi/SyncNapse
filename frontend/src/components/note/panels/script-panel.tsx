@@ -6,10 +6,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useScriptTranslationStore } from "@/stores";
+import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
 import { Panel } from "./panel";
-import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe } from "lucide-react";
-import type { SupportedLanguage, LanguageOption, WordWithTime } from "@/lib/types";
+import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight } from "lucide-react";
+import type { SupportedLanguage, LanguageOption, WordWithTime, PageContext } from "@/lib/types";
+import { getPageContextAtTime } from "@/lib/api/audio.api";
 
 interface ScriptPanelProps {
   isOpen: boolean;
@@ -19,6 +20,9 @@ interface ScriptPanelProps {
   isTranslating?: boolean;
   translationSupported?: boolean | null;
   isRecording?: boolean; // Track if currently recording
+  // 타임라인 관련 props
+  onPageContextClick?: (context: PageContext) => void; // 페이지 배지 클릭 시 호출
+  files?: { id: string; name: string; backendId?: string }[]; // 파일 이름 표시용 (backendId 포함)
 }
 
 const LANGUAGE_OPTIONS: LanguageOption[] = [
@@ -34,7 +38,25 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "pt", name: "Portuguese", nativeName: "Português" },
 ];
 
-export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTranslating, translationSupported, isRecording = false }: ScriptPanelProps) {
+export function ScriptPanel({
+  isOpen,
+  onClose,
+  audioRef,
+  activeSegmentId,
+  isTranslating,
+  translationSupported,
+  isRecording = false,
+  onPageContextClick,
+  files = [],
+}: ScriptPanelProps) {
+  // 🔥 타임라인 이벤트는 전역 스토어에서 직접 가져옴 (여러 컴포넌트에서 공유)
+  const { timelineEvents } = useAudioPlayerStore();
+
+  // 디버그: 스토어 값 변경 확인
+  useEffect(() => {
+    console.log('[ScriptPanel] 🔄 timelineEvents from store:', timelineEvents.length, timelineEvents);
+  }, [timelineEvents]);
+
   const {
     scriptSegments,
     isTranslationEnabled,
@@ -76,31 +98,64 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
   };
 
   /**
-   * Handle transcript segment click - seek to that time in audio
+   * Handle transcript segment click - seek to that time in audio and navigate to page
    * @param timestamp - Timestamp in milliseconds
    */
   const handleSegmentClick = (timestamp: number) => {
+    const timeInSeconds = timestamp / 1000; // Convert ms to seconds
+    console.log('[ScriptPanel] 🎯 Segment clicked:', {
+      timestampMs: timestamp,
+      timeInSeconds,
+      timelineEventsCount: timelineEvents.length,
+      hasOnPageContextClick: !!onPageContextClick,
+    });
+
     if (audioRef?.current) {
-      const timeInSeconds = timestamp / 1000; // Convert ms to seconds
-      console.log('[ScriptPanel] Seeking to segment:', timeInSeconds, 'seconds');
+      console.log('[ScriptPanel] Seeking to segment:', timeInSeconds, 'seconds (no auto-play)');
       audioRef.current.currentTime = timeInSeconds;
-      audioRef.current.play().catch((err) => {
-        console.error('[ScriptPanel] Failed to play audio:', err);
+    }
+
+    // 해당 시간의 페이지 컨텍스트로 이동
+    const pageContext = getPageContextAtTime(timelineEvents, timeInSeconds);
+    console.log('[ScriptPanel] 📖 Page context from timeline:', pageContext);
+    if (pageContext && onPageContextClick) {
+      console.log('[ScriptPanel] ✅ Calling onPageContextClick:', pageContext);
+      onPageContextClick(pageContext);
+    } else {
+      console.log('[ScriptPanel] ⚠️ No page context or no callback:', {
+        pageContext,
+        hasCallback: !!onPageContextClick,
       });
     }
   };
 
   /**
-   * Handle word click - seek to that word's time in audio
+   * Handle word click - seek to that word's time in audio and navigate to page
    * @param startTime - Start time in seconds
    */
   const handleWordClick = (startTime: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent segment click
+    console.log('[ScriptPanel] 🔤 Word clicked:', {
+      startTime,
+      timelineEventsCount: timelineEvents.length,
+      hasOnPageContextClick: !!onPageContextClick,
+    });
+
     if (audioRef?.current) {
-      console.log('[ScriptPanel] Seeking to word at:', startTime, 'seconds');
+      console.log('[ScriptPanel] Seeking to word at:', startTime, 'seconds (no auto-play)');
       audioRef.current.currentTime = startTime;
-      audioRef.current.play().catch((err) => {
-        console.error('[ScriptPanel] Failed to play audio:', err);
+    }
+
+    // 해당 시간의 페이지 컨텍스트로 이동
+    const pageContext = getPageContextAtTime(timelineEvents, startTime);
+    console.log('[ScriptPanel] 📖 Page context from timeline:', pageContext);
+    if (pageContext && onPageContextClick) {
+      console.log('[ScriptPanel] ✅ Calling onPageContextClick:', pageContext);
+      onPageContextClick(pageContext);
+    } else {
+      console.log('[ScriptPanel] ⚠️ No page context or no callback:', {
+        pageContext,
+        hasCallback: !!onPageContextClick,
       });
     }
   };
@@ -114,6 +169,45 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
       return currentTime >= word.startTime &&
         (!nextWord || currentTime < nextWord.startTime);
     }) || null;
+  };
+
+  /**
+   * 세그먼트 시간에 해당하는 페이지 컨텍스트 가져오기
+   * @param timestampMs - 세그먼트 timestamp (밀리초)
+   */
+  const getSegmentPageContext = (timestampMs: number): PageContext | null => {
+    if (!timelineEvents || timelineEvents.length === 0) return null;
+    const timeInSeconds = timestampMs / 1000;
+    return getPageContextAtTime(timelineEvents, timeInSeconds);
+  };
+
+  /**
+   * backendId (fileId)로 파일 이름 가져오기
+   * @param fileId - Backend File ID
+   */
+  const getFileNameByBackendId = (fileId: string | undefined): string | null => {
+    if (!fileId) return null;
+    const file = files.find((f) => f.backendId === fileId);
+    if (!file) return null;
+    // 파일명이 너무 길면 자르기
+    const name = file.name;
+    if (name.length > 15) {
+      return name.slice(0, 12) + "...";
+    }
+    return name;
+  };
+
+  /**
+   * 페이지 배지 클릭 핸들러
+   */
+  const handlePageBadgeClick = (context: PageContext, e: React.MouseEvent) => {
+    e.stopPropagation(); // 세그먼트 클릭 방지
+    console.log('[ScriptPanel] Page badge clicked:', context);
+    if (onPageContextClick) {
+      onPageContextClick(context);
+    } else {
+      console.warn('[ScriptPanel] onPageContextClick is not provided!');
+    }
   };
 
   return (
@@ -199,6 +293,7 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
                 const isActive = activeSegmentId === segment.id;
                 const currentWord = segment.words ? getCurrentWord(segment.words) : null;
                 const isPartial = (segment as any).isPartial || false;
+                const pageContext = !isRecording && !isPartial ? getSegmentPageContext(segment.timestamp) : null;
 
                 return (
                   <div
@@ -283,6 +378,30 @@ export function ScriptPanel({ isOpen, onClose, audioRef, activeSegmentId, isTran
                           </p>
                         </div>
                       )}
+
+                      {/* Page Context Badge - 녹음 시 어떤 페이지를 보고 있었는지 표시 */}
+                      {pageContext && (() => {
+                        const fileName = getFileNameByBackendId(pageContext.fileId);
+                        return (
+                          <div className="mt-2 pt-2 border-t border-[#333]/50">
+                            <button
+                              onClick={(e) => handlePageBadgeClick(pageContext, e)}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 bg-[#333]/50 hover:bg-[#444]/50 rounded-md text-[10px] text-gray-400 hover:text-gray-200 transition-colors group/badge"
+                              title={fileName ? `${fileName} ${pageContext.pageNumber}페이지로 이동` : `${pageContext.pageNumber}페이지로 이동`}
+                            >
+                              <FileText size={12} className="text-gray-500 group-hover/badge:text-[#AFC02B]" />
+                              {fileName && (
+                                <>
+                                  <span className="truncate max-w-[100px]">{fileName}</span>
+                                  <span className="text-gray-500">·</span>
+                                </>
+                              )}
+                              <span className="font-medium">{pageContext.pageNumber}p</span>
+                              <ChevronRight size={12} className="text-gray-600 group-hover/badge:text-[#AFC02B] group-hover/badge:translate-x-0.5 transition-transform" />
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
