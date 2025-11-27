@@ -16,6 +16,7 @@ interface FormattedRecording {
   duration: string;
   sessionId?: string;
   noteId?: string;
+  audioRecordingId?: string; // 타임라인 이벤트 로드용
 }
 
 export function useRecordingList(noteId?: string | null) {
@@ -27,7 +28,15 @@ export function useRecordingList(noteId?: string | null) {
     queryFn: async () => {
       console.log('[useRecordingList] 🔄 Fetching recordings from backend...');
       const result = await transcriptionApi.getSessions();
-      console.log('[useRecordingList] ✅ Fetched', result.length, 'recordings');
+
+      // 최신 녹음 확인 (createdAt 기준 정렬)
+      const sorted = [...result].sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const newest = sorted[0];
+      console.log('[useRecordingList] ✅ Fetched', result.length, 'recordings. Newest:',
+        newest ? { title: newest.title, noteId: newest.noteId, createdAt: newest.createdAt } : 'none'
+      );
       return result;
     },
     staleTime: 0, // 항상 stale 상태로 유지하여 invalidate 시 즉시 refetch
@@ -39,6 +48,8 @@ export function useRecordingList(noteId?: string | null) {
   const filteredSessions = noteId
     ? sessions.filter((session) => session.noteId === noteId)
     : sessions;
+
+  // 🔥 디버깅 제거 (문제 해결됨)
 
   // React Query: 녹음 삭제 (Optimistic Update 적용)
   const deleteRecordingMutation = useMutation({
@@ -110,6 +121,7 @@ export function useRecordingList(noteId?: string | null) {
         duration,
         sessionId: session.id,
         noteId: session.noteId,
+        audioRecordingId: session.audioRecordingId, // 타임라인 이벤트 로드용
       };
     });
 

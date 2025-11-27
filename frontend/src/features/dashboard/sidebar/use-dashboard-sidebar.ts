@@ -27,7 +27,7 @@ export function useDashboardSidebar({
   >(null);
   const [renamingFolder, setRenamingFolder] = useState<DBFolder | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<DBFolder | null>(null);
-  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [deletingNote, setDeletingNote] = useState<{ id: string; title: string } | null>(null);
 
   // 폴더 생성 핸들러
   const handleCreateFolderModal = async (
@@ -92,16 +92,22 @@ export function useDashboardSidebar({
     }
   };
 
-  // 노트 삭제 핸들러
-  const handleDeleteNote = async (noteId: string) => {
-    if (confirm("이 노트를 삭제하시겠습니까?")) {
-      try {
-        await deleteNoteMutation.mutateAsync(noteId);
-        console.log(`[DashboardSidebar] Note deleted: ${noteId}`);
-      } catch (error) {
-        console.error(`[DashboardSidebar] Failed to delete note:`, error);
-        alert("노트 삭제에 실패했습니다.");
-      }
+  // 노트 삭제 핸들러 (모달 열기)
+  const handleDeleteNote = (noteId: string, noteTitle: string) => {
+    setDeletingNote({ id: noteId, title: noteTitle });
+  };
+
+  // 노트 삭제 실행
+  const handleDeleteNoteSubmit = async () => {
+    if (!deletingNote) return;
+
+    try {
+      await deleteNoteMutation.mutateAsync(deletingNote.id);
+      console.log(`[DashboardSidebar] Note deleted: ${deletingNote.id}`);
+      setDeletingNote(null);
+    } catch (error) {
+      console.error(`[DashboardSidebar] Failed to delete note:`, error);
+      alert("노트 삭제에 실패했습니다.");
     }
   };
 
@@ -115,6 +121,8 @@ export function useDashboardSidebar({
     setRenamingFolder,
     deletingFolder,
     setDeletingFolder,
+    deletingNote,
+    setDeletingNote,
 
     // Handlers
     handleCreateFolderModal,
@@ -124,5 +132,6 @@ export function useDashboardSidebar({
     handleDeleteFolder,
     handleDeleteSubmit,
     handleDeleteNote,
+    handleDeleteNoteSubmit,
   };
 }

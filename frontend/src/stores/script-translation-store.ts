@@ -1,9 +1,24 @@
 /**
  * script Translation Status Management Store * Record script Translation feature Management
-*/ 
+*/
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { SupportedLanguage, ScriptSegment } from "@/lib/types";
+
+// 번역 에러 타입
+export type TranslationErrorType =
+  | 'config_error'    // API 키 미설정
+  | 'auth_error'      // API 키 유효하지 않음
+  | 'quota_exceeded'  // 한도 초과
+  | 'api_error'       // 기타 API 에러
+  | 'network_error';  // 네트워크 에러
+
+// 사용량 정보
+export interface TranslationUsageInfo {
+  used: number;
+  limit: number;
+  remaining: number;
+}
 
 interface ScriptTranslationState {
   // Translation State
@@ -12,6 +27,11 @@ interface ScriptTranslationState {
   targetLanguage: SupportedLanguage;
   originalLanguage: SupportedLanguage;
 
+  // Translation Status (DeepL)
+  isTranslating: boolean;
+  translationError: TranslationErrorType | null;
+  usageInfo: TranslationUsageInfo | null;
+
   // Translation Actions
   toggleTranslation: () => void;
   setTargetLanguage: (language: SupportedLanguage) => void;
@@ -19,6 +39,11 @@ interface ScriptTranslationState {
   addScriptSegment: (segment: ScriptSegment) => void;
   clearScriptSegments: () => void;
   updateSegmentTranslation: (id: string, translatedText: string) => void;
+
+  // Translation Status Actions
+  setIsTranslating: (isTranslating: boolean) => void;
+  setTranslationError: (error: TranslationErrorType | null) => void;
+  setUsageInfo: (info: TranslationUsageInfo | null) => void;
 
   // Reset
   reset: () => void;
@@ -29,6 +54,9 @@ const initialState = {
   isTranslationEnabled: false,
   targetLanguage: "en" as SupportedLanguage,
   originalLanguage: "ko" as SupportedLanguage,
+  isTranslating: false,
+  translationError: null as TranslationErrorType | null,
+  usageInfo: null as TranslationUsageInfo | null,
 };
 
 export const useScriptTranslationStore = create<ScriptTranslationState>()(
@@ -41,7 +69,25 @@ export const useScriptTranslationStore = create<ScriptTranslationState>()(
 
       setTargetLanguage: (language) => set({ targetLanguage: language }),
 
-      setScriptSegments: (segments) => set({ scriptSegments: segments }),
+      setScriptSegments: (segments) =>
+        set((state) => {
+          // 기존 번역 데이터 유지
+          const translationMap = new Map(
+            state.scriptSegments
+              .filter(s => s.translatedText)
+              .map(s => [s.id, s.translatedText])
+          );
+
+          // 새 세그먼트에 기존 번역 병합
+          const mergedSegments = segments.map(segment => {
+            const existingTranslation = translationMap.get(segment.id);
+            return existingTranslation
+              ? { ...segment, translatedText: existingTranslation }
+              : segment;
+          });
+
+          return { scriptSegments: mergedSegments };
+        }),
 
       addScriptSegment: (segment) =>
         set((state) => ({
@@ -51,11 +97,25 @@ export const useScriptTranslationStore = create<ScriptTranslationState>()(
       clearScriptSegments: () => set({ scriptSegments: [] }),
 
       updateSegmentTranslation: (id, translatedText) =>
-        set((state) => ({
-          scriptSegments: state.scriptSegments.map((segment) =>
-            segment.id === id ? { ...segment, translatedText } : segment
-          ),
-        })),
+        set((state) => {
+          const existingSegment = state.scriptSegments.find(s => s.id === id);
+          console.log('[Store] updateSegmentTranslation:', {
+            id,
+            translatedText: translatedText?.substring(0, 20),
+            found: !!existingSegment,
+            existingIds: state.scriptSegments.map(s => s.id),
+          });
+          return {
+            scriptSegments: state.scriptSegments.map((segment) =>
+              segment.id === id ? { ...segment, translatedText } : segment
+            ),
+          };
+        }),
+
+      // Translation Status Actions
+      setIsTranslating: (isTranslating) => set({ isTranslating }),
+      setTranslationError: (error) => set({ translationError: error }),
+      setUsageInfo: (info) => set({ usageInfo: info }),
 
       reset: () => set(initialState),
     }),

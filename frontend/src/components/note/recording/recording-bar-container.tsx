@@ -11,6 +11,8 @@ import {
   useAudioPlayer,
   useRecordingList,
 } from "@/features/note/recording";
+import { useRecordingTimeline } from "@/features/note/recording/use-recording-timeline";
+import { useNoteEditorStore } from "@/stores";
 import { RecordingBar } from "./recording-bar";
 import { RecordingNameModal } from "./recording-name-modal";
 import { RecordingListDropdown } from "./recording-list-dropdown";
@@ -26,6 +28,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     isPaused,
     recordingTime,
     recordingTimeSeconds,
+    audioRecordingId,
     isNameModalOpen,
     handlePlayPause,
     handleStopRecording,
@@ -47,6 +50,23 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     recordings,
     removeRecording,
   } = useRecordingList(noteId);
+
+  // 현재 페이지/파일 정보 (타임라인 이벤트용) - useNoteEditorStore 사용 (PDF 뷰어와 동일한 store)
+  const { currentPage, selectedFileId, files } = useNoteEditorStore();
+
+  // 현재 선택된 파일의 backendId 찾기 (타임라인 이벤트용)
+  const currentBackendId = selectedFileId
+    ? files.find((f) => f.id === selectedFileId)?.backendId
+    : undefined;
+
+  // 녹음 중 페이지 컨텍스트 추적 및 타임라인 이벤트 저장
+  useRecordingTimeline({
+    isRecording,
+    recordingTime: recordingTimeSeconds,
+    audioRecordingId,
+    currentBackendId,
+    currentPage,
+  });
 
   // 녹음 목록 드롭다운 상태
   const [isRecordingListOpen, setIsRecordingListOpen] = useState(false);
@@ -147,9 +167,9 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
           isOpen={isRecordingListOpen}
           onClose={() => setIsRecordingListOpen(false)}
           recordings={recordings}
-          onSelectRecording={(sessionId) => {
+          onSelectRecording={(sessionId, audioRecordingId) => {
             if (!isRecording) {
-              handleRecordingSelect(sessionId);
+              handleRecordingSelect(sessionId, audioRecordingId);
             } else {
               alert('녹음 중에는 저장된 녹음을 재생할 수 없습니다.');
             }

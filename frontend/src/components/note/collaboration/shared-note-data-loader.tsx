@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { useSharedNoteData, useSyncNoteToLiveblocks } from "@/features/note/collaboration";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteEditorStore } from "@/stores";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 interface CollaborationDataHandlerProps {
   isSharedView: boolean;
@@ -59,18 +60,9 @@ export function CollaborationDataHandler({
   if (isSharedView && (isLoading || !note)) {
     return (
       <div className="flex flex-col gap-3 flex-1">
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#AFC02B] mx-auto mb-4"></div>
-            <p className="text-gray-400 text-lg">공유 노트 준비 중...</p>
-            <p className="text-gray-500 text-sm mt-2">
-              {!note
-                ? "노트를 불러오는 중입니다"
-                : "Liveblocks 연결 대기 중입니다"
-              }
-            </p>
-          </div>
-        </div>
+        <LoadingScreen
+          message={!note ? "노트를 불러오는 중입니다..." : "Liveblocks 연결 대기 중..."}
+        />
       </div>
     );
   }

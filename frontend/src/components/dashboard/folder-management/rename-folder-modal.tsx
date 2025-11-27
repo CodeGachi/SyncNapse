@@ -1,16 +1,11 @@
-/**
- * 폴더 이름 변경 모달
- */
-
-"use client";
-
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/common/modal";
-import { useRenameFolderModal } from "@/features/dashboard";
+import { Button } from "@/components/common/button";
 
 interface RenameFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onRename: (newName: string) => Promise<void>;
+  onRename: (newName: string) => void;
   currentName: string;
 }
 
@@ -20,80 +15,47 @@ export function RenameFolderModal({
   onRename,
   currentName,
 }: RenameFolderModalProps) {
-  const { folderName, setFolderName, isRenaming, handleRename, handleKeyPress } =
-    useRenameFolderModal({ isOpen, currentName, onRename });
+  const [newName, setNewName] = useState(currentName);
+
+  useEffect(() => {
+    setNewName(currentName);
+  }, [currentName]);
+
+  const handleSubmit = () => {
+    if (newName.trim()) {
+      onRename(newName);
+      onClose();
+    }
+  };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      overlayClassName="fixed inset-0 z-50 transition-opacity"
-      overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
-      contentClassName="bg-[#2F2F2F] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 w-full max-w-[450px]"
-      closeButton={false}
+      title="폴더 이름 변경"
+      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[400px]"
     >
-      {/* 헤더 */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-bold text-white">Rename Folder</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 18 18"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M1 1L17 17M17 1L1 17"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* 폴더 이름 입력 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          New Folder Name
-        </label>
+      <div className="flex flex-col gap-6 p-6 pt-0">
         <input
           type="text"
-          value={folderName}
-          onChange={(e) => setFolderName(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Enter new name"
-          className="w-full bg-[#191919] text-white px-4 py-2.5 rounded-lg outline-none focus:ring-2 focus:ring-[#6B7B3E] placeholder-gray-500"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="새 폴더 이름"
+          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#899649] text-lg"
           autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+          }}
         />
-      </div>
 
-      {/* 현재 이름 표시 */}
-      <div className="text-xs text-gray-400">
-        Current name: <span className="text-gray-300">{currentName}</span>
-      </div>
-
-      {/* 푸터 */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-[#3C3C3C]">
-        <button
-          onClick={onClose}
-          disabled={isRenaming}
-          className="px-4 py-2 bg-[#575757] text-white rounded-lg hover:bg-[#6B6B6B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleRename}
-          disabled={!folderName.trim() || isRenaming || folderName.trim() === currentName}
-          className="px-4 py-2 bg-[#6B7B3E] text-white rounded-lg hover:bg-[#7A8A4D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isRenaming ? "Renaming..." : "Rename"}
-        </button>
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            취소
+          </Button>
+          <Button variant="brand" onClick={handleSubmit} disabled={!newName.trim()}>
+            변경
+          </Button>
+        </div>
       </div>
     </Modal>
   );

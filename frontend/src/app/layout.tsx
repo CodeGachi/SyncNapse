@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>
+      <body className="bg-[#1e1e1e]">
         <QueryProvider>
           <AuthInitializer />
           <SyncProvider interval={5000} autoSync={true}>

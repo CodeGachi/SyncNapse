@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 interface SharedNotePageProps {
   params: { token: string };
@@ -40,7 +41,7 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
         return;
       }
 
-      // console.log(`[Share Token] 토큰 파싱 완료: noteId=${noteId}`);
+      console.log(`[Share Token] 토큰 파싱 완료: noteId=${noteId}`);
 
       // educator 노트 페이지로 리다이렉트 (공유 모드)
       // ?view=shared 파라미터를 추가하여 공유 모드로 접속함을 표시
@@ -85,12 +86,6 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#1e1e1e]">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#AFC02B] mx-auto mb-4"></div>
-        <p className="text-gray-400 text-lg">공유 노트로 이동 중...</p>
-        <p className="text-gray-500 text-sm mt-2">잠시만 기다려주세요</p>
-      </div>
-    </div>
+    <LoadingScreen fullScreen message="공유 노트로 이동 중..." />
   );
 }

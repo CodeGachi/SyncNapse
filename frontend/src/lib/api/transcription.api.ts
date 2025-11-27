@@ -5,6 +5,7 @@ export interface TranscriptionSession {
   userId: string;
   title: string;
   noteId?: string;
+  audioRecordingId?: string; // AudioRecording ID (타임라인 이벤트용)
   duration: number;
   status: string;
   fullAudioUrl?: string; // Full audio file URL (preferred)
@@ -58,6 +59,7 @@ export interface TranscriptSegment {
 export interface CreateSessionDto {
   title: string;
   noteId?: string;
+  audioRecordingId?: string; // AudioRecording ID (타임라인 이벤트용)
 }
 
 export interface SaveAudioChunkDto {
@@ -97,10 +99,11 @@ export interface SaveFullAudioDto {
 export async function createSession(
   title: string,
   noteId?: string,
+  audioRecordingId?: string,
 ): Promise<TranscriptionSession> {
   return apiClient<TranscriptionSession>('/api/transcription/sessions', {
     method: 'POST',
-    body: JSON.stringify({ title, noteId }),
+    body: JSON.stringify({ title, noteId, audioRecordingId }),
   });
 }
 

@@ -6,20 +6,50 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { useScriptTranslationStore } from "@/stores";
+import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
 import * as transcriptionApi from "@/lib/api/transcription.api";
-import type { WordWithTime } from "@/lib/types";
+import * as audioApi from "@/lib/api/audio.api";
+import type { WordWithTime, PageContext } from "@/lib/types";
+
+// 🔥 스토어 직접 접근 (stale closure 방지)
+const getAudioPlayerStore = () => useAudioPlayerStore.getState();
+
+// 🔥 싱글톤 Audio 인스턴스 - 여러 컴포넌트에서 공유
+let sharedAudioInstance: HTMLAudioElement | null = null;
+
+function getSharedAudio(): HTMLAudioElement {
+  if (typeof window === 'undefined') {
+    // SSR 환경에서는 null 반환 방지
+    return null as unknown as HTMLAudioElement;
+  }
+  if (!sharedAudioInstance) {
+    sharedAudioInstance = new Audio();
+    console.log('[useAudioPlayer] Created shared Audio instance');
+  }
+  return sharedAudioInstance;
+}
 
 export function useAudioPlayer() {
   const { setScriptSegments } = useScriptTranslationStore();
 
-  // 오디오 플레이어 로컬 state (Zustand에서 제거됨)
+  // 🔥 타임라인 이벤트는 전역 스토어 사용 (여러 컴포넌트에서 공유)
+  const {
+    timelineEvents,
+    currentPageContext,
+    setTimelineEvents,
+    setCurrentPageContext,
+    clearTimeline,
+  } = useAudioPlayerStore();
+
+  // 오디오 플레이어 로컬 state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
+  const [currentAudioRecordingId, setCurrentAudioRecordingId] = useState<string | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // 🔥 싱글톤 Audio 인스턴스 사용
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Play/Pause 토글
@@ -27,9 +57,10 @@ export function useAudioPlayer() {
 
   // audio Initialize and Event listeners
   useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-    }
+    // 🔥 싱글톤 Audio 인스턴스 사용
+    audioRef.current = getSharedAudio();
+
+    if (!audioRef.current) return; // SSR 환경
 
     const audio = audioRef.current;
 
@@ -40,7 +71,12 @@ export function useAudioPlayer() {
     };
 
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
+      const time = audio.currentTime;
+      setCurrentTime(time);
+
+      // 현재 재생 시간에 해당하는 페이지 컨텍스트 계산
+      const pageContext = audioApi.getPageContextAtTime(timelineEvents, time);
+      setCurrentPageContext(pageContext);
     };
 
     const handleLoadedMetadata = () => {
@@ -82,11 +118,8 @@ export function useAudioPlayer() {
     audio.addEventListener("canplay", handleCanPlay);
 
     return () => {
-      // 언마운트 시 오디오 정지 및 정리
-      audio.pause();
-      audio.src = '';
-      console.log('[useAudioPlayer] Cleanup - audio stopped');
-
+      // 🔥 싱글톤이므로 이벤트 리스너만 제거, 오디오는 정지하지 않음
+      // (다른 컴포넌트에서 계속 사용 중일 수 있음)
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
@@ -94,11 +127,13 @@ export function useAudioPlayer() {
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("error", handleError);
       audio.removeEventListener("canplay", handleCanPlay);
+      console.log('[useAudioPlayer] Cleanup - event listeners removed (audio continues)');
     };
-  }, []);
+  }, [timelineEvents]);
 
   // Recording Select Handler - Load session data and play audio
-  const handleRecordingSelect = async (sessionIdParam: string) => {
+  // audioRecordingId는 선택적 파라미터로 타임라인 이벤트 로드용
+  const handleRecordingSelect = async (sessionIdParam: string, audioRecordingIdParam?: string) => {
     try {
       setIsLoadingSession(true);
       console.log('[useAudioPlayer] Loading recording with sessionId:', sessionIdParam);
@@ -150,27 +185,21 @@ export function useAudioPlayer() {
 
         // fullAudioUrl 직접 사용 (MinIO signed URL)
         if (sessionData.fullAudioUrl) {
+          // MinIO URL을 그대로 사용 (이중 인코딩 하지 않음)
           audioUrl = sessionData.fullAudioUrl;
-          // URL 인코딩 처리 - MinIO에 파일명이 이미 인코딩되어 저장됨 (%3A 등)
-          // 브라우저가 자동으로 디코딩하므로 이중 인코딩 필요
-          if (audioUrl.startsWith('http')) {
-            try {
-              const urlObj = new URL(audioUrl);
-              // 각 경로 세그먼트를 인코딩 (이미 인코딩된 %는 %25로 변환됨)
-              urlObj.pathname = urlObj.pathname.split('/').map(segment =>
-                encodeURIComponent(segment)
-              ).join('/');
-              audioUrl = urlObj.toString();
-            } catch {
-              // URL 파싱 실패 시 원본 사용
-            }
-          }
           console.log('[useAudioPlayer] Using audio URL:', audioUrl);
         }
 
         if (audioUrl) {
           audioRef.current.src = audioUrl;
           audioRef.current.load();
+
+          // WebM 파일의 duration이 헤더에 없는 경우 백엔드 데이터 사용
+          const backendDuration = Number(sessionData.duration) || 0;
+          if (backendDuration > 0) {
+            setDuration(backendDuration);
+            console.log('[useAudioPlayer] Using backend duration:', backendDuration);
+          }
 
           // 자동 재생 시도
           try {
@@ -186,6 +215,33 @@ export function useAudioPlayer() {
       }
 
       setCurrentRecordingId(sessionId);
+      setCurrentAudioRecordingId(audioRecordingIdParam || null);
+
+      console.log('[useAudioPlayer] 🔍 audioRecordingIdParam:', audioRecordingIdParam);
+
+      // 타임라인 이벤트 로드 (audioRecordingId가 있는 경우)
+      // 🔥 스토어 직접 접근으로 stale closure 방지
+      const store = getAudioPlayerStore();
+      if (audioRecordingIdParam) {
+        try {
+          console.log('[useAudioPlayer] 📥 Loading timeline events for:', audioRecordingIdParam);
+          const events = await audioApi.getTimelineEvents(audioRecordingIdParam);
+          console.log('[useAudioPlayer] 📤 Saving to store:', events.length, 'events');
+          store.setTimelineEvents(events);
+          console.log('[useAudioPlayer] ✅ Stored', events.length, 'timeline events');
+
+          // 초기 페이지 컨텍스트 설정 (첫 번째 이벤트)
+          if (events.length > 0) {
+            const initialContext = audioApi.getPageContextAtTime(events, 0);
+            store.setCurrentPageContext(initialContext);
+          }
+        } catch (timelineError) {
+          console.error('[useAudioPlayer] Failed to load timeline events:', timelineError);
+          store.clearTimeline();
+        }
+      } else {
+        store.clearTimeline();
+      }
 
     } catch (error) {
       console.error('[useAudioPlayer] Failed to load recording:', error);
@@ -215,7 +271,14 @@ export function useAudioPlayer() {
     setCurrentTime(0);
     setDuration(0);
     setCurrentRecordingId(null);
+    setCurrentAudioRecordingId(null);
+    getAudioPlayerStore().clearTimeline(); // 🔥 스토어 직접 접근
     console.log('[useAudioPlayer] Audio player reset');
+  };
+
+  // 특정 시간의 페이지 컨텍스트 조회 (외부에서 사용 가능)
+  const getPageContextAtTime = (time: number): PageContext | null => {
+    return audioApi.getPageContextAtTime(timelineEvents, time);
   };
 
   return {
@@ -229,5 +292,10 @@ export function useAudioPlayer() {
     resetAudioPlayer,
     isLoadingSession,
     currentRecordingId,
+    // 타임라인 관련
+    currentAudioRecordingId,
+    timelineEvents,
+    currentPageContext,
+    getPageContextAtTime,
   };
 }

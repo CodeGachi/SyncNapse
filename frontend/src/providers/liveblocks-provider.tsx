@@ -10,6 +10,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { ClientSideSuspense } from "@liveblocks/react";
 import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage, useMutation, LiveList, LiveObject } from "@/lib/liveblocks/liveblocks.config";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 interface LiveblocksProviderProps {
   noteId: string;
@@ -70,14 +71,7 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
 
   // 사용자 정보 로딩 중
   if (!isReady) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#1e1e1e]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#AFC02B] mx-auto mb-4"></div>
-          <p className="text-gray-400 text-lg">사용자 정보 로딩 중...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen fullScreen message="사용자 정보 로딩 중..." />;
   }
 
   const roomId = getNoteRoomId(noteId);
@@ -118,13 +112,7 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
     >
       <ClientSideSuspense
         fallback={
-          <div className="flex items-center justify-center h-screen bg-[#1e1e1e]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#AFC02B] mx-auto mb-4"></div>
-              <p className="text-gray-400 text-lg">Liveblocks 서버 연결 중...</p>
-              <p className="text-gray-500 text-sm mt-2">실시간 협업을 준비하고 있습니다</p>
-            </div>
-          </div>
+          <LoadingScreen fullScreen message="Liveblocks 서버 연결 중..." />
         }
       >
         {() => {

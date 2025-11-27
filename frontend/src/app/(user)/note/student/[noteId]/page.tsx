@@ -1,8 +1,14 @@
+"use client";
+
+import { useEffect } from "react";
 import { NoteContentArea } from "@/components/note/note-structure/note-content-area";
 import { RightSidePanel } from "@/components/note/note-structure/right-side-panel";
 import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
 import { NoteHeader } from "@/components/note/note-structure/note-header";
+import { usePanelsStore } from "@/stores";
+
+import { motion } from "framer-motion";
 
 interface StudentNotePageProps {
   params: {
@@ -20,8 +26,19 @@ export default function StudentNotePage({
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
 
+  // 패널 상태 초기화
+  const resetPanels = usePanelsStore((state) => state.reset);
+  useEffect(() => {
+    resetPanels();
+  }, [resetPanels]);
+
   return (
-    <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="flex items-start bg-[#1e1e1e] h-screen w-full"
+    >
       {/* Header - 제목 + 녹음바 */}
       <NoteHeader
         noteId={noteId}
@@ -45,6 +62,6 @@ export default function StudentNotePage({
           </div>
         </main>
       </NoteDataLoader>
-    </div>
+    </motion.div>
   );
 }

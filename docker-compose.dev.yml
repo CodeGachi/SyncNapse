@@ -56,7 +56,6 @@ services:
       - DEBUG_LEVEL=${DEBUG_LEVEL}
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
-      - BACKEND_URL=http://backend:4000
     ports:
       - "${FRONTEND_PORT_PUBLIC}:3000"
     volumes:
@@ -96,6 +95,28 @@ services:
       file: db/docker-compose.yml
       service: postgres
     container_name: syncnapse-postgres-dev
+    env_file:
+      - .env
+
+  n8n:
+    extends:
+      file: docker-compose.yml
+      service: n8n
+    container_name: syncnapse-n8n-dev
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE}
+      - N8N_USER_MANAGEMENT_DISABLED=${N8N_USER_MANAGEMENT_DISABLED}
+      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
+      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
+      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
+      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
+      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+      - QUEUE_HEALTH_CHECK_ACTIVE=${QUEUE_HEALTH_CHECK_ACTIVE}
     env_file:
       - .env
 

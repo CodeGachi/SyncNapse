@@ -10,16 +10,18 @@ interface PanelsState {
   // Panel States
   isNotePanelOpen: boolean;
   isFilePanelOpen: boolean;
-  isEtcPanelOpen: boolean;
+  isChatbotPanelOpen: boolean;
   isScriptOpen: boolean;
   isCollaborationPanelOpen: boolean;
+  isDrawingSidebarOpen: boolean; // 필기바 표시 상태
 
   // Panel Actions
   toggleNotePanel: () => void;
   toggleFilePanel: () => void;
-  toggleEtcPanel: () => void;
+  toggleChatbotPanel: () => void;
   toggleScript: () => void;
   toggleCollaborationPanel: () => void;
+  toggleDrawingSidebar: () => void; // 필기바 토글
   openScriptPanel: () => void; // 스크립트 패널 강제 열기
 
   // Reset
@@ -29,9 +31,10 @@ interface PanelsState {
 const initialState = {
   isNotePanelOpen: false,
   isFilePanelOpen: false,
-  isEtcPanelOpen: false,
+  isChatbotPanelOpen: false,
   isScriptOpen: false,
   isCollaborationPanelOpen: false,
+  isDrawingSidebarOpen: false, // 필기바 기본 숨김
 };
 
 export const usePanelsStore = create<PanelsState>()(
@@ -44,14 +47,14 @@ export const usePanelsStore = create<PanelsState>()(
       toggleFilePanel: () =>
         set((state) => ({
           isFilePanelOpen: !state.isFilePanelOpen,
-          isEtcPanelOpen: false,
+          isChatbotPanelOpen: false,
           isScriptOpen: false,
           isCollaborationPanelOpen: false,
         })),
 
-      toggleEtcPanel: () =>
+      toggleChatbotPanel: () =>
         set((state) => ({
-          isEtcPanelOpen: !state.isEtcPanelOpen,
+          isChatbotPanelOpen: !state.isChatbotPanelOpen,
           isFilePanelOpen: false,
           isScriptOpen: false,
           isCollaborationPanelOpen: false,
@@ -61,7 +64,7 @@ export const usePanelsStore = create<PanelsState>()(
         set((state) => ({
           isScriptOpen: !state.isScriptOpen,
           isFilePanelOpen: false,
-          isEtcPanelOpen: false,
+          isChatbotPanelOpen: false,
           isCollaborationPanelOpen: false,
         })),
 
@@ -69,8 +72,13 @@ export const usePanelsStore = create<PanelsState>()(
         set((state) => ({
           isCollaborationPanelOpen: !state.isCollaborationPanelOpen,
           isFilePanelOpen: false,
-          isEtcPanelOpen: false,
+          isChatbotPanelOpen: false,
           isScriptOpen: false,
+        })),
+
+      toggleDrawingSidebar: () =>
+        set((state) => ({
+          isDrawingSidebarOpen: !state.isDrawingSidebarOpen,
         })),
 
       // 스크립트 패널 강제 열기 (녹음본 클릭 시 사용)
@@ -78,7 +86,7 @@ export const usePanelsStore = create<PanelsState>()(
         set({
           isScriptOpen: true,
           isFilePanelOpen: false,
-          isEtcPanelOpen: false,
+          isChatbotPanelOpen: false,
           isCollaborationPanelOpen: false,
         }),
 

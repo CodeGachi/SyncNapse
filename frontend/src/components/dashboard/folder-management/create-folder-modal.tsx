@@ -1,244 +1,103 @@
-/**
- * 폴더 생성 모달 컴포넌트
- * Figma 디자인 기반 (참고.css 스타일 적용)
- */
-
-"use client";
-
+import { useState } from "react";
 import { Modal } from "@/components/common/modal";
-import type { FolderTreeNode } from "@/features/dashboard";
-import { useCreateFolderModal } from "@/features/dashboard";
+import { Button } from "@/components/common/button";
+import { useFolders } from "@/features/dashboard";
+import { FolderSelectorModal } from "./folder-selector-modal";
 
 interface CreateFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (folderName: string, parentId: string | null) => Promise<void>;
-  folderTree: FolderTreeNode[];
-}
-
-interface FolderItemProps {
-  node: FolderTreeNode;
-  level: number;
-  selectedFolderId: string | null;
-  expandedFolders: Set<string>;
-  onToggle: (folderId: string) => void;
-  onSelect: (folderId: string | null) => void;
-}
-
-function FolderItem({
-  node,
-  level,
-  selectedFolderId,
-  expandedFolders,
-  onToggle,
-  onSelect,
-}: FolderItemProps) {
-  const isExpanded = expandedFolders.has(node.folder.id);
-  const isSelected = selectedFolderId === node.folder.id;
-  const hasChildren = node.children.length > 0;
-
-  return (
-    <div>
-      <div
-        className={`flex items-center gap-2 py-2 rounded-lg cursor-pointer transition-colors ${
-          isSelected
-            ? "bg-[#899649]/30 text-white"
-            : "text-[#D9D9D9] hover:bg-white/5"
-        }`}
-        style={{ paddingLeft: `${level * 16 + 12}px`, paddingRight: "12px" }}
-        onClick={() => onSelect(node.folder.id)}
-      >
-        {/* 확장/축소 버튼 */}
-        {hasChildren ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(node.folder.id);
-            }}
-            className="w-4 h-4 flex items-center justify-center flex-shrink-0"
-          >
-            <svg
-              className={`w-3 h-3 transition-transform ${
-                isExpanded ? "rotate-90" : ""
-              }`}
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-            </svg>
-          </button>
-        ) : (
-          <div className="w-4 h-4 flex-shrink-0" />
-        )}
-
-        {/* 폴더 아이콘 */}
-        <svg
-          className="w-4 h-4 flex-shrink-0"
-          fill="#F5D742"
-          viewBox="0 0 20 20"
-        >
-          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-        </svg>
-
-        {/* 폴더 이름 */}
-        <span className="flex-1 text-sm truncate font-medium">{node.folder.name}</span>
-      </div>
-
-      {/* 하위 폴더 */}
-      {isExpanded && hasChildren && (
-        <div>
-          {node.children.map((child) => (
-            <FolderItem
-              key={child.folder.id}
-              node={child}
-              level={level + 1}
-              selectedFolderId={selectedFolderId}
-              expandedFolders={expandedFolders}
-              onToggle={onToggle}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  parentId?: string | null;
 }
 
 export function CreateFolderModal({
   isOpen,
   onClose,
-  onCreate,
-  folderTree,
+  parentId: initialParentId,
 }: CreateFolderModalProps) {
-  const {
-    folderName,
-    setFolderName,
-    selectedParentId,
-    setSelectedParentId,
-    expandedFolders,
-    isCreating,
-    toggleFolder,
-    handleCreate,
-    getSelectedLocationText,
-  } = useCreateFolderModal({ isOpen, onCreate, folderTree });
+  const [folderName, setFolderName] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(
+    initialParentId || null
+  );
+  const [isFolderSelectorOpen, setIsFolderSelectorOpen] = useState(false);
+  const { createFolder, buildFolderTree, folders } = useFolders();
+
+  const handleSubmit = async () => {
+    if (!folderName.trim()) return;
+
+    try {
+      await createFolder(folderName, selectedParentId);
+      setFolderName("");
+      onClose();
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+    }
+  };
+
+  const getParentFolderName = () => {
+    if (!selectedParentId) return "Root";
+    const parent = folders.find((f) => f.id === selectedParentId);
+    return parent ? parent.name : "Root";
+  };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      overlayClassName="fixed inset-0 z-50 transition-opacity"
-      overlayStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      containerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
-      contentClassName="flex flex-col items-center p-8 gap-4 bg-[#2F2F2F] rounded-[20px] w-[480px] max-h-[90vh] border border-[#575757]"
-      closeButton={false}
+      title="새 폴더 만들기"
+      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[500px]"
     >
-      {/* Content Container */}
-      <div className="flex flex-col gap-4 w-full">
-        {/* Header Row */}
-        <div className="flex flex-row justify-between items-center w-full">
-          <h2 className="font-['Inter'] font-bold text-2xl text-white">
-            새 폴더
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center hover:opacity-70 transition-opacity"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 6L18 18M18 6L6 18" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* 폴더 이름 입력 */}
+      <div className="flex flex-col gap-6 p-6 pt-0">
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-semibold text-white">
-            폴더 이름
-          </label>
+          <label className="text-sm font-medium text-gray-300">폴더 이름</label>
           <input
             type="text"
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
             placeholder="폴더 이름을 입력하세요"
-            className="w-full h-11 bg-[#5E5E67] rounded-[15px] px-4 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#899649] font-['Inter']"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#899649] text-lg"
             autoFocus
           />
         </div>
 
-        {/* 위치 선택 */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold text-white">
-              위치 선택
-            </label>
-            <span className="text-xs text-[#899649]">
-              {getSelectedLocationText()}
-            </span>
-          </div>
-          <div className="bg-[#5E5E67] rounded-[15px] p-3 max-h-[200px] overflow-y-auto">
-            {/* 루트 폴더 */}
-            <div
-              className={`flex items-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-colors ${
-                (selectedParentId === null || (folderTree.length > 0 && selectedParentId === folderTree[0].folder.id))
-                  ? "bg-[#899649]/30 text-white"
-                  : "text-[#D9D9D9] hover:bg-white/5"
-              }`}
-              onClick={() => {
-                const rootFolderId = folderTree.length > 0 ? folderTree[0].folder.id : null;
-                setSelectedParentId(rootFolderId);
-              }}
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+          <label className="text-sm font-medium text-gray-300">위치</label>
+          <button
+            onClick={() => setIsFolderSelectorOpen(true)}
+            className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white hover:bg-white/10 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
-              <span className="text-sm font-medium">Root</span>
-            </div>
-
-            {/* 폴더 트리 */}
-            <div className="mt-1">
-              {folderTree.length > 0 && folderTree[0].children.map((child) => (
-                <FolderItem
-                  key={child.folder.id}
-                  node={child}
-                  level={0}
-                  selectedFolderId={selectedParentId}
-                  expandedFolders={expandedFolders}
-                  onToggle={toggleFolder}
-                  onSelect={setSelectedParentId}
-                />
-              ))}
-            </div>
-
-            {/* 폴더가 없을 때 */}
-            {(folderTree.length === 0 || folderTree[0].children.length === 0) && (
-              <div className="text-center text-gray-400 py-3 text-sm">
-                하위 폴더가 없습니다
-              </div>
-            )}
-          </div>
+              {getParentFolderName()}
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
         </div>
 
-        {/* 하단 버튼 */}
-        <div className="flex flex-row justify-end items-center gap-4 pt-2">
-          <button
-            onClick={onClose}
-            disabled={isCreating}
-            className="flex justify-center items-center px-6 h-10 bg-[#5E5E67] rounded-[15px] hover:bg-[#6E6E77] transition-colors disabled:opacity-50"
-          >
-            <span className="font-['Inter'] font-bold text-sm text-white">
-              취소
-            </span>
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!folderName.trim() || isCreating}
-            className="flex justify-center items-center px-6 h-10 bg-[#899649] rounded-[15px] hover:bg-[#7A8740] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="font-['Inter'] font-bold text-sm text-white">
-              {isCreating ? "생성 중..." : "폴더 생성"}
-            </span>
-          </button>
+        <div className="flex justify-end gap-3 pt-4 mt-2">
+          <Button variant="secondary" onClick={onClose}>
+            취소
+          </Button>
+          <Button variant="brand" onClick={handleSubmit} disabled={!folderName.trim()}>
+            만들기
+          </Button>
         </div>
       </div>
+
+      <FolderSelectorModal
+        isOpen={isFolderSelectorOpen}
+        onClose={() => setIsFolderSelectorOpen(false)}
+        onSelect={(folderId) => {
+          setSelectedParentId(folderId);
+          setIsFolderSelectorOpen(false);
+        }}
+        folderTree={buildFolderTree()}
+        selectedFolderId={selectedParentId}
+      />
     </Modal>
   );
 }

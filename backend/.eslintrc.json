@@ -19,7 +19,8 @@
     "prettier"
   ],
   "ignorePatterns": [
-    "dist/**"
+    "dist/**",
+    "node_modules/**"
   ],
   "rules": {
     "@typescript-eslint/no-unused-expressions": "off",

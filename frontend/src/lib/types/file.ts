@@ -19,6 +19,7 @@ export interface FileItem {
   uploadedAt: string;
   url: string; // Blob URL for display
   file?: File; // Original file object
+  backendId?: string; // Backend File ID (for timeline events)
 }
 
 // ============================================================================

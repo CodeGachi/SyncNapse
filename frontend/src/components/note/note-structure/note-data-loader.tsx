@@ -9,6 +9,7 @@
 
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteDataLoader } from "@/features/note/note-structure/use-note-data-loader";
+import { LoadingScreen } from "@/components/common/loading-screen";
 
 interface NoteDataLoaderProps {
   noteId: string | null;
@@ -41,11 +42,7 @@ export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteD
   // 로딩 상태 처리 (로컬 모드만)
   if (isLoading) {
     console.log('[NoteDataLoader] Still loading note with ID:', noteId);
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-white text-xl">로딩 중...</div>
-      </div>
-    );
+    return <LoadingScreen message="노트 불러오는 중..." />;
   }
 
   // 노트가 없는 경우 (로컬 모드만)

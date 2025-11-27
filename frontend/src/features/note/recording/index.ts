@@ -6,5 +6,6 @@ export { useRecording } from "./use-recording";
 export { useRecordingControl } from "./use-recording-control";
 export { useAudioPlayer } from "./use-audio-player";
 export { useAudioPlayback } from "./use-audio-playback";
+export { useRecordingTimeline } from "./use-recording-timeline";
 
 export type { RecordingData } from "./use-recording";

@@ -16,6 +16,8 @@ import { type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-draw
 import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
 import { saveDrawing } from "@/lib/db/drawings";
 
+import { motion } from "framer-motion";
+
 interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
@@ -68,13 +70,13 @@ export function NoteContentArea({
   // PDF 현재 페이지 추적
   const [currentPdfPage, setCurrentPdfPage] = useState(1);
 
-  // 필기 모드 상태 (필기/뷰어)
-  const [isDrawingMode, setIsDrawingMode] = useState(true);
+  // 필기 모드 상태 (필기/뷰어) - 기본값: 뷰어 모드 (PDF 조작 가능)
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   // Store states
   const editorStore = useNoteEditorStore();
   const panelsStore = usePanelsStore();
-  
+
   const {
     files: uploadedFiles,
     openedTabs,
@@ -86,7 +88,7 @@ export function NoteContentArea({
     getOpenedFiles,
   } = editorStore;
 
-  const { isNotePanelOpen } = panelsStore;
+  const { isNotePanelOpen, isDrawingSidebarOpen } = panelsStore;
 
   // 열린 파일들 가져오기
   const openedFiles = getOpenedFiles();
@@ -150,7 +152,12 @@ export function NoteContentArea({
   const selectedFile = uploadedFiles.find((file) => file.id === selectedFileId);
 
   return (
-    <div className="flex flex-col gap-3 flex-1">
+    <motion.div
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+      className="flex flex-col gap-3 flex-1"
+    >
       {/* 제목 영역 제거 - NoteHeader로 이동 */}
 
       {/* 탭 + PDF 뷰어 + 노트 패널 */}
@@ -189,12 +196,13 @@ export function NoteContentArea({
                   onPageChange={setCurrentPdfPage}
                   onPdfRenderInfo={setPdfRenderInfo}
                   // Drawing overlay props
-                  drawingEnabled={isEducatorNote && !!selectedFile}
+                  drawingEnabled={!!selectedFile}
                   drawingMode={isDrawingMode}
                   drawingOverlayRef={drawingOverlayRef}
                   noteId={noteId || ""}
                   fileId={selectedFile?.id.toString()}
                   isCollaborative={isCollaborating ?? false}
+                  isSharedView={isSharedView ?? false}
                   onDrawingSave={async (data) => {
                     try {
                       await saveDrawing(data);
@@ -207,8 +215,8 @@ export function NoteContentArea({
               </div>
             </div>
 
-            {/* 필기 도구 사이드바 - 우측 (교육자 노트 + 파일 선택 시만 표시) */}
-            {isEducatorNote && selectedFile && (
+            {/* 필기 도구 사이드바 - 우측 (파일 선택 + 필기바 표시 시만 표시) */}
+            {selectedFile && isDrawingSidebarOpen && (
               <DrawingSidebar
                 isEnabled={true}
                 isDrawingMode={isDrawingMode}
@@ -238,7 +246,9 @@ export function NoteContentArea({
               className="overflow-y-auto bg-[#1e1e1e]"
               style={{
                 height: `${100 - viewerHeight}%`,
-                marginRight: isEducatorNote && selectedFile ? '72px' : '0' // 필기바 너비(56px) + gap(16px), 파일 선택 시만
+                marginRight: selectedFile && isDrawingSidebarOpen
+                  ? '72px' // 필기바 표시: 56px + gap 16px
+                  : '0'
               }}
             >
               <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />
@@ -246,6 +256,6 @@ export function NoteContentArea({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
