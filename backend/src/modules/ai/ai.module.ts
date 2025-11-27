@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { DbModule } from '../db/db.module';
+import { HttpModule } from '@nestjs/axios';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 
 @Module({
-  imports: [DbModule],
+  imports: [HttpModule],
   controllers: [AiController],
   providers: [AiService],
   exports: [AiService],

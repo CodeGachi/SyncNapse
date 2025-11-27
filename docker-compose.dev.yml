@@ -80,6 +80,7 @@ services:
       - PORT=${BACKEND_PORT}
       - CHOKIDAR_USEPOLLING=true
       - NPM_CONFIG_LOGLEVEL=warn
+      - AI_SERVICE_URL=http://ai-service:8000
     ports:
       - "${BACKEND_PORT_PUBLIC}:4000"
     volumes:
@@ -89,6 +90,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ai-service:
+        condition: service_healthy
+
+  ai-service:
+    build:
+      context: ./ai-service
+    container_name: syncnapse-ai-service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   postgres:
     extends:

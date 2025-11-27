@@ -1,72 +1,88 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../db/prisma.service';
-import { Document, VectorStoreIndex } from 'llamaindex';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { AxiosError } from 'axios';
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct_answer: number;
+  explanation: string;
+}
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  
-  // 간단한 메모리 캐시 (노트별 인덱스 저장)
-  private indexCache = new Map<string, VectorStoreIndex>();
+  private readonly aiServiceUrl: string;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly httpService: HttpService) {
+    this.aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    this.logger.log(`AI Service URL: ${this.aiServiceUrl}`);
+  }
 
   /**
    * 질문에 답변하기
    */
   async ask(noteId: string, question: string): Promise<string> {
-    this.logger.log(`질문: ${question} (노트: ${noteId})`);
+    this.logger.log(`[ASK] noteId=${noteId}, question=${question.substring(0, 50)}...`);
 
-    // 1. 인덱스가 없으면 생성
-    let index = this.indexCache.get(noteId);
-    if (!index) {
-      this.logger.log(`인덱스 생성 중...`);
-      index = await this.createIndex(noteId);
-      this.indexCache.set(noteId, index);
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<{ answer: string }>(`${this.aiServiceUrl}/api/ai/ask`, {
+          note_id: noteId,
+          question: question,
+        })
+      );
+
+      return response.data.answer;
+    } catch (err) {
+      const error = err as AxiosError;
+      this.logger.error(`[ASK] Error:`, error.response?.data || error.message);
+      throw new BadRequestException('질문 처리 중 오류가 발생했습니다.');
     }
-
-    // 2. 질문하고 답변 받기
-    const queryEngine = index.asQueryEngine();
-    const response = await queryEngine.query({ query: question });
-
-    return response.toString();
   }
 
   /**
-   * 노트의 전사 내용으로 인덱스 생성
+   * 강의 내용 요약하기
    */
-  private async createIndex(noteId: string): Promise<VectorStoreIndex> {
-    // DB에서 전사 내용 가져오기
-    const transcripts = await this.prisma.transcriptSegment.findMany({
-      where: { noteId },
-      orderBy: { startSec: 'asc' },
-    });
+  async summarize(noteId: string, lines: number = 3): Promise<string> {
+    this.logger.log(`[SUMMARY] noteId=${noteId}, lines=${lines}`);
 
-    if (transcripts.length === 0) {
-      throw new NotFoundException('전사 데이터가 없습니다. 먼저 오디오를 녹음하고 전사해주세요.');
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<{ summary: string }>(`${this.aiServiceUrl}/api/ai/summary`, {
+          note_id: noteId,
+          lines: lines,
+        })
+      );
+
+      return response.data.summary;
+    } catch (err) {
+      const error = err as AxiosError;
+      this.logger.error(`[SUMMARY] Error:`, error.response?.data || error.message);
+      throw new BadRequestException('요약 생성 중 오류가 발생했습니다.');
     }
+  }
 
-    this.logger.log(`${transcripts.length}개 전사 세그먼트 로드됨`);
+  /**
+   * 퀴즈 생성하기
+   */
+  async generateQuiz(noteId: string, count: number = 5): Promise<QuizQuestion[]> {
+    this.logger.log(`[QUIZ] noteId=${noteId}, count=${count}`);
 
-    // LlamaIndex Document로 변환
-    const documents = transcripts.map(
-      (segment) =>
-        new Document({
-          text: segment.text,
-          metadata: {
-            noteId,
-            startSec: segment.startSec.toNumber(),
-            endSec: segment.endSec.toNumber(),
-          },
-        }),
-    );
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<{ quizzes: QuizQuestion[] }>(`${this.aiServiceUrl}/api/ai/quiz`, {
+          note_id: noteId,
+          count: count,
+        })
+      );
 
-    // 벡터 인덱스 생성
-    this.logger.log(`벡터 인덱스 생성 중...`);
-    const index = await VectorStoreIndex.fromDocuments(documents);
-    this.logger.log(`인덱스 생성 완료!`);
-
-    return index;
+      return response.data.quizzes;
+    } catch (err) {
+      const error = err as AxiosError;
+      this.logger.error(`[QUIZ] Error:`, error.response?.data || error.message);
+      throw new BadRequestException('퀴즈 생성 중 오류가 발생했습니다.');
+    }
   }
 }
-
