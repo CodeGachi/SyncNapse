@@ -1,22 +1,25 @@
 /**
- * etc 패널 컴포넌트 (리팩토링됨)
- * Exam, Summary 기능
+ * etc 패널 컴포넌트
+ * Exam, Summary 기능 (AI 연동)
  */
 
 "use client";
 
 import { useState } from "react";
 import { MenuButton } from "@/components/note/panels/etc-panel/menu-button";
+import { ExamContent } from "@/components/note/panels/etc-panel/exam-content";
+import { SummaryContent } from "@/components/note/panels/etc-panel/summary-content";
 import { Panel } from "./panel";
 
 interface EtcPanelProps {
   isOpen: boolean;
+  noteId: string | null;
   onClose?: () => void;
 }
 
 type MenuType = "exam" | "summary" | null;
 
-export function EtcPanel({ isOpen, onClose }: EtcPanelProps) {
+export function EtcPanel({ isOpen, noteId, onClose }: EtcPanelProps) {
   const [selectedMenu, setSelectedMenu] = useState<MenuType>(null);
 
   return (
@@ -43,55 +46,20 @@ export function EtcPanel({ isOpen, onClose }: EtcPanelProps) {
         </div>
       )}
 
-
-      {/* Exam 컨텐츠 (추후 구현) */}
-      {selectedMenu === "exam" && (
-        <div className="w-full flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h4 className="text-white font-semibold">Exam</h4>
-            <button
-              onClick={() => setSelectedMenu(null)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path
-                  d="M15 5L5 15M5 5L15 15"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <p className="text-gray-400 text-sm">Exam 기능 준비 중...</p>
-          </div>
-        </div>
+      {/* Exam 컨텐츠 */}
+      {selectedMenu === "exam" && noteId && (
+        <ExamContent 
+          noteId={noteId} 
+          onBack={() => setSelectedMenu(null)} 
+        />
       )}
 
-      {/* Summary 컨텐츠 (추후 구현) */}
-      {selectedMenu === "summary" && (
-        <div className="w-full flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h4 className="text-white font-semibold">Summary</h4>
-            <button
-              onClick={() => setSelectedMenu(null)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path
-                  d="M15 5L5 15M5 5L15 15"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <p className="text-gray-400 text-sm">Summary 기능 준비 중...</p>
-          </div>
-        </div>
+      {/* Summary 컨텐츠 */}
+      {selectedMenu === "summary" && noteId && (
+        <SummaryContent 
+          noteId={noteId} 
+          onBack={() => setSelectedMenu(null)} 
+        />
       )}
 
       <style jsx>{`

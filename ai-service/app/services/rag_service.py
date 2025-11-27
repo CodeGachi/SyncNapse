@@ -69,7 +69,14 @@ class RAGService:
         # 2. PDF 파일이 있으면 PDF 기반, 없으면 전사 데이터 기반
         source_file_url = note_info.get("sourceFileUrl")
         
-        if source_file_url and source_file_url.endswith('.pdf'):
+        # PDF 파일 URL 체크: .pdf로 끝나거나 /download 엔드포인트인 경우
+        is_pdf = False
+        if source_file_url:
+            is_pdf = (source_file_url.endswith('.pdf') or 
+                     '/download' in source_file_url or
+                     'pdf' in source_file_url.lower())
+        
+        if is_pdf:
             logger.info(f"[INDEX] PDF 파일 발견: {source_file_url}")
             index = await self._create_index_from_pdf(note_id, source_file_url)
         else:

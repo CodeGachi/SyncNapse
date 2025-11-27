@@ -159,7 +159,11 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
           />
 
           {/* etc 패널 */}
-          <EtcPanel isOpen={isEtcPanelOpen} onClose={toggleEtcPanel} />
+          <EtcPanel 
+            isOpen={isEtcPanelOpen} 
+            noteId={noteId}
+            onClose={toggleEtcPanel} 
+          />
 
           {/* 협업 패널 (Educator 전용, Liveblocks 실시간) */}
           {isEducator && (

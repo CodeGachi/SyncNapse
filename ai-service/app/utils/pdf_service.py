@@ -59,9 +59,14 @@ class PDFService:
             else:
                 full_url = url
             
+            # localhost를 Docker 컨테이너 이름으로 변환
+            # Docker 내부에서는 localhost가 자기 자신을 가리키므로
+            full_url = full_url.replace('http://localhost:9000', 'http://syncnapse-minio:9000')
+            full_url = full_url.replace('http://127.0.0.1:9000', 'http://syncnapse-minio:9000')
+            
             logger.info(f"[PDF] Downloading from: {full_url[:100]}...")
             
-            # httpx로 비동기 다운로드
+            # httpx로 비동기 다운로드 (MinIO 직접 접근은 인증 불필요)
             async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
                 response = await client.get(full_url)
                 response.raise_for_status()

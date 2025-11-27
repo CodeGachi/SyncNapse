@@ -48,10 +48,12 @@ services:
     image: syncnapse/frontend:local
     environment:
       - NODE_ENV=${FRONTEND_NODE_ENV}
+      - NEXT_PUBLIC_AI_SERVICE_URL=http://localhost:8000
     ports:
       - "${FRONTEND_PORT_PUBLIC}:3000"
     depends_on:
       - backend
+      - ai-service
 
   backend:
     build:

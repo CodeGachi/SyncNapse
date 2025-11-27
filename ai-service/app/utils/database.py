@@ -48,10 +48,32 @@ class DatabaseService:
             if not row:
                 return None
             
+            # sourceFileUrl이 temp://이면 실제 파일 정보를 가져옴
+            source_file_url = row["sourceFileUrl"]
+            
+            if source_file_url and source_file_url.startswith("temp://"):
+                logger.info(f"[DB] temp:// URL detected, fetching actual file from database")
+                # 노트의 첫 번째 PDF 파일 찾기
+                files = await self.get_note_files(note_id)
+                pdf_files = [f for f in files if f.get("fileType", "").lower().endswith("pdf")]
+                
+                if pdf_files:
+                    file_info = pdf_files[0]
+                    # storageKey를 사용하여 MinIO URL 생성
+                    storage_key = file_info.get("storageKey")
+                    if storage_key:
+                        # MinIO 버킷 이름 가져오기
+                        bucket = os.getenv("STORAGE_BUCKET", "syncnapse-files")
+                        # Docker 내부에서는 syncnapse-minio 사용
+                        source_file_url = f"http://syncnapse-minio:9000/{bucket}/{storage_key}"
+                        logger.info(f"[DB] Using storageKey URL: {source_file_url}")
+                    else:
+                        logger.warning(f"[DB] No storageKey found for file")
+            
             note_info = {
                 "id": row["id"],
                 "title": row["title"],
-                "sourceFileUrl": row["sourceFileUrl"],
+                "sourceFileUrl": source_file_url,
                 "type": row["type"]
             }
             
@@ -82,7 +104,7 @@ class DatabaseService:
             rows = await conn.fetch(
                 '''
                 SELECT id, "noteId", "fileName", "fileType", "fileSize", 
-                       "sourceBlobId", "storageUrl", "storageKey", "createdAt"
+                       "storageUrl", "storageKey", "uploadedAt"
                 FROM "File" 
                 WHERE "noteId" = $1 
                 ORDER BY "uploadedAt" ASC
@@ -97,10 +119,9 @@ class DatabaseService:
                     "fileName": row["fileName"],
                     "fileType": row["fileType"],
                     "fileSize": row["fileSize"],
-                    "sourceBlobId": row["sourceBlobId"],
                     "storageUrl": row["storageUrl"],
                     "storageKey": row["storageKey"],
-                    "createdAt": row["createdAt"]
+                    "uploadedAt": row["uploadedAt"]
                 }
                 for row in rows
             ]
