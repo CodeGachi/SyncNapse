@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { EmailService } from '../email/email.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -12,11 +13,22 @@ describe('UsersService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       upsert: jest.fn(),
+      delete: jest.fn(),
+    },
+    refreshToken: {
+      updateMany: jest.fn(),
     },
   };
 
   const mockStorageService = {
     uploadBuffer: jest.fn(),
+    renameFolder: jest.fn(),
+    listFolders: jest.fn(),
+    deleteFolderRecursively: jest.fn(),
+  };
+
+  const mockEmailService = {
+    sendAccountDeletionNotice: jest.fn(),
   };
 
   const mockUser = {
@@ -37,6 +49,7 @@ describe('UsersService', () => {
         UsersService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: StorageService, useValue: mockStorageService },
+        { provide: EmailService, useValue: mockEmailService },
       ],
     }).compile();
 

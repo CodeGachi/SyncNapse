@@ -822,7 +822,8 @@ export class NotesService {
       this.logger.log(`[deleteNote] ✅ Archived note folder to .deleted: ${archivedPath}`);
     } catch (error) {
       this.logger.error(`[deleteNote] Failed to archive note folder:`, error);
-      // Don't fail the request if archiving fails
+      // Don't fail the request if archiving fails (allow DB soft-delete to proceed)
+      this.logger.warn(`[deleteNote] Note ${noteId} soft-deleted in DB, but storage folder move failed (likely file missing).`);
     }
 
     return { message: 'Note deleted successfully' };

@@ -26,8 +26,8 @@
     "format": "npm -w frontend run format && npm -w backend run format",
     "test": "npm -w frontend run test && npm -w backend run test",
     "test:ci": "npm -w frontend run test:ci && npm -w backend run test:ci",
-    "clean": "rm -rf node_modules frontend/node_modules backend/node_modules frontend/dist frontend/.next backend/dist .env .env.dev .env.prod backend/.env .env-repo && echo '✅ Cleaned: node_modules, dist, .env files, .env-repo'",
-    "clean:force": "sudo rm -rf node_modules frontend/node_modules backend/node_modules frontend/dist frontend/.next backend/dist .env .env.dev .env.prod backend/.env .env-repo && echo '✅ Force cleaned with sudo'",
+    "clean": "npm run dev:down && rm -rf node_modules data frontend/node_modules backend/node_modules frontend/dist frontend/.next backend/dist .env .env.dev .env.prod backend/.env .env-repo && echo '✅ Cleaned: node_modules, dist, .env files, .env-repo'",
+    "clean:force": "npm run dev:down && sudo rm -rf node_modules data frontend/node_modules backend/node_modules frontend/dist frontend/.next backend/dist .env .env.dev .env.prod backend/.env .env-repo && echo '✅ Force cleaned with sudo'",
     "db:up": "cd db && docker compose up -d",
     "db:down": "cd db && docker compose down",
     "db:logs": "docker logs -f syncnapse-postgres",
@@ -40,6 +40,7 @@
     "setup": "npm install && npm run env:sync && ENV_TARGET=dev node scripts/sync-envs.mjs && npm -w backend run prisma:generate && ENV_TARGET=dev node scripts/export-db-schema.mjs",
     "dev:all": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml up -d --build",
     "dev:down": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml down",
+    "dev:restart": "npm run dev:down && npm run dev:all",
     "dev:logs": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml logs -f",
     "n8n:export:workflows": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'mkdir -p /exports && n8n export:workflow --all --separate --output=/exports'",
     "n8n:export:credentials": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'mkdir -p /exports && n8n export:credentials --all --output=/exports'",
@@ -53,7 +54,9 @@
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/throttler": "^6.4.0",
+    "@types/nodemailer": "^7.0.4",
     "bullmq": "^5.64.1",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "nodemailer": "^7.0.11"
   }
 }

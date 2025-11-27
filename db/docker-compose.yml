@@ -11,16 +11,13 @@ services:
     ports:
       - "${POSTGRES_PORT_PUBLIC}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ../data/postgres:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-volumes:
-  pgdata:
 
 networks:
   default:

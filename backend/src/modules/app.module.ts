@@ -22,6 +22,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { LiveblocksModule } from './liveblocks/liveblocks.module';
 import { SharingModule } from './sharing/sharing.module';
+import { EmailModule } from './email/email.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -49,6 +51,8 @@ import { SharingModule } from './sharing/sharing.module';
     SearchModule,
     LiveblocksModule,
     SharingModule,
+    EmailModule,
+    AiModule,
   ],
   controllers: [RootController],
   providers: [

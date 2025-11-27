@@ -117,3 +117,23 @@ export async function logout(): Promise<void> {
   });
 }
 
+/**
+ * Restore soft-deleted account
+ */
+export async function restoreAccount(token: string): Promise<void> {
+  return apiClient<void>("/api/auth/restore", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+/**
+ * Permanently delete account
+ */
+export async function permanentDeleteAccount(token: string): Promise<void> {
+  return apiClient<void>("/api/auth/permanent-delete", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+

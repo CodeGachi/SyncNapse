@@ -104,5 +104,4 @@ networks:
     name: syncnapse_net
 volumes:
   grafana-data:
-  pgdata:
   loki-data:
