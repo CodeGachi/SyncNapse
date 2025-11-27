@@ -4,7 +4,12 @@ import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 
 @Module({
-  imports: [HttpModule],
+  imports: [
+    HttpModule.register({
+      timeout: 120000, // 120초 (OCR 처리 시간 고려)
+      maxRedirects: 5,
+    }),
+  ],
   controllers: [AiController],
   providers: [AiService],
   exports: [AiService],

@@ -83,6 +83,23 @@ services:
     ports:
       - "${BACKEND_PORT_PUBLIC}:4000"
 
+  ai-service:
+    build:
+      context: ./ai-service
+    image: syncnapse/ai-service:local
+    container_name: syncnapse-ai-service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - BACKEND_URL=http://backend:4000
+      - ENABLE_OCR=true
+      - OCR_MIN_TEXT_LENGTH=50
+    ports:
+      - "8000:8000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 # volumes:
 #   n8n_data:  # No longer needed - using bind mounts instead
 #   redis_data:
