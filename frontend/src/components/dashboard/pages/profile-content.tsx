@@ -11,13 +11,15 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/use-auth";
 import { updateUserProfile } from "@/lib/api/services/auth.api";
+import { deleteAccount } from "@/lib/api/auth.api";
+import { AccountDeleteConfirmModal } from "@/components/dashboard/account-delete-confirm-modal";
 import { motion } from "framer-motion";
 
 // 모달 타입
 type ModalType =
-  | { type: "info"; title: string; message: string }
-  | { type: "success"; title: string; message: string }
-  | { type: "error"; title: string; message: string }
+  | { type: "info"; title: string; message: string; onClose?: () => void }
+  | { type: "success"; title: string; message: string; onClose?: () => void }
+  | { type: "error"; title: string; message: string; onClose?: () => void }
   | { type: "confirm"; title: string; message: string; onConfirm: () => void }
   | null;
 
@@ -33,6 +35,9 @@ export function ProfileContent() {
 
   // 모달 상태
   const [modal, setModal] = useState<ModalType>(null);
+
+  // 계정 삭제 모달 상태
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // user가 로드되면 editName 초기화
   useEffect(() => {
@@ -107,18 +112,42 @@ export function ProfileContent() {
 
   // 계정 삭제 핸들러
   const handleDeleteAccount = () => {
-    setModal({
-      type: "confirm",
-      title: "계정 삭제",
-      message: "정말 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
-      onConfirm: () => {
-        setModal({
-          type: "info",
-          title: "준비 중",
-          message: "계정 삭제 기능은 준비 중입니다.",
-        });
-      },
-    });
+    setIsDeleteModalOpen(true);
+  };
+
+  // 실제 계정 삭제 처리
+  const handleConfirmDelete = async () => {
+    try {
+      const response = await deleteAccount();
+
+      // 모달 닫기
+      setIsDeleteModalOpen(false);
+
+      // 복구 토큰을 클립보드에 복사 시도
+      try {
+        await navigator.clipboard.writeText(response.restorationToken);
+      } catch {
+        // 클립보드 복사 실패 무시
+      }
+
+      // 복구 토큰 표시 - 확인 버튼 클릭 시 로그아웃
+      setModal({
+        type: "success",
+        title: "계정 삭제 완료",
+        message: `계정이 삭제되었습니다.\n\n복구 토큰:\n${response.restorationToken}\n\n(클립보드에 복사됨)\n\n30일 내에 이 토큰으로 계정을 복구할 수 있습니다.`,
+        onClose: () => {
+          window.location.href = "/auth/logout";
+        },
+      });
+    } catch (error) {
+      console.error("계정 삭제 실패:", error);
+      setIsDeleteModalOpen(false);
+      setModal({
+        type: "error",
+        title: "삭제 실패",
+        message: "계정 삭제에 실패했습니다. 다시 시도해주세요.",
+      });
+    }
   };
 
   return (
@@ -410,7 +439,13 @@ export function ProfileContent() {
                 </>
               ) : (
                 <button
-                  onClick={closeModal}
+                  onClick={() => {
+                    if (modal.onClose) {
+                      modal.onClose();
+                    } else {
+                      closeModal();
+                    }
+                  }}
                   className="w-full bg-gradient-to-br from-[#AFC02B] to-[#899649] hover:shadow-[0_0_20px_rgba(175,192,43,0.3)] text-white font-bold py-3 px-4 rounded-xl transition-all"
                 >
                   확인
@@ -420,6 +455,13 @@ export function ProfileContent() {
           </motion.div>
         </div>
       )}
+
+      {/* 계정 삭제 확인 모달 */}
+      <AccountDeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onDelete={handleConfirmDelete}
+      />
     </div>
   );
 }

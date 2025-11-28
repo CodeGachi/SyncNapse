@@ -137,3 +137,22 @@ export async function permanentDeleteAccount(token: string): Promise<void> {
   });
 }
 
+/**
+ * Delete account response type
+ */
+export interface DeleteAccountResponse {
+  message: string;
+  restorationToken: string;
+}
+
+/**
+ * Delete account (soft delete)
+ * Returns a restoration token valid for 30 days
+ */
+export async function deleteAccount(): Promise<DeleteAccountResponse> {
+  return apiClient<DeleteAccountResponse>("/api/users/me", {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+}
+
