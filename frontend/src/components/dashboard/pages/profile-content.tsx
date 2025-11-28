@@ -118,23 +118,16 @@ export function ProfileContent() {
   // 실제 계정 삭제 처리
   const handleConfirmDelete = async () => {
     try {
-      const response = await deleteAccount();
+      await deleteAccount();
 
       // 모달 닫기
       setIsDeleteModalOpen(false);
 
-      // 복구 토큰을 클립보드에 복사 시도
-      try {
-        await navigator.clipboard.writeText(response.restorationToken);
-      } catch {
-        // 클립보드 복사 실패 무시
-      }
-
-      // 복구 토큰 표시 - 확인 버튼 클릭 시 로그아웃
+      // 성공 메시지 표시 - 확인 버튼 클릭 시 로그아웃
       setModal({
         type: "success",
         title: "계정 삭제 완료",
-        message: `계정이 삭제되었습니다.\n\n복구 토큰:\n${response.restorationToken}\n\n(클립보드에 복사됨)\n\n30일 내에 이 토큰으로 계정을 복구할 수 있습니다.`,
+        message: "계정이 삭제되었습니다.\n\n30일 내에 다시 로그인하면 계정을 복구할 수 있습니다.",
         onClose: () => {
           window.location.href = "/auth/logout";
         },

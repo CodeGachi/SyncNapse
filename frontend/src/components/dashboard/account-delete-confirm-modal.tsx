@@ -18,7 +18,8 @@ export function AccountDeleteConfirmModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
 
-  const isConfirmed = confirmText === "삭제";
+  const CONFIRM_TEXT = "내 계정을 삭제합니다";
+  const isConfirmed = confirmText === CONFIRM_TEXT;
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -198,14 +199,14 @@ export function AccountDeleteConfirmModal({
                 {/* 확인 입력 */}
                 <div className="space-y-2">
                   <label className="text-sm text-gray-400">
-                    계속하려면 <span style={{ color: "#f87171", fontWeight: "bold" }}>&quot;삭제&quot;</span>를
+                    계속하려면 <span style={{ color: "#f87171", fontWeight: "bold" }}>&quot;{CONFIRM_TEXT}&quot;</span>를
                     입력하세요
                   </label>
                   <input
                     type="text"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
-                    placeholder="삭제"
+                    placeholder={CONFIRM_TEXT}
                     disabled={isDeleting}
                     className="w-full text-white px-4 py-3 rounded-xl outline-none transition-all placeholder:text-gray-600 disabled:opacity-50"
                     style={{
