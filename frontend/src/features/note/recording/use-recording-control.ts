@@ -122,11 +122,9 @@ export function useRecordingControl(noteId?: string | null) {
         );
         console.log('[RecordingControl] ✅ Optimistic update: Added to cache immediately');
 
-        // 백그라운드에서 백엔드 동기화 (5초 후)
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ["recordings"] });
-          console.log('[RecordingControl] 🔄 Background sync with backend');
-        }, 5000);
+        // 🔥 즉시 백엔드와 동기화 (지연 제거)
+        queryClient.invalidateQueries({ queryKey: ["recordings"] });
+        console.log('[RecordingControl] 🔄 Invalidated recordings cache for immediate sync');
       }
 
       console.log('[RecordingControl] ✅ Recording saved with optimistic update');

@@ -13,12 +13,18 @@ export type TranslationErrorType =
   | 'api_error'       // 기타 API 에러
   | 'network_error';  // 네트워크 에러
 
+// 저장 상태 타입
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 // 사용량 정보
 export interface TranslationUsageInfo {
   used: number;
   limit: number;
   remaining: number;
 }
+
+// 자동 저장 콜백 타입
+export type SaveRevisionCallback = (sessionId: string, editedSegments: Record<string, string>) => Promise<void>;
 
 interface ScriptTranslationState {
   // Translation State
@@ -31,6 +37,14 @@ interface ScriptTranslationState {
   isTranslating: boolean;
   translationError: TranslationErrorType | null;
   usageInfo: TranslationUsageInfo | null;
+
+  // Edit Mode State
+  isEditMode: boolean;
+  editedSegments: Record<string, string>;  // segmentId -> editedText
+  saveStatus: SaveStatus;
+
+  // 자동 저장 콜백 (세션 변경 시 호출)
+  saveRevisionCallback: SaveRevisionCallback | null;
 
   // Translation Actions
   toggleTranslation: () => void;
@@ -45,6 +59,16 @@ interface ScriptTranslationState {
   setTranslationError: (error: TranslationErrorType | null) => void;
   setUsageInfo: (info: TranslationUsageInfo | null) => void;
 
+  // Edit Mode Actions
+  setEditMode: (isEdit: boolean) => void;
+  updateEditedSegment: (id: string, text: string) => void;
+  revertSegment: (id: string) => void;
+  resetEdits: () => void;
+  setSaveStatus: (status: SaveStatus) => void;
+
+  // 자동 저장 콜백 등록
+  setSaveRevisionCallback: (callback: SaveRevisionCallback | null) => void;
+
   // Reset
   reset: () => void;
 }
@@ -57,6 +81,11 @@ const initialState = {
   isTranslating: false,
   translationError: null as TranslationErrorType | null,
   usageInfo: null as TranslationUsageInfo | null,
+  // Edit Mode
+  isEditMode: false,
+  editedSegments: {} as Record<string, string>,
+  saveStatus: 'idle' as SaveStatus,
+  saveRevisionCallback: null as SaveRevisionCallback | null,
 };
 
 export const useScriptTranslationStore = create<ScriptTranslationState>()(
@@ -116,6 +145,27 @@ export const useScriptTranslationStore = create<ScriptTranslationState>()(
       setIsTranslating: (isTranslating) => set({ isTranslating }),
       setTranslationError: (error) => set({ translationError: error }),
       setUsageInfo: (info) => set({ usageInfo: info }),
+
+      // Edit Mode Actions
+      setEditMode: (isEdit) => set({ isEditMode: isEdit }),
+
+      updateEditedSegment: (id, text) =>
+        set((state) => ({
+          editedSegments: { ...state.editedSegments, [id]: text },
+          saveStatus: 'idle',  // 수정 시 저장 상태 초기화
+        })),
+
+      revertSegment: (id) =>
+        set((state) => {
+          const { [id]: _, ...rest } = state.editedSegments;
+          return { editedSegments: rest };
+        }),
+
+      resetEdits: () => set({ editedSegments: {}, saveStatus: 'idle' }),
+
+      setSaveStatus: (status) => set({ saveStatus: status }),
+
+      setSaveRevisionCallback: (callback) => set({ saveRevisionCallback: callback }),
 
       reset: () => set(initialState),
     }),

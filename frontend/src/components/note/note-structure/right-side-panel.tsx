@@ -8,13 +8,15 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteUIStore } from "@/stores";
+import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteUIStore, useAudioPlayerStore } from "@/stores";
 import type { PageContext } from "@/lib/types";
 import {
   useFileManagement,
 } from "@/features/note/right-panel";
 import { useAudioPlayer, useAudioPlayback } from "@/features/note/recording";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
+import { saveRevision, getSession, getRevisions, type RevisionContent } from "@/lib/api/transcription.api";
+import type { WordWithTime } from "@/lib/types";
 
 // UI Components
 import { ScriptPanel } from "@/components/note/panels/script-panel";
@@ -55,7 +57,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     setCurrentPage,
   } = useNoteEditorStore();
 
-  const { scriptSegments, reset: resetScriptTranslation } = useScriptTranslationStore();
+  const { scriptSegments, setScriptSegments, reset: resetScriptTranslation } = useScriptTranslationStore();
 
   // noteId 변경 시 스크립트 초기화 (노트 진입/변경 시)
   useEffect(() => {
@@ -95,6 +97,9 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     isPlaying,
     togglePlay,
   } = useAudioPlayer();
+
+  // 🔥 전역 스토어에서 currentSessionId 가져오기 (편집 시 리비전 저장용)
+  const { currentSessionId } = useAudioPlayerStore();
 
   // ✅ Audio playback controls and script synchronization (separated to custom hook)
   const {
@@ -148,6 +153,72 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     backendId: file.backendId,
   }));
 
+  // 스크립트 리비전 저장 핸들러
+  const handleSaveRevision = useCallback(async (sessionId: string, editedSegments: Record<string, string>) => {
+    console.log('[RightSidePanel] Saving revision:', { sessionId, editedCount: Object.keys(editedSegments).length });
+
+    // editedSegments를 RevisionContent 형식으로 변환
+    const content: RevisionContent = {
+      segments: Object.entries(editedSegments).map(([id, editedText]) => {
+        const originalSegment = scriptSegments.find(s => s.id === id);
+        return {
+          id,
+          originalText: originalSegment?.originalText || '',
+          editedText,
+          timestamp: originalSegment?.timestamp || 0,
+        };
+      }),
+    };
+
+    await saveRevision(sessionId, content);
+    console.log('[RightSidePanel] Revision saved successfully');
+
+    // 🔥 저장 후 최신 데이터 리로드하여 UI 갱신
+    try {
+      const [sessionData, revisions] = await Promise.all([
+        getSession(sessionId),
+        getRevisions(sessionId),
+      ]);
+
+      // 최신 리비전 맵 생성
+      let revisionMap: Record<string, string> = {};
+      if (revisions && revisions.length > 0) {
+        const latestRevision = revisions[0];
+        if (latestRevision.content?.segments) {
+          latestRevision.content.segments.forEach((seg) => {
+            revisionMap[seg.id] = seg.editedText;
+          });
+        }
+      }
+
+      // 스크립트 세그먼트 업데이트 (리비전 적용)
+      if (sessionData.segments && sessionData.segments.length > 0) {
+        const updatedSegments = sessionData.segments.map((segment) => {
+          const editedText = revisionMap[segment.id];
+          return {
+            id: segment.id,
+            timestamp: segment.startTime * 1000,
+            originalText: editedText || segment.text,
+            translatedText: undefined,
+            words: editedText ? undefined : segment.words?.map((word) => ({
+              word: word.word,
+              startTime: word.startTime,
+              confidence: word.confidence || 1.0,
+              wordIndex: word.wordIndex,
+            })) as WordWithTime[] | undefined,
+            isPartial: false,
+          };
+        });
+
+        setScriptSegments(updatedSegments);
+        console.log('[RightSidePanel] ✅ Script segments updated after revision save');
+      }
+    } catch (reloadError) {
+      console.error('[RightSidePanel] Failed to reload after save:', reloadError);
+      // 리로드 실패해도 저장 자체는 성공했으므로 에러를 던지지 않음
+    }
+  }, [scriptSegments, setScriptSegments]);
+
   return (
     <>
       {/* 사이드 패널 - 확장시에만 표시 */}
@@ -169,6 +240,8 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
               activeSegmentId={activeSegmentId}
               onPageContextClick={handlePageContextClick}
               files={filesForScriptPanel}
+              sessionId={currentSessionId || undefined}
+              onSaveRevision={handleSaveRevision}
             />
 
             {/* 타임라인 (스크립트가 열려있고 세그먼트가 있을 때만 표시) */}

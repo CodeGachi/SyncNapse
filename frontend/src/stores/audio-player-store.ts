@@ -13,9 +13,13 @@ interface AudioPlayerState {
   timelineEvents: AudioTimelineEvent[];
   currentPageContext: PageContext | null;
 
+  // Current session (편집 시 리비전 저장용)
+  currentSessionId: string | null;
+
   // Actions
   setTimelineEvents: (events: AudioTimelineEvent[]) => void;
   setCurrentPageContext: (context: PageContext | null) => void;
+  setCurrentSessionId: (sessionId: string | null) => void;
   clearTimeline: () => void;
 }
 
@@ -24,15 +28,20 @@ export const useAudioPlayerStore = create<AudioPlayerState>()(
     (set) => ({
       timelineEvents: [],
       currentPageContext: null,
+      currentSessionId: null,
 
       setTimelineEvents: (events) => {
         console.log('[AudioPlayerStore] 📦 setTimelineEvents:', events.length, 'events');
         set({ timelineEvents: events });
       },
       setCurrentPageContext: (context) => set({ currentPageContext: context }),
+      setCurrentSessionId: (sessionId) => {
+        console.log('[AudioPlayerStore] 🎙️ setCurrentSessionId:', sessionId);
+        set({ currentSessionId: sessionId });
+      },
       clearTimeline: () => {
         console.log('[AudioPlayerStore] 🗑️ clearTimeline');
-        set({ timelineEvents: [], currentPageContext: null });
+        set({ timelineEvents: [], currentPageContext: null, currentSessionId: null });
       },
     }),
     {
