@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useNotes } from "@/lib/api/queries/notes.queries";
 import { useFolders } from "@/features/dashboard";
@@ -18,6 +18,8 @@ import { Button } from "@/components/common/button";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { DeleteConfirmModal } from "@/components/dashboard/delete-confirm-modal";
 import { FolderSelector } from "@/components/dashboard/folder-management/folder-selector";
+import { SearchDropdown } from "@/components/dashboard/search";
+import { useSearch } from "@/features/search/use-search";
 import { motion } from "framer-motion";
 import type { Note, Folder } from "@/lib/types";
 
@@ -56,8 +58,45 @@ interface DeleteModal {
 export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
   const { setSelectedFolderId } = useDashboardContext();
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // 통합 검색 훅
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    isOpen: isSearchOpen,
+    setIsOpen: setIsSearchOpen,
+    results: searchResults,
+    isLoading: isSearchLoading,
+  } = useSearch({ debounceDelay: 300, limit: 5 });
+
+  // 검색창 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [setIsSearchOpen]);
+
+  // ESC 키로 검색 드롭다운 닫기
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && isSearchOpen) {
+        setIsSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchOpen, setIsSearchOpen]);
 
   // 옵션 메뉴 상태
   const [optionMenu, setOptionMenu] = useState<OptionMenu | null>(null);
@@ -82,15 +121,8 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
     setSelectedFolderId(folderId);
   };
 
-  // 검색 필터링
-  const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return allNotes;
-
-    const query = searchQuery.toLowerCase();
-    return allNotes.filter((note) =>
-      note.title.toLowerCase().includes(query)
-    );
-  }, [allNotes, searchQuery]);
+  // 검색어가 없을 때만 전체 노트 표시 (검색 시에는 드롭다운에서 결과 표시)
+  const filteredNotes = allNotes;
 
   // 최근 접근한 노트 (updated_at 기준 정렬, 최대 5개)
   const recentNotes = useMemo(() => {
@@ -239,21 +271,54 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="absolute top-6 right-9 z-20 flex flex-row items-center gap-6"
       >
-        {/* Search Input */}
-        <div className="flex flex-row items-center px-4 py-2.5 gap-3 w-[320px] h-[48px] bg-[#1E1E1E]/60 backdrop-blur-xl border border-white/10 rounded-full shadow-lg shadow-black/20 hover:border-[#AFC02B]/30 transition-all duration-300 group">
-          <div className="w-5 h-5 flex items-center justify-center text-gray-400 group-hover:text-[#AFC02B] transition-colors">
-            <svg width="18" height="18" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7.5 13.5C10.5376 13.5 13 11.0376 13 8C13 4.96243 10.5376 2.5 7.5 2.5C4.46243 2.5 2 4.96243 2 8C2 11.0376 4.46243 13.5 7.5 13.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M16 17L11.5 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {/* Search Input with Dropdown */}
+        <div ref={searchContainerRef} className="relative">
+          <div className={`flex flex-row items-center px-4 py-2.5 gap-3 w-[320px] h-[48px] bg-[#1E1E1E]/60 backdrop-blur-xl border rounded-full shadow-lg shadow-black/20 transition-all duration-300 group ${
+            isSearchOpen && searchQuery.trim() ? 'border-[#AFC02B]/50' : 'border-white/10 hover:border-[#AFC02B]/30'
+          }`}>
+            <div className="w-5 h-5 flex items-center justify-center text-gray-400 group-hover:text-[#AFC02B] transition-colors">
+              {isSearchLoading ? (
+                <svg className="animate-spin w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 13.5C10.5376 13.5 13 11.0376 13 8C13 4.96243 10.5376 2.5 7.5 2.5C4.46243 2.5 2 4.96243 2 8C2 11.0376 4.46243 13.5 7.5 13.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M16 17L11.5 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+            <input
+              type="text"
+              placeholder="노트, 파일, 음성 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => searchQuery.trim() && setIsSearchOpen(true)}
+              className="flex-1 bg-transparent text-white text-sm font-medium outline-none placeholder:text-gray-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
-          <input
-            type="text"
-            placeholder="Search notes..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent text-white text-sm font-medium outline-none placeholder:text-gray-500"
-          />
+
+          {/* Search Dropdown */}
+          {searchResults && (
+            <SearchDropdown
+              results={searchResults}
+              query={searchQuery}
+              isLoading={isSearchLoading}
+              isOpen={isSearchOpen && searchQuery.trim().length > 0}
+              onClose={() => setIsSearchOpen(false)}
+            />
+          )}
         </div>
 
         {/* 알림 아이콘 */}
@@ -286,7 +351,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
                 <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                <p>{searchQuery ? "검색 결과가 없습니다" : "최근 접근한 노트가 없습니다"}</p>
+                <p>최근 접근한 노트가 없습니다</p>
               </div>
             ) : (
               recentNotes.map((note) => (
@@ -358,7 +423,7 @@ export function NewMainContent({ selectedFolderId }: NewMainContentProps) {
           {/* Table Rows */}
           {childFolders.length === 0 && folderNotes.length === 0 ? (
             <div className="px-5 py-4 text-[#575757] w-full">
-              {searchQuery ? "검색 결과가 없습니다" : "이 폴더가 비어있습니다"}
+              이 폴더가 비어있습니다
             </div>
           ) : (
             <>

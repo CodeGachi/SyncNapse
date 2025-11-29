@@ -16,11 +16,15 @@ interface AudioPlayerState {
   // Current session (편집 시 리비전 저장용)
   currentSessionId: string | null;
 
+  // 검색에서 점프할 시간 (초) - URL 파라미터로 전달받은 시간
+  pendingSeekTime: number | null;
+
   // Actions
   setTimelineEvents: (events: AudioTimelineEvent[]) => void;
   setCurrentPageContext: (context: PageContext | null) => void;
   setCurrentSessionId: (sessionId: string | null) => void;
   clearTimeline: () => void;
+  setPendingSeekTime: (time: number | null) => void;
 }
 
 export const useAudioPlayerStore = create<AudioPlayerState>()(
@@ -29,6 +33,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>()(
       timelineEvents: [],
       currentPageContext: null,
       currentSessionId: null,
+      pendingSeekTime: null,
 
       setTimelineEvents: (events) => {
         console.log('[AudioPlayerStore] 📦 setTimelineEvents:', events.length, 'events');
@@ -41,7 +46,11 @@ export const useAudioPlayerStore = create<AudioPlayerState>()(
       },
       clearTimeline: () => {
         console.log('[AudioPlayerStore] 🗑️ clearTimeline');
-        set({ timelineEvents: [], currentPageContext: null, currentSessionId: null });
+        set({ timelineEvents: [], currentPageContext: null, currentSessionId: null, pendingSeekTime: null });
+      },
+      setPendingSeekTime: (time) => {
+        console.log('[AudioPlayerStore] ⏩ setPendingSeekTime:', time);
+        set({ pendingSeekTime: time });
       },
     }),
     {

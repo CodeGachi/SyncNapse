@@ -6,7 +6,7 @@ import { RightSidePanel } from "@/components/note/note-structure/right-side-pane
 import { SidebarIcons } from "@/components/note/note-structure/sidebar-icons";
 import { NoteDataLoader } from "@/components/note/note-structure/note-data-loader";
 import { NoteHeader } from "@/components/note/note-structure/note-header";
-import { usePanelsStore } from "@/stores";
+import { usePanelsStore, useAudioPlayerStore } from "@/stores";
 
 import { motion } from "framer-motion";
 
@@ -16,6 +16,7 @@ interface StudentNotePageProps {
   };
   searchParams: {
     title?: string;
+    t?: string; // 시간 파라미터 (초 단위) - 검색에서 음성 클릭 시 사용
   };
 }
 
@@ -25,12 +26,23 @@ export default function StudentNotePage({
 }: StudentNotePageProps) {
   const { noteId } = params;
   const noteTitle = searchParams.title || "제목 없음";
+  const seekTime = searchParams.t ? parseFloat(searchParams.t) : null;
 
   // 패널 상태 초기화
   const resetPanels = usePanelsStore((state) => state.reset);
+  const setPendingSeekTime = useAudioPlayerStore((state) => state.setPendingSeekTime);
+
   useEffect(() => {
     resetPanels();
   }, [resetPanels]);
+
+  // URL에서 시간 파라미터가 있으면 스토어에 저장
+  useEffect(() => {
+    if (seekTime !== null && !isNaN(seekTime)) {
+      console.log('[StudentNotePage] Setting pending seek time:', seekTime);
+      setPendingSeekTime(seekTime);
+    }
+  }, [seekTime, setPendingSeekTime]);
 
   return (
     <motion.div

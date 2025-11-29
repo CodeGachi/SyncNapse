@@ -38,10 +38,12 @@ export function useAudioPlayer() {
     timelineEvents,
     currentPageContext,
     currentSessionId,
+    pendingSeekTime,
     setTimelineEvents,
     setCurrentPageContext,
     setCurrentSessionId,
     clearTimeline,
+    setPendingSeekTime,
   } = useAudioPlayerStore();
 
   // 오디오 플레이어 로컬 state
@@ -253,6 +255,15 @@ export function useAudioPlayer() {
             console.log('[useAudioPlayer] Using backend duration:', backendDuration);
           }
 
+          // 🔥 pendingSeekTime이 있으면 해당 시간으로 점프
+          const store = getAudioPlayerStore();
+          if (store.pendingSeekTime !== null) {
+            audioRef.current.currentTime = store.pendingSeekTime;
+            setCurrentTime(store.pendingSeekTime);
+            console.log('[useAudioPlayer] ⏩ Jumped to pending seek time:', store.pendingSeekTime);
+            store.setPendingSeekTime(null); // 사용 후 초기화
+          }
+
           // 자동 재생 시도
           try {
             await audioRef.current.play();
@@ -334,6 +345,15 @@ export function useAudioPlayer() {
     return audioApi.getPageContextAtTime(timelineEvents, time);
   };
 
+  // 특정 시간으로 점프
+  const seekTo = (timeInSeconds: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = timeInSeconds;
+      setCurrentTime(timeInSeconds);
+      console.log('[useAudioPlayer] ⏩ Seeked to:', timeInSeconds, 'seconds');
+    }
+  };
+
   return {
     audioRef,
     isPlaying,
@@ -350,5 +370,6 @@ export function useAudioPlayer() {
     timelineEvents,
     currentPageContext,
     getPageContextAtTime,
+    seekTo,
   };
 }
