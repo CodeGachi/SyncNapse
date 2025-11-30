@@ -1,8 +1,3 @@
-/**
- * 프로필 컨텐츠 컴포넌트
- * 사용자 프로필 정보 표시 및 관리
- */
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,8 +8,9 @@ import { useAuth } from "@/features/auth/use-auth";
 import { updateUserProfile } from "@/lib/api/services/auth.api";
 import { deleteAccount } from "@/lib/api/auth.api";
 import { AccountDeleteConfirmModal } from "@/components/dashboard/account-delete-confirm-modal";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { createLogger } from "@/lib/utils/logger";
+import { useTheme } from "next-themes";
 
 const log = createLogger("ProfileContent");
 
@@ -30,6 +26,12 @@ export function ProfileContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 편집 모드 상태
   const [isEditing, setIsEditing] = useState(false);
@@ -322,6 +324,94 @@ export function ProfileContent() {
             <h3 className="text-white font-bold text-lg mb-4">계정 설정</h3>
 
             <div className="space-y-3">
+              {/* 테마 설정 - Brand Aligned Design */}
+              <motion.button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className={`relative w-full overflow-hidden rounded-xl border p-0 group transition-colors duration-300 ${mounted && theme === "dark"
+                    ? "bg-[#1E1E1E] border-white/5"
+                    : "bg-[#F5F5F5] border-black/5"
+                  }`}
+                whileTap={{ scale: 0.98 }}
+              >
+                {/* Content */}
+                <div className="relative z-10 flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg backdrop-blur-sm shadow-sm transition-colors duration-300 ${mounted && theme === "dark" ? "bg-white/5" : "bg-white"
+                      }`}>
+                      <AnimatePresence mode="wait">
+                        {mounted && theme === "dark" ? (
+                          <motion.svg
+                            key="moon"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            initial={{ rotate: -90, scale: 0 }}
+                            animate={{ rotate: 0, scale: 1 }}
+                            exit={{ rotate: 90, scale: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <path
+                              d="M17.5 10.6333C17.3687 12.0304 16.8459 13.3613 16.0002 14.4723C15.1544 15.5833 14.0203 16.4305 12.7271 16.918C11.4339 17.4054 10.0324 17.5142 8.67994 17.2319C7.32752 16.9497 6.07711 16.2876 5.07142 15.3219C4.06572 14.3561 3.34628 13.1253 2.99508 11.7701C2.64387 10.4149 2.67505 8.99006 3.08507 7.65289C3.49509 6.31573 4.26765 5.11976 5.31589 4.19913C6.36412 3.2785 7.64627 2.67131 9.01667 2.44167C8.19485 3.62711 7.8285 5.06884 7.98616 6.50301C8.14382 7.93718 8.81519 9.26766 9.87545 10.2622C10.9357 11.2567 12.3135 11.8493 13.7619 11.9322C15.2102 12.0152 16.6402 11.5838 17.8 10.7167"
+                              stroke={mounted && theme === "dark" ? "#AFC02B" : "#1a1a1a"}
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </motion.svg>
+                        ) : (
+                          <motion.svg
+                            key="sun"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            initial={{ rotate: 90, scale: 0 }}
+                            animate={{ rotate: 0, scale: 1 }}
+                            exit={{ rotate: -90, scale: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <circle cx="10" cy="10" r="4" stroke="#AFC02B" strokeWidth="1.5" />
+                            <path d="M10 2V4" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M10 16V18" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M2 10H4" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M16 10H18" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M4.22 4.22L5.64 5.64" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M14.36 14.36L15.78 15.78" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M4.22 15.78L5.64 14.36" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M14.36 5.64L15.78 4.22" stroke="#AFC02B" strokeWidth="1.5" strokeLinecap="round" />
+                          </motion.svg>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <span className={`font-medium transition-colors duration-300 ${mounted && theme === "dark" ? "text-white" : "text-gray-900"
+                      }`}>테마</span>
+                  </div>
+
+                  {/* Right Side Toggle Indicator */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium mr-2 transition-colors duration-300 ${mounted && theme === "dark" ? "text-white/60" : "text-gray-500"
+                      }`}>
+                      {mounted && theme === "dark" ? "다크 모드" : "라이트 모드"}
+                    </span>
+                    <div className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${mounted && theme === "dark" ? "bg-black/40" : "bg-gray-200"
+                      }`}>
+                      <motion.div
+                        className="w-4 h-4 rounded-full shadow-sm"
+                        style={{ backgroundColor: "#AFC02B" }}
+                        layout
+                        transition={{ type: "spring", stiffness: 700, damping: 30 }}
+                        animate={{
+                          marginLeft: mounted && theme === "dark" ? "24px" : "0px"
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
+
               {/* 알림 설정 */}
               <button
                 onClick={handleNotificationSettings}

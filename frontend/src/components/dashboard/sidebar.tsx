@@ -84,7 +84,7 @@ export function Sidebar({
                 </span>
               </div>
 
-              {/* User Info - gap: 8px (클릭하면 마이페이지로 이동) */}
+              {/* User Info - 클릭하면 마이페이지로 이동 */}
               <button
                 onClick={() => router.push("/dashboard/profile")}
                 className="flex items-center gap-2 w-full h-[52px] hover:bg-white/5 rounded-xl transition-all duration-300 p-2 -ml-1 bg-white/5 border border-white/5 backdrop-blur-sm group"
@@ -107,10 +107,10 @@ export function Sidebar({
 
                 <div className="flex flex-col gap-1 flex-1 text-left">
                   <div className="text-white font-bold text-xl leading-6 font-['Inter']">
-                    {user?.name || "박태현"}
+                    {user?.name || "사용자"}
                   </div>
                   <div className="text-white font-bold text-[8px] leading-[10px] font-['Inter']">
-                    {user?.email || "qkrxogus113@ajou.ac.kr"}
+                    {user?.email || "user@example.com"}
                   </div>
                 </div>
               </button>
@@ -280,27 +280,6 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* 하단 로그아웃 버튼 */}
-          <div className="w-full px-3 py-4 border-t border-white/5">
-            <button
-              onClick={() => {
-                // 로그아웃 처리 - window.location 사용하여 완전한 페이지 이동
-                if (confirm('로그아웃 하시겠습니까?')) {
-                  window.location.href = '/auth/logout';
-                }
-              }}
-              className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#3C3C3C] rounded-lg transition-colors"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M17.5 10H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span className="text-white font-normal text-sm leading-[17px] font-['Inter']">
-                로그아웃
-              </span>
-            </button>
-          </div>
         </div>
       </aside>
 
