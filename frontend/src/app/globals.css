@@ -9,6 +9,9 @@
   --bg-surface: #f8f9fa;
   --bg-elevated: #f1f3f5;
   --bg-overlay: #e9ecef;
+  --bg-deep: #f8f9fa;
+  --bg-sidebar: #ffffff;
+  --bg-modal: #ffffff;
 
   /* 텍스트 */
   --text-primary: #1a1a1a;
@@ -42,6 +45,9 @@
   --bg-surface: #252525;
   --bg-elevated: #2f2f2f;
   --bg-overlay: #3c3c3c;
+  --bg-deep: #0A0A0A;
+  --bg-sidebar: #121212;
+  --bg-modal: #1a1a1a;
 
   /* 텍스트 */
   --text-primary: #ffffff;
