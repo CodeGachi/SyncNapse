@@ -1,10 +1,9 @@
 /**
- * Google Login Button UI
+ * 구글 로그인 버튼 컴포넌트
  */
 
 "use client";
 
-import { Button } from "@/components/common/button";
 import { useGoogleLogin } from "@/features/auth/google-login";
 
 export function GoogleLoginButton() {

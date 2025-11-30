@@ -1,8 +1,12 @@
+/**
+ * 폴더 선택 모달 컴포넌트
+ * 폴더 트리에서 대상 폴더 선택
+ */
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
 import type { FolderTreeNode } from "@/features/dashboard";
 import { FolderSelector } from "@/components/dashboard/folder-management/folder-selector";
-import { useState } from "react";
 
 interface FolderSelectorModalProps {
   isOpen: boolean;
@@ -20,6 +24,13 @@ export function FolderSelectorModal({
   selectedFolderId,
 }: FolderSelectorModalProps) {
   const [tempSelectedId, setTempSelectedId] = useState<string | null>(selectedFolderId || null);
+
+  // 모달 열릴 때 선택 상태 동기화
+  useEffect(() => {
+    if (isOpen) {
+      setTempSelectedId(selectedFolderId || null);
+    }
+  }, [isOpen, selectedFolderId]);
 
   const handleConfirm = () => {
     if (tempSelectedId) {

@@ -7,6 +7,9 @@
 
 import { useEffect, useRef, memo, useState } from "react";
 import { Spinner } from "@/components/common/spinner";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("PdfThumbnailSidebar");
 
 interface PdfThumbnailSidebarProps {
   thumbnails: Map<number, HTMLCanvasElement>;
@@ -39,7 +42,7 @@ const ThumbnailItem = memo(({
         const dataUrl = canvas.toDataURL("image/png");
         setThumbnailUrl(dataUrl);
       } catch (err) {
-        console.error("썸네일 변환 실패:", err);
+        log.error("썸네일 변환 실패:", err);
       }
     }
   }, [canvas]);

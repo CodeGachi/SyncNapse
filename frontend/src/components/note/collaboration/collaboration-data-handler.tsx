@@ -13,6 +13,9 @@ import { useSharedNoteData, useSyncNoteToLiveblocks } from "@/features/note/coll
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteEditorStore } from "@/stores";
 import { LoadingScreen } from "@/components/common/loading-screen";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("CollaborationDataHandler");
 
 interface CollaborationDataHandlerProps {
   isSharedView: boolean;
@@ -34,11 +37,12 @@ export function CollaborationDataHandler({
   const { files: uploadedFiles } = useNoteEditorStore();
 
   useEffect(() => {
-    console.log(`[CollaborationDataHandler] 초기화`);
-    console.log(`  - 공유 모드: ${isSharedView}`);
-    console.log(`  - 협업 중: ${isCollaborating}`);
-    console.log(`  - 교육자 노트: ${isEducatorNote}`);
-    console.log(`  - 업로드된 파일 수: ${uploadedFiles.length}`);
+    log.debug("초기화:", {
+      isSharedView,
+      isCollaborating,
+      isEducatorNote,
+      uploadedFilesCount: uploadedFiles.length,
+    });
   }, [isSharedView, isCollaborating, isEducatorNote, uploadedFiles.length]);
 
   // Student (공유 모드): Liveblocks Storage에서 노트 데이터 로드

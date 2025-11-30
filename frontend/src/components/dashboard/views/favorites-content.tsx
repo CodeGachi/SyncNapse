@@ -1,6 +1,6 @@
 /**
- * Favorites Content Component
- * 즐겨찾기 페이지 컨텐츠
+ * 즐겨찾기 페이지 컨텐츠 컴포넌트
+ * 즐겨찾기된 노트 목록 표시 및 검색 기능 제공
  */
 
 "use client";
@@ -12,9 +12,13 @@ import { useNotes } from "@/lib/api/queries/notes.queries";
 import { updateNote } from "@/lib/api/services/notes.api";
 import { useFolders } from "@/features/dashboard";
 import { LoadingScreen } from "@/components/common/loading-screen";
+import { logger } from "@/lib/utils/logger";
 import type { Note } from "@/lib/types";
 import { motion } from "framer-motion";
 import { Search, Star, FileText, Folder, Clock } from "lucide-react";
+
+/** 시간 계산 상수 */
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export function FavoritesContent() {
   const router = useRouter();
@@ -62,7 +66,7 @@ export function FavoritesContent() {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const days = Math.floor(diff / MS_PER_DAY);
 
     if (days === 0) return "오늘";
     if (days === 1) return "어제";
@@ -77,7 +81,7 @@ export function FavoritesContent() {
 
   // 노트 클릭 핸들러
   const handleNoteClick = (note: Note) => {
-    const noteType = note.type || "student"; // 기본값은 student
+    const noteType = note.type || "student";
     router.push(`/note/${noteType}/${note.id}`);
   };
 
@@ -86,7 +90,7 @@ export function FavoritesContent() {
     e: React.MouseEvent,
     note: Note
   ) => {
-    e.stopPropagation(); // 노트 클릭 이벤트 방지
+    e.stopPropagation();
 
     try {
       await updateNoteMutation.mutateAsync({
@@ -96,7 +100,7 @@ export function FavoritesContent() {
         },
       });
     } catch (error) {
-      console.error("Failed to toggle favorite:", error);
+      logger.error("즐겨찾기 토글 실패:", error);
     }
   };
 
@@ -107,7 +111,7 @@ export function FavoritesContent() {
   return (
     <main className="flex flex-col w-full h-screen overflow-y-auto p-8 bg-[#0A0A0A]">
       <div className="max-w-6xl mx-auto w-full">
-        {/* Header - Glassmorphic */}
+        {/* 헤더 - Glassmorphic */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -124,7 +128,7 @@ export function FavoritesContent() {
             </div>
           </div>
 
-          {/* Search Bar */}
+          {/* 검색 바 */}
           <div className="relative w-full md:w-[320px] group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-500 group-focus-within:text-[#AFC02B] transition-colors" />
@@ -139,7 +143,7 @@ export function FavoritesContent() {
           </div>
         </motion.div>
 
-        {/* Content */}
+        {/* 컨텐츠 */}
         {filteredNotes.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
@@ -169,12 +173,12 @@ export function FavoritesContent() {
                 className="bg-[#1E1E1E]/60 backdrop-blur-md hover:bg-[#1E1E1E]/80 border border-white/5 hover:border-white/10 rounded-xl p-5 flex items-center justify-between transition-all group shadow-md hover:shadow-lg cursor-pointer"
               >
                 <div className="flex items-center gap-5 flex-1 min-w-0">
-                  {/* Icon */}
+                  {/* 아이콘 */}
                   <div className="w-12 h-12 bg-gradient-to-br from-white/5 to-white/0 border border-white/5 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner group-hover:scale-105 transition-transform">
                     <FileText className="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" />
                   </div>
 
-                  {/* Note Info */}
+                  {/* 노트 정보 */}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-white font-semibold text-lg mb-1 truncate group-hover:text-[#AFC02B] transition-colors">
                       {note.title}
@@ -193,7 +197,7 @@ export function FavoritesContent() {
                   </div>
                 </div>
 
-                {/* Favorite Toggle */}
+                {/* 즐겨찾기 토글 */}
                 <button
                   onClick={(e) => handleToggleFavorite(e, note)}
                   className="p-3 rounded-full hover:bg-white/5 transition-colors group/star"

@@ -1,15 +1,15 @@
 /**
- * OAuth Callback Page (Server Component)
+ * OAuth 콜백 페이지 (Server Component)
  *
- * The page redirected to after Google OAuth login
- * Retrieves the authorization code from the URL, sends it to the backend, and receives a token
+ * 구글 OAuth 로그인 후 리다이렉트되는 페이지
+ * URL에서 인가 코드를 가져와 백엔드로 전송하고 토큰을 받음
  */
 
 import { Suspense } from "react";
 import { OAuthCallback } from "@/components/auth/oauth-callback";
 import { AuthLoading } from "@/components/auth/auth-loading";
 
-// Dynamic route segment config
+// 동적 라우트 세그먼트 설정
 export const dynamic = "force-dynamic";
 
 export default function AuthCallbackPage() {

@@ -10,8 +10,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useCollaborativeCanvasSync } from "./collaborative-canvas-sync";
+import { useCollaborativeCanvasSync } from "@/features/note/collaboration/use-collaborative-canvas-sync";
+import { createLogger } from "@/lib/utils/logger";
 import type * as fabric from "fabric";
+
+const log = createLogger("CollaborativeCanvasWrapper");
 
 interface CollaborativeCanvasWrapperProps {
   fabricCanvas: fabric.Canvas | null;
@@ -43,7 +46,7 @@ export function CollaborativeCanvasWrapper({
 
   // 에러 콜백
   const handleSyncError = useCallback((error: Error) => {
-    console.error("[Canvas Sync Error]", error);
+    log.error("동기화 에러:", error);
     showToastMessage(`동기화 실패: ${error.message}`, "error");
   }, [showToastMessage]);
 

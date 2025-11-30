@@ -244,9 +244,8 @@ export async function getRevisions(
 // Get audio blob URL for playback
 // Fetches audio from backend proxy and returns a blob URL
 export async function getAudioBlobUrl(sessionId: string): Promise<string> {
-  // authToken 또는 syncnapse_access_token 사용 (다른 API와 동일한 방식)
   const token = typeof window !== 'undefined'
-    ? (localStorage.getItem('authToken') || localStorage.getItem('syncnapse_access_token'))
+    ? localStorage.getItem('authToken')
     : null;
 
   const response = await fetch(`/api/transcription/sessions/${sessionId}/audio`, {

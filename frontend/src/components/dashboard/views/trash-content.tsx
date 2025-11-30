@@ -1,5 +1,6 @@
 /**
- * Trash Content Component (Client Component)
+ * 휴지통 컨텐츠 컴포넌트
+ * 삭제된 노트 복구 및 영구 삭제 기능 제공
  */
 
 "use client";
@@ -12,6 +13,9 @@ import { LoadingScreen } from "@/components/common/loading-screen";
 import { Spinner } from "@/components/common/spinner";
 import type { Note } from "@/lib/types";
 import { motion } from "framer-motion";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("TrashContent");
 
 export function TrashContent() {
   const queryClient = useQueryClient();
@@ -24,52 +28,55 @@ export function TrashContent() {
     loadTrashedNotes();
   }, []);
 
+  // 삭제된 노트 목록 로드
   const loadTrashedNotes = async () => {
     try {
       setIsLoading(true);
-      console.log('[TrashContent] Loading trashed notes...');
+      log.debug("삭제된 노트 로딩 중...");
       const notes = await fetchTrashedNotes();
-      console.log('[TrashContent] Loaded:', notes.length, 'notes');
+      log.debug("로드 완료:", notes.length, "개 노트");
       setTrashedNotes(notes);
     } catch (error) {
-      console.error('[TrashContent] Failed to load:', error);
+      log.error("휴지통 로드 실패:", error);
       alert('휴지통 로드에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 노트 복구 핸들러
   const handleRestore = async (noteId: string, noteTitle: string) => {
-    if (restoring || deleting) return; // Prevent multiple clicks
+    if (restoring || deleting) return; // 중복 클릭 방지
 
     const confirmed = confirm(`"${noteTitle}" 노트를 복구하시겠습니까?\n타임스탬프가 포함된 이름으로 복구됩니다.`);
     if (!confirmed) return;
 
     try {
       setRestoring(noteId);
-      console.log('[TrashContent] Restoring note:', noteId);
+      log.debug("노트 복구 중:", noteId);
 
       const result = await restoreNote(noteId);
-      console.log('[TrashContent] Restore result:', result);
+      log.debug("복구 결과:", result);
 
       alert(`복구되었습니다!\n새 이름: ${result.title || noteTitle}`);
 
-      // Invalidate queries to refresh all note lists
+      // 쿼리 무효화로 모든 노트 목록 새로고침
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['folders'] });
 
-      // Reload trashed notes list
+      // 삭제된 노트 목록 새로고침
       await loadTrashedNotes();
     } catch (error) {
-      console.error('[TrashContent] Restore failed:', error);
+      log.error("노트 복구 실패:", error);
       alert('복구에 실패했습니다.');
     } finally {
       setRestoring(null);
     }
   };
 
+  // 영구 삭제 핸들러
   const handlePermanentDelete = async (noteId: string, noteTitle: string) => {
-    if (restoring || deleting) return; // Prevent multiple clicks
+    if (restoring || deleting) return; // 중복 클릭 방지
 
     const confirmed = confirm(
       `⚠️ 경고: "${noteTitle}" 노트를 영구적으로 삭제하시겠습니까?\n\n` +
@@ -82,7 +89,7 @@ export function TrashContent() {
 
     if (!confirmed) return;
 
-    // Double confirmation for safety
+    // 안전을 위한 이중 확인
     const doubleConfirmed = confirm(
       `정말로 "${noteTitle}"를 영구 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다!`
     );
@@ -91,29 +98,30 @@ export function TrashContent() {
 
     try {
       setDeleting(noteId);
-      console.log('[TrashContent] Permanently deleting note:', noteId);
+      log.debug("노트 영구 삭제 중:", noteId);
 
       await permanentlyDeleteNote(noteId);
-      console.log('[TrashContent] Permanent delete successful');
+      log.debug("영구 삭제 완료");
 
       alert('영구적으로 삭제되었습니다.');
 
-      // Invalidate queries to refresh all note lists
+      // 쿼리 무효화로 모든 노트 목록 새로고침
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['folders'] });
 
-      // Reload trashed notes list
+      // 삭제된 노트 목록 새로고침
       await loadTrashedNotes();
     } catch (error) {
-      console.error('[TrashContent] Permanent delete failed:', error);
+      log.error("영구 삭제 실패:", error);
       alert('삭제에 실패했습니다.');
     } finally {
       setDeleting(null);
     }
   };
 
+  // 날짜 포맷팅
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
+    if (!dateString) return '알 수 없음';
     const date = new Date(dateString);
     return date.toLocaleDateString("ko-KR", {
       year: "numeric",
@@ -124,6 +132,7 @@ export function TrashContent() {
     });
   };
 
+  // 상대 시간 포맷팅 (예: 2일 전)
   const formatRelativeTime = (dateString?: string) => {
     if (!dateString) return '';
 
@@ -152,7 +161,7 @@ export function TrashContent() {
   return (
     <main className="flex flex-col w-full h-screen overflow-y-auto p-8 bg-[#0A0A0A]">
       <div className="max-w-6xl mx-auto">
-        {/* Header - Glassmorphic */}
+        {/* 헤더 - Glassmorphic 스타일 */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -192,7 +201,7 @@ export function TrashContent() {
               </p>
             </motion.div>
           ) : (
-            /* Trashed Notes List */
+            /* 삭제된 노트 목록 */
             <div className="space-y-3">
               {trashedNotes.map((note, index) => (
                 <motion.div
@@ -203,12 +212,12 @@ export function TrashContent() {
                   className="bg-[#1E1E1E]/60 backdrop-blur-md hover:bg-[#1E1E1E]/80 border border-white/5 hover:border-white/10 rounded-xl p-6 flex items-center justify-between transition-all group shadow-md hover:shadow-lg"
                 >
                   <div className="flex items-center gap-5 flex-1">
-                    {/* Icon */}
+                    {/* 아이콘 */}
                     <div className="w-12 h-12 bg-gradient-to-br from-white/5 to-white/0 border border-white/5 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-inner">
                       📄
                     </div>
 
-                    {/* Note Info */}
+                    {/* 노트 정보 */}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-white font-semibold text-lg mb-1 truncate group-hover:text-[#AFC02B] transition-colors">
                         {note.title}
@@ -230,7 +239,7 @@ export function TrashContent() {
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* 액션 버튼 */}
                   <div className="flex items-center gap-2 ml-4">
                     <button
                       onClick={() => handleRestore(note.id, note.title)}
@@ -273,7 +282,7 @@ export function TrashContent() {
           )
         }
 
-        {/* Info Box */}
+        {/* 안내 박스 */}
         {
           trashedNotes.length > 0 && (
             <motion.div

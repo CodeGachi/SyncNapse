@@ -1,6 +1,6 @@
 /**
- * File upload area component
- * Provides drag-and-drop and file selection functionality
+ * 파일 업로드 영역 컴포넌트
+ * 드래그앤드롭 및 파일 선택 기능 제공
  */
 
 "use client";

@@ -1,14 +1,14 @@
 /**
- * Logout Page (Server Component)
+ * 로그아웃 페이지 (Server Component)
  *
- * Handles user logout - clears tokens and redirects to login
+ * 사용자 로그아웃 처리 - 토큰 삭제 후 로그인 페이지로 리다이렉트
  */
 
 import { Suspense } from "react";
 import { LogoutHandler } from "@/components/auth/logout-handler";
 import { AuthLoading } from "@/components/auth/auth-loading";
 
-// Dynamic route segment config
+// 동적 라우트 세그먼트 설정
 export const dynamic = "force-dynamic";
 
 export default function LogoutPage() {

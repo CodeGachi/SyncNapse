@@ -1,48 +1,19 @@
 /**
  * Q&A 패널 (Liveblocks 실시간 버전)
  *
- * Liveblocks Storage를 사용하여 실시간 질문/답변 기능
- * - 모든 참여자가 질문 가능
- * - 추천 기능
- * - Educator는 핀 고정/공유 가능
+ * UI 컴포넌트 - Q&A 기능의 시각적 표현
+ * 비즈니스 로직은 useQA 훅에서 처리
  */
 
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  useStorage,
-  useMutation,
-  useBroadcastEvent,
-  useEventListener,
-} from "@/lib/liveblocks/liveblocks.config";
 import { ThumbsUp, Pin, Trash2, MessageCircle, CheckCircle } from "lucide-react";
-import * as questionsApi from "@/lib/api/services/questions.api";
-
-/**
- * Liveblocks Storage에서 사용하는 Question 인터페이스
- */
-interface StorageAnswer {
-  id: string;
-  content: string;
-  authorId: string;
-  authorName: string;
-  createdAt: number;
-  isBest: boolean;
-}
-
-interface StorageQuestion {
-  id: string;
-  noteId?: string;
-  content: string;
-  authorId: string;
-  authorName: string;
-  createdAt: number;
-  answers: StorageAnswer[];
-  upvotes: string[];
-  isPinned: boolean;
-  isSharedToAll: boolean;
-}
+import {
+  useQA,
+  useQAEventListener,
+  type QAQuestion,
+} from "@/features/note/collaboration/use-qa";
 
 interface QAPanelProps {
   userId: string;
@@ -61,44 +32,24 @@ export function QAPanel({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Liveblocks Storage에서 질문 목록 가져오기
-  const questions = useStorage((root) => root.questions) || [];
-
-  // Broadcast 이벤트
-  const broadcast = useBroadcastEvent();
-
-  // 질문 목록 변경 감지 (디버깅용)
-  useEffect(() => {
-    console.log(`[Q&A Panel] 질문 목록 업데이트:`, {
-      userId,
-      userName,
-      noteId,
-      isEducator,
-      questionCount: questions.length,
-      questions: questions.map((q) => ({
-        id: q.id,
-        author: q.authorName,
-        content: q.content.substring(0, 30) + '...',
-      })),
-    });
-  }, [questions, userId, userName, noteId, isEducator]);
+  // Q&A 훅 사용
+  const {
+    sortedQuestions,
+    handleAddQuestion,
+    handleUpvote,
+    handleTogglePin,
+    handleDelete,
+    handleAddAnswer,
+    handleDeleteAnswer,
+    handleMarkAnswerAsBest,
+  } = useQA({ userId, userName, noteId, isEducator });
 
   // Q&A 이벤트 리스너
-  useEventListener(({ event }) => {
-    if (event.type === "QUESTION_ADDED") {
-      console.log(`[Q&A Panel] 새 질문 추가됨:`, event.content);
-      // Educator에게만 알림
-      if (isEducator) {
-        setToastMessage(`${event.authorName}님이 질문했습니다: ${event.content.substring(0, 30)}...`);
-        setShowToast(true);
-      }
-    } else if (event.type === "QUESTION_UPVOTED") {
-      console.log(`[Q&A Panel] 질문 추천:`, event.questionId);
-      // 조용히 로그만
-    } else if (event.type === "QUESTION_DELETED") {
-      console.log(`[Q&A Panel] 질문 삭제:`, event.questionId);
-      // 조용히 로그만
-    }
+  useQAEventListener(isEducator, {
+    onQuestionAdded: (authorName, content) => {
+      setToastMessage(`${authorName}님이 질문했습니다: ${content.substring(0, 30)}...`);
+      setShowToast(true);
+    },
   });
 
   // 토스트 자동 숨김
@@ -109,325 +60,12 @@ export function QAPanel({
     }
   }, [showToast]);
 
-  // 질문 추가 Mutation
-  const addQuestion = useMutation(({ storage }, content: string) => {
-    console.log(`[Q&A Mutation] Storage 접근 시작`);
-    const questions = storage.get("questions");
-    console.log(`[Q&A Mutation] 현재 questions 배열:`, questions);
-    console.log(`[Q&A Mutation] questions 타입:`, typeof questions, Array.isArray(questions));
-
-    const newQuestion = {
-      id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      noteId,
-      content,
-      authorId: userId,
-      authorName: userName,
-      createdAt: Date.now(),
-      answers: [],
-      upvotes: [],
-      isPinned: false,
-      isSharedToAll: false,
-    };
-
-    console.log(`[Q&A Mutation] 새 질문 생성:`, newQuestion);
-    questions.push(newQuestion);
-    console.log(`[Q&A Mutation] 질문 추가 후 배열 길이:`, questions.length);
-  }, [noteId, userId, userName]);
-
-  // 추천 Mutation
-  const upvoteQuestion = useMutation(
-    ({ storage }, questionId: string) => {
-      const questions = storage.get("questions");
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
-      if (questionIndex === -1) return;
-
-      const question = questions.get(questionIndex);
-      if (!question) return;
-      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
-      questions.set(questionIndex, {
-        ...question,
-        upvotes: question.upvotes.includes(userId)
-          ? question.upvotes.filter((id) => id !== userId) // 추천 취소
-          : [...question.upvotes, userId], // 추천 추가
-      });
-    },
-    [userId]
-  );
-
-  // 핀 고정 Mutation (Educator만)
-  const togglePin = useMutation(({ storage }, questionId: string) => {
-    const questions = storage.get("questions");
-    const questionIndex = questions.findIndex((q) => q.id === questionId);
-    if (questionIndex === -1) return;
-
-    const question = questions.get(questionIndex);
-    if (!question) return;
-    // LiveList 중첩 객체 문제: 전체 객체를 새로 만들어 set()으로 교체
-    questions.set(questionIndex, {
-      ...question,
-      isPinned: !question.isPinned,
-    });
-  }, []);
-
-  // 삭제 Mutation
-  const deleteQuestion = useMutation(
-    ({ storage }, questionId: string) => {
-      const questions = storage.get("questions");
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
-      if (questionIndex !== -1) {
-        questions.delete(questionIndex);
-      }
-    },
-    []
-  );
-
-  // 답변 추가 Mutation
-  const addAnswer = useMutation(
-    ({ storage }, questionId: string, content: string) => {
-      const questions = storage.get("questions");
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
-      if (questionIndex === -1) return;
-
-      const question = questions.get(questionIndex);
-      if (!question) return;
-      const newAnswer = {
-        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        content,
-        authorId: userId,
-        authorName: userName,
-        createdAt: Date.now(),
-        isBest: false,
-      };
-
-      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
-      questions.set(questionIndex, {
-        ...question,
-        answers: [...question.answers, newAnswer],
-      });
-    },
-    [userId, userName]
-  );
-
-  // 답변 삭제 Mutation
-  const deleteAnswer = useMutation(
-    ({ storage }, questionId: string, answerId: string) => {
-      const questions = storage.get("questions");
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
-      if (questionIndex === -1) return;
-
-      const question = questions.get(questionIndex);
-      if (!question) return;
-      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
-      questions.set(questionIndex, {
-        ...question,
-        answers: question.answers.filter((a) => a.id !== answerId),
-      });
-    },
-    []
-  );
-
-  // 베스트 답변 표시 Mutation (Educator만)
-  const markAnswerAsBest = useMutation(
-    ({ storage }, questionId: string, answerId: string) => {
-      const questions = storage.get("questions");
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
-      if (questionIndex === -1) return;
-
-      const question = questions.get(questionIndex);
-      if (!question) return;
-      // LiveList 중첩 배열 문제: 전체 객체를 새로 만들어 set()으로 교체
-      questions.set(questionIndex, {
-        ...question,
-        answers: question.answers.map((answer) => ({
-          ...answer,
-          isBest: answer.id === answerId,
-        })),
-      });
-    },
-    []
-  );
-
-  const handleAddQuestion = async () => {
+  const onAddQuestion = async () => {
     if (newQuestionText.trim()) {
-      console.log(`[Q&A Panel] 질문 추가 시작:`, {
-        userId,
-        userName,
-        noteId,
-        content: newQuestionText,
-        isEducator,
-      });
-
-      const questionId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-      // 1. Liveblocks Storage에 저장 (실시간 협업)
-      addQuestion(newQuestionText);
-      console.log(`[Q&A Panel] 질문 추가 완료 (Liveblocks Storage)`);
-
-      // 2. IndexedDB + 백엔드 동기화 큐에 추가
-      try {
-        await questionsApi.createQuestion(noteId, newQuestionText, userId, userName);
-        console.log(`[Q&A Panel] 질문 백엔드 동기화 큐 추가 완료`);
-      } catch (error) {
-        console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-      }
-
-      // 3. Broadcast로 즉시 알림
-      broadcast({
-        type: "QUESTION_ADDED",
-        questionId,
-        content: newQuestionText,
-        authorName: userName,
-      });
-      console.log(`[Q&A Panel] 질문 추가 Broadcast 전송 완료`);
-
+      await handleAddQuestion(newQuestionText);
       setNewQuestionText("");
     }
   };
-
-  // 추천 (Storage + Broadcast + Backend)
-  const handleUpvote = async (questionId: string) => {
-    console.log(`[Q&A Panel] 질문 추천:`, { questionId, userId });
-
-    // 1. Liveblocks Storage에 저장
-    upvoteQuestion(questionId);
-
-    // 2. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.toggleQuestionUpvote(questionId, noteId, userId);
-      console.log(`[Q&A Panel] 추천 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-
-    // 3. Broadcast로 즉시 알림
-    broadcast({
-      type: "QUESTION_UPVOTED",
-      questionId,
-      userId,
-    });
-    console.log(`[Q&A Panel] 추천 Broadcast 전송 완료`);
-  };
-
-  // 핀 고정/해제 (Storage + Backend)
-  const handleTogglePin = async (questionId: string) => {
-    console.log(`[Q&A Panel] 핀 고정/해제:`, { questionId });
-
-    // 1. Liveblocks Storage
-    togglePin(questionId);
-
-    // 2. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.toggleQuestionPin(questionId, noteId);
-      console.log(`[Q&A Panel] 핀 고정 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-  };
-
-  // 삭제 (Storage + Broadcast + Backend)
-  const handleDelete = async (questionId: string) => {
-    console.log(`[Q&A Panel] 질문 삭제:`, { questionId });
-
-    // 1. Liveblocks Storage에서 삭제
-    deleteQuestion(questionId);
-
-    // 2. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.deleteQuestion(questionId, noteId);
-      console.log(`[Q&A Panel] 삭제 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-
-    // 3. Broadcast로 즉시 알림
-    broadcast({
-      type: "QUESTION_DELETED",
-      questionId,
-    });
-    console.log(`[Q&A Panel] 삭제 Broadcast 전송 완료`);
-  };
-
-  // 답변 추가 (Storage + Backend + Broadcast)
-  const handleAddAnswer = async (questionId: string, content: string) => {
-    console.log(`[Q&A Panel] 답변 추가:`, { questionId, content });
-
-    // 1. Liveblocks Storage에 저장
-    addAnswer(questionId, content);
-
-    // 2. Broadcast로 즉시 알림
-    broadcast({
-      type: "ANSWER_ADDED",
-      questionId,
-      answerId: `a-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      authorName: userName,
-    });
-    console.log(`[Q&A Panel] 답변 추가 Broadcast 전송 완료`);
-
-    // 3. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.addAnswer(questionId, noteId, content, userId, userName);
-      console.log(`[Q&A Panel] 답변 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-  };
-
-  // 답변 삭제 (Storage + Backend + Broadcast)
-  const handleDeleteAnswer = async (questionId: string, answerId: string) => {
-    console.log(`[Q&A Panel] 답변 삭제:`, { questionId, answerId });
-
-    // 1. Liveblocks Storage에서 삭제
-    deleteAnswer(questionId, answerId);
-
-    // 2. Broadcast로 즉시 알림
-    broadcast({
-      type: "ANSWER_DELETED",
-      questionId,
-      answerId,
-    });
-    console.log(`[Q&A Panel] 답변 삭제 Broadcast 전송 완료`);
-
-    // 3. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.deleteAnswer(questionId, noteId, answerId);
-      console.log(`[Q&A Panel] 답변 삭제 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-  };
-
-  // 베스트 답변 표시 (Storage + Backend + Broadcast) - Educator만
-  const handleMarkAnswerAsBest = async (questionId: string, answerId: string) => {
-    console.log(`[Q&A Panel] 베스트 답변 표시:`, { questionId, answerId });
-
-    // 1. Liveblocks Storage
-    markAnswerAsBest(questionId, answerId);
-
-    // 2. Broadcast로 즉시 알림
-    broadcast({
-      type: "ANSWER_MARKED_BEST",
-      questionId,
-      answerId,
-    });
-    console.log(`[Q&A Panel] 베스트 답변 Broadcast 전송 완료`);
-
-    // 3. IndexedDB + 백엔드 동기화
-    try {
-      await questionsApi.markAnswerAsBest(questionId, noteId, answerId);
-      console.log(`[Q&A Panel] 베스트 답변 백엔드 동기화 큐 추가 완료`);
-    } catch (error) {
-      console.error(`[Q&A Panel] 백엔드 동기화 실패:`, error);
-    }
-  };
-
-  // 정렬: 핀 고정 → 추천 많은 순
-  const sortedQuestions = [...questions].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-    const aUpvotes = (a.upvotes?.length || 0);
-    const bUpvotes = (b.upvotes?.length || 0);
-    if (bUpvotes !== aUpvotes) return bUpvotes - aUpvotes;
-    return b.createdAt - a.createdAt;
-  });
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -445,12 +83,12 @@ export function QAPanel({
             type="text"
             value={newQuestionText}
             onChange={(e) => setNewQuestionText(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleAddQuestion()}
+            onKeyPress={(e) => e.key === "Enter" && onAddQuestion()}
             placeholder="질문을 입력하세요..."
             className="flex-1 bg-[#252525] border border-[#3c3c3c] rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all"
           />
           <button
-            onClick={handleAddQuestion}
+            onClick={onAddQuestion}
             disabled={!newQuestionText.trim()}
             className="px-4 py-2 bg-[#AFC02B] text-black rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#c2d43b] transition-colors text-sm shadow-sm active:scale-95"
           >
@@ -514,7 +152,7 @@ export function QAPanel({
  * 개별 질문 카드
  */
 interface QuestionCardProps {
-  question: StorageQuestion;
+  question: QAQuestion;
   currentUserId: string;
   currentUserName: string;
   isEducator: boolean;
@@ -529,7 +167,6 @@ interface QuestionCardProps {
 function QuestionCard({
   question,
   currentUserId,
-  currentUserName,
   isEducator,
   onUpvote,
   onTogglePin,

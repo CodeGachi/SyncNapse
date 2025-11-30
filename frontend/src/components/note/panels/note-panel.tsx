@@ -1,6 +1,7 @@
 /**
- * Note panel component (BlockNote-based editor)
- * Load content only on initial mount and page change
+ * 노트 패널 컴포넌트 (BlockNote 기반 에디터)
+ *
+ * 초기 마운트 및 페이지 변경 시에만 콘텐츠 로드
  */
 
 "use client";
@@ -11,10 +12,13 @@ import { BlockNoteView } from "@blocknote/mantine";
 import type { Block, BlockNoteEditor, PartialBlock } from "@blocknote/core";
 import { useNoteEditorStore } from "@/stores";
 import { useNoteContent } from "@/features/note/editor/use-note-content";
+import { createLogger } from "@/lib/utils/logger";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { Spinner } from "@/components/common/spinner";
+
+const log = createLogger("NotePanel");
 
 interface NotePanelProps {
   isOpen: boolean;
@@ -29,23 +33,23 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
     selectedFileId,
   } = useNoteEditorStore();
 
-  // Auto-save hook (always load content when noteId exists, regardless of panel open/close state)
+  // 자동 저장 훅 (noteId가 있으면 패널 열림/닫힘 상태와 관계없이 항상 콘텐츠 로드)
   const { scheduleAutoSave, forceSave, isSaving, lastSavedAt, isLoading } = useNoteContent({
     noteId,
     enabled: !!noteId,
   });
 
-  // Track if we should load content
+  // 콘텐츠 로드 여부 추적
   const [shouldLoadContent, setShouldLoadContent] = useState(true);
   const prevPageRef = useRef<number>(currentPage);
   const isInitialMountRef = useRef(true);
   const hasLoadedRef = useRef(false);
   const prevNoteIdRef = useRef<string | null | undefined>(noteId);
 
-  // Reset hasLoadedRef when noteId changes (switching to different note)
+  // noteId 변경 시 hasLoadedRef 리셋 (다른 노트로 전환)
   useEffect(() => {
     if (prevNoteIdRef.current !== noteId) {
-      console.log('[NotePanel] 📝 Note changed, resetting load state');
+      log.debug("노트 변경, 로드 상태 리셋");
       hasLoadedRef.current = false;
       setShouldLoadContent(true);
       prevNoteIdRef.current = noteId;
@@ -53,14 +57,14 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   }, [noteId]);
 
   /**
-   * Get initial content for editor
-   * Convert pageNotes to BlockNote format
+   * 에디터 초기 콘텐츠 가져오기
+   * pageNotes를 BlockNote 형식으로 변환
    */
   const initialContent = useMemo(() => {
     const pageKey = selectedFileId ? `${selectedFileId}-${currentPage}` : null;
     const blocks = pageKey ? pageNotes[pageKey] : null;
 
-    console.log('[NotePanel] 📋 Building content:', {
+    log.debug("콘텐츠 빌드:", {
       pageKey,
       hasBlocks: !!blocks,
       blockCount: blocks?.length || 0,
@@ -95,43 +99,43 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   }, [currentPage, selectedFileId, pageNotes]);
 
   /**
-   * Create BlockNote editor with initial content
+   * BlockNote 에디터 생성 (초기 콘텐츠 포함)
    */
   const editor: BlockNoteEditor = useCreateBlockNote({
     initialContent: initialContent || undefined,
   });
 
   /**
-   * Handle page change - save current and load new page
+   * 페이지 변경 처리 - 현재 페이지 저장 후 새 페이지 로드
    */
   useEffect(() => {
-    // Skip on initial mount
+    // 초기 마운트 시 스킵
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
       prevPageRef.current = currentPage;
-      console.log('[NotePanel] ⏭️ Initial mount');
+      log.debug("초기 마운트");
       return;
     }
 
-    // Only trigger on actual page change
+    // 실제 페이지 변경 시에만 트리거
     if (prevPageRef.current !== currentPage) {
-      console.log('[NotePanel] 📄 Page changed:', prevPageRef.current, '->', currentPage);
+      log.debug("페이지 변경:", prevPageRef.current, "->", currentPage);
       prevPageRef.current = currentPage;
 
-      // Save current page
+      // 현재 페이지 저장
       if (!isLoading) {
         forceSave();
       }
 
-      // Reset load flag and trigger content reload
+      // 로드 플래그 리셋 및 콘텐츠 리로드 트리거
       hasLoadedRef.current = false;
       setShouldLoadContent(true);
     }
   }, [currentPage, isLoading, forceSave]);
 
   /**
-   * Load content into editor on initial load
-   * Wait for data to be loaded from IndexedDB
+   * 초기 로드 시 에디터에 콘텐츠 로드
+   * IndexedDB에서 데이터 로드 완료 대기
    */
   useEffect(() => {
     if (!isLoading && !hasLoadedRef.current && editor) {
@@ -140,7 +144,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
       const hasActualData = pageData && pageData.length > 0 && pageData[0].content !== "";
       const hasAnyData = Object.keys(pageNotes).length > 0;
 
-      console.log('[NotePanel] 🔍 Checking for data:', {
+      log.debug("데이터 확인:", {
         hasActualData,
         hasAnyData,
         pageDataLength: pageData?.length,
@@ -148,34 +152,34 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
         pageNotesKeys: Object.keys(pageNotes).slice(0, 3),
       });
 
-      // Only mark as loaded when we have actual content data
-      // This ensures we wait for IndexedDB load to complete
+      // 실제 콘텐츠 데이터가 있을 때만 로드 완료로 표시
+      // IndexedDB 로드 완료를 기다림
       if (hasActualData && initialContent) {
-        console.log('[NotePanel] 🔄 Initial load - updating editor with loaded data');
+        log.debug("초기 로드 - 로드된 데이터로 에디터 업데이트");
         editor.replaceBlocks(editor.document, initialContent);
         hasLoadedRef.current = true;
         setShouldLoadContent(false);
       } else if (!hasAnyData) {
-        console.log('[NotePanel] ⏸️ Waiting for data from IndexedDB...');
+        log.debug("IndexedDB에서 데이터 대기 중...");
       } else {
-        console.log('[NotePanel] ⏸️ Has store data but waiting for actual content...');
+        log.debug("스토어 데이터 있음, 실제 콘텐츠 대기 중...");
       }
     }
   }, [isLoading, editor, initialContent, selectedFileId, currentPage, pageNotes]);
 
   /**
-   * Load content into editor when page changes
+   * 페이지 변경 시 에디터에 콘텐츠 로드
    */
   useEffect(() => {
     if (shouldLoadContent && editor && initialContent && !isLoading) {
-      console.log('[NotePanel] 🔄 Page changed - updating editor');
+      log.debug("페이지 변경 - 에디터 업데이트");
       editor.replaceBlocks(editor.document, initialContent);
       setShouldLoadContent(false);
     }
   }, [shouldLoadContent, editor, initialContent, isLoading]);
 
   /**
-   * Handle editor change - schedule auto-save
+   * 에디터 변경 처리 - 자동 저장 스케줄링
    */
   const handleEditorChange = () => {
     if (!editor || isLoading) {
@@ -183,12 +187,12 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
     }
 
     const blocks = editor.document as Block[];
-    console.log('[NotePanel] ✏️ Content changed');
+    log.debug("콘텐츠 변경됨");
 
-    // Update store
+    // 스토어 업데이트
     updatePageBlocksFromBlockNote(blocks);
 
-    // Schedule auto-save (2 seconds after typing stops)
+    // 자동 저장 스케줄링 (타이핑 중지 2초 후)
     scheduleAutoSave();
   };
 
@@ -198,7 +202,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
 
   return (
     <div className="h-full flex flex-col rounded-[15px] border border-gray-700 p-1 gap-2.5" style={{ backgroundColor: '#2f2f2f' }}>
-      {/* Header with save status */}
+      {/* 저장 상태 헤더 */}
       <div className="flex items-center justify-between px-2 py-1 border-b" style={{ borderColor: '#565656' }}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-white">
@@ -218,7 +222,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
         </div>
       </div>
 
-      {/* Editor */}
+      {/* 에디터 */}
       <div className="flex-1 overflow-auto">
         {isLoading ? (
           <LoadingScreen message="로딩 중..." />
@@ -265,7 +269,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
 }
 
 /**
- * Map internal type to BlockNote type
+ * 내부 타입을 BlockNote 타입으로 매핑
  */
 function mapTypeToBlockNote(type: string): string {
   const mapping: Record<string, string> = {

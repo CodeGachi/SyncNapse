@@ -1,6 +1,6 @@
 /**
- * Auth Loading Component
- * Loading state for authentication processes
+ * 인증 로딩 컴포넌트
+ * 인증 과정의 로딩 상태를 표시
  */
 
 import { LoadingScreen } from "@/components/common/loading-screen";

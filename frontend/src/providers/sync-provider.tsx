@@ -11,6 +11,7 @@
 import { useEffect, ReactNode } from "react";
 import { startAutoSync, stopAutoSync } from "@/lib/sync/sync-manager";
 import { useSyncStore } from "@/lib/sync/sync-store";
+import { useSyncListener } from "@/hooks/use-sync-listener";
 
 interface SyncProviderProps {
   children: ReactNode;
@@ -24,6 +25,9 @@ export function SyncProvider({
   autoSync = true,
 }: SyncProviderProps) {
   const { setAutoSync, setSyncInterval } = useSyncStore();
+
+  // 동기화 이벤트 리스너 (React Query 캐시 갱신)
+  useSyncListener();
 
   useEffect(() => {
     // 설정 적용

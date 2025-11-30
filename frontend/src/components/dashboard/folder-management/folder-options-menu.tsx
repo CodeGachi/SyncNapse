@@ -9,6 +9,12 @@ import { useState, useEffect } from "react";
 import type { DBFolder } from "@/lib/db/folders";
 import { useFolderOptionsMenu } from "@/features/dashboard";
 
+// 메뉴 크기 상수
+const MENU_HEIGHT_ROOT = 50; // Root 폴더 메뉴 높이 (항목 1개)
+const MENU_HEIGHT_FULL = 150; // 전체 메뉴 높이 (항목 3개)
+const MENU_WIDTH = 192; // w-48 = 12rem = 192px
+const MENU_GAP = 8; // 버튼과 메뉴 사이 간격
+
 interface FolderOptionsMenuProps {
   folder: DBFolder;
   onRename: () => void;
@@ -25,7 +31,7 @@ export function FolderOptionsMenu({
   const { isOpen, menuRef, buttonRef, handleToggle, handleOptionClick } =
     useFolderOptionsMenu();
 
-  // Check if this is the Root folder
+  // Root 폴더인지 확인
   const isRootFolder = folder.name === "Root" && folder.parentId === null;
 
   // 버튼 위치를 기준으로 메뉴 위치 계산
@@ -34,8 +40,7 @@ export function FolderOptionsMenu({
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const menuHeight = isRootFolder ? 50 : 150; // 대략적인 메뉴 높이
-      const menuWidth = 192; // w-48 = 192px
+      const menuHeight = isRootFolder ? MENU_HEIGHT_ROOT : MENU_HEIGHT_FULL;
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
@@ -43,11 +48,11 @@ export function FolderOptionsMenu({
       const showAbove = rect.bottom + menuHeight > viewportHeight;
 
       // 버튼 오른쪽에 표시, 화면 밖으로 나가면 왼쪽에 표시
-      const showOnLeft = rect.right + menuWidth + 8 > viewportWidth;
+      const showOnLeft = rect.right + MENU_WIDTH + MENU_GAP > viewportWidth;
 
       setMenuPosition({
         top: showAbove ? rect.top - menuHeight + rect.height : rect.top,
-        left: showOnLeft ? rect.left - menuWidth - 8 : rect.right + 8,
+        left: showOnLeft ? rect.left - MENU_WIDTH - MENU_GAP : rect.right + MENU_GAP,
       });
     }
   }, [isOpen, buttonRef, isRootFolder]);

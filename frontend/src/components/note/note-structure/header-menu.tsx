@@ -14,7 +14,7 @@ import { FolderSelectorModal } from "@/components/dashboard/folder-management/fo
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
-import { KeyboardShortcutsModal } from "@/components/note/shared/keyboard-shortcuts-modal";
+import { KeyboardShortcutsModal } from "@/components/note/modals/keyboard-shortcuts-modal";
 import type { Note, NoteData } from "@/lib/types";
 import { LoadingScreen } from "@/components/common/loading-screen";
 

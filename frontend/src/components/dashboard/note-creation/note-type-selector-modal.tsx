@@ -1,6 +1,6 @@
 /**
- * Note Type Selector Modal
- * 개인노트 또는 강의노트 선택 팝업
+ * 노트 유형 선택 모달 컴포넌트
+ * 개인노트 또는 강의노트 선택
  */
 
 "use client";
@@ -51,7 +51,7 @@ export function NoteTypeSelectorModal({
 
   return (
     <>
-      {/* Type Selector Modal */}
+      {/* 유형 선택 모달 */}
       <Modal
         isOpen={isOpen && !showSettingsModal}
         onClose={onClose}
@@ -59,9 +59,9 @@ export function NoteTypeSelectorModal({
         contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-lg p-8 flex flex-col gap-6 min-w-[500px]"
       >
 
-        {/* Type Selection Cards */}
+        {/* 유형 선택 카드 */}
         <div className="flex gap-6">
-          {/* 개인 노트 Card */}
+          {/* 개인 노트 카드 */}
           <button
             onClick={() => handleTypeSelect("student")}
             className="flex-1 flex flex-col items-center gap-6 p-8 bg-[rgba(175,192,43,0.4)] rounded-lg hover:bg-[rgba(175,192,43,0.6)] transition-colors group"
@@ -83,7 +83,7 @@ export function NoteTypeSelectorModal({
             </div>
           </button>
 
-          {/* 강의 노트 Card */}
+          {/* 강의 노트 카드 */}
           <button
             onClick={() => handleTypeSelect("educator")}
             className="flex-1 flex flex-col items-center gap-6 p-8 bg-[rgba(175,192,43,0.4)] rounded-lg hover:bg-[rgba(175,192,43,0.6)] transition-colors group"
@@ -102,7 +102,7 @@ export function NoteTypeSelectorModal({
           </button>
         </div>
 
-        {/* Cancel Button */}
+        {/* 취소 버튼 */}
         <div className="flex justify-center">
           <Button variant="ghost" onClick={onClose} className="text-gray-400 hover:text-white">
             취소
@@ -110,7 +110,7 @@ export function NoteTypeSelectorModal({
         </div>
       </Modal>
 
-      {/* Note Settings Modal */}
+      {/* 노트 설정 모달 */}
       {showSettingsModal && selectedType && (
         <NoteSettingsModal
           isOpen={showSettingsModal}

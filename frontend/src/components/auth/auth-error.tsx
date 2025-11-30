@@ -1,6 +1,6 @@
 /**
- * Auth Error Component
- * Error state for authentication processes
+ * 인증 오류 컴포넌트
+ * 인증 과정에서 발생한 오류 상태를 표시
  */
 
 "use client";

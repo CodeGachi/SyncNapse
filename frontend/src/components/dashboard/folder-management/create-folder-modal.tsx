@@ -1,8 +1,13 @@
-import { useState } from "react";
+/**
+ * 폴더 생성 모달 컴포넌트
+ * 새 폴더 이름 입력 및 위치 선택
+ */
+import { useState, useCallback, KeyboardEvent } from "react";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
 import { useFolders } from "@/features/dashboard";
 import { FolderSelectorModal } from "./folder-selector-modal";
+import { logger } from "@/lib/utils/logger";
 
 interface CreateFolderModalProps {
   isOpen: boolean;
@@ -22,15 +27,26 @@ export function CreateFolderModal({
   const [isFolderSelectorOpen, setIsFolderSelectorOpen] = useState(false);
   const { createFolder, buildFolderTree, folders } = useFolders();
 
+  const handleClose = useCallback(() => {
+    setFolderName("");
+    setSelectedParentId(initialParentId || null);
+    onClose();
+  }, [initialParentId, onClose]);
+
   const handleSubmit = async () => {
     if (!folderName.trim()) return;
 
     try {
       await createFolder(folderName, selectedParentId);
-      setFolderName("");
-      onClose();
+      handleClose();
     } catch (error) {
-      console.error("Failed to create folder:", error);
+      logger.error("폴더 생성 실패:", error);
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && folderName.trim()) {
+      handleSubmit();
     }
   };
 
@@ -43,7 +59,7 @@ export function CreateFolderModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="새 폴더 만들기"
       contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[500px]"
     >
@@ -54,6 +70,7 @@ export function CreateFolderModal({
             type="text"
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="폴더 이름을 입력하세요"
             className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#899649] text-lg"
             autoFocus
@@ -79,7 +96,7 @@ export function CreateFolderModal({
         </div>
 
         <div className="flex justify-end gap-3 pt-4 mt-2">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={handleClose}>
             취소
           </Button>
           <Button variant="brand" onClick={handleSubmit} disabled={!folderName.trim()}>

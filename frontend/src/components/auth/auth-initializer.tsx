@@ -1,97 +1,54 @@
 /**
- * Auth Initializer Component
- * Initializes authentication on app startup
- * - Syncs tokens from cookies to localStorage
- * - Validates token format
+ * 인증 초기화 컴포넌트
+ * 앱 시작 시 쿠키에서 토큰을 localStorage로 동기화
  */
 
 "use client";
 
 import { useEffect } from "react";
+import { getCookie } from "@/lib/utils/cookie";
+import { logger } from "@/lib/utils/logger";
 
-/**
- * Get cookie value by name
- */
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) {
-    return parts.pop()?.split(';').shift() || null;
-  }
-  return null;
-}
+const TOKEN_KEY = "authToken";
 
 export function AuthInitializer() {
   useEffect(() => {
-    console.log('[AuthInitializer] Initializing authentication...');
+    // 1. 쿠키에서 localStorage로 토큰 동기화
+    const cookieToken = getCookie(TOKEN_KEY);
+    const localToken = localStorage.getItem(TOKEN_KEY);
 
-    // 1. Sync tokens from cookies to localStorage
-    const cookieToken = getCookie("authToken");
-    const localToken = localStorage.getItem("authToken");
-    const syncnapseToken = localStorage.getItem("syncnapse_access_token");
-
-    console.log('[AuthInitializer] Cookie token exists:', !!cookieToken);
-    console.log('[AuthInitializer] LocalStorage token exists:', !!localToken);
-    console.log('[AuthInitializer] Syncnapse token exists:', !!syncnapseToken);
-
-    // If cookie has token but localStorage doesn't, sync it
     if (cookieToken && !localToken) {
-      console.log('[AuthInitializer] Syncing token from cookie to localStorage');
-      localStorage.setItem("authToken", cookieToken);
-      localStorage.setItem("syncnapse_access_token", cookieToken); // Also set syncnapse_ key
-
-      // For mock auth, also set a default user
-      if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true") {
-        const mockUser = {
-          id: "mock-user-123",
-          email: "test@example.com",
-          name: "테스트 사용자",
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem("user", JSON.stringify(mockUser));
-        console.log('[AuthInitializer] Mock user data synced');
-      }
+      localStorage.setItem(TOKEN_KEY, cookieToken);
+      logger.debug("[AuthInitializer] 토큰 동기화 완료");
     }
 
-    // 2. Sync authToken to syncnapse_access_token if missing
-    if (localToken && !syncnapseToken) {
-      console.log('[AuthInitializer] Syncing authToken to syncnapse_access_token');
-      localStorage.setItem("syncnapse_access_token", localToken);
-    }
-
-    // 3. Clean up user data with invalid picture field
+    // 2. picture 필드 정리 (Next.js Image 호스트 에러 방지)
     const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
-        // Remove picture field if it exists (to avoid Next.js image host errors)
         if (userData.picture) {
-          console.log('[AuthInitializer] Removing picture field from user data');
           delete userData.picture;
           localStorage.setItem("user", JSON.stringify(userData));
+          logger.debug("[AuthInitializer] picture 필드 제거");
         }
-      } catch (error) {
-        console.error('[AuthInitializer] Failed to parse user data:', error);
+      } catch {
+        // JSON 파싱 실패 시 무시
       }
     }
 
-    // 4. Clean up any invalid tokens
-    const token = localStorage.getItem("authToken");
+    // 3. 잘못된 토큰 형식 정리
+    const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
-      // Validate token format (must be JWT with 3 parts or mock token)
+      // JWT 형식 검증 (mock 토큰 또는 3파트 JWT)
       if (!token.startsWith("mock-") && token.split(".").length !== 3) {
-        console.warn("[AuthInitializer] Invalid token format detected, cleaning up...");
-        localStorage.removeItem("authToken");
+        logger.warn("[AuthInitializer] 잘못된 토큰 형식, 정리 중...");
+        localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
       }
     }
-
-    console.log('[AuthInitializer] Initialization complete');
   }, []);
 
   return null;
 }
-

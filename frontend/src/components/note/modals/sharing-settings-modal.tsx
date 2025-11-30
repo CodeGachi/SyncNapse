@@ -1,12 +1,16 @@
 /**
- * Sharing Settings Modal Component
- * Displays and manages note sharing settings in a modal dialog
- * Includes general sharing and real-time collaboration (Liveblocks) features
+ * 공유 설정 모달 컴포넌트
+ *
+ * 노트 공유 설정을 모달 다이얼로그로 표시 및 관리
+ * 일반 공유 및 실시간 협업 (Liveblocks) 기능 포함
  */
 
 "use client";
 
 import { useState } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SharingSettingsModal");
 import { Modal } from "@/components/common/modal";
 import { Copy, Check, ExternalLink, Users, Globe, Lock, ChevronRight, RefreshCw } from "lucide-react";
 import { useEducatorUIStore } from "@/stores";
@@ -73,7 +77,7 @@ export function SharingSettingsModal() {
       setIsCopiedPublic(true);
       setTimeout(() => setIsCopiedPublic(false), 2000);
     } catch (error) {
-      console.error("링크 복사 실패:", error);
+      log.error("링크 복사 실패:", error);
     }
   };
 
@@ -92,7 +96,7 @@ export function SharingSettingsModal() {
       setCollaborativeLink(link);
       setIsCollaborating(true);
     } catch (error) {
-      console.error("Failed to generate collaboration link:", error);
+      log.error("협업 링크 생성 실패:", error);
       alert("협업 링크 생성에 실패했습니다.");
     } finally {
       setIsGeneratingCollab(false);
@@ -108,7 +112,7 @@ export function SharingSettingsModal() {
       setIsCopiedCollab(true);
       setTimeout(() => setIsCopiedCollab(false), 2000);
     } catch (error) {
-      console.error("Failed to copy:", error);
+      log.error("협업 링크 복사 실패:", error);
       alert("복사에 실패했습니다.");
     }
   };

@@ -1,6 +1,6 @@
 /**
- * New Dashboard Sidebar - Figma Design
- * 피그마 디자인 기반 사이드바 (참고.css 스타일 적용)
+ * 대시보드 사이드바 컴포넌트
+ * 네비게이션, 폴더 트리, 노트 생성 기능 제공
  */
 
 "use client";
@@ -18,15 +18,15 @@ import { useFolders } from "@/features/dashboard";
 import { useDashboardSidebar } from "@/features/dashboard";
 import { useDashboard } from "@/features/dashboard";
 
-interface NewSidebarProps {
+interface SidebarProps {
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null) => void;
 }
 
-export function NewSidebar({
+export function Sidebar({
   selectedFolderId,
   onSelectFolder,
-}: NewSidebarProps) {
+}: SidebarProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { buildFolderTree } = useFolders();

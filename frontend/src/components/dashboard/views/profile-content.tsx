@@ -1,6 +1,6 @@
 /**
- * Profile Content Component (Client Component)
- * User profile display and management
+ * 프로필 컨텐츠 컴포넌트
+ * 사용자 프로필 정보 표시 및 관리
  */
 
 "use client";
@@ -14,6 +14,9 @@ import { updateUserProfile } from "@/lib/api/services/auth.api";
 import { deleteAccount } from "@/lib/api/auth.api";
 import { AccountDeleteConfirmModal } from "@/components/dashboard/account-delete-confirm-modal";
 import { motion } from "framer-motion";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("ProfileContent");
 
 // 모달 타입
 type ModalType =
@@ -75,7 +78,7 @@ export function ProfileContent() {
       });
       setIsEditing(false);
     } catch (error) {
-      console.error("프로필 저장 실패:", error);
+      log.error("프로필 저장 실패:", error);
       setModal({
         type: "error",
         title: "저장 실패",
@@ -133,7 +136,7 @@ export function ProfileContent() {
         },
       });
     } catch (error) {
-      console.error("계정 삭제 실패:", error);
+      log.error("계정 삭제 실패:", error);
       setIsDeleteModalOpen(false);
       setModal({
         type: "error",
@@ -145,7 +148,7 @@ export function ProfileContent() {
 
   return (
     <div className="flex flex-col w-full h-screen bg-[#0A0A0A]">
-      {/* Header - Glassmorphic */}
+      {/* 헤더 - Glassmorphic 스타일 */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -166,17 +169,17 @@ export function ProfileContent() {
         <h1 className="text-white text-xl font-bold">마이페이지</h1>
       </motion.div>
 
-      {/* Content */}
+      {/* 컨텐츠 영역 */}
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-2xl mx-auto space-y-6">
-          {/* Profile Card - Glassmorphic */}
+          {/* 프로필 카드 - Glassmorphic 스타일 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
             className="bg-[#1E1E1E]/60 backdrop-blur-md rounded-2xl p-8 border border-white/5 shadow-xl"
           >
-            {/* Profile Image Section */}
+            {/* 프로필 이미지 섹션 */}
             <div className="flex items-center gap-6 mb-8 pb-8 border-b border-white/5">
               <div className="relative group">
                 {user?.picture ? (
@@ -213,7 +216,7 @@ export function ProfileContent() {
               </div>
             </div>
 
-            {/* Profile Information */}
+            {/* 프로필 정보 */}
             <div className="space-y-6">
               {/* 이름 */}
               <div>
@@ -279,7 +282,7 @@ export function ProfileContent() {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* 액션 버튼 */}
             <div className="mt-8 pt-6 border-t border-white/5">
               {isEditing ? (
                 <div className="flex gap-3">
@@ -309,7 +312,7 @@ export function ProfileContent() {
             </div>
           </motion.div>
 
-          {/* Additional Settings - Glassmorphic */}
+          {/* 추가 설정 - Glassmorphic 스타일 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -361,7 +364,7 @@ export function ProfileContent() {
         </div>
       </div>
 
-      {/* 모달 - Glassmorphic */}
+      {/* 결과 모달 - Glassmorphic 스타일 */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <motion.div
@@ -369,7 +372,7 @@ export function ProfileContent() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-[#1E1E1E]/90 border border-white/10 rounded-2xl p-8 w-[400px] max-w-[90vw] shadow-2xl backdrop-blur-xl"
           >
-            {/* 아이콘 */}
+            {/* 모달 아이콘 */}
             <div className="flex justify-center mb-6">
               {modal.type === "success" && (
                 <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(34,197,94,0.3)]">
@@ -401,17 +404,17 @@ export function ProfileContent() {
               )}
             </div>
 
-            {/* 제목 */}
+            {/* 모달 제목 */}
             <h3 className="text-white text-xl font-bold text-center mb-3">
               {modal.title}
             </h3>
 
-            {/* 메시지 */}
+            {/* 모달 메시지 */}
             <p className="text-gray-300 text-center mb-8 whitespace-pre-line leading-relaxed">
               {modal.message}
             </p>
 
-            {/* 버튼 */}
+            {/* 모달 버튼 */}
             <div className="flex gap-3">
               {modal.type === "confirm" ? (
                 <>

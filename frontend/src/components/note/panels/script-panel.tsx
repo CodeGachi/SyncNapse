@@ -1,17 +1,20 @@
 /**
- * Script Panel Component
- * Record Script Display and Translation feature (DeepL API)
+ * 스크립트 패널 컴포넌트
+ *
+ * 녹음 스크립트 표시 및 번역 기능 (DeepL API)
  */
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
 import { Panel } from "./panel";
 import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight, Pencil, Check, X, RotateCcw } from "lucide-react";
-import type { SupportedLanguage, LanguageOption, WordWithTime, PageContext } from "@/lib/types";
-import { getPageContextAtTime } from "@/lib/api/audio.api";
-import { useTranscriptTranslation } from "@/features/note/right-panel/use-transcript-translation";
+import type { SupportedLanguage, LanguageOption, PageContext } from "@/lib/types";
+import { useTranscriptTranslation, useScriptPanel } from "@/features/note/right-panel";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("ScriptPanel");
 
 interface ScriptPanelProps {
   isOpen: boolean;
@@ -54,12 +57,12 @@ export function ScriptPanel({
   sessionId,
   onSaveRevision,
 }: ScriptPanelProps) {
-  // 🔥 타임라인 이벤트는 전역 스토어에서 직접 가져옴 (여러 컴포넌트에서 공유)
+  // 타임라인 이벤트는 전역 스토어에서 직접 가져옴 (여러 컴포넌트에서 공유)
   const { timelineEvents } = useAudioPlayerStore();
 
   // 디버그: 스토어 값 변경 확인
   useEffect(() => {
-    console.log('[ScriptPanel] 🔄 timelineEvents from store:', timelineEvents.length, timelineEvents);
+    log.debug("타임라인 이벤트 업데이트:", timelineEvents.length, timelineEvents);
   }, [timelineEvents]);
 
   const {
@@ -87,7 +90,23 @@ export function ScriptPanel({
   // DeepL 번역 Hook 사용
   useTranscriptTranslation();
 
-  // 🔥 저장 콜백 등록 (세션 변경 시 자동 저장용)
+  // 스크립트 패널 훅 (세그먼트/워드 클릭, 페이지 컨텍스트 탐색)
+  const {
+    currentTime,
+    handleSegmentClick,
+    handleWordClick,
+    handlePageBadgeClick,
+    getCurrentWord,
+    getSegmentPageContext,
+    getFileNameByBackendId,
+  } = useScriptPanel({
+    audioRef,
+    timelineEvents,
+    onPageContextClick,
+    files,
+  });
+
+  // 저장 콜백 등록 (세션 변경 시 자동 저장용)
   useEffect(() => {
     if (onSaveRevision) {
       setSaveRevisionCallback(onSaveRevision);
@@ -97,34 +116,15 @@ export function ScriptPanel({
     };
   }, [onSaveRevision, setSaveRevisionCallback]);
 
-  // Debug: Log segments with translation status
+  // 디버그: 세그먼트 번역 상태 로깅
   useEffect(() => {
-    console.log('[ScriptPanel] 📝 Segments update:', scriptSegments.map(s => ({
+    log.debug("세그먼트 업데이트:", scriptSegments.map(s => ({
       id: s.id,
       original: s.originalText?.substring(0, 20),
       translated: s.translatedText?.substring(0, 20),
       hasTranslation: !!s.translatedText,
     })));
   }, [scriptSegments]);
-
-  // Track current playback time for word-level highlighting
-  const [currentTime, setCurrentTime] = useState(0);
-
-  // Debug: Log current audio time
-  useEffect(() => {
-    const audio = audioRef?.current;
-    if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      console.log('[ScriptPanel] Current playback time:', audio.currentTime);
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-    };
-  }, [audioRef]);
 
   if (!isOpen) return null;
 
@@ -139,119 +139,6 @@ export function ScriptPanel({
   };
 
   /**
-   * Handle transcript segment click - seek to that time in audio and navigate to page
-   * @param timestamp - Timestamp in milliseconds
-   */
-  const handleSegmentClick = (timestamp: number) => {
-    const timeInSeconds = timestamp / 1000; // Convert ms to seconds
-    console.log('[ScriptPanel] 🎯 Segment clicked:', {
-      timestampMs: timestamp,
-      timeInSeconds,
-      timelineEventsCount: timelineEvents.length,
-      hasOnPageContextClick: !!onPageContextClick,
-    });
-
-    if (audioRef?.current) {
-      console.log('[ScriptPanel] Seeking to segment:', timeInSeconds, 'seconds (no auto-play)');
-      audioRef.current.currentTime = timeInSeconds;
-    }
-
-    // 해당 시간의 페이지 컨텍스트로 이동
-    const pageContext = getPageContextAtTime(timelineEvents, timeInSeconds);
-    console.log('[ScriptPanel] 📖 Page context from timeline:', pageContext);
-    if (pageContext && onPageContextClick) {
-      console.log('[ScriptPanel] ✅ Calling onPageContextClick:', pageContext);
-      onPageContextClick(pageContext);
-    } else {
-      console.log('[ScriptPanel] ⚠️ No page context or no callback:', {
-        pageContext,
-        hasCallback: !!onPageContextClick,
-      });
-    }
-  };
-
-  /**
-   * Handle word click - seek to that word's time in audio and navigate to page
-   * @param startTime - Start time in seconds
-   */
-  const handleWordClick = (startTime: number, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent segment click
-    console.log('[ScriptPanel] 🔤 Word clicked:', {
-      startTime,
-      timelineEventsCount: timelineEvents.length,
-      hasOnPageContextClick: !!onPageContextClick,
-    });
-
-    if (audioRef?.current) {
-      console.log('[ScriptPanel] Seeking to word at:', startTime, 'seconds (no auto-play)');
-      audioRef.current.currentTime = startTime;
-    }
-
-    // 해당 시간의 페이지 컨텍스트로 이동
-    const pageContext = getPageContextAtTime(timelineEvents, startTime);
-    console.log('[ScriptPanel] 📖 Page context from timeline:', pageContext);
-    if (pageContext && onPageContextClick) {
-      console.log('[ScriptPanel] ✅ Calling onPageContextClick:', pageContext);
-      onPageContextClick(pageContext);
-    } else {
-      console.log('[ScriptPanel] ⚠️ No page context or no callback:', {
-        pageContext,
-        hasCallback: !!onPageContextClick,
-      });
-    }
-  };
-
-  /**
-   * Find current word being played
-   */
-  const getCurrentWord = (words: WordWithTime[]): WordWithTime | null => {
-    return words.find((word, index, arr) => {
-      const nextWord = arr[index + 1];
-      return currentTime >= word.startTime &&
-        (!nextWord || currentTime < nextWord.startTime);
-    }) || null;
-  };
-
-  /**
-   * 세그먼트 시간에 해당하는 페이지 컨텍스트 가져오기
-   * @param timestampMs - 세그먼트 timestamp (밀리초)
-   */
-  const getSegmentPageContext = (timestampMs: number): PageContext | null => {
-    if (!timelineEvents || timelineEvents.length === 0) return null;
-    const timeInSeconds = timestampMs / 1000;
-    return getPageContextAtTime(timelineEvents, timeInSeconds);
-  };
-
-  /**
-   * backendId (fileId)로 파일 이름 가져오기
-   * @param fileId - Backend File ID
-   */
-  const getFileNameByBackendId = (fileId: string | undefined): string | null => {
-    if (!fileId) return null;
-    const file = files.find((f) => f.backendId === fileId);
-    if (!file) return null;
-    // 파일명이 너무 길면 자르기
-    const name = file.name;
-    if (name.length > 15) {
-      return name.slice(0, 12) + "...";
-    }
-    return name;
-  };
-
-  /**
-   * 페이지 배지 클릭 핸들러
-   */
-  const handlePageBadgeClick = (context: PageContext, e: React.MouseEvent) => {
-    e.stopPropagation(); // 세그먼트 클릭 방지
-    console.log('[ScriptPanel] Page badge clicked:', context);
-    if (onPageContextClick) {
-      onPageContextClick(context);
-    } else {
-      console.warn('[ScriptPanel] onPageContextClick is not provided!');
-    }
-  };
-
-  /**
    * 편집 모드 시작
    */
   const handleStartEdit = () => {
@@ -263,7 +150,7 @@ export function ScriptPanel({
    * 편집 완료 (저장)
    */
   const handleSaveEdit = async () => {
-    console.log('[ScriptPanel] handleSaveEdit called:', {
+    log.debug("편집 저장 호출:", {
       sessionId,
       editedSegmentsCount: Object.keys(editedSegments).length,
       editedSegments,
@@ -271,7 +158,7 @@ export function ScriptPanel({
     });
 
     if (!sessionId || Object.keys(editedSegments).length === 0) {
-      console.log('[ScriptPanel] ⚠️ Skipping save - no sessionId or no edits');
+      log.debug("저장 건너뜀 - sessionId 없음 또는 편집 없음");
       setEditMode(false);
       return;
     }
@@ -285,7 +172,7 @@ export function ScriptPanel({
       // 2초 후 저장 상태 초기화
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
-      console.error('[ScriptPanel] Save revision error:', error);
+      log.error("리비전 저장 오류:", error);
       setSaveStatus('error');
     }
     setEditMode(false);
@@ -307,7 +194,7 @@ export function ScriptPanel({
       return;
     }
 
-    console.log('[ScriptPanel] 🔄 Auto-saving edited content before close/change');
+    log.debug("자동 저장 시작 (닫기/변경 전)");
     setSaveStatus('saving');
     try {
       if (onSaveRevision) {
@@ -316,9 +203,9 @@ export function ScriptPanel({
       setSaveStatus('saved');
       resetEdits();
       setEditMode(false);
-      console.log('[ScriptPanel] ✅ Auto-save completed');
+      log.debug("자동 저장 완료");
     } catch (error) {
-      console.error('[ScriptPanel] ❌ Auto-save failed:', error);
+      log.error("자동 저장 실패:", error);
       setSaveStatus('error');
     }
   };

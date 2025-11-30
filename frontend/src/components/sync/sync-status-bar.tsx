@@ -2,6 +2,7 @@
  * 동기화 상태 표시바
  *
  * 화면 상단에 고정되어 동기화 상태를 실시간으로 표시
+ * 개발 환경에서만 표시됨
  */
 
 "use client";
@@ -11,7 +12,6 @@ import { useSyncStore } from "@/lib/sync/sync-store";
 import {
   Cloud,
   CloudOff,
-  RefreshCw,
   CheckCircle2,
   AlertCircle,
   X,
@@ -22,6 +22,11 @@ export function SyncStatusBar() {
   const { queue, isSyncing, lastSyncTime, syncError } = useSyncStore();
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+
+  // 프로덕션 환경에서는 렌더링하지 않음
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
 
   // 동기화 중이거나, 큐에 항목이 있거나, 에러가 있으면 표시
   useEffect(() => {

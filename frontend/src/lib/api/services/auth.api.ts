@@ -105,7 +105,7 @@ export async function updateUserProfile(data: UpdateUserDto): Promise<User> {
  * First validates token, then fetches fresh user data from API
  */
 export async function getCurrentUser(): Promise<User | null> {
-  const token = localStorage.getItem("syncnapse_access_token");
+  const token = localStorage.getItem("authToken");
   if (!token) {
     localStorage.removeItem("user");
     return null;
@@ -168,8 +168,6 @@ export async function getCurrentUser(): Promise<User | null> {
  * Clear all auth tokens from localStorage
  */
 function clearAuthTokens(): void {
-  localStorage.removeItem("syncnapse_access_token");
-  localStorage.removeItem("syncnapse_refresh_token");
   localStorage.removeItem("authToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("user");
@@ -181,7 +179,7 @@ function clearAuthTokens(): void {
  * - 항상 로컬 토큰 제거
  */
 export async function logout(): Promise<void> {
-  const refreshToken = localStorage.getItem("syncnapse_refresh_token");
+  const refreshToken = localStorage.getItem("refreshToken");
 
   try {
     await apiClient<{ message: string }>("/api/auth/logout", {
@@ -189,8 +187,6 @@ export async function logout(): Promise<void> {
       body: JSON.stringify({ refreshToken }),
     });
   } finally {
-    // 항상 로컬 토큰 제거
-    localStorage.removeItem("syncnapse_access_token");
-    localStorage.removeItem("syncnapse_refresh_token");
+    clearAuthTokens();
   }
 }

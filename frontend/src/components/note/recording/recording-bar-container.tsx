@@ -13,6 +13,10 @@ import {
 } from "@/features/note/recording";
 import { useRecordingTimeline } from "@/features/note/recording/use-recording-timeline";
 import { useNoteEditorStore } from "@/stores";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("RecordingBarContainer");
+
 import { RecordingBar } from "./recording-bar";
 import { RecordingNameModal } from "./recording-name-modal";
 import { RecordingListDropdown } from "./recording-list-dropdown";
@@ -78,7 +82,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
       handlePlayPause(isPlaying, audioRef.current);
     } else {
       // 녹음 시작 - 기존 오디오 플레이어 초기화 후 새 녹음 시작
-      console.log('[RecordingBarContainer] Starting new recording');
+      log.debug("새 녹음 시작");
       resetAudioPlayer();
       handlePlayPause(isPlaying, null);
     }
@@ -88,7 +92,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   const onStop = () => {
     if (audioRef.current && audioRef.current.src && duration > 0) {
       // 재생 중: 재생/일시정지 토글
-      console.log('[RecordingBarContainer] Toggle audio playback, isPlaying:', isPlaying);
+      log.debug("오디오 재생 토글, isPlaying:", isPlaying);
       if (isPlaying) {
         audioRef.current.pause();
       } else {
@@ -100,14 +104,14 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   // 녹음 삭제 핸들러 (React Query가 Optimistic Update 처리)
   const handleDeleteRecording = async (sessionId: string) => {
     try {
-      console.log('[RecordingBarContainer] 🗑️ Deleting recording:', sessionId);
+      log.debug("녹음 삭제:", sessionId);
 
       // React Query의 Optimistic Update 사용 (즉시 UI 업데이트 + 자동 롤백)
       removeRecording(sessionId);
 
-      console.log('[RecordingBarContainer] ✅ Deletion complete');
+      log.debug("삭제 완료");
     } catch (error) {
-      console.error('[RecordingBarContainer] ❌ Failed to delete recording:', error);
+      log.error("녹음 삭제 실패:", error);
       alert('녹음본 삭제에 실패했습니다.');
     }
   };
@@ -127,7 +131,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   // 저장 핸들러 (녹음 중일 때만)
   const handleSave = () => {
     if (isRecording) {
-      console.log('[RecordingBarContainer] Save recording');
+      log.debug("녹음 저장");
       // 녹음을 일시정지하고 저장 모달 열기
       if (!isPaused) {
         handlePlayPause(isPlaying, audioRef.current);
@@ -139,7 +143,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
   // 맨앞으로 가기 핸들러 (재생 모드에서만)
   const handleSkipBack = () => {
     if (audioRef.current && duration > 0) {
-      console.log('[RecordingBarContainer] Skip back to beginning');
+      log.debug("맨앞으로 이동");
       audioRef.current.currentTime = 0;
     }
   };

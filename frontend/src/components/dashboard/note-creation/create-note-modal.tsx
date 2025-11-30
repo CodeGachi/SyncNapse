@@ -1,6 +1,6 @@
 /**
- * Note creation modal UI component
- * Figma design based (참고.css)
+ * 노트 생성 모달 컴포넌트
+ * 제목, 폴더 위치, 파일 업로드 설정
  */
 
 "use client";
@@ -53,7 +53,7 @@ export function NoteSettingsModal({
     reset,
   } = useCreateNoteModal(onSubmit, defaultFolderId, initialNoteType);
 
-  // Modal close handler
+  // 모달 닫기 핸들러
   const handleClose = () => {
     reset();
     onClose();
@@ -67,9 +67,9 @@ export function NoteSettingsModal({
       contentClassName="flex flex-col p-10 gap-8 bg-[#121212]/95 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[800px] max-h-[90vh]"
     >
 
-      {/* Input Row: Title + Folder Selector */}
+      {/* 입력 영역: 제목 + 폴더 선택 */}
       <div className="flex flex-col gap-6 w-full">
-        {/* Title Input - Notion Style */}
+        {/* 제목 입력 */}
         <div className="relative w-full">
           <input
             type="text"
@@ -85,7 +85,7 @@ export function NoteSettingsModal({
           </span>
         </div>
 
-        {/* Meta Info Row */}
+        {/* 메타 정보 */}
         <div className="flex items-center gap-4 text-sm text-gray-400">
           <div className="flex items-center gap-2">
             <span className="text-gray-500">위치</span>
@@ -106,7 +106,7 @@ export function NoteSettingsModal({
         </div>
       </div>
 
-      {/* Validation error display */}
+      {/* 유효성 검사 오류 */}
       {validationErrors.length > 0 && (
         <div className="w-full bg-red-500/10 border border-red-500/20 rounded-lg p-3">
           <div className="flex items-start gap-3">
@@ -127,7 +127,7 @@ export function NoteSettingsModal({
         </div>
       )}
 
-      {/* File List Area */}
+      {/* 파일 업로드 영역 */}
       <div
         className={`flex flex-col justify-center items-center p-8 gap-4 w-full min-h-[300px] bg-white/[0.02] border-2 border-dashed border-white/10 rounded-2xl transition-all ${isDragActive ? "border-[#899649] bg-[#899649]/5" : "hover:border-white/20 hover:bg-white/[0.04]"
           }`}
@@ -135,7 +135,7 @@ export function NoteSettingsModal({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* Empty state */}
+        {/* 빈 상태 */}
         {uploadedFiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-gray-500 gap-4">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
@@ -195,7 +195,7 @@ export function NoteSettingsModal({
           </div>
         )}
 
-        {/* Hidden file input */}
+        {/* 숨겨진 파일 입력 */}
         <input
           ref={fileInputRef}
           type="file"
@@ -206,7 +206,7 @@ export function NoteSettingsModal({
         />
       </div>
 
-      {/* Bottom Buttons */}
+      {/* 하단 버튼 */}
       <div className="flex flex-row justify-end items-center gap-4 w-full mt-4">
         <Button
           variant="secondary"
@@ -224,7 +224,7 @@ export function NoteSettingsModal({
         </Button>
       </div>
 
-      {/* Folder selector modal */}
+      {/* 폴더 선택 모달 */}
       <FolderSelectorModal
         isOpen={isFolderSelectorOpen}
         onClose={() => setIsFolderSelectorOpen(false)}

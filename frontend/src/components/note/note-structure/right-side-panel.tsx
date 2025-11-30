@@ -2,7 +2,6 @@
  * 우측 사이드 패널 (통합) - Student & Educator
  * 스크립트, 파일, AI 챗봇 패널 + 협업 패널(Educator 전용)
  *
- * Refactored: Business logic separated to features/note/right-panel/
  */
 
 "use client";
@@ -12,20 +11,21 @@ import { useNoteEditorStore, usePanelsStore, useScriptTranslationStore, useNoteU
 import type { PageContext } from "@/lib/types";
 import {
   useFileManagement,
+  useScriptRevision,
 } from "@/features/note/right-panel";
 import { useAudioPlayer, useAudioPlayback } from "@/features/note/recording";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
-import { saveRevision, getSession, getRevisions, type RevisionContent } from "@/lib/api/transcription.api";
-import type { WordWithTime } from "@/lib/types";
+import { createLogger } from "@/lib/utils/logger";
 
 // UI Components
 import { ScriptPanel } from "@/components/note/panels/script-panel";
-import { TranscriptTimeline } from "@/components/note/panels/transcript-timeline";
 import { FilePanel } from "@/components/note/panels/file-panel";
 import { ChatbotPanel } from "@/components/note/panels/chatbot-panel";
 import { CollaborationPanel } from "@/components/note/collaboration/collaboration-panel";
 
 import { motion } from "framer-motion";
+
+const log = createLogger("RightSidePanel");
 
 interface RightSidePanelProps {
   noteId: string | null;
@@ -42,7 +42,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
   useEffect(() => {
     if (isEducator && currentUser) {
-      console.log(`[RightSidePanel] 인증된 사용자 정보: ${userName} (${userId})`);
+      log.debug(`인증된 사용자 정보: ${userName} (${userId})`);
     }
   }, [isEducator, currentUser, userName, userId]);
 
@@ -61,7 +61,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
   // noteId 변경 시 스크립트 초기화 (노트 진입/변경 시)
   useEffect(() => {
-    console.log(`[RightSidePanel] Note mounted/changed: ${noteId} - resetting script`);
+    log.debug(`노트 마운트/변경: ${noteId} - 스크립트 초기화`);
     resetScriptTranslation();
   }, [noteId, resetScriptTranslation]);
 
@@ -86,7 +86,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
       : !isScriptOpen && !isFilePanelOpen && !isChatbotPanelOpen;
 
     if (allPanelsClosed && isExpanded) {
-      console.log('[RightSidePanel] 모든 패널 닫힘 - 500px 패널 자동 닫기');
+      log.debug("모든 패널 닫힘 - 500px 패널 자동 닫기");
       toggleExpand();
     }
   }, [isScriptOpen, isFilePanelOpen, isChatbotPanelOpen, isCollaborationPanelOpen, isExpanded, toggleExpand, isEducator]);
@@ -103,11 +103,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
 
   // ✅ Audio playback controls and script synchronization (separated to custom hook)
   const {
-    currentTime,
     activeSegmentId,
-    handleAudioPlayToggle,
-    handleAudioStop,
-    handleSeek,
   } = useAudioPlayback({
     audioRef,
     scriptSegments,
@@ -123,7 +119,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
   // 페이지 컨텍스트 클릭 핸들러 - 해당 파일/페이지로 이동
   // backendId (fileId)를 사용하여 안정적으로 파일 식별
   const handlePageContextClick = useCallback((context: PageContext) => {
-    console.log('[RightSidePanel] 📍 Page context clicked:', {
+    log.debug("페이지 컨텍스트 클릭:", {
       fileId: context.fileId,
       pageNumber: context.pageNumber,
       uploadedFilesCount: uploadedFiles.length,
@@ -134,15 +130,15 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     if (context.fileId) {
       const targetFile = uploadedFiles.find((f) => f.backendId === context.fileId);
       if (targetFile) {
-        console.log('[RightSidePanel] ✅ Opening file:', targetFile.name, 'at page', context.pageNumber);
+        log.debug("파일 열기:", targetFile.name, "페이지:", context.pageNumber);
         openFileInTab(targetFile.id);
       } else {
-        console.warn('[RightSidePanel] ⚠️ File not found with backendId:', context.fileId);
+        log.warn("backendId로 파일을 찾을 수 없음:", context.fileId);
       }
     }
 
     // 페이지 이동 (useNoteEditorStore의 setCurrentPage 사용)
-    console.log('[RightSidePanel] 📄 Setting current page to:', context.pageNumber);
+    log.debug("현재 페이지 설정:", context.pageNumber);
     setCurrentPage(context.pageNumber);
   }, [uploadedFiles, openFileInTab, setCurrentPage]);
 
@@ -153,71 +149,11 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
     backendId: file.backendId,
   }));
 
-  // 스크립트 리비전 저장 핸들러
-  const handleSaveRevision = useCallback(async (sessionId: string, editedSegments: Record<string, string>) => {
-    console.log('[RightSidePanel] Saving revision:', { sessionId, editedCount: Object.keys(editedSegments).length });
-
-    // editedSegments를 RevisionContent 형식으로 변환
-    const content: RevisionContent = {
-      segments: Object.entries(editedSegments).map(([id, editedText]) => {
-        const originalSegment = scriptSegments.find(s => s.id === id);
-        return {
-          id,
-          originalText: originalSegment?.originalText || '',
-          editedText,
-          timestamp: originalSegment?.timestamp || 0,
-        };
-      }),
-    };
-
-    await saveRevision(sessionId, content);
-    console.log('[RightSidePanel] Revision saved successfully');
-
-    // 🔥 저장 후 최신 데이터 리로드하여 UI 갱신
-    try {
-      const [sessionData, revisions] = await Promise.all([
-        getSession(sessionId),
-        getRevisions(sessionId),
-      ]);
-
-      // 최신 리비전 맵 생성
-      let revisionMap: Record<string, string> = {};
-      if (revisions && revisions.length > 0) {
-        const latestRevision = revisions[0];
-        if (latestRevision.content?.segments) {
-          latestRevision.content.segments.forEach((seg) => {
-            revisionMap[seg.id] = seg.editedText;
-          });
-        }
-      }
-
-      // 스크립트 세그먼트 업데이트 (리비전 적용)
-      if (sessionData.segments && sessionData.segments.length > 0) {
-        const updatedSegments = sessionData.segments.map((segment) => {
-          const editedText = revisionMap[segment.id];
-          return {
-            id: segment.id,
-            timestamp: segment.startTime * 1000,
-            originalText: editedText || segment.text,
-            translatedText: undefined,
-            words: editedText ? undefined : segment.words?.map((word) => ({
-              word: word.word,
-              startTime: word.startTime,
-              confidence: word.confidence || 1.0,
-              wordIndex: word.wordIndex,
-            })) as WordWithTime[] | undefined,
-            isPartial: false,
-          };
-        });
-
-        setScriptSegments(updatedSegments);
-        console.log('[RightSidePanel] ✅ Script segments updated after revision save');
-      }
-    } catch (reloadError) {
-      console.error('[RightSidePanel] Failed to reload after save:', reloadError);
-      // 리로드 실패해도 저장 자체는 성공했으므로 에러를 던지지 않음
-    }
-  }, [scriptSegments, setScriptSegments]);
+  // 스크립트 리비전 관리 훅
+  const { handleSaveRevision } = useScriptRevision({
+    scriptSegments,
+    setScriptSegments,
+  });
 
   return (
     <>
@@ -243,17 +179,6 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
               sessionId={currentSessionId || undefined}
               onSaveRevision={handleSaveRevision}
             />
-
-            {/* 타임라인 (스크립트가 열려있고 세그먼트가 있을 때만 표시) */}
-            {isScriptOpen && scriptSegments.length > 0 && (
-              <TranscriptTimeline
-                segments={scriptSegments}
-                audioRef={audioRef}
-                activeSegmentId={activeSegmentId}
-                onSeek={handleSeek}
-                className="mt-3"
-              />
-            )}
 
             {/* 파일 패널 */}
             <FilePanel
