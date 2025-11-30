@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
   }
 
   // 보호된 경로 접근 시 인증 확인
-  const protectedRoutes = ["/dashboard", "/note"];
+  const protectedRoutes = ["/dashboard", "/note", "/admin"];
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
@@ -42,5 +42,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/auth/callback", "/auth/logout", "/dashboard/:path*", "/note/:path*"],
+  matcher: ["/", "/login", "/auth/callback", "/auth/logout", "/dashboard/:path*", "/note/:path*", "/admin/:path*"],
 };

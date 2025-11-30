@@ -17,6 +17,7 @@ import { useAuth } from "@/features/auth/use-auth";
 import { useFolders } from "@/features/dashboard";
 import { useDashboardSidebar } from "@/features/dashboard";
 import { useDashboard } from "@/features/dashboard";
+import { useIsAdmin } from "@/components/admin/admin-guard";
 
 interface SidebarProps {
   selectedFolderId: string | null;
@@ -31,6 +32,7 @@ export function Sidebar({
   const { user } = useAuth();
   const { buildFolderTree } = useFolders();
   const { handleCreateNote } = useDashboard();
+  const { isAdmin, isOperator } = useIsAdmin();
 
   // UI 상태
   const [isNoteDropdownOpen, setIsNoteDropdownOpen] = useState(false);
@@ -254,6 +256,24 @@ export function Sidebar({
                   즐겨찾기
                 </span>
               </button>
+
+              {/* 관리자 콘솔 - admin 또는 operator만 표시 */}
+              {(isAdmin || isOperator) && (
+                <button
+                  onClick={() => router.push("/admin")}
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-white/5 hover:backdrop-blur-sm transition-all duration-200 group"
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70 group-hover:opacity-100 transition-opacity">
+                    <path d="M8.33333 2.5H2.5V8.33333H8.33333V2.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M17.5 2.5H11.6667V8.33333H17.5V2.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M17.5 11.6667H11.6667V17.5H17.5V11.6667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M8.33333 11.6667H2.5V17.5H8.33333V11.6667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="text-white/70 group-hover:text-white font-medium text-sm leading-[17px] font-['Inter'] transition-colors">
+                    관리자 콘솔
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Folder Section - padding: 12px 0px, gap: 8px */}
