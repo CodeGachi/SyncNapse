@@ -90,14 +90,6 @@ CREATE TABLE "File" (
 );
 
 -- CreateTable
-CREATE TABLE "FolderLectureNote" (
-    "folderId" TEXT NOT NULL,
-    "noteId" TEXT NOT NULL,
-
-    CONSTRAINT "FolderLectureNote_pkey" PRIMARY KEY ("folderId","noteId")
-);
-
--- CreateTable
 CREATE TABLE "TranscriptSegment" (
     "id" TEXT NOT NULL,
     "noteId" TEXT NOT NULL,

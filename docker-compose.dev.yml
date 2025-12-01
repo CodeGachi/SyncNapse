@@ -98,6 +98,14 @@ services:
     env_file:
       - .env
 
+  redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
+    container_name: syncnapse-redis
+    env_file:
+      - .env
+
   n8n:
     extends:
       file: docker-compose.yml

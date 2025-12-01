@@ -28,12 +28,12 @@ INSERT INTO "FolderLectureNote" ("folderId", "noteId") VALUES
 ('folder-007', 'note-004'),
 ('folder-003', 'note-005');
 
-INSERT INTO "AudioRecording" (id, "noteId", "fileUrl", "storageKey", "durationSec", "createdAt", "updatedAt") VALUES
-('audio-001', 'note-001', 'audio/sample-lecture-01.mp3', 'audio/sample-lecture-01.mp3', 3600.00, NOW() - INTERVAL '7 days', NOW()),
-('audio-002', 'note-002', 'audio/sample-lecture-02.mp3', 'audio/sample-lecture-02.mp3', 2700.50, NOW() - INTERVAL '5 days', NOW()),
-('audio-003', 'note-003', 'audio/sample-lecture-03.mp3', 'audio/sample-lecture-03.mp3', 4200.75, NOW() - INTERVAL '3 days', NOW()),
-('audio-004', 'note-004', 'audio/sample-lecture-04.mp3', 'audio/sample-lecture-04.mp3', 3300.25, NOW() - INTERVAL '10 days', NOW()),
-('audio-005', 'note-005', 'audio/sample-lecture-05.mp3', 'audio/sample-lecture-05.mp3', 5400.00, NOW() - INTERVAL '1 day', NOW());
+INSERT INTO "AudioRecording" (id, "noteId", "fileUrl", "durationSec", "createdAt", "updatedAt") VALUES
+('audio-001', 'note-001', 'audio/sample-lecture-01.mp3', 3600.00, NOW() - INTERVAL '7 days', NOW()),
+('audio-002', 'note-002', 'audio/sample-lecture-02.mp3', 2700.50, NOW() - INTERVAL '5 days', NOW()),
+('audio-003', 'note-003', 'audio/sample-lecture-03.mp3', 4200.75, NOW() - INTERVAL '3 days', NOW()),
+('audio-004', 'note-004', 'audio/sample-lecture-04.mp3', 3300.25, NOW() - INTERVAL '10 days', NOW()),
+('audio-005', 'note-005', 'audio/sample-lecture-05.mp3', 5400.00, NOW() - INTERVAL '1 day', NOW());
 
 INSERT INTO "Upload" (id, "userId", "fileName", "mimeType", "totalSizeBytes", "totalChunks", "receivedChunks", status, "checksumSha256", "storageKey", "createdAt", "updatedAt", "completedAt") VALUES
 ('upload-001', 'user-test-002', 'lecture-recording-01.mp3', 'audio/mpeg', 52428800, 10, 10, 'COMPLETED', 'sha256-abc123def456', 'uploads/user-test-002/lecture-recording-01.mp3', NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days'),
