@@ -58,7 +58,7 @@ export function CollaborationPanel({
     >
       <div className="flex flex-col h-full">
         {/* 탭 네비게이션 */}
-        <div className="flex items-center px-4 pt-2 border-b border-[#444444] flex-shrink-0 bg-[#252525]">
+        <div className="flex items-center px-4 pt-2 border-b border-border-strong flex-shrink-0 bg-background-surface">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -66,20 +66,20 @@ export function CollaborationPanel({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 relative group transition-all ${isActive ? "text-[#AFC02B]" : "text-gray-400 hover:text-gray-200"
+                className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 relative group transition-all ${isActive ? "text-brand" : "text-foreground-secondary hover:text-foreground"
                   }`}
               >
-                <div className={`p-1.5 rounded-lg transition-all ${isActive ? "bg-[#AFC02B]/10" : "group-hover:bg-white/5"
+                <div className={`p-1.5 rounded-lg transition-all ${isActive ? "bg-brand/10" : "group-hover:bg-foreground/5"
                   }`}>
                   <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                 </div>
-                <span className={`text-[11px] font-medium ${isActive ? "text-[#AFC02B]" : "text-gray-500 group-hover:text-gray-300"}`}>
+                <span className={`text-[11px] font-medium ${isActive ? "text-brand" : "text-foreground-tertiary group-hover:text-foreground-secondary"}`}>
                   {tab.label}
                 </span>
 
                 {/* Active Indicator */}
                 {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#AFC02B] rounded-t-full mx-4" />
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand rounded-t-full mx-4" />
                 )}
               </button>
             );

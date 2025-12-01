@@ -71,13 +71,13 @@ export function QAPanel({
     <div className="flex flex-col gap-3 h-full">
       {/* 토스트 알림 */}
       {showToast && (
-        <div className="fixed top-4 right-4 z-50 bg-[#AFC02B] text-black px-4 py-2 rounded-lg shadow-lg animate-slide-in-right">
+        <div className="fixed top-4 right-4 z-50 bg-brand text-black px-4 py-2 rounded-lg shadow-lg animate-slide-in-right">
           {toastMessage}
         </div>
       )}
 
       {/* 질문 작성 폼 */}
-      <div className="border-b border-[#3c3c3c] pb-4 px-1">
+      <div className="border-b border-border pb-4 px-1">
         <div className="flex gap-2">
           <input
             type="text"
@@ -85,12 +85,12 @@ export function QAPanel({
             onChange={(e) => setNewQuestionText(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && onAddQuestion()}
             placeholder="질문을 입력하세요..."
-            className="flex-1 bg-[#252525] border border-[#3c3c3c] rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all"
+            className="flex-1 bg-background-surface border border-border rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-foreground-tertiary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
           />
           <button
             onClick={onAddQuestion}
             disabled={!newQuestionText.trim()}
-            className="px-4 py-2 bg-[#AFC02B] text-black rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#c2d43b] transition-colors text-sm shadow-sm active:scale-95"
+            className="px-4 py-2 bg-brand text-black rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-hover transition-colors text-sm shadow-sm active:scale-95"
           >
             질문
           </button>
@@ -100,13 +100,13 @@ export function QAPanel({
       {/* 질문 목록 */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
         {sortedQuestions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-60 text-gray-500 gap-3">
-            <div className="w-16 h-16 rounded-full bg-[#252525] flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center h-60 text-foreground-tertiary gap-3">
+            <div className="w-16 h-16 rounded-full bg-background-surface flex items-center justify-center">
               <MessageCircle size={28} className="opacity-20" />
             </div>
             <div className="text-center">
               <p className="text-sm font-medium mb-1">아직 질문이 없습니다</p>
-              <p className="text-xs text-gray-600">첫 질문을 작성하여 대화를 시작해보세요!</p>
+              <p className="text-xs text-foreground-tertiary">첫 질문을 작성하여 대화를 시작해보세요!</p>
             </div>
           </div>
         ) : (
@@ -193,19 +193,19 @@ function QuestionCard({
   return (
     <div
       className={`rounded-xl p-4 border transition-all shadow-sm ${question.isPinned
-        ? "border-[#AFC02B]/30 bg-[#AFC02B]/5"
-        : "border-transparent bg-[#252525] hover:border-[#3c3c3c]"
+        ? "border-brand/30 bg-brand/5"
+        : "border-transparent bg-background-surface hover:border-border"
         }`}
     >
       {/* 헤더 */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className={`text-xs font-bold ${isMyQuestion ? "text-[#AFC02B]" : "text-white"}`}>
+            <span className={`text-xs font-bold ${isMyQuestion ? "text-brand" : "text-foreground"}`}>
               {question.authorName}
               {isMyQuestion && <span className="font-normal opacity-80 ml-1">(나)</span>}
             </span>
-            <span className="text-gray-500 text-[10px]">
+            <span className="text-foreground-tertiary text-[10px]">
               {new Date(question.createdAt).toLocaleTimeString("ko-KR", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -213,24 +213,24 @@ function QuestionCard({
             </span>
             {/* 배지 */}
             {question.isPinned && (
-              <div className="flex items-center gap-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded-full px-2 py-0.5 text-[10px] font-bold">
+              <div className="flex items-center gap-1 bg-brand/20 text-brand rounded-full px-2 py-0.5 text-[10px] font-bold">
                 <Pin size={8} className="fill-current" />
                 <span>PINNED</span>
               </div>
             )}
           </div>
-          <p className="text-gray-200 text-sm leading-relaxed break-words">{question.content}</p>
+          <p className="text-foreground-secondary text-sm leading-relaxed break-words">{question.content}</p>
         </div>
       </div>
 
       {/* 액션 버튼 */}
-      <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+      <div className="flex items-center gap-2 pt-3 border-t border-border-subtle">
         {/* 추천 */}
         <button
           onClick={onUpvote}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isUpvoted
-            ? "bg-[#AFC02B]/20 text-[#AFC02B]"
-            : "bg-[#333] text-gray-400 hover:bg-[#444] hover:text-white"
+            ? "bg-brand/20 text-brand"
+            : "bg-background-elevated text-foreground-secondary hover:bg-background-overlay hover:text-foreground"
             }`}
         >
           <ThumbsUp size={12} className={isUpvoted ? "fill-current" : ""} />
@@ -241,8 +241,8 @@ function QuestionCard({
         <button
           onClick={() => setShowAnswers(!showAnswers)}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${showAnswers || (question.answers?.length || 0) > 0
-            ? "bg-[#333] text-white"
-            : "bg-transparent text-gray-500 hover:bg-[#333] hover:text-gray-300"
+            ? "bg-background-elevated text-foreground"
+            : "bg-transparent text-foreground-tertiary hover:bg-background-elevated hover:text-foreground-secondary"
             }`}
         >
           <MessageCircle size={12} />
@@ -257,8 +257,8 @@ function QuestionCard({
           <button
             onClick={onTogglePin}
             className={`p-1.5 rounded-lg transition-colors ${question.isPinned
-              ? "text-[#AFC02B] bg-[#AFC02B]/10"
-              : "text-gray-500 hover:text-white hover:bg-[#333]"
+              ? "text-brand bg-brand/10"
+              : "text-foreground-tertiary hover:text-foreground hover:bg-background-elevated"
               }`}
             title={question.isPinned ? "고정 해제" : "고정"}
           >
@@ -270,7 +270,7 @@ function QuestionCard({
         {(isMyQuestion || isEducator) && (
           <button
             onClick={onDelete}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="p-1.5 rounded-lg text-foreground-tertiary hover:text-status-error hover:bg-status-error/10 transition-colors"
             title="삭제"
           >
             <Trash2 size={14} />
@@ -280,7 +280,7 @@ function QuestionCard({
 
       {/* 답변 섹션 */}
       {showAnswers && (
-        <div className="mt-3 pt-3 space-y-3 bg-[#1e1e1e] -mx-4 -mb-4 p-4 rounded-b-xl border-t border-[#333]">
+        <div className="mt-3 pt-3 space-y-3 bg-background-base -mx-4 -mb-4 p-4 rounded-b-xl border-t border-border">
           {/* 답변 목록 */}
           {question.answers && question.answers.length > 0 && (
             <div className="space-y-3 mb-4">
@@ -290,18 +290,18 @@ function QuestionCard({
                   <div
                     key={answer.id}
                     className={`rounded-lg p-3 border transition-all ${answer.isBest
-                      ? "border-[#AFC02B]/30 bg-[#AFC02B]/5"
-                      : "border-[#333] bg-[#2a2a2a]"
+                      ? "border-brand/30 bg-brand/5"
+                      : "border-border bg-background-elevated"
                       }`}
                   >
                     {/* 답변 헤더 */}
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold ${isMyAnswer ? "text-[#AFC02B]" : "text-gray-300"}`}>
+                        <span className={`text-xs font-bold ${isMyAnswer ? "text-brand" : "text-foreground-secondary"}`}>
                           {answer.authorName}
                           {isMyAnswer && <span className="font-normal opacity-80 ml-1">(나)</span>}
                         </span>
-                        <span className="text-gray-600 text-[10px]">
+                        <span className="text-foreground-tertiary text-[10px]">
                           {new Date(answer.createdAt).toLocaleTimeString(
                             "ko-KR",
                             {
@@ -312,7 +312,7 @@ function QuestionCard({
                         </span>
                         {/* 베스트 답변 배지 */}
                         {answer.isBest && (
-                          <div className="flex items-center gap-1 bg-[#AFC02B]/20 text-[#AFC02B] rounded px-1.5 py-0.5 text-[10px] font-bold">
+                          <div className="flex items-center gap-1 bg-brand/20 text-brand rounded px-1.5 py-0.5 text-[10px] font-bold">
                             <CheckCircle size={8} />
                             <span>채택됨</span>
                           </div>
@@ -325,7 +325,7 @@ function QuestionCard({
                         {isEducator && !answer.isBest && (
                           <button
                             onClick={() => onMarkAnswerAsBest(answer.id)}
-                            className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#333] text-gray-400 hover:bg-[#AFC02B]/20 hover:text-[#AFC02B] transition-colors"
+                            className="px-2 py-0.5 rounded text-[10px] font-medium bg-background-elevated text-foreground-secondary hover:bg-brand/20 hover:text-brand transition-colors"
                             title="베스트 답변으로 표시"
                           >
                             채택하기
@@ -336,7 +336,7 @@ function QuestionCard({
                         {(isMyAnswer || isEducator) && (
                           <button
                             onClick={() => onDeleteAnswer(answer.id)}
-                            className="p-1 rounded text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                            className="p-1 rounded text-foreground-tertiary hover:bg-status-error/10 hover:text-status-error transition-colors"
                             title="삭제"
                           >
                             <Trash2 size={12} />
@@ -346,7 +346,7 @@ function QuestionCard({
                     </div>
 
                     {/* 답변 내용 */}
-                    <p className="text-gray-300 text-sm leading-relaxed break-words">
+                    <p className="text-foreground-secondary text-sm leading-relaxed break-words">
                       {answer.content}
                     </p>
                   </div>
@@ -363,12 +363,12 @@ function QuestionCard({
               onChange={(e) => setNewAnswerText(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSubmitAnswer()}
               placeholder="답변을 입력하세요..."
-              className="flex-1 bg-[#2a2a2a] border border-[#333] rounded-lg px-3 py-2 text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#AFC02B] transition-colors"
+              className="flex-1 bg-background-elevated border border-border rounded-lg px-3 py-2 text-foreground text-xs placeholder:text-foreground-tertiary focus:outline-none focus:border-brand transition-colors"
             />
             <button
               onClick={handleSubmitAnswer}
               disabled={!newAnswerText.trim()}
-              className="px-3 py-2 bg-[#333] text-gray-300 hover:text-white hover:bg-[#444] rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 bg-background-elevated text-foreground-secondary hover:text-foreground hover:bg-background-overlay rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               등록
             </button>

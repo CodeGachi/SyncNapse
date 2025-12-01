@@ -109,16 +109,16 @@ export function DrawingSidebar({
   // 도구 버튼 공통 스타일
   const getButtonStyle = (isActive: boolean, isDisabled: boolean = false) => {
     if (isDisabled) {
-      return "bg-white/5 text-white/30 cursor-not-allowed";
+      return "bg-foreground/5 text-foreground/30 cursor-not-allowed";
     }
     return isActive
-      ? "bg-[#AFC02B] text-black"
-      : "bg-white/10 text-white hover:bg-white/20";
+      ? "bg-brand text-black"
+      : "bg-foreground/10 text-foreground hover:bg-foreground/20";
   };
 
   return (
     <div
-      className="bg-[#363636] border-2 border-[#b9b9b9] rounded-[15px] p-2 flex flex-col gap-3 overflow-auto"
+      className="bg-background-elevated border-2 border-border-strong rounded-[15px] p-2 flex flex-col gap-3 overflow-auto"
       style={{
         width: `${NAVBAR_WIDTH}px`,
         height: "fit-content",

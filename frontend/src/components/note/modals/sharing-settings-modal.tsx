@@ -130,20 +130,20 @@ export function SharingSettingsModal() {
       isOpen={isSharingModalOpen}
       onClose={closeSharingModal}
       title="공유 설정"
-      contentClassName="bg-[#1e1e1e] border border-[#333] shadow-2xl shadow-black/50 rounded-3xl p-0 flex flex-col w-full max-w-[520px] overflow-hidden"
+      contentClassName="bg-background-base border border-border shadow-2xl shadow-black/50 rounded-3xl p-0 flex flex-col w-full max-w-[520px] overflow-hidden"
     >
       <div className="p-6 flex flex-col gap-6">
 
         {/* 1. 공개 범위 카드 */}
-        <div className="bg-[#252525] rounded-2xl p-5 border border-[#333] flex flex-col gap-4">
+        <div className="bg-background-surface rounded-2xl p-5 border border-border flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.isPublic ? 'bg-[#AFC02B]/20 text-[#AFC02B]' : 'bg-[#333] text-gray-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.isPublic ? 'bg-brand/20 text-brand' : 'bg-background-elevated text-foreground-secondary'}`}>
                 {settings.isPublic ? <Globe size={20} /> : <Lock size={20} />}
               </div>
               <div>
-                <h3 className="text-white font-semibold text-[15px]">공개 범위 설정</h3>
-                <p className="text-gray-400 text-xs mt-0.5">
+                <h3 className="text-foreground font-semibold text-[15px]">공개 범위 설정</h3>
+                <p className="text-foreground-secondary text-xs mt-0.5">
                   {settings.isPublic ? "누구나 링크를 통해 접근 가능" : "초대된 사용자만 접근 가능"}
                 </p>
               </div>
@@ -152,7 +152,7 @@ export function SharingSettingsModal() {
             {/* Custom Toggle Switch */}
             <button
               onClick={handleTogglePublic}
-              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ${settings.isPublic ? 'bg-[#AFC02B]' : 'bg-[#444]'}`}
+              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ${settings.isPublic ? 'bg-brand' : 'bg-background-overlay'}`}
             >
               <motion.div
                 className="w-5 h-5 bg-white rounded-full shadow-md"
@@ -170,18 +170,18 @@ export function SharingSettingsModal() {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="pt-4 border-t border-[#333] flex flex-col gap-4">
+                <div className="pt-4 border-t border-border flex flex-col gap-4">
                   {/* 실시간 상호작용 옵션 */}
                   <div
                     onClick={handleToggleRealTimeInteraction}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[#2f2f2f] hover:bg-[#383838] transition-colors cursor-pointer group"
+                    className="flex items-center justify-between p-3 rounded-xl bg-background-elevated hover:bg-background-overlay transition-colors cursor-pointer group"
                   >
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">실시간 상호작용 허용</span>
-                      <span className="text-xs text-gray-500">손들기, 투표 등 협업 기능 활성화</span>
+                      <span className="text-sm font-medium text-foreground-secondary group-hover:text-foreground transition-colors">실시간 상호작용 허용</span>
+                      <span className="text-xs text-foreground-tertiary">손들기, 투표 등 협업 기능 활성화</span>
                     </div>
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${settings.realTimeInteraction ? 'bg-[#AFC02B] border-[#AFC02B]' : 'border-gray-500'}`}>
-                      {settings.realTimeInteraction && <Check size={14} className="text-[#1e1e1e]" strokeWidth={3} />}
+                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${settings.realTimeInteraction ? 'bg-brand border-brand' : 'border-foreground-tertiary'}`}>
+                      {settings.realTimeInteraction && <Check size={14} className="text-background-base" strokeWidth={3} />}
                     </div>
                   </div>
 
@@ -193,25 +193,25 @@ export function SharingSettingsModal() {
         </div>
 
         {/* 2. Student 협업 링크 카드 */}
-        <div className="bg-[#252525] rounded-2xl p-5 border border-[#333] flex flex-col gap-4 relative overflow-hidden">
+        <div className="bg-background-surface rounded-2xl p-5 border border-border flex flex-col gap-4 relative overflow-hidden">
           {/* Background Glow */}
           {isCollaborating && (
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#AFC02B]/5 blur-[60px] rounded-full pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-brand/5 blur-[60px] rounded-full pointer-events-none" />
           )}
 
           <div className="flex items-center gap-3 relative z-10">
-            <div className="w-10 h-10 rounded-full bg-[#333] flex items-center justify-center text-gray-300">
+            <div className="w-10 h-10 rounded-full bg-background-elevated flex items-center justify-center text-foreground-secondary">
               <Users size={20} />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-[15px]">Student 협업 링크</h3>
-              <p className="text-gray-400 text-xs mt-0.5">학생들과 실시간으로 노트를 공유합니다</p>
+              <h3 className="text-foreground font-semibold text-[15px]">Student 협업 링크</h3>
+              <p className="text-foreground-secondary text-xs mt-0.5">학생들과 실시간으로 노트를 공유합니다</p>
             </div>
           </div>
 
           {!collaborativeLink ? (
             <div className="flex flex-col items-center justify-center py-4 gap-3">
-              <p className="text-gray-500 text-xs text-center">
+              <p className="text-foreground-tertiary text-xs text-center">
                 링크를 생성하여 학생들을 초대하세요.<br />
                 실시간 Q&A 및 반응 기능을 사용할 수 있습니다.
               </p>
@@ -232,23 +232,23 @@ export function SharingSettingsModal() {
             </div>
           ) : (
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="bg-[#AFC02B]/10 border border-[#AFC02B]/20 rounded-xl p-3 flex items-start gap-3">
+              <div className="bg-brand/10 border border-brand/20 rounded-xl p-3 flex items-start gap-3">
                 <div className="mt-0.5 min-w-[16px]">
-                  <div className="w-4 h-4 rounded-full bg-[#AFC02B] flex items-center justify-center">
-                    <Check size={10} className="text-[#1e1e1e] stroke-[4]" />
+                  <div className="w-4 h-4 rounded-full bg-brand flex items-center justify-center">
+                    <Check size={10} className="text-background-base stroke-[4]" />
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <p className="text-[#AFC02B] text-xs font-bold">협업 모드 활성화됨</p>
-                  <p className="text-[#AFC02B]/80 text-[11px] leading-relaxed">
+                  <p className="text-brand text-xs font-bold">협업 모드 활성화됨</p>
+                  <p className="text-brand/80 text-[11px] leading-relaxed">
                     학생들이 이 링크로 접속하여 실시간으로 노트를 보고 상호작용할 수 있습니다.
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <div className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-xl px-3 py-2.5 flex items-center overflow-hidden">
-                  <span className="text-gray-300 text-xs truncate select-all">
+                <div className="flex-1 bg-background-modal border border-border rounded-xl px-3 py-2.5 flex items-center overflow-hidden">
+                  <span className="text-foreground-secondary text-xs truncate select-all">
                     {collaborativeLink}
                   </span>
                 </div>
@@ -273,7 +273,7 @@ export function SharingSettingsModal() {
                 </Button>
                 <Button
                   variant="danger"
-                  className="flex-1 text-xs h-9 bg-red-500/10 text-red-400 hover:bg-red-500/20 border-transparent"
+                  className="flex-1 text-xs h-9 bg-status-error/10 text-status-error hover:bg-status-error/20 border-transparent"
                   onClick={() => {
                     setIsCollaborating(false);
                     setCollaborativeLink(null);
@@ -289,7 +289,7 @@ export function SharingSettingsModal() {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-[#333] bg-[#252525]/50 flex justify-end">
+      <div className="p-4 border-t border-border bg-background-surface/50 flex justify-end">
         <Button
           variant="secondary"
           onClick={closeSharingModal}
