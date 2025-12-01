@@ -1,7 +1,15 @@
+/**
+ * 노트 콘텐츠 훅
+ * IndexedDB와 백엔드 간 노트 콘텐츠 저장/로드 및 자동 저장 관리
+ */
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNoteEditorStore } from '@/stores/note-editor-store';
 import { saveNoteContent as saveNoteContentAPI, getNoteContent as getNoteContentAPI } from '@/lib/api/services/page-content.api';
 import { saveNoteContent as saveToIndexedDB, getAllNoteContent, cleanDuplicateNoteContent } from '@/lib/db/notes';
+import { createLogger } from '@/lib/utils/logger';
+
+const log = createLogger('NoteContent');
 
 interface UseNoteContentProps {
   noteId: string | null | undefined;
@@ -18,91 +26,91 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
   const isLoadedRef = useRef(false);
 
   /**
-   * Save to IndexedDB and Backend
+   * IndexedDB와 백엔드에 저장
    */
   const saveNoteContent = useCallback(async () => {
     if (!noteId || !isLoadedRef.current) {
-      console.log('[useNoteContent] ⏸️ Skip save:', { noteId, isLoaded: isLoadedRef.current });
+      log.debug('저장 스킵:', { noteId, isLoaded: isLoadedRef.current });
       return;
-      }
+    }
 
-    console.log('[useNoteContent] 💾 Starting save...');
+    log.debug('저장 시작...');
     setIsSaving(true);
 
     try {
       const { pageNotes, selectedFileId } = useNoteEditorStore.getState();
 
       if (!selectedFileId) {
-        console.log('[useNoteContent] ⏸️ No selectedFileId');
+        log.debug('selectedFileId 없음');
         setIsSaving(false);
         return;
       }
 
-      // Collect all pages for this note
+      // 이 노트의 모든 페이지 수집
       const pages: Record<string, { blocks: any[] }> = {};
       const fileIdPrefix = selectedFileId + '-';
-      
+
       Object.entries(pageNotes).forEach(([pageKey, blocks]) => {
         if (pageKey.startsWith(fileIdPrefix)) {
-          // Extract page number: it's after the last '-'
+          // 페이지 번호 추출: 마지막 '-' 이후
           const pageNumber = pageKey.substring(fileIdPrefix.length);
-          console.log('[useNoteContent] 📄 Page:', { pageKey, selectedFileId, pageNumber, blockCount: blocks.length });
-            pages[pageNumber] = { blocks };
-          }
+          log.debug('페이지:', { pageKey, selectedFileId, pageNumber, blockCount: blocks.length });
+          pages[pageNumber] = { blocks };
+        }
       });
 
       const pageCount = Object.keys(pages).length;
-      console.log('[useNoteContent] 📦 Saving', pageCount, 'pages');
+      log.debug('저장 중', pageCount, '페이지');
 
       if (pageCount === 0) {
-        console.log('[useNoteContent] ⏸️ No pages to save');
+        log.debug('저장할 페이지 없음');
         setIsSaving(false);
         return;
       }
 
-      // 1. Save to IndexedDB
-        for (const [pageNumber, pageData] of Object.entries(pages)) {
+      // 1. IndexedDB에 저장
+      for (const [pageNumber, pageData] of Object.entries(pages)) {
         await saveToIndexedDB(noteId, String(pageNumber), pageData.blocks);
-        }
-      console.log('[useNoteContent] ✅ Saved to IndexedDB');
-
-      // 2. Save to Backend (PostgreSQL + MinIO)
-      await saveNoteContentAPI(noteId, pages);
-      console.log('[useNoteContent] ✅ Saved to Backend');
-
-        setLastSavedAt(new Date());
-      } catch (err) {
-      console.error('[useNoteContent] ❌ Save failed:', err);
-      setError('저장 실패');
-      } finally {
-        setIsSaving(false);
       }
+      log.debug('IndexedDB에 저장 완료');
+
+      // 2. 백엔드에 저장 (PostgreSQL + MinIO)
+      await saveNoteContentAPI(noteId, pages);
+      log.debug('백엔드에 저장 완료');
+
+      setLastSavedAt(new Date());
+    } catch (err) {
+      log.error('저장 실패:', err);
+      setError('저장 실패');
+    } finally {
+      setIsSaving(false);
+    }
   }, [noteId]);
 
   /**
-   * Schedule auto-save (2 seconds after typing stops)
+   * 자동 저장 예약 (타이핑 멈춘 후 2초)
    */
   const scheduleAutoSave = useCallback(() => {
     if (!isLoadedRef.current) {
-      console.log('[useNoteContent] ⏸️ Not loaded yet - skip auto-save');
+      log.debug('아직 로드되지 않음 - 자동 저장 스킵');
       return;
     }
 
-    // Clear existing timeout
+    // 기존 타임아웃 취소
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Schedule new save
-    console.log('[useNoteContent] ⏰ Auto-save scheduled (2 seconds)');
+    // 새 저장 예약
+    log.debug('자동 저장 예약 (2초)');
     saveTimeoutRef.current = setTimeout(() => {
-      console.log('[useNoteContent] ⏰ Auto-save triggered');
+      log.debug('자동 저장 실행');
       saveNoteContent();
     }, 2000);
   }, [saveNoteContent]);
 
   /**
-   * Force save immediately (on page change)
+   * 즉시 강제 저장 (페이지 변경 시)
    */
   const forceSave = useCallback(async () => {
     if (saveTimeoutRef.current) {
@@ -110,132 +118,132 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
       saveTimeoutRef.current = null;
     }
 
-    console.log('[useNoteContent] 🚀 Force save (page change)');
+    log.debug('강제 저장 (페이지 변경)');
     await saveNoteContent();
   }, [saveNoteContent]);
 
   /**
-   * Load content from IndexedDB (priority) or Backend
+   * IndexedDB(우선) 또는 백엔드에서 콘텐츠 로드
    */
   const loadNoteContent = useCallback(async () => {
     if (!noteId || !enabled) {
-      console.log('[useNoteContent] ⏭️ Skip load:', { noteId, enabled });
+      log.debug('로드 스킵:', { noteId, enabled });
       return;
     }
 
-    console.log('[useNoteContent] 📂 Loading content for:', noteId);
+    log.debug('콘텐츠 로드 중:', noteId);
     setIsLoading(true);
     setError(null);
     isLoadedRef.current = false;
 
     try {
       const { selectedFileId } = useNoteEditorStore.getState();
-      
+
       if (!selectedFileId) {
-        console.log('[useNoteContent] ⏸️ No selectedFileId - waiting...');
+        log.debug('selectedFileId 없음 - 대기 중...');
         setIsLoading(false);
         return;
       }
 
-      // 1. Try IndexedDB first
+      // 1. IndexedDB 우선 시도
       let allPages = await getAllNoteContent(noteId);
-      
-      if (allPages && allPages.length > 0) {
-        console.log('[useNoteContent] ✅ Found in IndexedDB:', allPages.length, 'pages');
 
-        // Clean duplicates
+      if (allPages && allPages.length > 0) {
+        log.debug('IndexedDB에서 발견:', allPages.length, '페이지');
+
+        // 중복 정리
         const duplicatesRemoved = await cleanDuplicateNoteContent(noteId);
         if (duplicatesRemoved > 0) {
-          console.log('[useNoteContent] 🧹 Cleaned', duplicatesRemoved, 'duplicates');
+          log.debug('중복 정리됨:', duplicatesRemoved);
           allPages = await getAllNoteContent(noteId);
         }
       } else {
-        // 2. Load from Backend (PostgreSQL + MinIO)
-        console.log('[useNoteContent] 📥 Loading from Backend...');
+        // 2. 백엔드에서 로드 (PostgreSQL + MinIO)
+        log.debug('백엔드에서 로드 중...');
         const backendData = await getNoteContentAPI(noteId);
-        
-        console.log('[useNoteContent] 🔍 Backend response:', {
+
+        log.debug('백엔드 응답:', {
           hasData: !!backendData,
           hasPages: !!backendData?.pages,
           pagesType: typeof backendData?.pages,
           pageCount: Object.keys(backendData?.pages || {}).length,
           pageKeys: Object.keys(backendData?.pages || {}),
         });
-        
+
         if (backendData && backendData.pages) {
           const pageKeys = Object.keys(backendData.pages);
-          console.log('[useNoteContent] ✅ Loaded from Backend - Pages:', pageKeys.join(', '));
-          
-          // Debug first page
+          log.debug('백엔드에서 로드 완료 - 페이지:', pageKeys.join(', '));
+
+          // 첫 페이지 디버그
           const firstPageKey = pageKeys[0];
           if (firstPageKey && backendData.pages[firstPageKey]) {
             const firstPage = backendData.pages[firstPageKey] as { blocks: any[] };
-            console.log(`[useNoteContent] 📄 First page (${firstPageKey}):`, {
+            log.debug(`첫 번째 페이지 (${firstPageKey}):`, {
               hasBlocks: !!firstPage.blocks,
               blocksIsArray: Array.isArray(firstPage.blocks),
               blockCount: firstPage.blocks?.length || 0,
               firstBlockContent: firstPage.blocks?.[0]?.content,
             });
           }
-          
-          // Save to IndexedDB for next time
+
+          // 다음을 위해 IndexedDB에 저장
           for (const [pageNumber, pageData] of Object.entries(backendData.pages)) {
             const typedPageData = pageData as { blocks: any[] };
-            console.log(`[useNoteContent] 💾 Saving page ${pageNumber} to IndexedDB:`, {
+            log.debug(`페이지 ${pageNumber} IndexedDB에 저장:`, {
               hasBlocks: !!typedPageData.blocks,
               blockCount: typedPageData.blocks?.length || 0,
             });
             await saveToIndexedDB(noteId, pageNumber, typedPageData.blocks);
           }
-          console.log('[useNoteContent] ✅ Cached to IndexedDB');
-          
-          // Reload from IndexedDB
+          log.debug('IndexedDB에 캐시됨');
+
+          // IndexedDB에서 다시 로드
           allPages = await getAllNoteContent(noteId);
-          console.log('[useNoteContent] 🔄 Reloaded from IndexedDB:', allPages?.length || 0, 'pages');
+          log.debug('IndexedDB에서 다시 로드:', allPages?.length || 0, '페이지');
         } else {
-          console.warn('[useNoteContent] ⚠️ No data loaded from backend!');
+          log.warn('백엔드에서 데이터 로드 안됨!');
         }
       }
 
-      // Update store with loaded data
+      // 로드된 데이터로 스토어 업데이트
       if (allPages && allPages.length > 0) {
         const updatedPageNotes: Record<string, any[]> = {};
-            
-            for (const page of allPages) {
-              const pageNumber = parseInt(page.pageId, 10);
-              if (!isNaN(pageNumber)) {
-                const pageKey = `${selectedFileId}-${pageNumber}`;
-                updatedPageNotes[pageKey] = page.blocks;
-              }
-            }
-            
-            useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
-        console.log('[useNoteContent] ✅ Loaded to store:', Object.keys(updatedPageNotes).length, 'pages');
+
+        for (const page of allPages) {
+          const pageNumber = parseInt(page.pageId, 10);
+          if (!isNaN(pageNumber)) {
+            const pageKey = `${selectedFileId}-${pageNumber}`;
+            updatedPageNotes[pageKey] = page.blocks;
           }
-          
+        }
+
+        useNoteEditorStore.setState({ pageNotes: updatedPageNotes });
+        log.debug('스토어에 로드 완료:', Object.keys(updatedPageNotes).length, '페이지');
+      }
+
       isLoadedRef.current = true;
     } catch (err) {
-      console.error('[useNoteContent] ❌ Load failed:', err);
+      log.error('로드 실패:', err);
       setError('로드 실패');
-      isLoadedRef.current = true; // Allow saves even if load failed
+      isLoadedRef.current = true; // 로드 실패해도 저장 허용
     } finally {
-          setIsLoading(false);
+      setIsLoading(false);
     }
   }, [noteId, enabled]);
 
   /**
-   * Subscribe to selectedFileId
+   * selectedFileId 구독
    */
   const selectedFileId = useNoteEditorStore(state => state.selectedFileId);
 
   /**
-   * Load when noteId, enabled, or selectedFileId changes
+   * noteId, enabled, selectedFileId 변경 시 로드
    */
   useEffect(() => {
-    console.log('[useNoteContent] 🔄 Conditions:', { noteId, enabled, selectedFileId });
-    
+    log.debug('조건:', { noteId, enabled, selectedFileId });
+
     if (noteId && enabled && selectedFileId) {
-      console.log('[useNoteContent] ✅ Loading...');
+      log.debug('로드 중...');
       loadNoteContent();
     }
 
@@ -247,7 +255,7 @@ export function useNoteContent({ noteId, enabled }: UseNoteContentProps) {
   }, [noteId, enabled, selectedFileId, loadNoteContent]);
 
   /**
-   * Cleanup on unmount
+   * 언마운트 시 정리
    */
   useEffect(() => {
     return () => {

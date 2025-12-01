@@ -68,9 +68,9 @@ export function FolderTree({
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, 'folder', node.folder.id)}
                 className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group ${isSelected
-                    ? "bg-[#AFC02B]/10 text-[#AFC02B]"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
-                  } ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
+                    ? "bg-brand/10 text-brand"
+                    : "text-foreground-tertiary hover:bg-foreground/5 hover:text-foreground"
+                  } ${isDragOver ? "bg-status-info/20 border-2 border-status-info" : ""}`}
                 style={{
                   marginLeft: level > 0 ? `${level * 16}px` : '0px',
                   paddingLeft: level > 0 ? '12px' : '8px'
@@ -83,7 +83,7 @@ export function FolderTree({
                   <>
                     {/* Vertical line from top */}
                     <div
-                      className="absolute top-0 w-px bg-white/10"
+                      className="absolute top-0 w-px bg-foreground/10"
                       style={{
                         left: '4px',
                         height: '50%'
@@ -92,7 +92,7 @@ export function FolderTree({
                     {/* Vertical line to bottom (if not last item) */}
                     {!isLastItem && (
                       <div
-                        className="absolute top-1/2 w-px bg-white/10"
+                        className="absolute top-1/2 w-px bg-foreground/10"
                         style={{
                           left: '4px',
                           height: '100%'
@@ -101,7 +101,7 @@ export function FolderTree({
                     )}
                     {/* Horizontal line */}
                     <div
-                      className="absolute top-1/2 w-2 h-px bg-white/10"
+                      className="absolute top-1/2 w-2 h-px bg-foreground/10"
                       style={{ left: '4px' }}
                     />
                   </>
@@ -190,7 +190,7 @@ export function FolderTree({
             onClick={closeContextMenu}
           />
           <div
-            className="fixed z-50 bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg shadow-lg py-1 w-48"
+            className="fixed z-50 bg-background-elevated border border-border-subtle rounded-lg shadow-lg py-1 w-48"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
@@ -199,7 +199,7 @@ export function FolderTree({
             {/* 이름 변경 */}
             <button
               onClick={() => handleContextMenuAction(() => onRenameFolder(contextMenu.folderId))}
-              className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-background-overlay hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"
@@ -220,7 +220,7 @@ export function FolderTree({
             {/* 하위 폴더 추가 */}
             <button
               onClick={() => handleContextMenuAction(() => onCreateSubFolder(contextMenu.folderId))}
-              className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-background-overlay hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"
@@ -239,12 +239,12 @@ export function FolderTree({
             </button>
 
             {/* 구분선 */}
-            <div className="my-1 border-t border-[#3C3C3C]" />
+            <div className="my-1 border-t border-border-subtle" />
 
             {/* 삭제 */}
             <button
               onClick={() => handleContextMenuAction(() => onDeleteFolder(contextMenu.folderId))}
-              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-status-error hover:bg-status-error/10 hover:text-status-error transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"

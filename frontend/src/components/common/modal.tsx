@@ -25,7 +25,7 @@ export function Modal({
   title,
   overlayClassName = "fixed inset-0 bg-black/40 backdrop-blur-sm z-40",
   containerClassName = "fixed inset-0 z-50 flex items-center justify-center p-4",
-  contentClassName = "bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto",
+  contentClassName = "bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto",
   closeButton = true,
   overlayStyle,
   contentStyle,
@@ -76,12 +76,12 @@ export function Modal({
             >
               {/* Header */}
               {title && (
-                <div className="flex items-center justify-between p-6 border-b border-white/10 w-full">
-                  <h2 className="text-xl font-bold text-white">{title}</h2>
+                <div className="flex items-center justify-between p-6 border-b border-border-subtle w-full">
+                  <h2 className="text-xl font-bold text-foreground">{title}</h2>
                   {closeButton && (
                     <button
                       onClick={onClose}
-                      className="text-white/40 hover:text-white transition-colors"
+                      className="text-foreground-tertiary hover:text-foreground transition-colors"
                     >
                       <svg
                         className="w-6 h-6"

@@ -1,6 +1,6 @@
 /**
- * DeleteFolderModal Hook
- * Delete Loading Status Management
+ * 폴더 삭제 모달 훅
+ * 삭제 로딩 상태 관리
  */
 
 import { useState } from "react";

@@ -50,8 +50,8 @@ export function FolderSelector({
                     <li key={node.folder.id}>
                         <div
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${isSelected
-                                    ? "bg-[#899649]/30 text-white ring-1 ring-[#899649]/50"
-                                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                    ? "bg-brand-secondary/30 text-foreground ring-1 ring-brand-secondary/50"
+                                    : "text-foreground-tertiary hover:bg-foreground/5 hover:text-foreground"
                                 }`}
                             style={{ paddingLeft: `${level * INDENT_PER_LEVEL + BASE_PADDING}px` }}
                             onClick={() => onSelectFolder(node.folder.id)}

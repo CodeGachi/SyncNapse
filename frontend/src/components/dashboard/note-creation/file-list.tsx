@@ -23,20 +23,20 @@ export function FileList({
   const { handleRetry, handleCancel } = useFileList(uploadQueue);
 
   return (
-    <div className="flex-1 flex flex-col gap-3 bg-[#2F2F2F] rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-white">
+    <div className="flex-1 flex flex-col gap-3 bg-background-elevated rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-foreground">
         업로드된 파일 ({uploadedFiles.length}개)
       </h3>
       <div className="flex flex-col gap-2 overflow-y-auto flex-1">
         {uploadedFiles.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+          <div className="flex-1 flex items-center justify-center text-foreground-tertiary text-sm">
             업로드된 파일이 없습니다
           </div>
         ) : (
           uploadedFiles.map((uf, index) => (
             <div
               key={index}
-              className="rounded-lg p-4 flex justify-between items-center transition-colors bg-[#575757] hover:bg-[#6A6A6A]"
+              className="rounded-lg p-4 flex justify-between items-center transition-colors bg-background-overlay hover:bg-background-overlay/80"
             >
               <div className="flex items-center gap-4">
                 {/* 파일 아이콘 */}
@@ -65,14 +65,14 @@ export function FileList({
                 </svg>
 
                 <div>
-                  <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                  <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
                     {uf.file.name}
                   </p>
-                  <p className="text-xs text-[#B9B9B9]">
+                  <p className="text-xs text-foreground-secondary">
                     {(uf.file.size / (1024 * 1024)).toFixed(1)} MB
                   </p>
                   {uf.error && (
-                    <p className="text-xs text-red-400 mt-1">{uf.error}</p>
+                    <p className="text-xs text-status-error mt-1">{uf.error}</p>
                   )}
                 </div>
               </div>
@@ -80,7 +80,7 @@ export function FileList({
               <div className="flex items-center gap-2">
                 {/* 상태별 UI - 완료 또는 실패만 표시 */}
                 {uf.status === "completed" ? (
-                  <span className="text-xs font-medium text-[#16A34A]">
+                  <span className="text-xs font-medium text-status-success">
                     완료
                   </span>
                 ) : uf.status === "error" ? (
@@ -89,7 +89,7 @@ export function FileList({
                       e.stopPropagation();
                       handleRetry(uf.file.name, uf.file.size);
                     }}
-                    className="text-xs text-blue-400 hover:text-blue-300 underline"
+                    className="text-xs text-status-info hover:text-status-info/80 underline"
                   >
                     재시도
                   </button>
@@ -102,7 +102,7 @@ export function FileList({
                     onRemoveFile(uf.file);
                     handleCancel(uf.file.name, uf.file.size);
                   }}
-                  className="text-[#EF4444] hover:text-[#DC2626]"
+                  className="text-status-error hover:text-status-error/80"
                   title="목록에서 제거"
                 >
                   <svg

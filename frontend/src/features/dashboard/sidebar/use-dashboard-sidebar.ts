@@ -1,9 +1,12 @@
 /**
- * DashboardSidebar Hook
+ * 대시보드 사이드바 훅
  * 폴더 CRUD 비즈니스 로직 및 상태 관리
  */
 
 import { useState } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("DashboardSidebar");
 import { useFolders } from "@/features/dashboard";
 import type { DBFolder } from "@/lib/db/folders";
 import { useDeleteNote } from "@/lib/api/mutations/notes.mutations";
@@ -103,16 +106,16 @@ export function useDashboardSidebar({
 
     try {
       await deleteNoteMutation.mutateAsync(deletingNote.id);
-      console.log(`[DashboardSidebar] Note deleted: ${deletingNote.id}`);
+      log.debug("노트 삭제 완료:", deletingNote.id);
       setDeletingNote(null);
     } catch (error) {
-      console.error(`[DashboardSidebar] Failed to delete note:`, error);
+      log.error("노트 삭제 실패:", error);
       alert("노트 삭제에 실패했습니다.");
     }
   };
 
   return {
-    // Folder Modal states
+    // 폴더 모달 상태
     isCreateFolderModalOpen,
     setIsCreateFolderModalOpen,
     createSubfolderParentId,
@@ -124,7 +127,7 @@ export function useDashboardSidebar({
     deletingNote,
     setDeletingNote,
 
-    // Handlers
+    // 핸들러
     handleCreateFolderModal,
     handleCreateSubFolder,
     handleRenameFolder,

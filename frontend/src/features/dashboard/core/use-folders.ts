@@ -1,5 +1,6 @@
 /**
- * Folder management hook
+ * 폴더 관리 훅
+ * 폴더 생성, 이름 변경, 삭제, 이동, 트리 구조 기능 제공
  */
 
 "use client";
@@ -11,17 +12,17 @@ import {
   deleteFolder as deleteFolderApi,
   moveFolder as moveFolderApi,
   fetchFolderPath,
-} from "@/lib/api/services/folders.api"; // ✅ Updated to V2
+} from "@/lib/api/services/folders.api"; 
 import { useFoldersQuery } from "@/lib/api/queries/folders.queries";
 import type { DBFolder } from "@/lib/db/folders";
 
 export function useFolders() {
   const queryClient = useQueryClient();
 
-  // Fetch folder list with TanStack Query (automatic caching and synchronization)
+  // TanStack Query로 폴더 목록 조회 (자동 캐싱 및 동기화)
   const { data: folders = [], isLoading, error } = useFoldersQuery();
 
-  // Create folder
+  // 폴더 생성
   const handleCreateFolder = async (
     name: string,
     parentId: string | null = null
@@ -29,7 +30,7 @@ export function useFolders() {
     try {
       await createFolderApi(name, parentId);
 
-      // Invalidate cache to fetch the latest data across all components
+      // 캐시 무효화하여 최신 데이터 조회
       await queryClient.invalidateQueries({ queryKey: ["folders"] });
     } catch (err) {
       throw new Error(
@@ -38,12 +39,12 @@ export function useFolders() {
     }
   };
 
-  // Rename folder
+  // 폴더 이름 변경
   const handleRenameFolder = async (folderId: string, newName: string) => {
     try {
       await renameFolderApi(folderId, newName);
 
-      // Invalidate cache to fetch the latest data across all components
+      // 캐시 무효화하여 최신 데이터 조회
       await queryClient.invalidateQueries({ queryKey: ["folders"] });
     } catch (err) {
       throw new Error(
@@ -52,12 +53,12 @@ export function useFolders() {
     }
   };
 
-  // Delete folder
+  // 폴더 삭제
   const handleDeleteFolder = async (folderId: string) => {
     try {
       await deleteFolderApi(folderId);
 
-      // Invalidate cache to fetch the latest data across all components
+      // 캐시 무효화하여 최신 데이터 조회
       await queryClient.invalidateQueries({ queryKey: ["folders"] });
     } catch (err) {
       throw new Error(
@@ -66,7 +67,7 @@ export function useFolders() {
     }
   };
 
-  // Move folder
+  // 폴더 이동
   const handleMoveFolder = async (
     folderId: string,
     newParentId: string | null
@@ -74,7 +75,7 @@ export function useFolders() {
     try {
       await moveFolderApi(folderId, newParentId);
 
-      // Invalidate cache to fetch the latest data across all components
+      // 캐시 무효화하여 최신 데이터 조회
       await queryClient.invalidateQueries({ queryKey: ["folders"] });
     } catch (err) {
       throw new Error(
@@ -83,20 +84,19 @@ export function useFolders() {
     }
   };
 
-  // Find the "Root" folder (special system folder with name "Root" and parentId null)
+  // "Root" 폴더 찾기 (name이 "Root"이고 parentId가 null인 시스템 폴더)
   const rootFolder = folders.find((f) => f.name === "Root" && f.parentId === null);
 
-  // Get subfolders of a specific folder
+  // 특정 폴더의 하위 폴더 조회
   const getSubFolders = (parentId: string | null): DBFolder[] => {
-    // Filter folders based on parentId
     return folders.filter((f) => f.parentId === parentId);
   };
 
-  // Build folder tree structure starting from Root
+  // Root부터 시작하는 폴더 트리 구조 생성
   const buildFolderTree = (
     parentId: string | null = null
   ): FolderTreeNode[] => {
-    // If parentId is null, start from Root folder
+    // parentId가 null이면 Root 폴더부터 시작
     if (parentId === null && rootFolder) {
       return [{
         folder: rootFolder,
@@ -107,7 +107,7 @@ export function useFolders() {
     return buildFolderTreeRecursive(parentId);
   };
 
-  // Recursive helper to build tree
+  // 트리 구조 재귀 생성 헬퍼
   const buildFolderTreeRecursive = (parentId: string | null): FolderTreeNode[] => {
     const subFolders = getSubFolders(parentId);
     return subFolders.map((folder) => ({
@@ -116,12 +116,12 @@ export function useFolders() {
     }));
   };
 
-  // Get folder path
+  // 폴더 경로 조회
   const getPath = async (folderId: string): Promise<DBFolder[]> => {
     return await fetchFolderPath(folderId);
   };
 
-  // Manual refresh (if needed)
+  // 수동 새로고침
   const reload = async () => {
     await queryClient.invalidateQueries({ queryKey: ["folders"] });
   };

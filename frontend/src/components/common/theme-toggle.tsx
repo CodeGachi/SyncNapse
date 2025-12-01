@@ -26,7 +26,7 @@ export function ThemeToggle({ showLabel = true, className = "" }: ThemeTogglePro
   return (
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-white/5 transition-all duration-200 group ${className}`}
+      className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 transition-all duration-200 group ${className}`}
     >
       <div className="relative w-5 h-5">
         <AnimatePresence mode="wait">
@@ -104,7 +104,7 @@ export function ThemeToggle({ showLabel = true, className = "" }: ThemeTogglePro
       </div>
       {showLabel && (
         <motion.span
-          className="text-white/70 group-hover:text-white font-medium text-sm leading-[17px] font-['Inter'] transition-colors"
+          className="text-foreground-secondary group-hover:text-foreground font-medium text-sm leading-[17px] font-['Inter'] transition-colors"
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.2 }}

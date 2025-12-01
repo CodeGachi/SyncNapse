@@ -1,11 +1,14 @@
 /**
- * CreateNoteModal Hook
- * File upload, validation, drag-and-drop, and storage logic
+ * 노트 생성 모달 훅
+ * 파일 업로드, 유효성 검사, 드래그 앤 드롭, 저장소 로직
  */
 "use client";
 
 import { useEffect, useState } from "react";
 import { FILE_CONSTRAINTS } from "@/lib/constants";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("CreateNoteModal");
 import { useNoteSettingsStore } from "@/stores";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFolders } from "@/features/dashboard";
@@ -47,7 +50,7 @@ export function useCreateNoteModal(
   const [isFolderSelectorOpen, setIsFolderSelectorOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Set default folder when modal opens or defaultFolderId changes
+  // 모달 열릴 때 또는 defaultFolderId 변경 시 기본 폴더 설정
   useEffect(() => {
     if (defaultFolderId !== undefined && defaultFolderId !== null) {
       setSelectedLocation(defaultFolderId);
@@ -60,26 +63,26 @@ export function useCreateNoteModal(
     }
   }, [defaultFolderId, dbFolders, setSelectedLocation]);
 
-  // Set initial note type when modal opens
+  // 모달 열릴 때 초기 노트 타입 설정
   useEffect(() => {
     setNoteType(initialNoteType);
   }, [initialNoteType, setNoteType]);
 
-  // File upload Management
+  // 파일 업로드 관리
   const uploadQueue = useFileUpload({
     maxConcurrent: 2,
     onFileComplete: (file) => {
-      // File upload Complete
+      // 파일 업로드 완료
     },
     onFileError: (file, error) => {
-      // File upload Failure
+      // 파일 업로드 실패
     },
     onAllComplete: (results) => {
-      // all File upload Complete
+      // 모든 파일 업로드 완료
     },
   });
 
-  // Upload Status
+  // 업로드 상태 동기화
   useEffect(() => {
     uploadQueue.files.forEach((queueFile) => {
       updateUploadedFile(queueFile.file, {
@@ -90,22 +93,22 @@ export function useCreateNoteModal(
     });
   }, [uploadQueue.files, updateUploadedFile]);
 
-  // Select Folder name Import
+  // 선택된 폴더명 조회
   const getSelectedFolderName = () => {
     if (selectedLocation === "root") return "Root";
     const folder = dbFolders.find((f) => f.id === selectedLocation);
-    // If the folder is the "Root" system folder, display it as "Root"
+    // "Root" 시스템 폴더인 경우 "Root"로 표시
     if (folder && folder.name === "Root" && folder.parentId === null) {
       return "Root";
     }
     return folder?.name || "Root";
   };
 
-  // File Add Handler
+  // 파일 추가 핸들러
   const handleFilesAdded = async (files: File[]) => {
     setValidationErrors([]);
 
-    // ZIP File Process
+    // ZIP 파일 처리
     const processedFiles: File[] = [];
     for (const file of files) {
       if (isZipFile(file)) {
@@ -120,20 +123,20 @@ export function useCreateNoteModal(
       }
     }
 
-    // File Validation
+    // 파일 유효성 검사
     const existingFiles = uploadedFiles.map((uf) => uf.file);
     const { validFiles, invalidFiles, duplicates } = validateFiles(
       processedFiles,
       existingFiles
     );
 
-    // Validation Failure File Error Display
+    // 유효성 검사 실패 파일 오류 표시
     if (invalidFiles.length > 0) {
       const errors = invalidFiles.map((f) => `${f.file.name}: ${f.error}`);
       setValidationErrors(errors);
     }
 
-    // File Conflict Process
+    // 파일명 충돌 처리
     if (duplicates.length > 0) {
       const renamedFiles: File[] = [];
       duplicates.forEach((originalFile) => {
@@ -146,8 +149,8 @@ export function useCreateNoteModal(
         });
         renamedFiles.push(renamedFile);
 
-        // TODO: Add notification system
-        console.warn(
+        // TODO: 알림 시스템 추가
+        log.warn(
           `파일 이름 충돌: "${originalFile.name}"이(가) 이미 존재하여 "${suggestedName}"(으)로 저장되었습니다.`
         );
       });
@@ -155,7 +158,7 @@ export function useCreateNoteModal(
       validFiles.push(...renamedFiles);
     }
 
-    // Valid File Add
+    // 유효한 파일 추가
     if (validFiles.length > 0) {
       addFilesToQueue(validFiles);
     }
@@ -173,7 +176,7 @@ export function useCreateNoteModal(
     uploadQueue.startUpload();
   };
 
-  // drag 앤 드롭 Handler
+  // 드래그 앤 드롭 핸들러
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragActive(true);
@@ -196,7 +199,7 @@ export function useCreateNoteModal(
     handleFilesAdded(files);
   };
 
-  // Submit Handler
+  // 제출 핸들러
   const handleSubmit = async () => {
     if (isCreating) return;
 
@@ -206,7 +209,7 @@ export function useCreateNoteModal(
       const firstFileName = uploadedFiles[0].file.name;
       // 확장자 제거
       finalTitle = firstFileName.replace(/\.[^/.]+$/, "");
-      console.log('[useCreateNoteModal] Using first file name as title:', finalTitle);
+      log.debug("첫 번째 파일명을 제목으로 사용:", finalTitle);
     }
     if (!finalTitle) {
       finalTitle = "제목 없음";
@@ -224,7 +227,7 @@ export function useCreateNoteModal(
       await onSubmit(noteData);
       reset();
     } catch (error) {
-      console.error("Failed to create note:", error);
+      log.error("노트 생성 실패:", error);
       const errorMessage = error instanceof Error ? error.message : "노트 생성에 실패했습니다.";
       alert(errorMessage);
     } finally {
@@ -232,14 +235,14 @@ export function useCreateNoteModal(
     }
   };
 
-  // Save Space Usage Calculation
+  // 저장 공간 사용량 계산
   const storageUsage =
     uploadedFiles.length > 0
       ? calculateStorageUsage(uploadedFiles.map((uf) => uf.file))
       : null;
 
   return {
-    // State
+    // 상태
     title,
     selectedLocation,
     uploadedFiles,
@@ -252,7 +255,7 @@ export function useCreateNoteModal(
     storageUsage,
     uploadQueue,
 
-    // Setters
+    // 설정 함수
     setTitle,
     setSelectedLocation,
     setValidationErrors,
@@ -261,7 +264,7 @@ export function useCreateNoteModal(
     setNoteType,
     setIsFolderSelectorOpen,
 
-    // Handlers
+    // 핸들러
     handleDragOver,
     handleDragLeave,
     handleDrop,

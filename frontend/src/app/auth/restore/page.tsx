@@ -11,8 +11,8 @@ export default function RestorePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen bg-[#0A0A0A]">
-          <div className="text-gray-400">로딩 중...</div>
+        <div className="flex items-center justify-center min-h-screen bg-background-deep">
+          <div className="text-foreground-secondary">로딩 중...</div>
         </div>
       }
     >

@@ -1,5 +1,6 @@
 /**
- * Dashboard feature hook
+ * 대시보드 기능 훅
+ * 노트 목록 조회, 생성, 네비게이션 기능 제공
  */
 
 "use client";

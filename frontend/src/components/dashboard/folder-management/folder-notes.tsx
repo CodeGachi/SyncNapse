@@ -82,7 +82,7 @@ export function FolderNotes({
               onDragOver={(e) => onDragOver(e, "note", note.id)}
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, "note", note.id)}
-              className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group text-gray-400 hover:bg-white/5 hover:text-white ${isDragOver ? "bg-blue-500/20 border-2 border-blue-500" : ""}`}
+              className={`relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors group text-foreground-tertiary hover:bg-foreground/5 hover:text-foreground ${isDragOver ? "bg-status-info/20 border-2 border-status-info" : ""}`}
               style={{
                 marginLeft: `${level * 16}px`,
                 paddingLeft: "12px",
@@ -94,7 +94,7 @@ export function FolderNotes({
               <>
                 {/* 상단 수직선 */}
                 <div
-                  className="absolute top-0 w-px bg-white/10"
+                  className="absolute top-0 w-px bg-foreground/10"
                   style={{
                     left: "4px",
                     height: "50%",
@@ -103,7 +103,7 @@ export function FolderNotes({
                 {/* 하단 수직선 (마지막 노트가 아닌 경우) */}
                 {!isLastNote && (
                   <div
-                    className="absolute top-1/2 w-px bg-white/10"
+                    className="absolute top-1/2 w-px bg-foreground/10"
                     style={{
                       left: "4px",
                       height: "100%",
@@ -112,7 +112,7 @@ export function FolderNotes({
                 )}
                 {/* 수평선 */}
                 <div
-                  className="absolute top-1/2 w-2 h-px bg-white/10"
+                  className="absolute top-1/2 w-2 h-px bg-foreground/10"
                   style={{ left: "4px" }}
                 />
               </>
@@ -145,11 +145,11 @@ export function FolderNotes({
                     onDeleteNote(note.id, note.title);
                   }
                 }}
-                className="p-1 hover:bg-[#3C3C3C] rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="p-1 hover:bg-background-elevated rounded transition-colors opacity-0 group-hover:opacity-100"
                 title="Delete note"
               >
                 <svg
-                  className="w-4 h-4 text-gray-400 hover:text-red-400"
+                  className="w-4 h-4 text-foreground-tertiary hover:text-status-error"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -175,7 +175,7 @@ export function FolderNotes({
             onClick={closeNoteContextMenu}
           />
           <div
-            className="fixed z-50 bg-[#2F2F2F] border border-[#3C3C3C] rounded-lg shadow-lg py-1 w-48"
+            className="fixed z-50 bg-background-elevated border border-border-subtle rounded-lg shadow-lg py-1 w-48"
             style={{
               left: noteContextMenu.x,
               top: noteContextMenu.y,
@@ -190,7 +190,7 @@ export function FolderNotes({
                 }
                 closeNoteContextMenu();
               }}
-              className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#3C3C3C] hover:text-white transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-background-overlay hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"
@@ -215,7 +215,7 @@ export function FolderNotes({
             </button>
 
             {/* 구분선 */}
-            <div className="my-1 border-t border-[#3C3C3C]" />
+            <div className="my-1 border-t border-border-subtle" />
 
             {/* 삭제 */}
             <button
@@ -228,7 +228,7 @@ export function FolderNotes({
                 }
                 closeNoteContextMenu();
               }}
-              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-status-error hover:bg-status-error/10 hover:text-status-error transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"

@@ -52,7 +52,7 @@ export function RenameFolderModal({
       isOpen={isOpen}
       onClose={handleClose}
       title="폴더 이름 변경"
-      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[400px]"
+      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[400px]"
     >
       <div className="flex flex-col gap-6 p-6 pt-0">
         <input
@@ -61,7 +61,7 @@ export function RenameFolderModal({
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="새 폴더 이름"
-          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#899649] text-lg"
+          className="bg-foreground/5 border border-border-subtle rounded-xl px-4 py-3 text-foreground placeholder-foreground-tertiary focus:outline-none focus:ring-2 focus:ring-brand-secondary text-lg"
           autoFocus
         />
 

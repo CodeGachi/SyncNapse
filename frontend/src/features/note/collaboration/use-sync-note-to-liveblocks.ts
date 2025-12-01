@@ -9,6 +9,9 @@
 
 import { useEffect } from "react";
 import { useMutation } from "@/lib/liveblocks/liveblocks.config";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("Liveblocks");
 import type { Note, FileItem } from "@/lib/types";
 import { useNoteEditorStore } from "@/stores";
 import { useSyncStore } from "@/lib/sync/sync-store";
@@ -35,7 +38,7 @@ export function useSyncNoteToLiveblocks({
 
       // 이미 저장되어 있으면 스킵 (중복 저장 방지)
       if (currentInfo && currentInfo.id === noteData.id) {
-        console.log("[Liveblocks] 노트 정보가 이미 동기화되어 있습니다.");
+        log.debug("노트 정보가 이미 동기화되어 있습니다.");
         return;
       }
 
@@ -48,7 +51,7 @@ export function useSyncNoteToLiveblocks({
         updatedAt: noteData.updatedAt,
       });
 
-      console.log("[Liveblocks] 노트 정보 동기화 완료:", noteData.title);
+      log.debug("노트 정보 동기화 완료:", noteData.title);
     },
     []
   );
@@ -60,13 +63,13 @@ export function useSyncNoteToLiveblocks({
 
       // 파일이 비어있으면 스킵
       if (fileList.length === 0) {
-        console.log("[Liveblocks] 저장할 파일이 없습니다.");
+        log.debug("저장할 파일이 없습니다.");
         return;
       }
 
       // 이미 동기화되어 있으면 스킵
       if (currentFiles.length === fileList.length) {
-        console.log("[Liveblocks] 파일 목록이 이미 동기화되어 있습니다.");
+        log.debug("파일 목록이 이미 동기화되어 있습니다.");
         return;
       }
 
@@ -108,19 +111,19 @@ export function useSyncNoteToLiveblocks({
           };
           currentFiles.push(fileData);
 
-          console.log(`[Liveblocks] 파일 저장 (Backend URL):`, {
+          log.debug(`파일 저장 (Backend URL):`, {
             name: file.name,
             url: backendUrl.substring(0, 50) + '...',
             hasBackendUrl: true,
           });
         } else {
-          console.warn(
-            `[Liveblocks] 백엔드 URL 없음 (Blob URL은 Storage에 저장하지 않음): ${file.name}`
+          log.warn(
+            `백엔드 URL 없음 (Blob URL은 Storage에 저장하지 않음): ${file.name}`
           );
         }
       });
 
-      console.log(`[Liveblocks] 파일 ${currentFiles.length}개 동기화 완료`);
+      log.debug(`파일 ${currentFiles.length}개 동기화 완료`);
     },
     []
   );
@@ -133,7 +136,7 @@ export function useSyncNoteToLiveblocks({
       // 필기가 비어있으면 스킵
       const noteKeys = Object.keys(notes);
       if (noteKeys.length === 0) {
-        console.log("[Liveblocks] 저장할 필기가 없습니다.");
+        log.debug("저장할 필기가 없습니다.");
         return;
       }
 
@@ -161,7 +164,7 @@ export function useSyncNoteToLiveblocks({
         }));
       });
 
-      console.log(`[Liveblocks] 필기 데이터 ${noteKeys.length}개 페이지 동기화 완료`);
+      log.debug(`필기 데이터 ${noteKeys.length}개 페이지 동기화 완료`);
     },
     []
   );
@@ -172,7 +175,7 @@ export function useSyncNoteToLiveblocks({
       return;
     }
 
-    console.log("[Liveblocks] 협업 시작 - 노트 데이터 동기화 시작...");
+    log.debug("협업 시작 - 노트 데이터 동기화 시작...");
 
     // 1. 노트 정보 동기화
     syncNoteInfo(note);
@@ -187,7 +190,7 @@ export function useSyncNoteToLiveblocks({
       syncPageNotes(pageNotes);
     }
 
-    console.log("[Liveblocks] 노트 데이터 동기화 완료");
+    log.debug("노트 데이터 동기화 완료");
   }, [isCollaborating, isEducator, note, files, pageNotes, syncNoteInfo, syncFiles, syncPageNotes]);
 
   return {

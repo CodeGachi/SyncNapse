@@ -19,7 +19,7 @@ export function LoadingScreen({
         <div
             className={cn(
                 "flex flex-col items-center justify-center gap-4",
-                fullScreen ? "fixed inset-0 z-50 bg-[#121212]" : "w-full h-full min-h-[200px]",
+                fullScreen ? "fixed inset-0 z-50 bg-background-sidebar" : "w-full h-full min-h-[200px]",
                 className
             )}
         >
@@ -27,7 +27,7 @@ export function LoadingScreen({
 
             {message && (
                 <motion.p
-                    className="text-sm font-medium text-gray-400"
+                    className="text-sm font-medium text-foreground-secondary"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}

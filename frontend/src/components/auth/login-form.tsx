@@ -43,20 +43,20 @@ export function LoginForm() {
   // 미인증 상태면 로그인 페이지 표시
   if (!isAuthenticated) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-[#1a1a1a] relative overflow-hidden p-6">
+      <main className="min-h-screen flex flex-col items-center justify-center bg-background-modal relative overflow-hidden p-6">
         {/* 배경 효과 */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1.5 }}
-            className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#AFC02B]/3 rounded-full blur-[120px]"
+            className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand/3 rounded-full blur-[120px]"
           />
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1.5, delay: 0.5 }}
-            className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#AFC02B]/3 rounded-full blur-[120px]"
+            className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand/3 rounded-full blur-[120px]"
           />
         </div>
 
@@ -66,7 +66,7 @@ export function LoginForm() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="max-w-md w-full relative z-10"
         >
-          <div className="bg-[#262626]/80 backdrop-blur-2xl border border-[#333] rounded-[2.5rem] p-12 shadow-2xl space-y-12 text-center relative overflow-hidden group">
+          <div className="bg-background-surface/80 backdrop-blur-2xl border border-border rounded-[2.5rem] p-12 shadow-2xl space-y-12 text-center relative overflow-hidden group">
             {/* 글로시 효과 */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -85,7 +85,7 @@ export function LoginForm() {
                     className="object-contain drop-shadow-[0_0_15px_rgba(175,192,43,0.3)]"
                   />
                 </div>
-                <h1 className="text-5xl font-bold text-white tracking-tight">
+                <h1 className="text-5xl font-bold text-foreground tracking-tight">
                   SyncNapse
                 </h1>
               </motion.div>
@@ -96,9 +96,9 @@ export function LoginForm() {
                 transition={{ delay: 0.3, duration: 0.5 }}
                 className="space-y-2"
               >
-                <p className="text-gray-400 text-lg font-light leading-relaxed">
+                <p className="text-foreground-secondary text-lg font-light leading-relaxed">
                   스마트한 필기 서비스로<br />
-                  <span className="text-white font-medium">학습의 효율</span>을 극대화하세요
+                  <span className="text-foreground font-medium">학습의 효율</span>을 극대화하세요
                 </p>
               </motion.div>
             </div>
@@ -119,7 +119,7 @@ export function LoginForm() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.5 }}
-            className="text-center text-gray-600 text-xs mt-8"
+            className="text-center text-foreground-tertiary text-xs mt-8"
           >
             &copy; 2025 SyncNapse. All rights reserved.
           </motion.p>

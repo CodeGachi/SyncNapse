@@ -33,8 +33,8 @@ export function UploadArea({
     <div
       className={`flex-1 border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors ${
         isDragActive
-          ? "border-[#AFC02B] bg-[#4A4A4A]"
-          : "border-[#B9B9B9] bg-[#575757]"
+          ? "border-brand bg-background-elevated"
+          : "border-border bg-background-overlay"
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -66,17 +66,17 @@ export function UploadArea({
         />
       </svg>
 
-      <h3 className="text-base font-semibold text-white text-center">
+      <h3 className="text-base font-semibold text-foreground text-center">
         파일을 드래그하거나<br />클릭하여 선택
       </h3>
 
-      <p className="text-sm text-[#B9B9B9] text-center">
+      <p className="text-sm text-foreground-secondary text-center">
         최대 100MB
       </p>
 
       <button
         type="button"
-        className="bg-[#AFC02B] text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-[#9DB025] transition-colors"
+        className="bg-brand text-black px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-hover transition-colors"
       >
         파일 선택
       </button>

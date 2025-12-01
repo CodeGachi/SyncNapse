@@ -9,7 +9,7 @@ import {
 export default function LandingPage() {
   return (
     <AuthRedirect>
-      <main className="min-h-screen bg-[#1a1a1a] text-white selection:bg-[#AFC02B] selection:text-black font-sans overflow-x-hidden">
+      <main className="min-h-screen bg-background-modal text-foreground selection:bg-brand selection:text-black font-sans overflow-x-hidden">
         <Navbar />
         <HeroSection />
         <BentoGridSection />
