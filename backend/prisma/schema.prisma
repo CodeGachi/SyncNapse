@@ -208,7 +208,7 @@ model AudioRecording {
   noteId       String
   title        String   @default("Recording")
   fileUrl      String
-  storageKey   String
+  storageKey   String?  // Optional로 변경 - 기존 데이터 보호
   durationSec  Decimal? @db.Decimal(10, 3)
   
   // Versioning

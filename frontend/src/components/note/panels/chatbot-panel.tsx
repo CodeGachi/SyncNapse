@@ -56,6 +56,12 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
 
   const handleSendMessage = async (content: string, type: Message["type"] = "normal") => {
     if (!content.trim() || isLoading) return;
+    
+    // noteId 검증
+    if (!noteId) {
+      console.error("Note ID is required for AI chat");
+      return;
+    }
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -69,17 +75,46 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
     setInputValue("");
     setIsLoading(true);
 
-    // TODO: AI API 연동
-    setTimeout(() => {
+    try {
+      // AI API 호출
+      const { chatWithAi } = await import("@/lib/api/services/ai.api");
+      
+      // type을 mode로 매핑
+      let mode: "question" | "summary" | "quiz" | undefined;
+      if (type === "question") mode = "question";
+      else if (type === "summary") mode = "summary";
+      else if (type === "quiz") mode = "quiz";
+
+      const response = await chatWithAi({
+        lectureNoteId: noteId,
+        question: content.trim(),
+        mode,
+      });
+
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: "AI 기능 준비 중입니다. 곧 PDF 필기에 대한 질문, 요약, 퀴즈 기능을 사용하실 수 있습니다.",
+        content: response.answer,
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("AI chat error:", error);
+      
+      // 에러 메시지 표시
+      const errorMessage: Message = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: error instanceof Error 
+          ? error.message 
+          : "죄송합니다. 답변을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

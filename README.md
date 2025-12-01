@@ -19,6 +19,7 @@ npm run setup
 **참고:** 환경 변수는 CodeGachi Organization의 private repository에서 관리됩니다.
 - 상세 가이드: [docs/ENV_MANAGEMENT.md](./docs/ENV_MANAGEMENT.md)
 - 빠른 시작: [docs/QUICK_START.md](./docs/QUICK_START.md)
+- AI 설정: [docs/AI_SETUP.md](./docs/AI_SETUP.md)
 
 ### 2️⃣ 개발 환경 실행
 
