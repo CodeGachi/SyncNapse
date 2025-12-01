@@ -8,7 +8,9 @@ import {
   MetadataMode,
 } from 'llamaindex';
 import { PrismaService } from '../../db/prisma.service';
+import { StorageService } from '../../storage/storage.service';
 import { ChatMode, Citation } from '../dto/chat.dto';
+import pdfParse from 'pdf-parse';
 
 // RAG 설정 상수
 const CHUNK_SIZE = 512;
@@ -22,7 +24,10 @@ export class RagEngineService {
   private readonly geminiModel: GenerativeModel;
   private readonly apiKey: string;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {
     this.apiKey = process.env.GEMINI_API_KEY || '';
     if (!this.apiKey) {
       this.logger.warn('GEMINI_API_KEY not set - AI features will not work');
@@ -65,7 +70,65 @@ export class RagEngineService {
 
     const documents: Document[] = [];
 
-    // 1. Transcription sessions와 segments 가져오기
+    // 1. PDF 파일 텍스트 추출
+    const files = await this.prisma.file.findMany({
+      where: { 
+        noteId: lectureNoteId,
+        deletedAt: null,
+        fileType: { contains: 'pdf' }, // PDF 파일만
+      },
+    });
+
+    for (const file of files) {
+      try {
+        this.logger.debug(`Extracting text from PDF: ${file.fileName}`);
+        
+        // Storage에서 PDF 파일 다운로드
+        const fileStream = await this.storageService.getFileStream(file.storageKey);
+        const pdfBuffer = Buffer.isBuffer(fileStream.body) 
+          ? fileStream.body 
+          : Buffer.from(await fileStream.body.transformToByteArray());
+        
+        // PDF 텍스트 추출
+        const pdfData = await pdfParse(pdfBuffer);
+        const pdfText = pdfData.text;
+
+        if (pdfText && pdfText.trim().length > 0) {
+          // 페이지별로 분리 (pdfData.numpages 사용)
+          const totalPages = pdfData.numpages;
+          const avgCharsPerPage = Math.ceil(pdfText.length / totalPages);
+          
+          // 간단한 페이지 분할 (정확하지 않을 수 있지만 근사치)
+          for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+            const startIdx = (pageNum - 1) * avgCharsPerPage;
+            const endIdx = Math.min(pageNum * avgCharsPerPage, pdfText.length);
+            const pageText = pdfText.substring(startIdx, endIdx).trim();
+            
+            if (pageText.length > 0) {
+              const doc = new Document({
+                text: pageText,
+                metadata: {
+                  noteId: lectureNoteId,
+                  type: 'pdf_content',
+                  fileId: file.id,
+                  fileName: file.fileName,
+                  pageNumber: pageNum,
+                  totalPages: totalPages,
+                },
+              });
+              documents.push(doc);
+            }
+          }
+          
+          this.logger.debug(`Extracted ${totalPages} pages from ${file.fileName}`);
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to extract text from PDF ${file.fileName}:`, error);
+        // PDF 추출 실패해도 계속 진행
+      }
+    }
+
+    // 2. Transcription sessions와 segments 가져오기
     const transcriptionSessions = await this.prisma.transcriptionSession.findMany({
       where: { noteId: lectureNoteId },
       include: {
@@ -94,7 +157,7 @@ export class RagEngineService {
       }
     }
 
-    // 2. Page contents 가져오기
+    // 3. Page contents 가져오기
     const pageContents = await this.prisma.notePageContent.findMany({
       where: { noteId: lectureNoteId },
       orderBy: { pageNumber: 'asc' },
@@ -134,7 +197,7 @@ export class RagEngineService {
       }
     }
 
-    // 3. Note-level content 가져오기
+    // 4. Note-level content 가져오기
     const noteContent = await this.prisma.noteContent.findUnique({
       where: { noteId: lectureNoteId },
     });
