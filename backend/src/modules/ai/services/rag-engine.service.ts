@@ -10,7 +10,7 @@ import {
 import { PrismaService } from '../../db/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { ChatMode, Citation } from '../dto/chat.dto';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 
 // RAG 설정 상수
 const CHUNK_SIZE = 512;
