@@ -37,6 +37,7 @@
     "env:sync:prod": "node scripts/sync-env-from-repo.mjs prod",
     "env:push": "node scripts/push-env-to-repo.mjs dev",
     "env:push:prod": "node scripts/push-env-to-repo.mjs prod",
+    "gemini:setup": "bash scripts/add-gemini-key.sh",
     "setup": "npm install && npm run env:sync && ENV_TARGET=dev node scripts/sync-envs.mjs && npm -w backend run prisma:generate && ENV_TARGET=dev node scripts/export-db-schema.mjs",
     "dev:all": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml up -d --build",
     "dev:down": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml down",
