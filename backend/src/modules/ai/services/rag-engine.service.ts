@@ -277,22 +277,22 @@ export class RagEngineService {
       `RAG query for note ${lectureNoteId}, mode: ${mode}, question: ${question}`
     );
 
-    // 1. 노트의 documents 가져오기
-    const documents = await this.fetchNoteDocuments(lectureNoteId);
-
-    // 2. VectorStoreIndex 생성
-    const index = await VectorStoreIndex.fromDocuments(documents);
-
-    // 3. QueryEngine 생성
-    const queryEngine = index.asQueryEngine({
-      similarityTopK: TOP_K,
-    });
-
-    // 4. 모드에 따른 프롬프트 생성
-    const prompt = this.buildPrompt(question, mode);
-
-    // 5. 질의 수행
     try {
+      // 1. 노트의 documents 가져오기
+      const documents = await this.fetchNoteDocuments(lectureNoteId);
+
+      // 2. VectorStoreIndex 생성
+      const index = await VectorStoreIndex.fromDocuments(documents);
+
+      // 3. QueryEngine 생성
+      const queryEngine = index.asQueryEngine({
+        similarityTopK: TOP_K,
+      });
+
+      // 4. 모드에 따른 프롬프트 생성
+      const prompt = this.buildPrompt(question, mode);
+
+      // 5. 질의 수행
       const response = await queryEngine.query({ query: prompt });
 
       // 6. Citations 추출
@@ -320,6 +320,23 @@ export class RagEngineService {
       };
     } catch (error) {
       this.logger.error('RAG query failed', error);
+      
+      // LlamaIndex embedding 에러 발생시 fallback: Gemini 직접 사용
+      const errorMessage = (error as Error).message || '';
+      if (errorMessage.includes('Cannot find Embedding')) {
+        this.logger.warn('Embedding model not available, using direct Gemini fallback');
+        
+        // 문서들을 하나의 컨텍스트로 합치기
+        const documents = await this.fetchNoteDocuments(lectureNoteId);
+        const context = documents.map(doc => doc.getText()).join('\n\n');
+        
+        const answer = await this.queryWithoutRag(question, context, mode);
+        return {
+          answer,
+          citations: [],
+        };
+      }
+      
       throw new Error('Failed to generate answer: ' + (error as Error).message);
     }
   }

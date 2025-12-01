@@ -80,6 +80,8 @@ services:
       - PORT=${BACKEND_PORT}
       - CHOKIDAR_USEPOLLING=true
       - NPM_CONFIG_LOGLEVEL=warn
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME}
     ports:
       - "${BACKEND_PORT_PUBLIC}:4000"
     volumes:
