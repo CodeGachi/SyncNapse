@@ -1,6 +1,6 @@
 /**
- * Note Type Selector Modal
- * 개인노트 또는 강의노트 선택 팝업
+ * 노트 유형 선택 모달 컴포넌트
+ * 개인노트 또는 강의노트 선택
  */
 
 "use client";
@@ -51,20 +51,20 @@ export function NoteTypeSelectorModal({
 
   return (
     <>
-      {/* Type Selector Modal */}
+      {/* 유형 선택 모달 */}
       <Modal
         isOpen={isOpen && !showSettingsModal}
         onClose={onClose}
         title="노트 유형 선택"
-        contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-lg p-8 flex flex-col gap-6 min-w-[500px]"
+        contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-lg p-8 flex flex-col gap-6 min-w-[500px]"
       >
 
-        {/* Type Selection Cards */}
+        {/* 유형 선택 카드 */}
         <div className="flex gap-6">
-          {/* 개인 노트 Card */}
+          {/* 개인 노트 카드 */}
           <button
             onClick={() => handleTypeSelect("student")}
-            className="flex-1 flex flex-col items-center gap-6 p-8 bg-[rgba(175,192,43,0.4)] rounded-lg hover:bg-[rgba(175,192,43,0.6)] transition-colors group"
+            className="flex-1 flex flex-col items-center gap-6 p-8 bg-brand/40 rounded-lg hover:bg-brand/60 transition-colors group"
           >
             <div className="flex items-center justify-center">
               <Image
@@ -76,17 +76,17 @@ export function NoteTypeSelectorModal({
               />
             </div>
             <div className="flex flex-col gap-2 items-center">
-              <span className="text-white font-bold text-xl">개인 노트</span>
-              <span className="text-white/70 text-sm text-center">
+              <span className="text-foreground font-bold text-xl">개인 노트</span>
+              <span className="text-foreground-secondary text-sm text-center">
                 개인 학습을 위한 노트
               </span>
             </div>
           </button>
 
-          {/* 강의 노트 Card */}
+          {/* 강의 노트 카드 */}
           <button
             onClick={() => handleTypeSelect("educator")}
-            className="flex-1 flex flex-col items-center gap-6 p-8 bg-[rgba(175,192,43,0.4)] rounded-lg hover:bg-[rgba(175,192,43,0.6)] transition-colors group"
+            className="flex-1 flex flex-col items-center gap-6 p-8 bg-brand/40 rounded-lg hover:bg-brand/60 transition-colors group"
           >
             <div className="flex items-center justify-center">
               <div className="text-6xl group-hover:scale-110 transition-transform">
@@ -94,23 +94,23 @@ export function NoteTypeSelectorModal({
               </div>
             </div>
             <div className="flex flex-col gap-2 items-center">
-              <span className="text-white font-bold text-xl">강의 노트</span>
-              <span className="text-white/70 text-sm text-center">
+              <span className="text-foreground font-bold text-xl">강의 노트</span>
+              <span className="text-foreground-secondary text-sm text-center">
                 강의 자료를 포함한 노트
               </span>
             </div>
           </button>
         </div>
 
-        {/* Cancel Button */}
+        {/* 취소 버튼 */}
         <div className="flex justify-center">
-          <Button variant="ghost" onClick={onClose} className="text-gray-400 hover:text-white">
+          <Button variant="ghost" onClick={onClose} className="text-foreground-tertiary hover:text-foreground">
             취소
           </Button>
         </div>
       </Modal>
 
-      {/* Note Settings Modal */}
+      {/* 노트 설정 모달 */}
       {showSettingsModal && selectedType && (
         <NoteSettingsModal
           isOpen={showSettingsModal}

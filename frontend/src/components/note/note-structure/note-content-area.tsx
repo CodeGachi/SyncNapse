@@ -1,6 +1,7 @@
 /**
- * 노트 메인 콘텐츠 영역 - Client Component
- * 제목, 파일 탭, PDF 뷰어, 노트 패널을 담당
+ * 노트 메인 콘텐츠 영역
+ *
+ * 파일 탭, PDF 뷰어, 노트 패널을 담당하는 Client Component
  */
 
 "use client";
@@ -9,21 +10,23 @@ import { useState, useEffect, useRef } from "react";
 import { useNoteEditorStore, usePanelsStore } from "@/stores";
 import { useNote } from "@/lib/api/queries/notes.queries";
 import { useNoteContentArea } from "@/features/note/note-structure/use-note-content-area";
+import { useDrawingSave } from "@/features/note/drawing";
 import { FileTabs } from "@/components/note/viewer/file-tabs";
 import { CustomPdfViewer } from "@/components/note/viewer/custom-pdf-viewer";
-import { NotePanel } from "@/components/note/text-notes/note-panel"; // ✅ text-notes (텍스트 필기)
-import { type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay"; // ✅ drawing (손필기)
-import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar"; // ✅ drawing
-import { saveDrawing } from "@/lib/db/drawings";
-
+import { NotePanel } from "@/components/note/panels/note-panel";
+import { type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
+import { DrawingSidebar } from "@/components/note/drawing/drawing-sidebar";
+import { createLogger } from "@/lib/utils/logger";
 import { motion } from "framer-motion";
+
+const log = createLogger("NoteContentArea");
 
 interface NoteContentAreaProps {
   noteId: string | null;
   noteTitle: string;
   isCollaborating?: boolean;
-  isSharedView?: boolean; // 공유 링크로 접속한 경우
-  isEducator?: boolean; // 교육자 노트 여부 (prop으로 명시적 전달)
+  isSharedView?: boolean;
+  isEducator?: boolean;
 }
 
 export function NoteContentArea({
@@ -33,16 +36,14 @@ export function NoteContentArea({
   isSharedView = false,
   isEducator,
 }: NoteContentAreaProps) {
-  // 실제 노트 데이터로부터 제목 가져오기
   // 공유 모드에서는 로컬 DB 쿼리 비활성화 (Liveblocks Storage에서 가져옴)
   const { data: note } = useNote(noteId, { enabled: !isSharedView });
-  // 교육자 노트 여부: prop으로 명시적 전달되면 절대 우선 (|| 연산자 사용)
-  // isEducator={true}가 전달되면 DB의 type과 무관하게 educator로 처리
+  // 교육자 노트 여부: prop으로 명시적 전달되면 절대 우선
   const isEducatorNote = isEducator === true || note?.type === "educator";
 
-  // 디버깅: isEducatorNote 값 추적
+  // 디버깅 로그
   useEffect(() => {
-    console.log('[NoteContentArea] 렌더링 체크:', {
+    log.debug("렌더링 체크:", {
       isEducator,
       noteType: note?.type,
       isEducatorNote,
@@ -93,6 +94,15 @@ export function NoteContentArea({
   // 열린 파일들 가져오기
   const openedFiles = getOpenedFiles();
 
+  // 선택된 파일 가져오기
+  const selectedFile = uploadedFiles.find((file) => file.id === selectedFileId);
+
+  // 드로잉 저장 훅
+  const { handleDrawingSave } = useDrawingSave({
+    fileId: selectedFile?.id.toString(),
+    pageNum: currentPdfPage,
+  });
+
   const noteContentAreaHook = useNoteContentArea({
     openedFiles,
     setActiveTab,
@@ -113,12 +123,12 @@ export function NoteContentArea({
   // 초기 마운트 시에만 파일이 있는데 탭이 비어있으면 자동으로 첫 번째 파일 열기
   useEffect(() => {
     if (uploadedFiles.length > 0 && openedTabs.length === 0) {
-      console.log('[NoteContentArea] Auto-opening first file on mount:', uploadedFiles[0].id);
+      log.debug("마운트 시 첫 번째 파일 자동 열기:", uploadedFiles[0].id);
       const openFileInTab = editorStore.openFileInTab;
       openFileInTab(uploadedFiles[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedFiles.length]); // uploadedFiles.length만 의존성으로 추가 - 파일 개수가 변경될 때만 실행
+  }, [uploadedFiles.length]);
 
   // PDF 컨테이너 크기 변화 감지
   useEffect(() => {
@@ -148,9 +158,6 @@ export function NoteContentArea({
   // 탭용 파일 형식으로 변환
   const files = convertFilesForTabs();
 
-  // 선택된 파일 가져오기
-  const selectedFile = uploadedFiles.find((file) => file.id === selectedFileId);
-
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
@@ -158,8 +165,6 @@ export function NoteContentArea({
       transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
       className="flex flex-col gap-3 flex-1"
     >
-      {/* 제목 영역 제거 - NoteHeader로 이동 */}
-
       {/* 탭 + PDF 뷰어 + 노트 패널 */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <FileTabs
@@ -176,8 +181,8 @@ export function NoteContentArea({
             ref={pdfViewerContainerRef}
             className="flex-1 flex flex-row gap-4 transition-all duration-300"
             style={{
-              height: isNotePanelOpen ? `${viewerHeight}%` : 'auto',
-              overflow: 'visible',
+              height: isNotePanelOpen ? `${viewerHeight}%` : "auto",
+              overflow: "visible",
             }}
           >
             {/* PDF 뷰어 - 왼쪽 (필기 오버레이 포함) */}
@@ -203,14 +208,7 @@ export function NoteContentArea({
                   fileId={selectedFile?.id.toString()}
                   isCollaborative={isCollaborating ?? false}
                   isSharedView={isSharedView ?? false}
-                  onDrawingSave={async (data) => {
-                    try {
-                      await saveDrawing(data);
-                      console.log(`Drawing saved for file ${selectedFile?.id} page ${currentPdfPage}:`, data.id);
-                    } catch (error) {
-                      console.error("Failed to save drawing:", error);
-                    }
-                  }}
+                  onDrawingSave={handleDrawingSave}
                 />
               </div>
             </div>
@@ -246,9 +244,10 @@ export function NoteContentArea({
               className="overflow-y-auto bg-[#1e1e1e]"
               style={{
                 height: `${100 - viewerHeight}%`,
-                marginRight: selectedFile && isDrawingSidebarOpen
-                  ? '72px' // 필기바 표시: 56px + gap 16px
-                  : '0'
+                marginRight:
+                  selectedFile && isDrawingSidebarOpen
+                    ? "72px" // 필기바 표시: 56px + gap 16px
+                    : "0",
               }}
             >
               <NotePanel isOpen={isNotePanelOpen} noteId={noteId} />

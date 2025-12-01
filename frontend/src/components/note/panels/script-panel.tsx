@@ -1,17 +1,20 @@
 /**
- * Script Panel Component
- * Record Script Display and Translation feature (DeepL API)
+ * 스크립트 패널 컴포넌트
+ *
+ * 녹음 스크립트 표시 및 번역 기능 (DeepL API)
  */
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
 import { Panel } from "./panel";
-import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight } from "lucide-react";
-import type { SupportedLanguage, LanguageOption, WordWithTime, PageContext } from "@/lib/types";
-import { getPageContextAtTime } from "@/lib/api/audio.api";
-import { useTranscriptTranslation } from "@/features/note/right-panel/use-transcript-translation";
+import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight, Pencil, Check, X, RotateCcw } from "lucide-react";
+import type { SupportedLanguage, LanguageOption, PageContext } from "@/lib/types";
+import { useTranscriptTranslation, useScriptPanel } from "@/features/note/right-panel";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("ScriptPanel");
 
 interface ScriptPanelProps {
   isOpen: boolean;
@@ -22,6 +25,9 @@ interface ScriptPanelProps {
   // 타임라인 관련 props
   onPageContextClick?: (context: PageContext) => void; // 페이지 배지 클릭 시 호출
   files?: { id: string; name: string; backendId?: string }[]; // 파일 이름 표시용 (backendId 포함)
+  // 편집 모드 관련 props
+  sessionId?: string; // 리비전 저장 시 필요
+  onSaveRevision?: (sessionId: string, editedSegments: Record<string, string>) => Promise<void>;
 }
 
 // DeepL 지원 언어만 표시 (아랍어 제외)
@@ -48,13 +54,15 @@ export function ScriptPanel({
   isRecording = false,
   onPageContextClick,
   files = [],
+  sessionId,
+  onSaveRevision,
 }: ScriptPanelProps) {
-  // 🔥 타임라인 이벤트는 전역 스토어에서 직접 가져옴 (여러 컴포넌트에서 공유)
+  // 타임라인 이벤트는 전역 스토어에서 직접 가져옴 (여러 컴포넌트에서 공유)
   const { timelineEvents } = useAudioPlayerStore();
 
   // 디버그: 스토어 값 변경 확인
   useEffect(() => {
-    console.log('[ScriptPanel] 🔄 timelineEvents from store:', timelineEvents.length, timelineEvents);
+    log.debug("타임라인 이벤트 업데이트:", timelineEvents.length, timelineEvents);
   }, [timelineEvents]);
 
   const {
@@ -67,39 +75,56 @@ export function ScriptPanel({
     usageInfo,
     toggleTranslation,
     setTargetLanguage,
+    // Edit Mode
+    isEditMode,
+    editedSegments,
+    saveStatus,
+    setEditMode,
+    updateEditedSegment,
+    revertSegment,
+    resetEdits,
+    setSaveStatus,
+    setSaveRevisionCallback,
   } = useScriptTranslationStore();
 
   // DeepL 번역 Hook 사용
   useTranscriptTranslation();
 
-  // Debug: Log segments with translation status
+  // 스크립트 패널 훅 (세그먼트/워드 클릭, 페이지 컨텍스트 탐색)
+  const {
+    currentTime,
+    handleSegmentClick,
+    handleWordClick,
+    handlePageBadgeClick,
+    getCurrentWord,
+    getSegmentPageContext,
+    getFileNameByBackendId,
+  } = useScriptPanel({
+    audioRef,
+    timelineEvents,
+    onPageContextClick,
+    files,
+  });
+
+  // 저장 콜백 등록 (세션 변경 시 자동 저장용)
   useEffect(() => {
-    console.log('[ScriptPanel] 📝 Segments update:', scriptSegments.map(s => ({
+    if (onSaveRevision) {
+      setSaveRevisionCallback(onSaveRevision);
+    }
+    return () => {
+      setSaveRevisionCallback(null);
+    };
+  }, [onSaveRevision, setSaveRevisionCallback]);
+
+  // 디버그: 세그먼트 번역 상태 로깅
+  useEffect(() => {
+    log.debug("세그먼트 업데이트:", scriptSegments.map(s => ({
       id: s.id,
       original: s.originalText?.substring(0, 20),
       translated: s.translatedText?.substring(0, 20),
       hasTranslation: !!s.translatedText,
     })));
   }, [scriptSegments]);
-
-  // Track current playback time for word-level highlighting
-  const [currentTime, setCurrentTime] = useState(0);
-
-  // Debug: Log current audio time
-  useEffect(() => {
-    const audio = audioRef?.current;
-    if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      console.log('[ScriptPanel] Current playback time:', audio.currentTime);
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-    };
-  }, [audioRef]);
 
   if (!isOpen) return null;
 
@@ -114,131 +139,104 @@ export function ScriptPanel({
   };
 
   /**
-   * Handle transcript segment click - seek to that time in audio and navigate to page
-   * @param timestamp - Timestamp in milliseconds
+   * 편집 모드 시작
    */
-  const handleSegmentClick = (timestamp: number) => {
-    const timeInSeconds = timestamp / 1000; // Convert ms to seconds
-    console.log('[ScriptPanel] 🎯 Segment clicked:', {
-      timestampMs: timestamp,
-      timeInSeconds,
-      timelineEventsCount: timelineEvents.length,
-      hasOnPageContextClick: !!onPageContextClick,
+  const handleStartEdit = () => {
+    if (isRecording) return; // 녹음 중에는 편집 불가
+    setEditMode(true);
+  };
+
+  /**
+   * 편집 완료 (저장)
+   */
+  const handleSaveEdit = async () => {
+    log.debug("편집 저장 호출:", {
+      sessionId,
+      editedSegmentsCount: Object.keys(editedSegments).length,
+      editedSegments,
+      hasOnSaveRevision: !!onSaveRevision,
     });
 
-    if (audioRef?.current) {
-      console.log('[ScriptPanel] Seeking to segment:', timeInSeconds, 'seconds (no auto-play)');
-      audioRef.current.currentTime = timeInSeconds;
+    if (!sessionId || Object.keys(editedSegments).length === 0) {
+      log.debug("저장 건너뜀 - sessionId 없음 또는 편집 없음");
+      setEditMode(false);
+      return;
     }
 
-    // 해당 시간의 페이지 컨텍스트로 이동
-    const pageContext = getPageContextAtTime(timelineEvents, timeInSeconds);
-    console.log('[ScriptPanel] 📖 Page context from timeline:', pageContext);
-    if (pageContext && onPageContextClick) {
-      console.log('[ScriptPanel] ✅ Calling onPageContextClick:', pageContext);
-      onPageContextClick(pageContext);
-    } else {
-      console.log('[ScriptPanel] ⚠️ No page context or no callback:', {
-        pageContext,
-        hasCallback: !!onPageContextClick,
-      });
+    setSaveStatus('saving');
+    try {
+      if (onSaveRevision) {
+        await onSaveRevision(sessionId, editedSegments);
+      }
+      setSaveStatus('saved');
+      // 2초 후 저장 상태 초기화
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      log.error("리비전 저장 오류:", error);
+      setSaveStatus('error');
+    }
+    setEditMode(false);
+  };
+
+  /**
+   * 편집 취소
+   */
+  const handleCancelEdit = () => {
+    resetEdits();
+    setEditMode(false);
+  };
+
+  /**
+   * 편집 중인 내용 자동 저장 (패널 닫기/세션 변경 시)
+   */
+  const saveEditedContent = async () => {
+    if (!isEditMode || !sessionId || Object.keys(editedSegments).length === 0) {
+      return;
+    }
+
+    log.debug("자동 저장 시작 (닫기/변경 전)");
+    setSaveStatus('saving');
+    try {
+      if (onSaveRevision) {
+        await onSaveRevision(sessionId, editedSegments);
+      }
+      setSaveStatus('saved');
+      resetEdits();
+      setEditMode(false);
+      log.debug("자동 저장 완료");
+    } catch (error) {
+      log.error("자동 저장 실패:", error);
+      setSaveStatus('error');
     }
   };
 
   /**
-   * Handle word click - seek to that word's time in audio and navigate to page
-   * @param startTime - Start time in seconds
+   * 패널 닫기 핸들러 (자동 저장 후 닫기)
    */
-  const handleWordClick = (startTime: number, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent segment click
-    console.log('[ScriptPanel] 🔤 Word clicked:', {
-      startTime,
-      timelineEventsCount: timelineEvents.length,
-      hasOnPageContextClick: !!onPageContextClick,
-    });
-
-    if (audioRef?.current) {
-      console.log('[ScriptPanel] Seeking to word at:', startTime, 'seconds (no auto-play)');
-      audioRef.current.currentTime = startTime;
-    }
-
-    // 해당 시간의 페이지 컨텍스트로 이동
-    const pageContext = getPageContextAtTime(timelineEvents, startTime);
-    console.log('[ScriptPanel] 📖 Page context from timeline:', pageContext);
-    if (pageContext && onPageContextClick) {
-      console.log('[ScriptPanel] ✅ Calling onPageContextClick:', pageContext);
-      onPageContextClick(pageContext);
-    } else {
-      console.log('[ScriptPanel] ⚠️ No page context or no callback:', {
-        pageContext,
-        hasCallback: !!onPageContextClick,
-      });
-    }
+  const handleClose = async () => {
+    await saveEditedContent();
+    onClose();
   };
 
   /**
-   * Find current word being played
+   * 수정된 세그먼트 개수
    */
-  const getCurrentWord = (words: WordWithTime[]): WordWithTime | null => {
-    return words.find((word, index, arr) => {
-      const nextWord = arr[index + 1];
-      return currentTime >= word.startTime &&
-        (!nextWord || currentTime < nextWord.startTime);
-    }) || null;
-  };
-
-  /**
-   * 세그먼트 시간에 해당하는 페이지 컨텍스트 가져오기
-   * @param timestampMs - 세그먼트 timestamp (밀리초)
-   */
-  const getSegmentPageContext = (timestampMs: number): PageContext | null => {
-    if (!timelineEvents || timelineEvents.length === 0) return null;
-    const timeInSeconds = timestampMs / 1000;
-    return getPageContextAtTime(timelineEvents, timeInSeconds);
-  };
-
-  /**
-   * backendId (fileId)로 파일 이름 가져오기
-   * @param fileId - Backend File ID
-   */
-  const getFileNameByBackendId = (fileId: string | undefined): string | null => {
-    if (!fileId) return null;
-    const file = files.find((f) => f.backendId === fileId);
-    if (!file) return null;
-    // 파일명이 너무 길면 자르기
-    const name = file.name;
-    if (name.length > 15) {
-      return name.slice(0, 12) + "...";
-    }
-    return name;
-  };
-
-  /**
-   * 페이지 배지 클릭 핸들러
-   */
-  const handlePageBadgeClick = (context: PageContext, e: React.MouseEvent) => {
-    e.stopPropagation(); // 세그먼트 클릭 방지
-    console.log('[ScriptPanel] Page badge clicked:', context);
-    if (onPageContextClick) {
-      onPageContextClick(context);
-    } else {
-      console.warn('[ScriptPanel] onPageContextClick is not provided!');
-    }
-  };
+  const editedCount = Object.keys(editedSegments).length;
 
   return (
-    <Panel isOpen={isOpen} borderColor="gray" title="스크립트" onClose={onClose}>
+    <Panel isOpen={isOpen} borderColor="gray" title="스크립트" onClose={handleClose}>
       <div className="flex flex-col h-full">
         {/* Translation Controls - Sticky Header */}
         <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#252525] flex-shrink-0">
           <div className="flex items-center justify-between">
             {/* Translation Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer group">
+            <label className={`flex items-center gap-2 cursor-pointer group ${isEditMode ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="relative">
                 <input
                   type="checkbox"
                   checked={isTranslationEnabled}
                   onChange={toggleTranslation}
+                  disabled={isEditMode}
                   className="sr-only peer"
                 />
                 <div className="w-9 h-5 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#AFC02B] peer-checked:after:bg-white peer-checked:after:border-white transition-colors"></div>
@@ -248,30 +246,65 @@ export function ScriptPanel({
               </span>
             </label>
 
-            {/* Language Select */}
-            {isTranslationEnabled && (
-              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1e1e1e] rounded-lg border border-[#3c3c3c]">
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
-                    {originalLanguage}
-                  </span>
-                  <ArrowRight size={10} className="text-gray-600" />
-                  <select
-                    value={targetLanguage}
-                    onChange={(e) => setTargetLanguage(e.target.value as SupportedLanguage)}
-                    className="bg-transparent text-white text-xs font-medium focus:outline-none cursor-pointer"
+            {/* Edit Mode Buttons */}
+            <div className="flex items-center gap-2">
+              {isEditMode ? (
+                <>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={saveStatus === 'saving'}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#AFC02B] hover:bg-[#AFC02B]/10 rounded-md transition-colors disabled:opacity-50"
                   >
-                    {LANGUAGE_OPTIONS.filter((opt) => opt.code !== originalLanguage).map(
-                      (option) => (
-                        <option key={option.code} value={option.code} className="bg-[#252525]">
-                          {option.nativeName}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-              </div>
-            )}
+                    <Check size={14} />
+                    완료
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={saveStatus === 'saving'}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-[#333] rounded-md transition-colors disabled:opacity-50"
+                  >
+                    <X size={14} />
+                    취소
+                  </button>
+                </>
+              ) : (
+                <>
+                  {!isRecording && scriptSegments.length > 0 && (
+                    <button
+                      onClick={handleStartEdit}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-[#333] rounded-md transition-colors"
+                    >
+                      <Pencil size={14} />
+                      편집
+                    </button>
+                  )}
+                  {/* Language Select */}
+                  {isTranslationEnabled && (
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1e1e1e] rounded-lg border border-[#3c3c3c]">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                          {originalLanguage}
+                        </span>
+                        <ArrowRight size={10} className="text-gray-600" />
+                        <select
+                          value={targetLanguage}
+                          onChange={(e) => setTargetLanguage(e.target.value as SupportedLanguage)}
+                          className="bg-transparent text-white text-xs font-medium focus:outline-none cursor-pointer"
+                        >
+                          {LANGUAGE_OPTIONS.filter((opt) => opt.code !== originalLanguage).map(
+                            (option) => (
+                              <option key={option.code} value={option.code} className="bg-[#252525]">
+                                {option.nativeName}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Status Indicators */}
@@ -343,15 +376,22 @@ export function ScriptPanel({
                 const isPartial = (segment as any).isPartial || false;
                 const pageContext = !isRecording && !isPartial ? getSegmentPageContext(segment.timestamp) : null;
 
+                // 편집된 세그먼트인지 확인
+                const isEdited = !!editedSegments[segment.id];
+
                 return (
                   <div
                     key={segment.id}
-                    onClick={() => !isPartial && handleSegmentClick(segment.timestamp)}
+                    onClick={() => !isPartial && !isEditMode && handleSegmentClick(segment.timestamp)}
                     className={`group relative rounded-xl p-3 transition-all ${isPartial
                       ? 'bg-[#252525]/50 opacity-60 cursor-default border border-dashed border-gray-700'
-                      : isActive
-                        ? 'bg-[#AFC02B]/5 border border-[#AFC02B]/30 shadow-[0_0_15px_rgba(175,192,43,0.05)]'
-                        : 'bg-[#252525] border border-[#333] hover:border-[#444] cursor-pointer'
+                      : isEditMode
+                        ? isEdited
+                          ? 'bg-[#252525] border border-[#AFC02B]/50'  // 편집됨
+                          : 'bg-[#252525] border border-[#444]'        // 편집 모드
+                        : isActive
+                          ? 'bg-[#AFC02B]/5 border border-[#AFC02B]/30 shadow-[0_0_15px_rgba(175,192,43,0.05)]'
+                          : 'bg-[#252525] border border-[#333] hover:border-[#444] cursor-pointer'
                       }`}
                   >
                     {/* Active Indicator Line */}
@@ -359,7 +399,7 @@ export function ScriptPanel({
                       <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-[#AFC02B] rounded-r-full" />
                     )}
 
-                    {/* Header: Time & Speaker */}
+                    {/* Header: Time & Speaker & Revert Button */}
                     <div className="flex items-center justify-between mb-2">
                       {!isRecording && !isPartial && (
                         <div className="flex items-center gap-2">
@@ -384,11 +424,39 @@ export function ScriptPanel({
                           <span className="text-[10px] text-[#AFC02B] font-medium animate-pulse">인식 중...</span>
                         </div>
                       )}
+
+                      {/* 편집 모드: 되돌리기 버튼 */}
+                      {isEditMode && editedSegments[segment.id] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            revertSegment(segment.id);
+                          }}
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-[#AFC02B] hover:bg-[#333] rounded transition-colors"
+                          title="원본으로 되돌리기"
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                      )}
                     </div>
 
                     {/* Text Content */}
                     <div className="pl-1">
-                      {segment.words && segment.words.length > 0 ? (
+                      {isEditMode && !isPartial ? (
+                        /* 편집 모드: textarea */
+                        <textarea
+                          value={editedSegments[segment.id] ?? segment.originalText}
+                          onChange={(e) => updateEditedSegment(segment.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`w-full bg-[#1e1e1e] text-sm leading-relaxed text-gray-200 border rounded-lg p-2 resize-none focus:outline-none focus:border-[#AFC02B] transition-colors ${
+                            editedSegments[segment.id]
+                              ? 'border-[#AFC02B]/50'
+                              : 'border-[#444]'
+                          }`}
+                          rows={Math.max(2, Math.ceil((editedSegments[segment.id] ?? segment.originalText).length / 40))}
+                          placeholder="스크립트를 입력하세요..."
+                        />
+                      ) : segment.words && segment.words.length > 0 ? (
                         <p className={`text-sm leading-relaxed ${isActive ? 'text-gray-100' : 'text-gray-300'}`}>
                           {segment.words.map((word) => {
                             const isCurrentWord = isActive && currentWord?.wordIndex === word.wordIndex;
@@ -461,12 +529,44 @@ export function ScriptPanel({
         {/* Footer Info */}
         {scriptSegments.length > 0 && (
           <div className="px-4 py-2 bg-[#252525] border-t border-[#3c3c3c] flex items-center justify-between text-[10px] text-gray-500">
-            <span>총 {scriptSegments.length}개 세그먼트</span>
-            {isTranslationEnabled && (
-              <span className="flex items-center gap-1">
-                <Globe size={10} />
-                {getLanguageName(originalLanguage)} → {getLanguageName(targetLanguage)}
-              </span>
+            {isEditMode ? (
+              /* 편집 모드 푸터 */
+              <>
+                <span className={editedCount > 0 ? 'text-[#AFC02B]' : ''}>
+                  {editedCount > 0 ? `${editedCount}개 수정됨` : '수정 없음'}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  {saveStatus === 'saving' && (
+                    <>
+                      <Loader2 size={10} className="animate-spin" />
+                      <span>저장 중...</span>
+                    </>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <>
+                      <Check size={10} className="text-[#AFC02B]" />
+                      <span className="text-[#AFC02B]">저장됨</span>
+                    </>
+                  )}
+                  {saveStatus === 'error' && (
+                    <>
+                      <AlertCircle size={10} className="text-red-400" />
+                      <span className="text-red-400">저장 실패</span>
+                    </>
+                  )}
+                </span>
+              </>
+            ) : (
+              /* 일반 모드 푸터 */
+              <>
+                <span>총 {scriptSegments.length}개 세그먼트</span>
+                {isTranslationEnabled && (
+                  <span className="flex items-center gap-1">
+                    <Globe size={10} />
+                    {getLanguageName(originalLanguage)} → {getLanguageName(targetLanguage)}
+                  </span>
+                )}
+              </>
             )}
           </div>
         )}

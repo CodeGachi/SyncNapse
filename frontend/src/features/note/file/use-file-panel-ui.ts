@@ -1,6 +1,6 @@
 /**
- * File Panel UI Handlers Hook
- * Handles UI interactions: context menu, rename, delete, copy, keyboard shortcuts
+ * 파일 패널 UI 핸들러 훅
+ * 컨텍스트 메뉴, 이름 변경, 삭제, 복사, 키보드 단축키 UI 상호작용 처리
  */
 import { useState, useRef, useEffect } from "react";
 import type { FileItem } from "@/lib/types";
@@ -38,7 +38,7 @@ export function useFilePanelUI({
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  // File Add Handler
+  // 파일 추가 핸들러
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
@@ -46,13 +46,13 @@ export function useFilePanelUI({
         onAddFile(file);
       });
     }
-    // Reset input
+    // 입력 초기화
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // Context Menu Open
+  // 컨텍스트 메뉴 열기
   const handleContextMenu = (e: React.MouseEvent, fileId: string) => {
     e.preventDefault();
     setContextMenu({
@@ -63,13 +63,13 @@ export function useFilePanelUI({
     });
   };
 
-  // File Delete
+  // 파일 삭제
   const handleDelete = async (fileId: string) => {
     await onRemoveFile(fileId);
     setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
   };
 
-  // File Name Change Start
+  // 파일 이름 변경 시작
   const handleRename = (fileId: string) => {
     const file = files.find((f) => f.id === fileId);
     if (file) {
@@ -79,7 +79,7 @@ export function useFilePanelUI({
     }
   };
 
-  // File Name Change Complete
+  // 파일 이름 변경 완료
   const handleRenameSubmit = (fileId: string) => {
     if (renameValue.trim() && onRenameFile) {
       onRenameFile(fileId, renameValue.trim());
@@ -88,13 +88,13 @@ export function useFilePanelUI({
     setRenameValue("");
   };
 
-  // File Name Change Cancel
+  // 파일 이름 변경 취소
   const handleRenameCancel = () => {
     setRenamingFileId(null);
     setRenameValue("");
   };
 
-  // File Copy
+  // 파일 복사
   const handleCopy = (fileId: string) => {
     if (onCopyFile) {
       onCopyFile(fileId);
@@ -102,7 +102,7 @@ export function useFilePanelUI({
     setContextMenu({ visible: false, x: 0, y: 0, fileId: null });
   };
 
-  // Keyboard key handler
+  // 키보드 키 핸들러
   const handleKeyDown = async (e: React.KeyboardEvent, fileId: string) => {
     if (e.key === "Delete") {
       e.preventDefault();
@@ -114,7 +114,7 @@ export function useFilePanelUI({
     }
   };
 
-  // Context Menu Close
+  // 컨텍스트 메뉴 닫기
   useEffect(() => {
     const handleClick = () => {
       setContextMenu({ visible: false, x: 0, y: 0, fileId: null });

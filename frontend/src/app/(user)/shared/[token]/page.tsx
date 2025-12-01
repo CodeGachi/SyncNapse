@@ -55,11 +55,11 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#1e1e1e]">
-        <div className="text-center max-w-md p-8 bg-[#2f2f2f] rounded-lg border border-red-500/30">
+      <div className="flex items-center justify-center min-h-screen bg-background-base">
+        <div className="text-center max-w-md p-8 bg-background-elevated rounded-lg border border-status-error/30">
           <div className="mb-4">
             <svg
-              className="w-16 h-16 mx-auto text-red-400"
+              className="w-16 h-16 mx-auto text-status-error"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -72,11 +72,11 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">오류 발생</h2>
-          <p className="text-gray-400">{error}</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">오류 발생</h2>
+          <p className="text-foreground-secondary">{error}</p>
           <button
             onClick={() => router.push("/dashboard/main")}
-            className="mt-6 px-6 py-2 bg-[#AFC02B] text-black rounded-lg font-medium hover:bg-[#AFC02B]/90 transition-colors"
+            className="mt-6 px-6 py-2 bg-brand text-black rounded-lg font-medium hover:bg-brand-hover transition-colors"
           >
             대시보드로 돌아가기
           </button>

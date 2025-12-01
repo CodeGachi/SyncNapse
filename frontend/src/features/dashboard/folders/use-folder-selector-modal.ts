@@ -1,6 +1,7 @@
 /**
- * FolderSelectorModal Hook
- * tempSelectedId and expandedFolders Management */ 
+ * 폴더 선택 모달 훅
+ * 임시 선택 ID 및 폴더 확장/축소 상태 관리
+ */
 import { useState, useEffect } from "react";
 
 interface UseFolderSelectorModalProps {
@@ -12,7 +13,7 @@ export function useFolderSelectorModal({ isOpen, selectedFolderId }: UseFolderSe
   const [tempSelectedId, setTempSelectedId] = useState(selectedFolderId);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  // Initialize with current selected folder when modal opens
+  // 모달 열릴 때 현재 선택된 폴더로 초기화
   useEffect(() => {
     if (isOpen) {
       setTempSelectedId(selectedFolderId);

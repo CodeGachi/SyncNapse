@@ -20,7 +20,7 @@ export function Spinner({ className, size = "md" }: SpinnerProps) {
         <div className={cn("relative flex items-center justify-center", sizeClasses[size], className)}>
             {/* Outer Ring */}
             <motion.div
-                className="absolute inset-0 rounded-full border-2 border-[#AFC02B]/20"
+                className="absolute inset-0 rounded-full border-2 border-brand/20"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
@@ -28,7 +28,7 @@ export function Spinner({ className, size = "md" }: SpinnerProps) {
 
             {/* Spinning Inner Ring */}
             <motion.div
-                className="absolute inset-0 rounded-full border-t-2 border-[#AFC02B]"
+                className="absolute inset-0 rounded-full border-t-2 border-brand"
                 animate={{ rotate: 360 }}
                 transition={{
                     duration: 1,
@@ -40,7 +40,7 @@ export function Spinner({ className, size = "md" }: SpinnerProps) {
             {/* Inner Dot (Pulse) */}
             <motion.div
                 className={cn(
-                    "absolute rounded-full bg-[#AFC02B]",
+                    "absolute rounded-full bg-brand",
                     size === "xs" ? "w-0.5 h-0.5" : size === "sm" ? "w-1 h-1" : "w-2 h-2"
                 )}
                 animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}

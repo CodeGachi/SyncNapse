@@ -8,6 +8,9 @@
 
 import { useEffect, useState } from "react";
 import { useStorage } from "@/lib/liveblocks/liveblocks.config";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SharedNoteData");
 import { useNoteEditorStore } from "@/stores";
 import { initDB } from "@/lib/db";
 import type { DBNote } from "@/lib/db";
@@ -56,7 +59,7 @@ export function useSharedNoteData({
         });
 
         if (existingNote) {
-          console.log(`[공유 모드] IndexedDB에 노트 이미 존재: ${existingNote.title}`);
+          log.debug("IndexedDB에 노트 이미 존재:", existingNote.title);
           setNoteCreated(true);
           return;
         }
@@ -65,12 +68,12 @@ export function useSharedNoteData({
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         if (apiUrl) {
           try {
-            console.log(`[공유 모드] 백엔드에서 노트 fetch 시도: ${apiUrl}/notes/${noteId}`);
+            log.debug(`백엔드에서 노트 fetch 시도: ${apiUrl}/notes/${noteId}`);
             const response = await fetch(`${apiUrl}/notes/${noteId}`);
 
             if (response.ok) {
               const backendNote = await response.json();
-              console.log(`[공유 모드] 백엔드에서 노트 받음:`, backendNote);
+              log.debug("백엔드에서 노트 받음:", backendNote);
 
               // 백엔드 노트를 IndexedDB에 저장
               const note: DBNote = {
@@ -91,17 +94,17 @@ export function useSharedNoteData({
                 request.onerror = () => reject(new Error("노트 저장 실패"));
               });
 
-              console.log(`[공유 모드] 백엔드 노트를 IndexedDB에 저장 완료`);
+              log.debug("백엔드 노트를 IndexedDB에 저장 완료");
               setNoteCreated(true);
               return;
             }
           } catch (error) {
-            console.warn(`[공유 모드] 백엔드 fetch 실패:`, error);
+            log.warn("백엔드 fetch 실패:", error);
           }
         }
 
         // 3. 백엔드 실패 시 임시 빈 노트 생성
-        console.log(`[공유 모드] 임시 빈 노트 생성 중...`);
+        log.debug("임시 빈 노트 생성 중...");
         const tempNote: DBNote = {
           id: noteId,
           title: `공유 노트 (${noteId.slice(0, 8)})`,
@@ -126,11 +129,11 @@ export function useSharedNoteData({
           request.onerror = () => reject(new Error("임시 노트 생성 실패"));
         });
 
-        console.log(`[공유 모드] 임시 빈 노트 생성 완료:`, tempNote.title);
-        console.log(`[공유 모드] 협업 기능 테스트를 위한 임시 노트입니다. 백엔드 연결 시 실제 노트로 대체됩니다.`);
+        log.debug("임시 빈 노트 생성 완료:", tempNote.title);
+        log.debug("협업 기능 테스트를 위한 임시 노트입니다. 백엔드 연결 시 실제 노트로 대체됩니다.");
         setNoteCreated(true);
       } catch (error) {
-        console.error(`[공유 모드] 노트 생성 오류:`, error);
+        log.error("노트 생성 오류:", error);
       }
     };
 
@@ -140,13 +143,13 @@ export function useSharedNoteData({
   // 공유 모드일 때 Liveblocks Storage의 데이터를 로컬 store에 동기화
   useEffect(() => {
     if (!isSharedView || !noteInfo) {
-      console.log("[공유 모드] 대기 중:", { isSharedView, hasNoteInfo: !!noteInfo });
+      log.debug("대기 중:", { isSharedView, hasNoteInfo: !!noteInfo });
       return;
     }
 
-    console.log("[공유 모드] Liveblocks Storage에서 노트 데이터 로드 중...");
-    console.log("[공유 모드] noteInfo:", noteInfo);
-    console.log("[공유 모드] files 수:", files?.length || 0);
+    log.debug("Liveblocks Storage에서 노트 데이터 로드 중...");
+    log.debug("noteInfo:", noteInfo);
+    log.debug("files 수:", files?.length || 0);
 
     // 파일 목록 동기화
     if (files && files.length > 0) {
@@ -154,8 +157,8 @@ export function useSharedNoteData({
       // Student는 Liveblocks Storage에서 파일 메타데이터를 받고,
       // 백엔드 API를 통해 실제 파일을 다운로드하여 IndexedDB에 저장
 
-      console.log(`[공유 모드] 파일 메타데이터 ${files.length}개 발견`);
-      console.log(`[공유 모드] TODO: 백엔드 API로 파일 다운로드 필요`);
+      log.debug(`파일 메타데이터 ${files.length}개 발견`);
+      log.debug("TODO: 백엔드 API로 파일 다운로드 필요");
 
       const fileData = files.map((file) => ({
         id: file.id,
@@ -167,21 +170,21 @@ export function useSharedNoteData({
       }));
 
       setFiles(fileData);
-      console.log(`[공유 모드] 파일 ${fileData.length}개 메타데이터 로드 완료`);
+      log.debug(`파일 ${fileData.length}개 메타데이터 로드 완료`);
     } else {
       // 파일이 없으면 빈 배열로 설정 (임시 - 백엔드 구현 시 파일 다운로드)
-      console.log(`[공유 모드] 파일 없음 - 협업 기능만 사용 가능`);
+      log.debug("파일 없음 - 협업 기능만 사용 가능");
     }
 
     // 현재 파일 및 페이지 동기화
     if (currentFileId) {
       setSelectedFileId(currentFileId);
-      console.log(`[공유 모드] 현재 파일 ID: ${currentFileId}`);
+      log.debug("현재 파일 ID:", currentFileId);
     }
 
     if (currentPage) {
       setCurrentPage(currentPage);
-      console.log(`[공유 모드] 현재 페이지: ${currentPage}`);
+      log.debug("현재 페이지:", currentPage);
     }
 
     // 필기 데이터 동기화
@@ -200,10 +203,10 @@ export function useSharedNoteData({
       });
 
       setPageNotes(notesData);
-      console.log(`[공유 모드] 필기 ${Object.keys(notesData).length}개 페이지 로드 완료`);
+      log.debug(`필기 ${Object.keys(notesData).length}개 페이지 로드 완료`);
     }
 
-    console.log("[공유 모드] 노트 데이터 로드 완료:", noteInfo.title);
+    log.debug("노트 데이터 로드 완료:", noteInfo.title);
   }, [
     isSharedView,
     noteInfo,

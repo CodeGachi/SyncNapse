@@ -1,6 +1,6 @@
 /**
- * FolderOptionsMenu Hook
- * Menu status and outside click detection
+ * 폴더 옵션 메뉴 훅
+ * 메뉴 상태 및 외부 클릭 감지
  */
 import { useState, useRef, useEffect } from "react";
 
@@ -9,7 +9,7 @@ export function useFolderOptionsMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Close menu when clicking outside
+  // 외부 클릭 시 메뉴 닫기
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (

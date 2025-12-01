@@ -1,5 +1,5 @@
 /**
- * Authentication state management hook
+ * 인증 상태 관리 훅
  */
 
 "use client";
@@ -13,6 +13,6 @@ export function useAuth() {
     user: user || null,
     loading: isLoading,
     isAuthenticated: !!user && !isError,
-    refetch, // Manual update function
+    refetch, // 수동 갱신 함수
   };
 }

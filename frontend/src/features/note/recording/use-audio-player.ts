@@ -13,6 +13,7 @@ import type { WordWithTime, PageContext } from "@/lib/types";
 
 // 🔥 스토어 직접 접근 (stale closure 방지)
 const getAudioPlayerStore = () => useAudioPlayerStore.getState();
+const getScriptTranslationStore = () => useScriptTranslationStore.getState();
 
 // 🔥 싱글톤 Audio 인스턴스 - 여러 컴포넌트에서 공유
 let sharedAudioInstance: HTMLAudioElement | null = null;
@@ -36,9 +37,13 @@ export function useAudioPlayer() {
   const {
     timelineEvents,
     currentPageContext,
+    currentSessionId,
+    pendingSeekTime,
     setTimelineEvents,
     setCurrentPageContext,
+    setCurrentSessionId,
     clearTimeline,
+    setPendingSeekTime,
   } = useAudioPlayerStore();
 
   // 오디오 플레이어 로컬 state
@@ -138,6 +143,27 @@ export function useAudioPlayer() {
       setIsLoadingSession(true);
       console.log('[useAudioPlayer] Loading recording with sessionId:', sessionIdParam);
 
+      // 🔥 다른 세션으로 변경하기 전에 현재 편집 내용 자동 저장
+      const scriptStore = getScriptTranslationStore();
+      const audioStore = getAudioPlayerStore();
+      if (
+        scriptStore.isEditMode &&
+        audioStore.currentSessionId &&
+        audioStore.currentSessionId !== sessionIdParam &&
+        Object.keys(scriptStore.editedSegments).length > 0 &&
+        scriptStore.saveRevisionCallback
+      ) {
+        console.log('[useAudioPlayer] 🔄 Auto-saving before session change');
+        try {
+          await scriptStore.saveRevisionCallback(audioStore.currentSessionId, scriptStore.editedSegments);
+          scriptStore.resetEdits();
+          scriptStore.setEditMode(false);
+          console.log('[useAudioPlayer] ✅ Auto-save completed');
+        } catch (saveError) {
+          console.error('[useAudioPlayer] ❌ Auto-save failed:', saveError);
+        }
+      }
+
       const sessionId = sessionIdParam;
 
       console.log('[useAudioPlayer] Fetching session:', sessionId);
@@ -154,23 +180,51 @@ export function useAudioPlayer() {
 
       // Load segments into ScriptPanel
       if (sessionData.segments && sessionData.segments.length > 0) {
-        const scriptSegments = sessionData.segments.map((segment) => ({
-          id: segment.id,
-          timestamp: segment.startTime * 1000, // Convert seconds to milliseconds
-          originalText: segment.text,
-          translatedText: undefined,
-          speaker: undefined,
-          words: segment.words?.map((word: any) => ({
-            word: word.word,
-            startTime: word.startTime,
-            confidence: word.confidence || 1.0,
-            wordIndex: word.wordIndex,
-          })) as WordWithTime[] || undefined,
-          isPartial: false,
-        }));
+        // 최신 리비전 확인
+        let revisionMap: Record<string, string> = {};
+        try {
+          const revisions = await transcriptionApi.getRevisions(sessionId);
+          if (revisions && revisions.length > 0) {
+            // 가장 최신 리비전 (version이 가장 높은 것)
+            const latestRevision = revisions[0]; // 이미 version desc로 정렬됨
+            console.log('[useAudioPlayer] 📝 Latest revision:', {
+              version: latestRevision.version,
+              segmentsCount: latestRevision.content?.segments?.length || 0,
+            });
+
+            // 리비전 내용을 맵으로 변환
+            if (latestRevision.content?.segments) {
+              latestRevision.content.segments.forEach((seg: any) => {
+                revisionMap[seg.id] = seg.editedText;
+              });
+            }
+          }
+        } catch (revisionError) {
+          console.warn('[useAudioPlayer] Failed to load revisions:', revisionError);
+        }
+
+        const scriptSegments = sessionData.segments.map((segment) => {
+          // 리비전이 있으면 editedText 사용, 없으면 원본 사용
+          const editedText = revisionMap[segment.id];
+          return {
+            id: segment.id,
+            timestamp: segment.startTime * 1000, // Convert seconds to milliseconds
+            originalText: editedText || segment.text, // 리비전 적용
+            translatedText: undefined,
+            speaker: undefined,
+            words: editedText ? undefined : segment.words?.map((word: any) => ({
+              word: word.word,
+              startTime: word.startTime,
+              confidence: word.confidence || 1.0,
+              wordIndex: word.wordIndex,
+            })) as WordWithTime[] || undefined, // 편집된 경우 words는 의미없음
+            isPartial: false,
+          };
+        });
 
         setScriptSegments(scriptSegments);
-        console.log('[useAudioPlayer] Loaded', scriptSegments.length, 'segments into ScriptPanel');
+        console.log('[useAudioPlayer] Loaded', scriptSegments.length, 'segments into ScriptPanel',
+          Object.keys(revisionMap).length > 0 ? `(${Object.keys(revisionMap).length} edited)` : '');
       } else {
         console.warn('[useAudioPlayer] No segments found in session');
         setScriptSegments([]);
@@ -201,6 +255,15 @@ export function useAudioPlayer() {
             console.log('[useAudioPlayer] Using backend duration:', backendDuration);
           }
 
+          // 🔥 pendingSeekTime이 있으면 해당 시간으로 점프
+          const store = getAudioPlayerStore();
+          if (store.pendingSeekTime !== null) {
+            audioRef.current.currentTime = store.pendingSeekTime;
+            setCurrentTime(store.pendingSeekTime);
+            console.log('[useAudioPlayer] ⏩ Jumped to pending seek time:', store.pendingSeekTime);
+            store.setPendingSeekTime(null); // 사용 후 초기화
+          }
+
           // 자동 재생 시도
           try {
             await audioRef.current.play();
@@ -215,6 +278,7 @@ export function useAudioPlayer() {
       }
 
       setCurrentRecordingId(sessionId);
+      setCurrentSessionId(sessionId); // 🔥 전역 스토어에도 저장 (편집 시 리비전 저장용)
       setCurrentAudioRecordingId(audioRecordingIdParam || null);
 
       console.log('[useAudioPlayer] 🔍 audioRecordingIdParam:', audioRecordingIdParam);
@@ -281,6 +345,15 @@ export function useAudioPlayer() {
     return audioApi.getPageContextAtTime(timelineEvents, time);
   };
 
+  // 특정 시간으로 점프
+  const seekTo = (timeInSeconds: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = timeInSeconds;
+      setCurrentTime(timeInSeconds);
+      console.log('[useAudioPlayer] ⏩ Seeked to:', timeInSeconds, 'seconds');
+    }
+  };
+
   return {
     audioRef,
     isPlaying,
@@ -297,5 +370,6 @@ export function useAudioPlayer() {
     timelineEvents,
     currentPageContext,
     getPageContextAtTime,
+    seekTo,
   };
 }

@@ -2,23 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: #1e1e1e;
-  color: white;
+/* 라이트 모드 (기본) */
+:root {
+  /* 배경 */
+  --bg-base: #ffffff;
+  --bg-surface: #f8f9fa;
+  --bg-elevated: #f1f3f5;
+  --bg-overlay: #e9ecef;
+  --bg-deep: #f8f9fa;
+  --bg-sidebar: #ffffff;
+  --bg-modal: #ffffff;
+
+  /* 텍스트 */
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+
+  /* 보더 */
+  --border-default: #e5e7eb;
+  --border-subtle: #f3f4f6;
+  --border-strong: #d1d5db;
+
+  /* 브랜드 */
+  --brand-primary: #AFC02B;
+  --brand-secondary: #899649;
+  --brand-hover: #9DB025;
+
+  /* 버튼 */
+  --btn-face: #e5e7eb;
+  --btn-inner: #f3f4f6;
+
+  /* 상태 */
+  --status-error: #EF4444;
+  --status-success: #22C55E;
+  --status-info: #3B82F6;
 }
 
-/* hide scrollbar for IE, Edge and Firefox */
+/* 다크 모드 */
+.dark {
+  /* 배경 */
+  --bg-base: #1e1e1e;
+  --bg-surface: #252525;
+  --bg-elevated: #2f2f2f;
+  --bg-overlay: #3c3c3c;
+  --bg-deep: #0A0A0A;
+  --bg-sidebar: #121212;
+  --bg-modal: #1a1a1a;
+
+  /* 텍스트 */
+  --text-primary: #ffffff;
+  --text-secondary: #b9b9b9;
+  --text-tertiary: #575757;
+
+  /* 보더 */
+  --border-default: #3c3c3c;
+  --border-subtle: #2f2f2f;
+  --border-strong: #444444;
+
+  /* 브랜드 */
+  --brand-primary: #AFC02B;
+  --brand-secondary: #899649;
+  --brand-hover: #c2d43b;
+
+  /* 버튼 */
+  --btn-face: #444444;
+  --btn-inner: #2f2f2f;
+
+  /* 상태 */
+  --status-error: #EF4444;
+  --status-success: #22C55E;
+  --status-info: #3B82F6;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* 스크롤바 숨김 - IE, Edge, Firefox */
 * {
   scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  -ms-overflow-style: none; /* IE, Edge */
 }
 
-/* hide scrollbar for Chrome, Safari and Opera */
+/* 스크롤바 숨김 - Chrome, Safari, Opera */
 *::-webkit-scrollbar {
   display: none;
 }
 
-/* PDF.js Text Layer Styles (3.x compatible) */
+/* PDF.js 텍스트 레이어 스타일 (3.x 호환) */
 .textLayer {
   position: absolute;
   text-align: initial;
@@ -61,7 +133,7 @@ body {
   isolation: isolate;
 }
 
-/* 텍스트 선택 시 하이라이트가 글자 위에 보이도록 */
+/* 텍스트 선택 시 하이라이트 스타일 */
 .textLayer ::selection {
   background: rgba(66, 133, 244, 0.5) !important;
 }
@@ -98,7 +170,7 @@ body {
   background-color: rgba(0, 100, 0, 0.4);
 }
 
-/* PDF Search Highlight Styles */
+/* PDF 검색 하이라이트 스타일 */
 .search-highlight {
   background-color: rgba(255, 255, 0, 0.4) !important;
   color: transparent !important;

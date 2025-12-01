@@ -1,4 +1,4 @@
-import { FavoritesContent } from "@/components/dashboard/pages/favorites/favorites-content";
+import { FavoritesContent } from "@/components/dashboard/views/favorites-content";
 
 export default function FavoritesPage() {
   return <FavoritesContent />;

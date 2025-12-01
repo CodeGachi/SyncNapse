@@ -1,6 +1,7 @@
 /**
- * CreateFolderModal Hook
- * Form Status, expandedFolders, Folder Path Calculation  */
+ * 폴더 생성 모달 훅
+ * 폼 상태, 폴더 확장/축소, 폴더 경로 계산 기능 제공
+ */
 
 import { useState, useEffect } from "react";
 import type { FolderTreeNode } from "@/features/dashboard";
@@ -17,7 +18,7 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
 
-  // Initialize when modal opens - default to Root folder ID
+  // 모달 열릴 때 초기화 - Root 폴더 ID를 기본값으로
   useEffect(() => {
     if (isOpen) {
       setFolderName("");
@@ -64,7 +65,7 @@ export function useCreateFolderModal({ isOpen, onCreate, folderTree }: UseCreate
     const findFolder = (nodes: FolderTreeNode[]): string | null => {
       for (const node of nodes) {
         if (node.folder.id === selectedParentId) {
-          // If the folder is the "Root" system folder, display it as "Root" instead
+          // "Root" 시스템 폴더인 경우 "Root"로 표시
           if (node.folder.name === "Root" && node.folder.parentId === null) {
             return "Root";
           }

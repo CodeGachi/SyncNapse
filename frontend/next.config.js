@@ -38,19 +38,6 @@ const nextConfig = {
       encoding: false,
     };
 
-    // Ignore onnxruntime-node (only use onnxruntime-web for browser)
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'onnxruntime-node': false,
-      };
-    }
-
-    // Externalize onnxruntime-node for server builds
-    if (isServer) {
-      config.externals = [...(config.externals || []), 'onnxruntime-node'];
-    }
-
     // PDF.js 설정: worker와 .mjs 파일 처리
     config.module.rules.push({
       test: /pdf\.worker\.(min\.)?js/,

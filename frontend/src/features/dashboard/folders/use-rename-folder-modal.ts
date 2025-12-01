@@ -1,6 +1,6 @@
 /**
- * RenameFolderModal Hook
- * Form status and name change handling
+ * 폴더 이름 변경 모달 훅
+ * 폼 상태 및 이름 변경 처리
  */
 import { useState, useEffect } from "react";
 
@@ -14,7 +14,7 @@ export function useRenameFolderModal({ isOpen, currentName, onRename }: UseRenam
   const [folderName, setFolderName] = useState(currentName);
   const [isRenaming, setIsRenaming] = useState(false);
 
-  // Initialize with current name when modal opens
+  // 모달 열릴 때 현재 이름으로 초기화
   useEffect(() => {
     if (isOpen) {
       setFolderName(currentName);

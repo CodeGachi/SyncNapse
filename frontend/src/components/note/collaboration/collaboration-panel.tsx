@@ -15,8 +15,7 @@ import { ActiveUsersPanel } from "./active-users-panel";
 import { QAPanel } from "./qa-panel";
 import { PollPanel } from "./poll-panel";
 import { HandRaisePanel } from "./hand-raise-panel";
-import { useEmojiReaction } from "./emoji-reactions";
-import { AVAILABLE_EMOJIS, type AvailableEmoji } from "@/lib/types/collaboration";
+import { EmojiPanel } from "./emoji-panel";
 import { Users, MessageCircle, BarChart3, Hand, Smile } from "lucide-react";
 
 interface CollaborationPanelProps {
@@ -126,50 +125,5 @@ export function CollaborationPanel({
         </div>
       </div>
     </Panel>
-  );
-}
-
-/**
- * 이모지 반응 패널
- */
-interface EmojiPanelProps {
-  userId: string;
-  userName: string;
-  noteId: string;
-}
-
-function EmojiPanel({ userId, userName, noteId }: EmojiPanelProps) {
-  const { sendEmoji } = useEmojiReaction(noteId, userId, userName);
-
-  const handleEmojiClick = (emoji: AvailableEmoji) => {
-    sendEmoji(emoji);
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-8">
-      <div className="text-center space-y-3">
-        <div className="w-16 h-16 bg-[#AFC02B]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Smile size={32} className="text-[#AFC02B]" />
-        </div>
-        <h4 className="text-white text-lg font-bold">이모지 반응 보내기</h4>
-        <p className="text-gray-400 text-sm max-w-[200px] mx-auto leading-relaxed">
-          클릭하여 모든 참여자에게<br />실시간 반응을 보내보세요
-        </p>
-      </div>
-
-      {/* 이모지 그리드 */}
-      <div className="grid grid-cols-3 gap-4 p-4 bg-[#252525] rounded-2xl border border-[#3c3c3c]">
-        {AVAILABLE_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            onClick={() => handleEmojiClick(emoji)}
-            className="w-14 h-14 flex items-center justify-center text-3xl bg-[#2f2f2f] hover:bg-[#3f3f3f] rounded-xl transition-all hover:scale-110 active:scale-95 border border-transparent hover:border-[#AFC02B]/50 shadow-lg"
-            title={`${emoji} 반응 보내기`}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }

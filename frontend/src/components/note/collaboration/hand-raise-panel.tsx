@@ -1,21 +1,18 @@
 /**
  * 손들기 패널 (Liveblocks 실시간 버전)
  *
- * Liveblocks Storage를 사용하여 실시간 손들기 기능
- * - 학생이 손들기 버튼 클릭 → Storage에 추가
- * - Educator가 손들기 목록 확인 및 응답
+ * UI 컴포넌트 - 손들기 기능의 시각적 표현
+ * 비즈니스 로직은 useHandRaise 훅에서 처리
  */
 
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  useStorage,
-  useMutation,
-  useBroadcastEvent,
-  useEventListener,
-} from "@/lib/liveblocks/liveblocks.config";
 import { Hand, CheckCircle, Clock } from "lucide-react";
+import {
+  useHandRaise,
+  useHandRaiseEventListener,
+} from "@/features/note/collaboration/use-hand-raise";
 
 interface HandRaisePanelProps {
   userId: string;
@@ -31,121 +28,26 @@ export function HandRaisePanel({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Liveblocks Storage에서 손들기 목록 가져오기
-  const handRaises = useStorage((root) => root.handRaises) || [];
-  const broadcast = useBroadcastEvent();
-
-  // 손들기 목록 변경 감지 (디버깅용)
-  useEffect(() => {
-    console.log(`[Hand Raise Panel] 손들기 목록 업데이트:`, {
-      userId,
-      userName,
-      isEducator,
-      totalHandRaises: handRaises.length,
-      activeHandRaises: handRaises.filter((h) => h.isActive).length,
-      handRaises: handRaises.filter((h) => h.isActive).map((h) => ({
-        id: h.id,
-        user: h.userName,
-        timestamp: new Date(h.timestamp).toLocaleTimeString(),
-      })),
-    });
-  }, [handRaises, userId, userName, isEducator]);
-
-  // 현재 사용자가 손들기 중인지 확인
-  const myHandRaise = handRaises.find(
-    (h) => h.userId === userId && h.isActive
-  );
-  const isHandRaised = !!myHandRaise;
-
-  // 손들기 추가 Mutation (Student)
-  const raiseHand = useMutation(
-    ({ storage }, userName: string, userId: string) => {
-      console.log(`[Hand Raise Mutation] Storage 접근 시작`);
-      const handRaises = storage.get("handRaises");
-      console.log(`[Hand Raise Mutation] 현재 handRaises 배열:`, handRaises);
-      console.log(`[Hand Raise Mutation] handRaises 타입:`, typeof handRaises, Array.isArray(handRaises));
-
-      // 중복 방지: 이미 손들기 중이면 무시
-      const existing = handRaises.find(
-        (h) => h.userId === userId && h.isActive
-      );
-      if (existing) {
-        console.log(`[Hand Raise Mutation] 이미 손들기 중: ${userId}`);
-        return;
-      }
-
-      // 새 손들기 추가
-      const newHandRaise = {
-        id: `hand-${userId}-${Date.now()}`,
-        userId,
-        userName,
-        timestamp: Date.now(),
-        isActive: true,
-      };
-
-      console.log(`[Hand Raise Mutation] 새 손들기 생성:`, newHandRaise);
-      handRaises.push(newHandRaise);
-      console.log(`[Hand Raise Mutation] 손들기 추가 후 배열 길이:`, handRaises.length);
-    },
-    []
-  );
-
-  // 손들기 제거 Mutation (Student 본인 또는 Educator)
-  const lowerHand = useMutation(({ storage }, handRaiseId: string) => {
-    const handRaises = storage.get("handRaises");
-    const index = handRaises.findIndex((h) => h.id === handRaiseId);
-
-    if (index !== -1) {
-      const handRaise = handRaises.get(index);
-      if (!handRaise) return;
-      // LiveList 중첩 객체 문제: 전체 객체를 새로 만들어 set()으로 교체
-      handRaises.set(index, { ...handRaise, isActive: false });
-    }
-  }, []);
-
-  // 모든 손들기 제거 Mutation (Educator만)
-  const clearAllHandRaises = useMutation(({ storage }) => {
-    const handRaises = storage.get("handRaises");
-    // LiveList 중첩 객체 문제: 각 항목을 set()으로 교체
-    for (let i = 0; i < handRaises.length; i++) {
-      const handRaise = handRaises.get(i);
-      if (!handRaise) continue;
-      if (handRaise.isActive) {
-        handRaises.set(i, { ...handRaise, isActive: false });
-      }
-    }
-  }, []);
-
-  // 손들기 버튼 클릭 (Student) - 한 번만 가능
-  const handleRaiseHand = () => {
-    if (!isHandRaised) {
-      // 손들기
-      console.log(`[Hand Raise Panel] 손들기 시작:`, { userId, userName });
-      raiseHand(userName, userId);
-      console.log(`[Hand Raise Panel] raiseHand Mutation 호출 완료`);
-      broadcast({
-        type: "HAND_RAISE",
-        userId,
-        userName,
-      });
-    }
-  };
+  // 손들기 훅 사용
+  const {
+    activeHandRaises,
+    isHandRaised,
+    handleRaiseHand,
+    handleRespond: respond,
+    handleClearAll,
+  } = useHandRaise({ userId, userName, isEducator });
 
   // Educator: 특정 손들기 응답
   const handleRespond = (handRaiseId: string, studentName: string) => {
-    lowerHand(handRaiseId);
+    respond(handRaiseId);
     setToastMessage(`${studentName}님에게 응답했습니다`);
     setShowToast(true);
   };
 
   // 손들기 이벤트 리스너 (Educator에게 알림)
-  useEventListener(({ event }) => {
-    if (!isEducator) return;
-
-    if (event.type === "HAND_RAISE") {
-      setToastMessage(`${event.userName}님이 손을 들었습니다`);
-      setShowToast(true);
-    }
+  useHandRaiseEventListener(isEducator, (studentName) => {
+    setToastMessage(`${studentName}님이 손을 들었습니다`);
+    setShowToast(true);
   });
 
   // 토스트 자동 숨김
@@ -155,11 +57,6 @@ export function HandRaisePanel({
       return () => clearTimeout(timer);
     }
   }, [showToast]);
-
-  // 활성화된 손들기만 필터링 및 정렬 (오래된 순)
-  const activeHandRaises = handRaises
-    .filter((h) => h.isActive)
-    .sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -234,7 +131,7 @@ export function HandRaisePanel({
             </div>
             {activeHandRaises.length > 0 && (
               <button
-                onClick={() => clearAllHandRaises()}
+                onClick={handleClearAll}
                 className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"
               >
                 모두 지우기

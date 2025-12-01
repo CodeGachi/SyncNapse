@@ -1,5 +1,13 @@
-import React, { useState } from "react";
+/**
+ * 폴더 선택기 컴포넌트
+ * 재귀적 폴더 트리 구조로 폴더 선택 UI 제공
+ */
+import { useState } from "react";
 import type { FolderTreeNode } from "@/features/dashboard";
+
+// 들여쓰기 상수
+const INDENT_PER_LEVEL = 16; // 레벨당 들여쓰기 (px)
+const BASE_PADDING = 12; // 기본 왼쪽 패딩 (px)
 
 interface FolderSelectorProps {
     tree: FolderTreeNode[];
@@ -42,10 +50,10 @@ export function FolderSelector({
                     <li key={node.folder.id}>
                         <div
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${isSelected
-                                    ? "bg-[#899649]/30 text-white ring-1 ring-[#899649]/50"
-                                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                    ? "bg-brand-secondary/30 text-foreground ring-1 ring-brand-secondary/50"
+                                    : "text-foreground-tertiary hover:bg-foreground/5 hover:text-foreground"
                                 }`}
-                            style={{ paddingLeft: `${level * 16 + 12}px` }}
+                            style={{ paddingLeft: `${level * INDENT_PER_LEVEL + BASE_PADDING}px` }}
                             onClick={() => onSelectFolder(node.folder.id)}
                         >
                             {/* 확장/축소 아이콘 */}

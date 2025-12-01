@@ -96,6 +96,26 @@ export interface SaveFullAudioDto {
   duration: number;
 }
 
+// Revision 관련 타입
+export interface TranscriptRevision {
+  id: string;
+  sessionId: string;
+  version: number;
+  content: RevisionContent;
+  createdAt: string;
+}
+
+export interface RevisionContent {
+  segments: EditedSegment[];
+}
+
+export interface EditedSegment {
+  id: string;              // 원본 세그먼트 ID
+  originalText: string;    // 원본 텍스트
+  editedText: string;      // 수정된 텍스트
+  timestamp: number;       // 세그먼트 시작 시간 (ms)
+}
+
 export async function createSession(
   title: string,
   noteId?: string,
@@ -198,12 +218,34 @@ export async function deleteSession(sessionId: string): Promise<{ success: boole
   );
 }
 
+// Save transcript revision (편집된 스크립트 저장)
+export async function saveRevision(
+  sessionId: string,
+  content: RevisionContent,
+): Promise<TranscriptRevision> {
+  return apiClient<TranscriptRevision>(
+    `/api/transcription/sessions/${sessionId}/revisions`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
+// Get transcript revisions (리비전 목록 조회)
+export async function getRevisions(
+  sessionId: string,
+): Promise<TranscriptRevision[]> {
+  return apiClient<TranscriptRevision[]>(
+    `/api/transcription/sessions/${sessionId}/revisions`,
+  );
+}
+
 // Get audio blob URL for playback
 // Fetches audio from backend proxy and returns a blob URL
 export async function getAudioBlobUrl(sessionId: string): Promise<string> {
-  // authToken 또는 syncnapse_access_token 사용 (다른 API와 동일한 방식)
   const token = typeof window !== 'undefined'
-    ? (localStorage.getItem('authToken') || localStorage.getItem('syncnapse_access_token'))
+    ? localStorage.getItem('authToken')
     : null;
 
   const response = await fetch(`/api/transcription/sessions/${sessionId}/audio`, {

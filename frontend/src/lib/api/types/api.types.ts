@@ -130,3 +130,54 @@ export interface ApiPaginatedResponse<T> {
     total_pages: number;
   };
 }
+
+// ============================================================================
+// Search API Types
+// ============================================================================
+
+/**
+ * 검색 결과 - 노트
+ */
+export interface ApiSearchNoteResult {
+  id: string;
+  type: "note";
+  title: string;
+  updatedAt: string;
+}
+
+/**
+ * 검색 결과 - 파일
+ */
+export interface ApiSearchFileResult {
+  id: string;
+  type: "file";
+  title: string;
+  noteTitle: string;
+  noteId: string;
+  updatedAt: string;
+}
+
+/**
+ * 검색 결과 - 음성 전사 세그먼트
+ */
+export interface ApiSearchSegmentResult {
+  id: string;
+  type: "segment";
+  text: string;
+  startTime: number;
+  endTime: number;
+  sessionId: string;
+  sessionTitle: string;
+  noteId: string;
+  noteTitle: string | null;
+  confidence: number;
+}
+
+/**
+ * 통합 검색 API 응답
+ */
+export interface ApiSearchResponse {
+  notes: ApiSearchNoteResult[];
+  files: ApiSearchFileResult[];
+  segments: ApiSearchSegmentResult[];
+}

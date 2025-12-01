@@ -1,6 +1,7 @@
 /**
- * FolderTree Hook
- * expandedFolders Status and Text Menu Management */ 
+ * 폴더 트리 훅
+ * 폴더 확장/축소 상태 및 컨텍스트 메뉴 관리
+ */
 import { useState } from "react";
 
 export function useFolderTree() {

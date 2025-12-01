@@ -1,8 +1,12 @@
+/**
+ * 폴더 선택 모달 컴포넌트
+ * 폴더 트리에서 대상 폴더 선택
+ */
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
 import type { FolderTreeNode } from "@/features/dashboard";
 import { FolderSelector } from "@/components/dashboard/folder-management/folder-selector";
-import { useState } from "react";
 
 interface FolderSelectorModalProps {
   isOpen: boolean;
@@ -21,6 +25,13 @@ export function FolderSelectorModal({
 }: FolderSelectorModalProps) {
   const [tempSelectedId, setTempSelectedId] = useState<string | null>(selectedFolderId || null);
 
+  // 모달 열릴 때 선택 상태 동기화
+  useEffect(() => {
+    if (isOpen) {
+      setTempSelectedId(selectedFolderId || null);
+    }
+  }, [isOpen, selectedFolderId]);
+
   const handleConfirm = () => {
     if (tempSelectedId) {
       onSelect(tempSelectedId);
@@ -33,17 +44,17 @@ export function FolderSelectorModal({
       isOpen={isOpen}
       onClose={onClose}
       title="폴더 선택"
-      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[480px] max-h-[80vh]"
+      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[480px] max-h-[80vh]"
     >
       <div className="flex flex-col gap-6">
         {/* 폴더 트리 */}
-        <div className="bg-[#262626] border border-[#575757] rounded-xl p-2 max-h-[400px] overflow-y-auto">
+        <div className="bg-background-elevated border border-border rounded-xl p-2 max-h-[400px] overflow-y-auto">
           {/* 루트 폴더 */}
           <button
             onClick={() => setTempSelectedId("root")}
             className={`w-full px-3 py-2.5 text-left rounded-lg transition-all flex items-center gap-3 ${tempSelectedId === "root"
-              ? 'bg-[#899649]/30 text-white ring-1 ring-[#899649]/50'
-              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              ? 'bg-brand-secondary/30 text-foreground ring-1 ring-brand-secondary/50'
+              : 'text-foreground-tertiary hover:bg-foreground/5 hover:text-foreground'
               }`}
           >
             <div className="w-4 h-4" /> {/* Indent spacer */}

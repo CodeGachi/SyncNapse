@@ -1,16 +1,23 @@
+/**
+ * OAuth 콜백 컴포넌트
+ * OAuth 인증 후 토큰 저장 및 리다이렉트 처리
+ */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser } from "@/lib/api/services/auth.api";
+import { setCookie } from "@/lib/utils/cookie";
 import { AuthLoading } from "./auth-loading";
+
+const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7일
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30일
 
 export function OAuthCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -26,36 +33,30 @@ export function OAuthCallback() {
 
       if (accessToken && refreshToken) {
         try {
-          // Store tokens in localStorage (use syncnapse_ prefix for consistency with auth.api.ts)
-          localStorage.setItem("syncnapse_access_token", accessToken);
-          localStorage.setItem("syncnapse_refresh_token", refreshToken);
-          localStorage.setItem("authToken", accessToken); // Keep for middleware compatibility
-          localStorage.setItem("refreshToken", refreshToken); // Keep for backward compatibility
+          // 1. localStorage에 토큰 저장
+          localStorage.setItem("authToken", accessToken);
+          localStorage.setItem("refreshToken", refreshToken);
 
-          // Store token in cookie for SSR
-          document.cookie = `authToken=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`;
-          document.cookie = `refreshToken=${refreshToken}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Strict`;
-          
-          // Fetch user info and update React Query cache
+          // 2. 쿠키에 토큰 저장 (미들웨어 호환)
+          setCookie("authToken", accessToken, ACCESS_TOKEN_MAX_AGE);
+          setCookie("refreshToken", refreshToken, REFRESH_TOKEN_MAX_AGE);
+
+          // 3. 사용자 정보 조회 및 캐시 업데이트
           const user = await getCurrentUser();
           queryClient.setQueryData(["auth", "currentUser"], user);
-          
-          // Redirect to original page or dashboard
-          const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
-          localStorage.removeItem("redirectAfterLogin"); // Clean up
-          
-          console.log("[OAuthCallback] ✅ Login successful, redirecting to:", redirectUrl);
+
+          // 4. 리다이렉트
+          const redirectUrl =
+            localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
+          localStorage.removeItem("redirectAfterLogin");
           router.replace(redirectUrl);
-        } catch (error) {
-          console.error("Failed to fetch user info:", error);
+        } catch {
           alert("사용자 정보를 가져오는데 실패했습니다.");
           router.replace("/");
         }
       } else {
         router.replace("/");
       }
-      
-      setIsProcessing(false);
     };
 
     processCallback();
