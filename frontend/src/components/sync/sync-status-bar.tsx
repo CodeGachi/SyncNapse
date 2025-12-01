@@ -23,43 +23,43 @@ export function SyncStatusBar() {
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // 프로덕션 환경에서는 렌더링하지 않음
-  if (process.env.NODE_ENV === "production") {
-    return null;
-  }
+  const isProduction = process.env.NODE_ENV === "production";
 
   // 동기화 중이거나, 큐에 항목이 있거나, 에러가 있으면 표시
   useEffect(() => {
-    if (isDismissed) return;
+    if (isProduction || isDismissed) return;
 
     const shouldShow =
       isSyncing || queue.items.length > 0 || syncError !== null;
     setIsVisible(shouldShow);
-  }, [isSyncing, queue.items.length, syncError, isDismissed]);
+  }, [isSyncing, queue.items.length, syncError, isDismissed, isProduction]);
 
   // 성공 후 3초 뒤 자동 숨김
   useEffect(() => {
+    if (isProduction) return;
     if (!isSyncing && queue.items.length === 0 && !syncError && isVisible) {
       const timer = setTimeout(() => {
         setIsVisible(false);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isSyncing, queue.items.length, syncError, isVisible]);
+  }, [isSyncing, queue.items.length, syncError, isVisible, isProduction]);
+
+  // 에러 해제 시 dismissed 초기화
+  useEffect(() => {
+    if (isProduction) return;
+    if (syncError === null) {
+      setIsDismissed(false);
+    }
+  }, [syncError, isProduction]);
 
   const handleDismiss = () => {
     setIsDismissed(true);
     setIsVisible(false);
   };
 
-  // 에러 해제 시 dismissed 초기화
-  useEffect(() => {
-    if (syncError === null) {
-      setIsDismissed(false);
-    }
-  }, [syncError]);
-
-  if (!isVisible) return null;
+  // 프로덕션 환경에서는 렌더링하지 않음
+  if (isProduction || !isVisible) return null;
 
   // 상태 결정
   const getStatus = () => {

@@ -46,7 +46,7 @@ function highlightText(text: string, query: string): React.ReactNode {
   const parts = text.split(new RegExp(`(${query})`, "gi"));
   return parts.map((part, index) =>
     part.toLowerCase() === query.toLowerCase() ? (
-      <span key={index} className="text-[#AFC02B] font-semibold">
+      <span key={index} className="text-brand font-semibold">
         {part}
       </span>
     ) : (
@@ -66,9 +66,9 @@ function CategoryBadge({
   const config = {
     note: {
       label: "노트",
-      bgColor: "bg-blue-500/20",
-      textColor: "text-blue-400",
-      borderColor: "border-blue-500/30",
+      bgColor: "bg-status-info/20",
+      textColor: "text-status-info",
+      borderColor: "border-status-info/30",
     },
     file: {
       label: "파일",
@@ -110,11 +110,11 @@ function NoteResultItem({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg transition-colors text-left"
+      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-foreground/5 rounded-lg transition-colors text-left"
     >
       <CategoryBadge type="note" />
       <div className="flex-1 min-w-0">
-        <p className="text-white text-sm truncate">
+        <p className="text-foreground text-sm truncate">
           {highlightText(item.title, query)}
         </p>
       </div>
@@ -140,14 +140,14 @@ function FileResultItem({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg transition-colors text-left"
+      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-foreground/5 rounded-lg transition-colors text-left"
     >
       <CategoryBadge type="file" />
       <div className="flex-1 min-w-0">
-        <p className="text-white text-sm truncate">
+        <p className="text-foreground text-sm truncate">
           {highlightText(decodedTitle, query)}
         </p>
-        <p className="text-gray-500 text-xs truncate">
+        <p className="text-foreground-tertiary text-xs truncate">
           in &quot;{item.noteTitle}&quot;
         </p>
       </div>
@@ -170,14 +170,14 @@ function SegmentResultItem({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg transition-colors text-left"
+      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-foreground/5 rounded-lg transition-colors text-left"
     >
       <CategoryBadge type="segment" />
       <div className="flex-1 min-w-0">
-        <p className="text-white text-sm truncate">
+        <p className="text-foreground text-sm truncate">
           &quot;{highlightText(item.text, query)}&quot;
         </p>
-        <p className="text-gray-500 text-xs truncate">
+        <p className="text-foreground-tertiary text-xs truncate">
           {formatTime(item.startTime)} · {item.noteTitle || item.sessionTitle}
         </p>
       </div>
@@ -203,7 +203,7 @@ function ResultSection({
 
   return (
     <div className="py-2">
-      <div className="flex items-center gap-2 px-3 py-1.5 text-gray-400 text-xs font-medium">
+      <div className="flex items-center gap-2 px-3 py-1.5 text-foreground-secondary text-xs font-medium">
         {icon}
         <span>
           {title} ({count})
@@ -252,13 +252,13 @@ export function SearchDropdown({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -10, scale: 0.95 }}
           transition={{ duration: 0.15 }}
-          className="absolute top-full left-0 right-0 mt-2 bg-[#1E1E1E]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-50"
+          className="absolute top-full left-0 right-0 mt-2 bg-background-base/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-50"
         >
           <div className="max-h-[400px] overflow-y-auto">
             {/* 로딩 상태 */}
             {isLoading && (
               <div className="flex items-center justify-center py-8">
-                <div className="flex items-center gap-3 text-gray-400">
+                <div className="flex items-center gap-3 text-foreground-secondary">
                   <svg
                     className="animate-spin w-5 h-5"
                     fill="none"
@@ -285,7 +285,7 @@ export function SearchDropdown({
 
             {/* 결과 없음 */}
             {!isLoading && totalResults === 0 && query.trim() && (
-              <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+              <div className="flex flex-col items-center justify-center py-8 text-foreground-tertiary">
                 <svg
                   className="w-10 h-10 mb-3 opacity-30"
                   fill="none"
@@ -300,7 +300,7 @@ export function SearchDropdown({
                   />
                 </svg>
                 <p className="text-sm">검색 결과가 없습니다</p>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-foreground-tertiary mt-1">
                   다른 키워드로 검색해보세요
                 </p>
               </div>
@@ -308,7 +308,7 @@ export function SearchDropdown({
 
             {/* 검색 결과 */}
             {!isLoading && totalResults > 0 && (
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-border-subtle">
                 {/* 노트 섹션 */}
                 <ResultSection
                   title="노트"

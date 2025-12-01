@@ -329,10 +329,10 @@ export function MainContent() {
         </div>
 
         {/* 알림 아이콘 */}
-        <button className="w-10 h-10 flex items-center justify-center rounded-full bg-background-surface/60 backdrop-blur-xl border border-border-subtle hover:bg-foreground/10 transition-all">
+        <button className="w-10 h-10 flex items-center justify-center rounded-full bg-background-surface/60 backdrop-blur-xl border border-border-subtle hover:bg-foreground/10 transition-all text-foreground">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </motion.div>
@@ -443,12 +443,12 @@ export function MainContent() {
                   >
                     {/* 노트 아이콘 + 타입 배지 + 이름 */}
                     <div className="flex flex-row items-center gap-2 flex-1 min-w-0">
-                      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M11.6667 1.66667V6.66667H16.6667" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M13.3333 10.8333H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M13.3333 14.1667H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M8.33332 7.5H6.66666" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg className="w-5 h-5 flex-shrink-0 text-foreground" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M11.6667 1.66667H5.00001C4.55798 1.66667 4.13406 1.84227 3.8215 2.15483C3.50894 2.46739 3.33334 2.89131 3.33334 3.33334V16.6667C3.33334 17.1087 3.50894 17.5326 3.8215 17.8452C4.13406 18.1577 4.55798 18.3333 5.00001 18.3333H15C15.442 18.3333 15.866 18.1577 16.1785 17.8452C16.4911 17.5326 16.6667 17.1087 16.6667 16.6667V6.66667L11.6667 1.66667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M11.6667 1.66667V6.66667H16.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M13.3333 10.8333H6.66666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M13.3333 14.1667H6.66666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M8.33332 7.5H6.66666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 ${note.type === 'educator'
                         ? 'bg-brand/20 text-brand border border-brand/30'
@@ -471,10 +471,10 @@ export function MainContent() {
                       onClick={(e) => handleOptionClick(e, 'note', note.id)}
                       className="w-[24px] h-6 flex items-center justify-center hover:bg-background-overlay rounded flex-shrink-0"
                     >
-                      <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="2" cy="2" r="1.5" fill="white" />
-                        <circle cx="2" cy="8" r="1.5" fill="white" />
-                        <circle cx="2" cy="14" r="1.5" fill="white" />
+                      <svg className="text-foreground" width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="2" cy="2" r="1.5" fill="currentColor" />
+                        <circle cx="2" cy="8" r="1.5" fill="currentColor" />
+                        <circle cx="2" cy="14" r="1.5" fill="currentColor" />
                       </svg>
                     </button>
                   </div>
@@ -490,8 +490,8 @@ export function MainContent() {
                   >
                     {/* 폴더 아이콘 + 이름 */}
                     <div className="flex flex-row items-center gap-2 flex-1 min-w-0">
-                      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18.3333 15.8333C18.3333 16.2754 18.1577 16.6993 17.8452 17.0118C17.5326 17.3244 17.1087 17.5 16.6667 17.5H3.33334C2.89131 17.5 2.46739 17.3244 2.15483 17.0118C1.84227 16.6993 1.66667 16.2754 1.66667 15.8333V4.16667C1.66667 3.72464 1.84227 3.30072 2.15483 2.98816C2.46739 2.67559 2.89131 2.5 3.33334 2.5H7.5L9.16667 5H16.6667C17.1087 5 17.5326 5.17559 17.8452 5.48816C18.1577 5.80072 18.3333 6.22464 18.3333 6.66667V15.8333Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg className="w-5 h-5 flex-shrink-0 text-foreground" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18.3333 15.8333C18.3333 16.2754 18.1577 16.6993 17.8452 17.0118C17.5326 17.3244 17.1087 17.5 16.6667 17.5H3.33334C2.89131 17.5 2.46739 17.3244 2.15483 17.0118C1.84227 16.6993 1.66667 16.2754 1.66667 15.8333V4.16667C1.66667 3.72464 1.84227 3.30072 2.15483 2.98816C2.46739 2.67559 2.89131 2.5 3.33334 2.5H7.5L9.16667 5H16.6667C17.1087 5 17.5326 5.17559 17.8452 5.48816C18.1577 5.80072 18.3333 6.22464 18.3333 6.66667V15.8333Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span className="text-foreground font-normal text-base leading-[19px] truncate">
                         {folder.name}
@@ -508,10 +508,10 @@ export function MainContent() {
                       onClick={(e) => handleOptionClick(e, 'folder', folder.id)}
                       className="w-[24px] h-6 flex items-center justify-center hover:bg-background-overlay rounded flex-shrink-0"
                     >
-                      <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="2" cy="2" r="1.5" fill="white" />
-                        <circle cx="2" cy="8" r="1.5" fill="white" />
-                        <circle cx="2" cy="14" r="1.5" fill="white" />
+                      <svg className="text-foreground" width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="2" cy="2" r="1.5" fill="currentColor" />
+                        <circle cx="2" cy="8" r="1.5" fill="currentColor" />
+                        <circle cx="2" cy="14" r="1.5" fill="currentColor" />
                       </svg>
                     </button>
                   </div>

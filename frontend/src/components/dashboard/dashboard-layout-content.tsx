@@ -11,7 +11,7 @@ export function DashboardLayoutContent({
   const { selectedFolderId, setSelectedFolderId } = useDashboardContext();
 
   return (
-    <div className="flex h-screen bg-[#0A0A0A]">
+    <div className="flex h-screen bg-background-deep">
       <Sidebar
         selectedFolderId={selectedFolderId}
         onSelectFolder={setSelectedFolderId}

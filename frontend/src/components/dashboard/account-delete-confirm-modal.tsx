@@ -77,21 +77,15 @@ export function AccountDeleteConfirmModal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: "spring", duration: 0.3, bounce: 0.2 }}
-              className="bg-[#1a1a1a]/95 backdrop-blur-xl rounded-3xl w-[440px] overflow-hidden"
+              className="bg-background-modal/95 backdrop-blur-xl rounded-3xl w-[440px] overflow-hidden border-2 border-status-error shadow-[0_25px_50px_-12px_rgba(220,38,38,0.5)]"
               style={{
                 pointerEvents: "auto",
-                border: "2px solid #dc2626",
-                boxShadow: "0 25px 50px -12px rgba(220, 38, 38, 0.5)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* 경고 헤더 */}
               <div
-                className="p-6"
-                style={{
-                  background: "linear-gradient(to right, rgba(220, 38, 38, 0.2), rgba(127, 29, 29, 0.2))",
-                  borderBottom: "1px solid #dc2626",
-                }}
+                className="p-6 bg-gradient-to-r from-status-error/20 to-red-900/20 border-b border-status-error"
               >
                 <div className="flex items-center gap-4">
                   {/* 경고 아이콘 */}
@@ -99,18 +93,13 @@ export function AccountDeleteConfirmModal({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", duration: 0.5, bounce: 0.4 }}
-                    className="w-14 h-14 rounded-full flex items-center justify-center"
-                    style={{
-                      backgroundColor: "rgba(220, 38, 38, 0.2)",
-                      border: "1px solid rgba(220, 38, 38, 0.5)",
-                    }}
+                    className="w-14 h-14 rounded-full flex items-center justify-center bg-status-error/20 border border-status-error/50"
                   >
                     <motion.svg
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.2 }}
-                      className="w-7 h-7"
-                      style={{ color: "#ef4444" }}
+                      className="w-7 h-7 text-status-error"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -124,8 +113,8 @@ export function AccountDeleteConfirmModal({
                     </motion.svg>
                   </motion.div>
                   <div>
-                    <h2 className="text-xl font-bold" style={{ color: "#f87171" }}>계정 삭제</h2>
-                    <p className="text-sm" style={{ color: "rgba(252, 165, 165, 0.6)" }}>이 작업은 되돌릴 수 없습니다</p>
+                    <h2 className="text-xl font-bold text-red-400">계정 삭제</h2>
+                    <p className="text-sm text-red-300/60">이 작업은 되돌릴 수 없습니다</p>
                   </div>
                 </div>
               </div>
@@ -134,16 +123,11 @@ export function AccountDeleteConfirmModal({
               <div className="p-6 flex flex-col gap-5">
                 {/* 경고 박스 */}
                 <div
-                  className="rounded-xl p-4"
-                  style={{
-                    backgroundColor: "rgba(220, 38, 38, 0.1)",
-                    border: "1px solid #dc2626",
-                  }}
+                  className="rounded-xl p-4 bg-status-error/10 border border-status-error"
                 >
                   <div className="flex gap-3">
                     <svg
-                      className="w-5 h-5 flex-shrink-0 mt-0.5"
-                      style={{ color: "#f87171" }}
+                      className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-400"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -154,10 +138,10 @@ export function AccountDeleteConfirmModal({
                       />
                     </svg>
                     <div className="text-sm">
-                      <p className="font-medium mb-2" style={{ color: "#fca5a5" }}>
+                      <p className="font-medium mb-2 text-red-300">
                         계정을 삭제하면 다음 데이터가 모두 삭제됩니다:
                       </p>
-                      <ul className="space-y-1 list-disc list-inside" style={{ color: "rgba(252, 165, 165, 0.7)" }}>
+                      <ul className="space-y-1 list-disc list-inside text-red-300/70">
                         <li>모든 노트 및 폴더</li>
                         <li>녹음 파일 및 변환된 텍스트</li>
                         <li>프로필 정보</li>
@@ -168,16 +152,11 @@ export function AccountDeleteConfirmModal({
 
                 {/* 복구 안내 */}
                 <div
-                  className="rounded-xl p-4"
-                  style={{
-                    backgroundColor: "rgba(234, 179, 8, 0.1)",
-                    border: "1px solid #ca8a04",
-                  }}
+                  className="rounded-xl p-4 bg-amber-500/10 border border-amber-600"
                 >
                   <div className="flex gap-3">
                     <svg
-                      className="w-5 h-5 flex-shrink-0 mt-0.5"
-                      style={{ color: "#facc15" }}
+                      className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-400"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -188,8 +167,8 @@ export function AccountDeleteConfirmModal({
                       />
                     </svg>
                     <div className="text-sm">
-                      <p className="font-medium" style={{ color: "#fde047" }}>30일 복구 기간</p>
-                      <p className="mt-1" style={{ color: "rgba(253, 224, 71, 0.7)" }}>
+                      <p className="font-medium text-amber-300">30일 복구 기간</p>
+                      <p className="mt-1 text-amber-300/70">
                         삭제 후 30일 내에 복구 토큰을 사용하여 계정을 복구할 수 있습니다.
                       </p>
                     </div>
@@ -198,8 +177,8 @@ export function AccountDeleteConfirmModal({
 
                 {/* 확인 입력 */}
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-400">
-                    계속하려면 <span style={{ color: "#f87171", fontWeight: "bold" }}>&quot;{CONFIRM_TEXT}&quot;</span>를
+                  <label className="text-sm text-foreground-secondary">
+                    계속하려면 <span className="text-red-400 font-bold">&quot;{CONFIRM_TEXT}&quot;</span>를
                     입력하세요
                   </label>
                   <input
@@ -208,19 +187,7 @@ export function AccountDeleteConfirmModal({
                     onChange={(e) => setConfirmText(e.target.value)}
                     placeholder={CONFIRM_TEXT}
                     disabled={isDeleting}
-                    className="w-full text-white px-4 py-3 rounded-xl outline-none transition-all placeholder:text-gray-600 disabled:opacity-50"
-                    style={{
-                      backgroundColor: "rgba(30, 30, 30, 0.6)",
-                      border: "1px solid rgba(220, 38, 38, 0.5)",
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = "#dc2626";
-                      e.target.style.boxShadow = "0 0 0 1px #dc2626";
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = "rgba(220, 38, 38, 0.5)";
-                      e.target.style.boxShadow = "none";
-                    }}
+                    className="w-full text-foreground px-4 py-3 rounded-xl outline-none transition-all placeholder:text-foreground-tertiary disabled:opacity-50 bg-background-base/60 border border-status-error/50 focus:border-status-error focus:ring-1 focus:ring-status-error"
                   />
                 </div>
 
@@ -238,7 +205,7 @@ export function AccountDeleteConfirmModal({
                     variant="brand"
                     onClick={handleDelete}
                     disabled={!isConfirmed || isDeleting}
-                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 disabled:hover:bg-red-600/50 text-white shadow-lg shadow-red-900/30"
+                    className="flex-1 bg-status-error hover:bg-status-error/90 disabled:bg-status-error/50 disabled:hover:bg-status-error/50 text-white shadow-lg shadow-status-error/30"
                   >
                     {isDeleting ? (
                       <span className="flex items-center gap-2">
