@@ -27,7 +27,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               variant === "brand",
 
             // Secondary: Gray background
-            "bg-foreground/10 text-foreground hover:bg-foreground/20 border border-[#9ca3af] dark:border-transparent":
+            "bg-foreground/10 text-foreground hover:bg-foreground/20":
               variant === "secondary",
 
             // Outline: Bordered

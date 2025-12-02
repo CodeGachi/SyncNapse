@@ -91,7 +91,7 @@ export function RecordingBar({
   return (
     <div
       className={`
-        flex items-center bg-background-elevated rounded-full px-3 py-1.5
+        flex items-center bg-[#e5e7eb] dark:bg-background-elevated rounded-full px-3 py-1.5
         transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${isExpanded ? "gap-3 pr-2" : "gap-2"}
       `}
@@ -101,7 +101,7 @@ export function RecordingBar({
         onClick={onPlayToggle}
         className={`
           w-8 h-8 rounded-full flex items-center justify-center cursor-pointer
-          transition-all duration-300 flex-shrink-0 bg-background-overlay hover:bg-background-base
+          transition-all duration-300 flex-shrink-0 bg-[#d1d5db] dark:bg-background-overlay hover:bg-[#9ca3af] dark:hover:bg-background-base
           hover:scale-105 active:scale-95
         `}
         title={isRecording ? "녹음 일시정지/재개" : "녹음 시작"}
@@ -126,9 +126,9 @@ export function RecordingBar({
         onClick={isRecording && onSave ? onSave : undefined}
         disabled={!isRecording}
         className={`
-          w-8 h-8 bg-background-overlay rounded-full flex items-center justify-center flex-shrink-0
+          w-8 h-8 bg-[#d1d5db] dark:bg-background-overlay rounded-full flex items-center justify-center flex-shrink-0
           transition-all duration-300
-          ${isRecording ? "cursor-pointer hover:bg-background-base hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
+          ${isRecording ? "cursor-pointer hover:bg-[#9ca3af] dark:hover:bg-background-base hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
         `}
         title="저장"
       >
@@ -166,7 +166,7 @@ export function RecordingBar({
         <div
           ref={progressRef}
           className={`
-            w-[40px] h-[4px] flex-shrink-0 relative bg-background-overlay rounded-full
+            w-[40px] h-[4px] flex-shrink-0 relative bg-[#d1d5db] dark:bg-background-overlay rounded-full
             transition-all duration-300
             ${isPlaybackMode ? "cursor-pointer hover:h-[6px]" : "cursor-not-allowed opacity-50"}
           `}
@@ -201,9 +201,9 @@ export function RecordingBar({
           onClick={isPlaybackMode && onStop ? onStop : undefined}
           disabled={!isPlaybackMode}
           className={`
-            w-8 h-8 bg-background-overlay rounded-full flex items-center justify-center flex-shrink-0
+            w-8 h-8 bg-[#d1d5db] dark:bg-background-overlay rounded-full flex items-center justify-center flex-shrink-0
             transition-all duration-300
-            ${isPlaybackMode ? "cursor-pointer hover:bg-background-base hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
+            ${isPlaybackMode ? "cursor-pointer hover:bg-[#9ca3af] dark:hover:bg-background-base hover:scale-105 active:scale-95" : "opacity-40 cursor-not-allowed"}
           `}
           title={isPlaybackMode ? (isPlaying ? "일시정지" : "재생") : "녹음본 선택 필요"}
         >
@@ -248,7 +248,7 @@ export function RecordingBar({
             onClick={onToggleRecordingList}
             className="
               flex items-center justify-center w-8 h-8 rounded-full
-              bg-background-overlay hover:bg-background-base cursor-pointer
+              bg-[#d1d5db] dark:bg-background-overlay hover:bg-[#9ca3af] dark:hover:bg-background-base cursor-pointer
               transition-all duration-300 flex-shrink-0
               hover:scale-105 active:scale-95
             "
@@ -268,7 +268,7 @@ export function RecordingBar({
           hover:scale-110 active:scale-95 relative
           ${isExpanded
             ? "bg-brand shadow-lg shadow-brand/30"
-            : "bg-background-overlay hover:bg-background-base"
+            : "bg-[#d1d5db] dark:bg-background-overlay hover:bg-[#9ca3af] dark:hover:bg-background-base"
           }
         `}
         title={isExpanded ? "접기" : "펼치기"}

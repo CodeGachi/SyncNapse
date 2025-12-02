@@ -27,7 +27,7 @@ export function Panel({
   if (!isOpen) return null;
 
   const borderClass =
-    borderColor === "green" ? "border-brand" : "border-border";
+    borderColor === "green" ? "border-brand" : "border-[#9ca3af] dark:border-border";
 
   const heightClass = height ? height : "h-full";
 
@@ -37,7 +37,7 @@ export function Panel({
     >
       {/* Header with title and close button */}
       {(title || onClose) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#d1d5db] dark:border-border flex-shrink-0">
           {title && <h3 className="text-foreground text-sm font-bold">{title}</h3>}
           {!title && <div />}
           {onClose && (

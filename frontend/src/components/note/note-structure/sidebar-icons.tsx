@@ -66,7 +66,7 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
   const getButtonClass = (isActive: boolean) =>
     `flex items-center justify-center w-[53px] h-[53px] bg-background-elevated border-2 ${isActive ? 'border-brand' : 'border-foreground'
     } rounded-[30px] hover:bg-background-overlay transition-colors`;
-  const iconContainerClass = "grid place-items-center w-[33px] h-[33px] bg-background-overlay rounded-[16.5px]";
+  const iconContainerClass = "grid place-items-center w-[33px] h-[33px] bg-[#d1d5db] dark:bg-background-overlay rounded-[16.5px]";
   const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-foreground font-bold text-[10px] leading-[12px]";
 
   return (
