@@ -132,13 +132,20 @@ async function performRefresh(): Promise<string | null> {
     const API_BASE_URL =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-    // 백엔드는 쿠키에서 refreshToken을 읽음 (credentials: "include" 필요)
+    // 쿠키에서 refreshToken 가져오기
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      throw new Error("No refresh token available");
+    }
+
+    // refreshToken을 Authorization 헤더로 전송 (cross-origin에서 쿠키가 전송되지 않으므로)
     const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-Refresh-Token": refreshToken, // 커스텀 헤더로 전송
       },
-      credentials: "include", // 쿠키 포함 (백엔드가 쿠키에서 refreshToken 읽음)
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -147,23 +154,21 @@ async function performRefresh(): Promise<string | null> {
 
     const data = await response.json();
 
-    // 백엔드 응답 스펙: { accessToken, expiresIn }
-    // refreshToken은 쿠키로 자동 갱신됨 (백엔드가 Set-Cookie로 전달)
     const newAccessToken = data.accessToken;
-
     if (!newAccessToken) {
       throw new Error("No access token in response");
     }
 
-    // Access Token만 localStorage에 저장
-    // Refresh Token은 httpOnly 쿠키로 관리됨
+    // 새 토큰 저장
     setAccessToken(newAccessToken);
+    if (data.refreshToken) {
+      setRefreshToken(data.refreshToken);
+    }
 
     console.log("[TokenManager] Access token refreshed successfully");
     return newAccessToken;
   } catch (error) {
     console.error("[TokenManager] Token refresh failed:", error);
-    // 갱신 실패 시 access token만 제거 (refresh token은 쿠키에서 자동 관리)
     clearTokens();
     return null;
   }

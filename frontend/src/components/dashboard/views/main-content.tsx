@@ -280,8 +280,8 @@ export function MainContent() {
       >
         {/* 검색 입력 */}
         <div ref={searchContainerRef} className="relative">
-          <div className={`flex flex-row items-center px-4 py-2.5 gap-3 w-[320px] h-[48px] bg-background-surface/60 backdrop-blur-xl border rounded-full shadow-lg shadow-black/20 transition-all duration-300 group ${
-            isSearchOpen && searchQuery.trim() ? 'border-brand/50' : 'border-border-subtle hover:border-brand/30'
+          <div className={`flex flex-row items-center px-4 py-2.5 gap-3 w-[320px] h-[48px] bg-background-surface/60 backdrop-blur-xl border rounded-full shadow-lg shadow-black/20 transition-all duration-300 group focus-within:outline-none ${
+            isSearchOpen && searchQuery.trim() ? 'border-brand/50' : 'border-border-subtle hover:border-brand/30 focus-within:border-brand/50'
           }`}>
             <div className="w-5 h-5 flex items-center justify-center text-foreground-tertiary group-hover:text-brand transition-colors">
               {isSearchLoading ? (
@@ -302,7 +302,7 @@ export function MainContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.trim() && setIsSearchOpen(true)}
-              className="flex-1 bg-transparent text-foreground text-sm font-medium outline-none placeholder:text-foreground-tertiary"
+              className="flex-1 bg-transparent text-foreground text-sm font-medium outline-none focus:ring-0 placeholder:text-foreground-tertiary"
             />
             {searchQuery && (
               <button
