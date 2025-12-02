@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { exchangeCodeForToken, logout as logoutApi, type OAuthTokenResponse } from "../auth.api";
 import { getCurrentUser } from "../services/auth.api";
+import { setAccessToken, setRefreshToken, clearTokens } from "@/lib/auth/token-manager";
 
 const log = createLogger("AuthMutation");
 
@@ -29,10 +30,10 @@ export function useLogin(
       return response;
     },
     onSuccess: async (data) => {
-      // Store tokens in localStorage
-      localStorage.setItem("authToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
-      
+      // Store tokens in cookies
+      setAccessToken(data.accessToken);
+      setRefreshToken(data.refreshToken);
+
       // Fetch user info
       try {
         const user = await getCurrentUser();
@@ -53,15 +54,9 @@ export function useLogout(options?: UseMutationOptions<void, Error, void>) {
       await logoutApi();
     },
     onSuccess: () => {
-      // Clear tokens from localStorage
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-      
-      // Clear cookies
-      document.cookie = "authToken=; path=/; max-age=0";
-      document.cookie = "refreshToken=; path=/; max-age=0";
-      
+      // Clear tokens from cookies
+      clearTokens();
+
       // Clear React Query cache
       queryClient.clear();
     },

@@ -13,6 +13,7 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import type { DBFile } from "@/lib/db/files";
+import { getAccessToken } from "@/lib/auth/token-manager";
 
 const log = createLogger("FilesAPI");
 import {
@@ -90,7 +91,7 @@ export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId
 async function syncFilesInBackground(noteId: string): Promise<void> {
   try {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    const token = localStorage.getItem("authToken");
+    const token = getAccessToken();
 
     if (!token) {
       log.debug(`No auth token, skipping backend sync`);

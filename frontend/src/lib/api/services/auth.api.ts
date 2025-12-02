@@ -115,7 +115,6 @@ export async function getCurrentUser(): Promise<User | null> {
 
     if (!token) {
       log.debug("No valid token available");
-      localStorage.removeItem("user");
       return null;
     }
 
@@ -156,27 +155,16 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 /**
- * localStorage에서 모든 인증 토큰 제거
- */
-function clearAuthTokens(): void {
-  clearTokens();
-  localStorage.removeItem("user");
-}
-
-/**
  * 로그아웃
  * - HTTP Client V2 사용
- * - 항상 로컬 토큰 제거
+ * - 항상 토큰 제거
  */
 export async function logout(): Promise<void> {
-  const refreshToken = localStorage.getItem("refreshToken");
-
   try {
     await apiClient<{ message: string }>("/api/auth/logout", {
       method: "POST",
-      body: JSON.stringify({ refreshToken }),
     });
   } finally {
-    clearAuthTokens();
+    clearTokens();
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Token Manager - JWT 토큰 관리
+ * Token Manager - JWT 토큰 관리 (쿠키 기반)
  *
  * - Access Token 저장/가져오기
  * - Refresh Token 저장/가져오기
@@ -7,55 +7,49 @@
  * - 토큰 유효성 검사
  */
 
+import { getCookie, setCookie, deleteCookie } from "@/lib/utils/cookie";
+
 const ACCESS_TOKEN_KEY = "authToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
+
+// 토큰 만료 시간 (초)
+const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7일
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30일
 
 /**
  * Access Token 저장
  */
 export function setAccessToken(token: string): void {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  }
+  setCookie(ACCESS_TOKEN_KEY, token, ACCESS_TOKEN_MAX_AGE);
 }
 
 /**
  * Access Token 가져오기
  */
 export function getAccessToken(): string | null {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
-  }
-  return null;
+  return getCookie(ACCESS_TOKEN_KEY);
 }
 
 /**
  * Refresh Token 저장
  */
 export function setRefreshToken(token: string): void {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token);
-  }
+  setCookie(REFRESH_TOKEN_KEY, token, REFRESH_TOKEN_MAX_AGE);
 }
 
 /**
  * Refresh Token 가져오기
  */
 export function getRefreshToken(): string | null {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
-  }
-  return null;
+  return getCookie(REFRESH_TOKEN_KEY);
 }
 
 /**
  * 모든 토큰 제거 (로그아웃)
  */
 export function clearTokens(): void {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-  }
+  deleteCookie(ACCESS_TOKEN_KEY);
+  deleteCookie(REFRESH_TOKEN_KEY);
 }
 
 /**

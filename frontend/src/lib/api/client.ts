@@ -11,6 +11,7 @@
  */
 
 import { createLogger } from "@/lib/utils/logger";
+import { getAccessToken } from "@/lib/auth/token-manager";
 
 const log = createLogger("API");
 
@@ -220,7 +221,7 @@ async function performRequest<T>(
   const skipInterceptors = config?.skipInterceptors ?? false;
 
   // Get auth token
-  const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+  const token = getAccessToken();
 
   let requestConfig: RequestInit & { url: string } = {
     ...options,
@@ -450,6 +451,6 @@ export function clearCacheByPattern(pattern: RegExp | string): void {
  * Returns Bearer token header if token exists
  */
 export function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem("authToken");
+  const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

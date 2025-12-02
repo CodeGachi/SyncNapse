@@ -25,6 +25,7 @@ import {
 } from "@/lib/db/notes";
 import { dbToNote, dbToNotes, apiToNote, apiToNotes } from "../adapters/note.adapter";
 import { getAuthHeaders } from "../client";
+import { getAccessToken } from "@/lib/auth/token-manager";
 // import { getSyncQueue } from "@/lib/sync"; // TODO: Use useSyncStore instead
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
@@ -294,7 +295,7 @@ export async function createNote(
         folderId,
         type,
         filesCount: files.length,
-        hasAuthToken: !!localStorage.getItem("authToken"),
+        hasAuthToken: !!getAccessToken(),
       });
 
       const res = await fetch(`${API_BASE_URL}/api/notes`, {

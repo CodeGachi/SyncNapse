@@ -4,6 +4,7 @@
  */
 
 import { apiClient, getAuthHeaders } from "./client";
+import { getRefreshToken, setAccessToken, setRefreshToken } from "@/lib/auth/token-manager";
 
 export interface User {
   id: string;
@@ -76,34 +77,33 @@ export async function getCurrentUser(): Promise<User> {
  * Refresh access token using refresh token
  */
 export async function refreshAccessToken(): Promise<OAuthTokenResponse> {
-  const refreshToken = localStorage.getItem("refreshToken");
-  
+  const refreshToken = getRefreshToken();
+
   if (!refreshToken) {
     throw new Error("No refresh token available");
   }
-  
+
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   const response = await fetch(`${baseUrl}/api/auth/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ refreshToken }),
     credentials: "include",
   });
-  
+
   if (!response.ok) {
     throw new Error("Failed to refresh token");
   }
-  
+
   const data = await response.json();
-  
-  // Update tokens in localStorage
-  localStorage.setItem("authToken", data.accessToken);
+
+  // Update tokens in cookies
+  setAccessToken(data.accessToken);
   if (data.refreshToken) {
-    localStorage.setItem("refreshToken", data.refreshToken);
+    setRefreshToken(data.refreshToken);
   }
-  
+
   return data;
 }
 

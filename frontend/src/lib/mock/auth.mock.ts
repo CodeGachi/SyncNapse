@@ -4,6 +4,8 @@
  */
 
 import type { User, LoginResponse } from "../api/auth.api";
+import { setAccessToken, getAccessToken, clearTokens } from "../auth/token-manager";
+import { setCookie, getCookie } from "../utils/cookie";
 
 const MOCK_USER: User = {
   id: "mock-user-123",
@@ -21,10 +23,8 @@ export async function mockGoogleLogin(): Promise<LoginResponse> {
 
   const token = `mock-jwt-token-${Date.now()}`;
 
-  localStorage.setItem("authToken", token);
-  localStorage.setItem("user", JSON.stringify(MOCK_USER));
-
-  document.cookie = `authToken=${token}; path=/; max-age=86400`;    
+  setAccessToken(token);
+  setCookie("user", JSON.stringify(MOCK_USER), 60 * 60 * 24);
 
   return {
     user: MOCK_USER,
@@ -36,10 +36,10 @@ export async function mockGoogleLogin(): Promise<LoginResponse> {
  * Mock user data lookup
  */
 export async function mockGetCurrentUser(): Promise<User | null> {
-  const token = localStorage.getItem("authToken");
+  const token = getAccessToken();
   if (!token) return null;
 
-  const userStr = localStorage.getItem("user");
+  const userStr = getCookie("user");
   if (!userStr) return null;
 
   return JSON.parse(userStr);
@@ -49,10 +49,8 @@ export async function mockGetCurrentUser(): Promise<User | null> {
  * Mock logout
  */
 export async function mockLogout(): Promise<void> {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("user");
-
-  document.cookie = "authToken=; path=/; max-age=0";
+  clearTokens();
+  setCookie("user", "", 0);
 }
 
 /**

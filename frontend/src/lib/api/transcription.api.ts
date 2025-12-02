@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { getAccessToken } from '@/lib/auth/token-manager';
 
 export interface TranscriptionSession {
   id: string;
@@ -244,9 +245,7 @@ export async function getRevisions(
 // Get audio blob URL for playback
 // Fetches audio from backend proxy and returns a blob URL
 export async function getAudioBlobUrl(sessionId: string): Promise<string> {
-  const token = typeof window !== 'undefined'
-    ? localStorage.getItem('authToken')
-    : null;
+  const token = getAccessToken();
 
   const response = await fetch(`/api/transcription/sessions/${sessionId}/audio`, {
     headers: {

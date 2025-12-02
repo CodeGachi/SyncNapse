@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from "@/lib/utils/logger";
+import { getAccessToken } from "@/lib/auth/token-manager";
 
 const log = createLogger("FileUpload");
 
@@ -31,8 +32,7 @@ export interface FileUploadResponse {
  * 인증 토큰 가져오기
  */
 function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("authToken");
+  return getAccessToken();
 }
 
 /**

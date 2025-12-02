@@ -13,6 +13,7 @@ import { useSyncStore } from "./sync-store";
 import type { SyncQueueItem } from "./sync-queue";
 import { apiClient } from "@/lib/api/client";
 import { getFileById } from "@/lib/db/files";
+import { getAccessToken } from "@/lib/auth/token-manager";
 
 /**
  * Backend에 단일 아이템 동기화 (HTTP Client V2 사용)
@@ -73,7 +74,7 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
         formData.append("file", file);
 
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-        const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+        const token = getAccessToken();
 
         const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/files`, {
           method: "POST",
