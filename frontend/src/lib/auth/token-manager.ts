@@ -114,9 +114,9 @@ export function isTokenExpiringSoon(token: string, bufferSeconds: number = 60): 
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
- * Access Token 갱신 (Refresh Token Rotation 지원)
+ * Access Token 갱신
  * - Race Condition 방지: 동시 요청 시 하나의 Promise 공유
- * - 새 Refresh Token도 저장 (백엔드 Rotation 정책)
+ * - Refresh Token은 httpOnly 쿠키로 관리 (백엔드가 자동 갱신)
  */
 export async function refreshAccessToken(): Promise<string | null> {
   // 이미 갱신 중이면 기존 Promise 반환 (Race Condition 방지)
@@ -134,24 +134,17 @@ export async function refreshAccessToken(): Promise<string | null> {
 }
 
 async function performRefresh(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    console.warn("[TokenManager] No refresh token available");
-    return null;
-  }
-
   try {
     const API_BASE_URL =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+    // 백엔드는 쿠키에서 refreshToken을 읽음 (credentials: "include" 필요)
     const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        refreshToken: refreshToken,  // 백엔드 스펙: camelCase
-      }),
+      credentials: "include", // 쿠키 포함 (백엔드가 쿠키에서 refreshToken 읽음)
     });
 
     if (!response.ok) {
@@ -160,25 +153,23 @@ async function performRefresh(): Promise<string | null> {
 
     const data = await response.json();
 
-    // 백엔드 응답 스펙: { accessToken, refreshToken, expiresIn }
+    // 백엔드 응답 스펙: { accessToken, expiresIn }
+    // refreshToken은 쿠키로 자동 갱신됨 (백엔드가 Set-Cookie로 전달)
     const newAccessToken = data.accessToken;
-    const newRefreshToken = data.refreshToken;
 
     if (!newAccessToken) {
       throw new Error("No access token in response");
     }
 
-    // 새 토큰들 저장 (Rotation: 새 Refresh Token도 저장)
+    // Access Token만 localStorage에 저장
+    // Refresh Token은 httpOnly 쿠키로 관리됨
     setAccessToken(newAccessToken);
-    if (newRefreshToken) {
-      setRefreshToken(newRefreshToken);
-    }
 
-    console.log("[TokenManager] Tokens refreshed successfully");
+    console.log("[TokenManager] Access token refreshed successfully");
     return newAccessToken;
   } catch (error) {
     console.error("[TokenManager] Token refresh failed:", error);
-    // 갱신 실패 시 모든 토큰 제거
+    // 갱신 실패 시 access token만 제거 (refresh token은 쿠키에서 자동 관리)
     clearTokens();
     return null;
   }

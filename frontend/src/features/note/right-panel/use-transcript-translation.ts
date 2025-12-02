@@ -1,11 +1,14 @@
 /**
- * Transcript Translation Hook
+ * 트랜스크립트 번역 훅
  * DeepL API를 사용한 실시간 번역
  */
 
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("TranscriptTranslation");
 import { useScriptTranslationStore } from "@/stores";
 import type { TranslationErrorType } from "@/stores/script-translation-store";
 import {
@@ -61,7 +64,7 @@ export function useTranscriptTranslation() {
         remaining: usage.remaining,
       });
     } catch (error) {
-      console.warn('[Translation] Failed to fetch usage:', error);
+      log.warn('사용량 조회 실패:', error);
     }
   }, [setUsageInfo]);
 
@@ -84,7 +87,7 @@ export function useTranscriptTranslation() {
     );
 
     if (untranslatedSegments.length === 0) {
-      console.log('[Translation] No segments to translate');
+      log.debug('번역할 세그먼트 없음');
       return;
     }
 
@@ -96,7 +99,7 @@ export function useTranscriptTranslation() {
       const sourceLang = toDeepLLanguage(originalLanguage);
       const targetLang = toDeepLLanguage(targetLanguage);
 
-      console.log('[Translation] Starting translation:', {
+      log.debug('번역 시작:', {
         segments: untranslatedSegments.length,
         from: sourceLang,
         to: targetLang,
@@ -114,7 +117,7 @@ export function useTranscriptTranslation() {
 
         // 결과 업데이트
         batch.forEach((segment, idx) => {
-          console.log('[Translation] Updating segment:', {
+          log.debug('세그먼트 업데이트:', {
             segmentId: segment.id,
             original: segment.originalText,
             translated: translatedTexts[idx],
@@ -129,12 +132,12 @@ export function useTranscriptTranslation() {
         }
       }
 
-      console.log('[Translation] Translation complete');
+      log.debug('번역 완료');
 
       // 사용량 업데이트
       await updateUsage();
     } catch (error) {
-      console.error('[Translation] Translation failed:', error);
+      log.error('번역 실패:', error);
       const errorType = handleError(error);
       setTranslationError(errorType);
 
@@ -174,7 +177,7 @@ export function useTranscriptTranslation() {
     );
 
     if (needsTranslation) {
-      console.log('[Translation] New segments detected, starting translation...');
+      log.debug('새 세그먼트 감지, 번역 시작...');
       translateAllSegments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

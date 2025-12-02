@@ -34,9 +34,9 @@ function MenuItem({ icon, label, onClick }: MenuItemProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-200 hover:bg-[#3f3f3f] transition-colors text-left"
+      className="w-full flex items-center gap-3 px-4 py-2.5 text-foreground-secondary hover:bg-background-overlay transition-colors text-left"
     >
-      <span className="w-5 h-5 flex items-center justify-center text-gray-400">
+      <span className="w-5 h-5 flex items-center justify-center text-foreground-tertiary">
         {icon}
       </span>
       <span className="text-sm">{label}</span>
@@ -76,13 +76,13 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFold
       isOpen={isOpen}
       onClose={onClose}
       title="노트 이동"
-      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[480px] max-h-[80vh]"
+      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[480px] max-h-[80vh]"
     >
       <div className="flex flex-col gap-6">
         {/* 검색 입력 */}
         <div className="relative w-full">
           <svg
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground-tertiary"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
@@ -96,16 +96,16 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFold
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="노트 검색..."
-            className="w-full pl-12 pr-4 py-3 bg-[#262626] border border-[#575757] rounded-xl text-white outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all placeholder:text-gray-500"
+            className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
           />
         </div>
 
         {/* 노트 목록 */}
-        <div className="bg-[#262626] border border-[#575757] rounded-xl p-2 min-h-[280px] max-h-[350px] overflow-y-auto">
+        <div className="bg-background-elevated border border-border rounded-xl p-2 min-h-[280px] max-h-[350px] overflow-y-auto">
           {isLoading ? (
             <LoadingScreen message="로딩 중..." className="py-12" />
           ) : filteredNotes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-12 text-foreground-tertiary">
               <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                 <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
@@ -118,8 +118,8 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFold
                   key={note.id}
                   onClick={() => setSelectedNoteId(note.id)}
                   className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg text-left transition-all ${selectedNoteId === note.id
-                    ? "bg-[#899649]/30 text-white ring-1 ring-[#899649]/50"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    ? "bg-brand/30 text-foreground ring-1 ring-brand/50"
+                    : "text-foreground-tertiary hover:bg-foreground/5 hover:text-foreground"
                     }`}
                 >
                   <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -127,12 +127,12 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFold
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{note.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-foreground-tertiary mt-0.5">
                       {new Date(note.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
                   {selectedNoteId === note.id && (
-                    <svg className="w-5 h-5 text-[#AFC02B] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -198,12 +198,12 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
       isOpen={isOpen}
       onClose={onClose}
       title="제목 수정"
-      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[420px]"
+      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[420px]"
     >
       <div className="flex flex-col gap-6">
         {/* 제목 입력 */}
         <div className="flex flex-col gap-2 w-full">
-          <label className="text-sm text-gray-400 font-medium">노트 제목</label>
+          <label className="text-sm text-foreground-secondary font-medium">노트 제목</label>
           <input
             ref={inputRef}
             type="text"
@@ -211,7 +211,7 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="노트 제목을 입력하세요"
-            className="w-full px-4 py-3 bg-[#262626] border border-[#575757] rounded-xl text-white outline-none focus:border-[#AFC02B] focus:ring-1 focus:ring-[#AFC02B] transition-all placeholder:text-gray-500"
+            className="w-full px-4 py-3 bg-background-elevated border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
           />
         </div>
 
@@ -361,7 +361,7 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
       {isOpen && (
         <div
           ref={menuRef}
-          className="absolute top-14 left-14 w-[200px] bg-[#2f2f2f] border border-[#393939] rounded-[10px] shadow-lg z-50 overflow-hidden"
+          className="absolute top-14 left-14 w-[200px] bg-background-elevated border border-border rounded-[10px] shadow-lg z-50 overflow-hidden"
         >
           <div className="py-2">
             {/* 노트 이동 (다른 노트로) */}
@@ -416,7 +416,7 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
             />
 
             {/* 구분선 */}
-            <div className="my-1 mx-3 border-t border-[#4f4f4f]" />
+            <div className="my-1 mx-3 border-t border-border" />
 
             {/* 단축키 도움말 */}
             <MenuItem

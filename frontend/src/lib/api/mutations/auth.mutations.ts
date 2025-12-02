@@ -1,3 +1,9 @@
+/**
+ * 인증 관련 React Query 뮤테이션 훅
+ * 로그인, 로그아웃 등 인증 작업 처리
+ */
+
+import { createLogger } from "@/lib/utils/logger";
 import {
   useMutation,
   useQueryClient,
@@ -5,6 +11,8 @@ import {
 } from "@tanstack/react-query";
 import { exchangeCodeForToken, logout as logoutApi, type OAuthTokenResponse } from "../auth.api";
 import { getCurrentUser } from "../services/auth.api";
+
+const log = createLogger("AuthMutation");
 
 export function useLogin(
   options?: UseMutationOptions<
@@ -30,7 +38,7 @@ export function useLogin(
         const user = await getCurrentUser();
         queryClient.setQueryData(["auth", "currentUser"], user);
       } catch (error) {
-        console.error("Failed to fetch user info:", error);
+        log.error("Failed to fetch user info:", error);
       }
     },
     ...options,

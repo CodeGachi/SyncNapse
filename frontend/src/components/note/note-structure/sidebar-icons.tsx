@@ -64,17 +64,17 @@ export function SidebarIcons({ noteId, isEducator }: SidebarIconsProps) {
   // 아이콘 버튼 공통 스타일
   const buttonWrapperClass = "flex flex-col items-center w-[53px] h-[67px]";
   const getButtonClass = (isActive: boolean) =>
-    `flex items-center justify-center w-[53px] h-[53px] bg-[#363636] border-2 ${isActive ? 'border-[#afc02b]' : 'border-white'
-    } rounded-[30px] hover:bg-[#3a3a3a] transition-colors`;
-  const iconContainerClass = "grid place-items-center w-[33px] h-[33px] bg-[#444444] rounded-[16.5px]";
-  const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-white font-bold text-[10px] leading-[12px]";
+    `flex items-center justify-center w-[53px] h-[53px] bg-background-elevated border-2 ${isActive ? 'border-brand' : 'border-foreground'
+    } rounded-[30px] hover:bg-background-overlay transition-colors`;
+  const iconContainerClass = "grid place-items-center w-[33px] h-[33px] bg-background-overlay rounded-[16.5px]";
+  const labelClass = "flex items-center justify-center py-0.5 px-2 w-[53px] h-3.5 rounded-[10px] text-foreground font-bold text-[10px] leading-[12px]";
 
   return (
     <motion.div
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
-      className="flex flex-col items-center flex-shrink-0 px-1 py-6 gap-[5px] w-[60px] bg-[#1e1e1e]"
+      className="flex flex-col items-center flex-shrink-0 px-1 py-6 gap-[5px] w-[60px] bg-background-surface"
     >
       {/* 노트 아이콘 (Notes) - 뷰어 하단 노트만 토글, 사이드바 확장 안 함 */}
       <div className={buttonWrapperClass}>

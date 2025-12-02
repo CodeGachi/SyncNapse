@@ -162,7 +162,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
         initial={{ x: 20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
-        className={`flex flex-col bg-[#1e1e1e] overflow-hidden ${isExpanded ? "flex-shrink-0 w-[370px] gap-2 pt-6 px-3" : "w-0 p-0"
+        className={`flex flex-col bg-background-surface overflow-hidden ${isExpanded ? "flex-shrink-0 w-[370px] gap-2 pt-6 px-3" : "w-0 p-0"
           }`}
       >
         {isExpanded && (

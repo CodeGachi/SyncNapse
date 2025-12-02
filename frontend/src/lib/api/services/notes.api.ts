@@ -5,7 +5,10 @@
  * - 어댑터를 통해 타입 변환
  */
 
+import { createLogger } from "@/lib/utils/logger";
 import type { Note } from "@/lib/types";
+
+const log = createLogger("NotesAPI");
 import type { ApiNoteResponse } from "../types/api.types";
 import type { DBNoteContent } from "@/lib/db/notes";
 import {
@@ -57,13 +60,13 @@ export async function fetchAllNotes(): Promise<Note[]> {
 export async function fetchNotesByFolder(
   folderId?: string
 ): Promise<Note[]> {
-  console.log('[notes.api] fetchNotesByFolder called with folderId:', folderId);
-  
+  log.debug('fetchNotesByFolder called with folderId:', folderId);
+
   // 1. 로컬 데이터 우선 반환 (빠른 응답)
   const dbNotes = folderId
     ? await getNotesByFolderFromDB(folderId)
     : await getNotesFromDB();
-  console.log('[notes.api] IndexedDB returned notes:', dbNotes.length, 'notes');
+  log.debug('IndexedDB returned notes:', dbNotes.length, 'notes');
   const localNotes = dbToNotes(dbNotes);
   
   // 2. 백그라운드에서 서버 동기화
@@ -85,9 +88,9 @@ async function syncNotesInBackground(localNotes: Note[], folderId?: string): Pro
         ...getAuthHeaders(),
       },
     });
-    
+
     if (!res.ok) {
-      console.warn('[notes.api] Failed to fetch from server for sync:', res.status);
+      log.warn('Failed to fetch from server for sync:', res.status);
       return;
     }
     
@@ -116,15 +119,15 @@ async function syncNotesInBackground(localNotes: Note[], folderId?: string): Pro
         await permanentlyDeleteNote(noteId);
       }
       
-      console.log(`[notes.api] ✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${toDelete.length} deleted notes from server`);
-      
+      log.info(`✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${toDelete.length} deleted notes from server`);
+
       // React Query cache 무효화
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('notes-synced'));
       }
     }
   } catch (error) {
-    console.error('[notes.api] Background sync failed:', error);
+    log.error('Background sync failed:', error);
   }
 }
 
@@ -134,11 +137,11 @@ async function syncNotesInBackground(localNotes: Note[], folderId?: string): Pro
  * @returns 도메인 Note 또는 null
  */
 export async function fetchNote(noteId: string): Promise<Note | null> {
-  console.log('[notes.api] fetchNote called with noteId:', noteId);
-  
+  log.debug('fetchNote called with noteId:', noteId);
+
   // 1. 로컬 데이터 우선 확인
   const dbNote = await getNoteFromDB(noteId);
-  console.log('[notes.api] IndexedDB result:', dbNote ? 'Found note' : 'Note not found');
+  log.debug('IndexedDB result:', dbNote ? 'Found note' : 'Note not found');
   
   const localNote = dbNote ? dbToNote(dbNote) : null;
   
@@ -159,25 +162,25 @@ export async function fetchNote(noteId: string): Promise<Note | null> {
  */
 async function fetchNoteFromServer(noteId: string): Promise<Note | null> {
   try {
-    console.log('[notes.api] Fetching from backend API:', `${API_BASE_URL}/api/notes/${noteId}`);
+    log.debug('Fetching from backend API:', `${API_BASE_URL}/api/notes/${noteId}`);
     const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
       credentials: "include",
       headers: {
         ...getAuthHeaders(),
       },
     });
-    
-    console.log('[notes.api] Backend response status:', res.status);
+
+    log.debug('Backend response status:', res.status);
     if (!res.ok) {
       if (res.status === 404) {
-        console.log('[notes.api] Note not found in backend (404)');
+        log.debug('Note not found in backend (404)');
         return null;
       }
       throw new Error("Failed to fetch note");
     }
-    
+
     const apiNote: ApiNoteResponse = await res.json();
-    console.log('[notes.api] Backend note data:', apiNote);
+    log.debug('Backend note data:', apiNote);
     const serverNote = apiToNote(apiNote);
     
     // IndexedDB에 저장
@@ -188,7 +191,7 @@ async function fetchNoteFromServer(noteId: string): Promise<Note | null> {
     
     return serverNote;
   } catch (error) {
-    console.error('[notes.api] Failed to fetch from server:', error);
+    log.error('Failed to fetch from server:', error);
     return null;
   }
 }
@@ -206,30 +209,30 @@ async function syncSingleNoteInBackground(noteId: string, localNote: Note): Prom
     });
     
     if (!res.ok) {
-      console.warn('[notes.api] Failed to fetch from server for sync:', res.status);
+      log.warn('Failed to fetch from server for sync:', res.status);
       return;
     }
-    
+
     const apiNote: ApiNoteResponse = await res.json();
     const serverNote = apiToNote(apiNote);
-    
+
     // 서버가 더 최신이면 업데이트
     if (serverNote.updatedAt > localNote.updatedAt) {
       const { saveNote } = await import('@/lib/db/notes');
       const { noteToDb } = await import('../adapters/note.adapter');
       const dbNote = noteToDb(serverNote);
-      
+
       await saveNote(dbNote);
-      
-      console.log(`[notes.api] ✅ Synced note from server: ${noteId}`);
-      
+
+      log.info(`✅ Synced note from server: ${noteId}`);
+
       // React Query cache 무효화
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('note-synced', { detail: { noteId } }));
       }
     }
   } catch (error) {
-    console.error('[notes.api] Background sync failed:', error);
+    log.error('Background sync failed:', error);
   }
 }
 
@@ -244,7 +247,7 @@ export async function createNote(
   files: File[],
   type: "student" | "educator" = "student"
 ): Promise<Note> {
-  console.log(`[notes.api] 📝 Creating note with type: ${type}`); // Debug log
+  log.debug(`📝 Creating note with type: ${type}`);
   
   // Check for duplicate title in the same folder
   const isDuplicate = await checkDuplicateNoteTitle(title, folderId);
@@ -269,9 +272,9 @@ export async function createNote(
     }
 
     localResult = dbToNote(dbNote);
-    console.log(`[notes.api] Note saved to IndexedDB with ID: ${noteId}, type: ${type}`);
+    log.debug(`Note saved to IndexedDB with ID: ${noteId}, type: ${type}`);
   } catch (error) {
-    console.error("[notes.api] Failed to save to IndexedDB:", error);
+    log.error("Failed to save to IndexedDB:", error);
   }
 
   // 2. 백엔드로 동기화 (파일 포함)
@@ -284,7 +287,7 @@ export async function createNote(
       formData.append("type", type); // Send note type to backend
       files.forEach((file) => formData.append("files", file));
 
-      console.log(`[notes.api] 🔄 Syncing to backend:`, {
+      log.debug(`🔄 Syncing to backend:`, {
         url: `${API_BASE_URL}/api/notes`,
         noteId,
         title,
@@ -303,20 +306,20 @@ export async function createNote(
         body: formData,
       });
 
-      console.log(`[notes.api] Backend response status: ${res.status} ${res.statusText}`);
+      log.debug(`Backend response status: ${res.status} ${res.statusText}`);
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error(`[notes.api] Backend error response:`, errorText);
+        log.error(`Backend error response:`, errorText);
         throw new Error(`Failed to create note on backend: ${res.status} ${errorText}`);
       }
-      
+
       const backendNote: ApiNoteResponse = await res.json();
-      console.log(`[notes.api] ✅ Note synced to backend:`, title, `ID: ${backendNote.id}`);
-      
+      log.info(`✅ Note synced to backend:`, title, `ID: ${backendNote.id}`);
+
       return backendNote;
     } catch (error) {
-      console.error("[notes.api] Failed to sync to backend:", error);
+      log.error("Failed to sync to backend:", error);
       // 재시도 큐에 추가
       // TODO: Implement retry queue using useSyncStore
       // getSyncQueue().addTask('note-create', { id: noteId, title, folderId, files });
@@ -363,9 +366,9 @@ export async function updateNote(
   // 1. IndexedDB에 즉시 업데이트
   try {
     await updateNoteInDB(noteId, updates as any);
-    console.log(`[notes.api] Note updated in IndexedDB:`, noteId);
+    log.debug(`Note updated in IndexedDB:`, noteId);
   } catch (error) {
-    console.error("[notes.api] Failed to update in IndexedDB:", error);
+    log.error("Failed to update in IndexedDB:", error);
   }
 
   // 2. 백엔드로 동기화
@@ -391,9 +394,9 @@ export async function updateNote(
       });
 
       if (!res.ok) throw new Error("Failed to update note on backend");
-      console.log(`[notes.api] Note update synced to backend:`, noteId);
+      log.info(`Note update synced to backend:`, noteId);
     } catch (error) {
-      console.error("[notes.api] Failed to sync update to backend:", error);
+      log.error("Failed to sync update to backend:", error);
       // 재시도 큐에 추가
       // TODO: Implement retry queue using useSyncStore
       // getSyncQueue().addTask('note-update', { id: noteId, updates: apiUpdates });
@@ -412,9 +415,9 @@ export async function deleteNote(noteId: string): Promise<void> {
   // 1. IndexedDB에서 즉시 삭제
   try {
     await deleteNoteInDB(noteId);
-    console.log(`[notes.api] Note deleted from IndexedDB:`, noteId);
+    log.debug(`Note deleted from IndexedDB:`, noteId);
   } catch (error) {
-    console.error("[notes.api] Failed to delete from IndexedDB:", error);
+    log.error("Failed to delete from IndexedDB:", error);
   }
 
   // 2. 백엔드로 동기화
@@ -429,9 +432,9 @@ export async function deleteNote(noteId: string): Promise<void> {
       });
 
       if (!res.ok) throw new Error("Failed to delete note on backend");
-      console.log(`[notes.api] Note deletion synced to backend:`, noteId);
+      log.info(`Note deletion synced to backend:`, noteId);
     } catch (error) {
-      console.error("[notes.api] Failed to sync deletion to backend:", error);
+      log.error("Failed to sync deletion to backend:", error);
       // 재시도 큐에 추가
       // TODO: Implement retry queue using useSyncStore
       // getSyncQueue().addTask('note-delete', { id: noteId });
@@ -499,8 +502,8 @@ export async function fetchNoteContent(
  * Trash API - Get all trashed notes
  */
 export async function fetchTrashedNotes(): Promise<Note[]> {
-  console.log('[notes.api] 🗑️ Fetching trashed notes');
-  
+  log.debug('🗑️ Fetching trashed notes');
+
   const res = await fetch(`${API_BASE_URL}/api/notes/trash/list`, {
     credentials: "include",
     headers: {
@@ -509,13 +512,13 @@ export async function fetchTrashedNotes(): Promise<Note[]> {
   });
 
   if (!res.ok) {
-    console.error('[notes.api] ❌ Failed to fetch trashed notes:', res.status);
+    log.error('❌ Failed to fetch trashed notes:', res.status);
     throw new Error("Failed to fetch trashed notes");
   }
 
   const apiNotes: ApiNoteResponse[] = await res.json();
-  console.log('[notes.api] ✅ Fetched trashed notes:', apiNotes.length);
-  
+  log.info('✅ Fetched trashed notes:', apiNotes.length);
+
   return apiToNotes(apiNotes);
 }
 
@@ -523,7 +526,7 @@ export async function fetchTrashedNotes(): Promise<Note[]> {
  * Trash API - Restore a trashed note
  */
 export async function restoreNote(noteId: string): Promise<{ message: string; title?: string }> {
-  console.log('[notes.api] 🔄 Restoring note:', noteId);
+  log.debug('🔄 Restoring note:', noteId);
 
   const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/restore`, {
     method: "POST",
@@ -535,13 +538,13 @@ export async function restoreNote(noteId: string): Promise<{ message: string; ti
   });
 
   if (!res.ok) {
-    console.error('[notes.api] ❌ Failed to restore note:', res.status);
+    log.error('❌ Failed to restore note:', res.status);
     throw new Error("Failed to restore note");
   }
 
   const result = await res.json();
-  console.log('[notes.api] ✅ Note restored:', result);
-  
+  log.info('✅ Note restored:', result);
+
   return result;
 }
 
@@ -549,7 +552,7 @@ export async function restoreNote(noteId: string): Promise<{ message: string; ti
  * Trash API - Permanently delete a trashed note
  */
 export async function permanentlyDeleteNote(noteId: string): Promise<{ message: string }> {
-  console.log('[notes.api] 🗑️ Permanently deleting note:', noteId);
+  log.debug('🗑️ Permanently deleting note:', noteId);
 
   const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/permanent`, {
     method: "DELETE",
@@ -561,12 +564,12 @@ export async function permanentlyDeleteNote(noteId: string): Promise<{ message: 
   });
 
   if (!res.ok) {
-    console.error('[notes.api] ❌ Failed to permanently delete note:', res.status);
+    log.error('❌ Failed to permanently delete note:', res.status);
     throw new Error("Failed to permanently delete note");
   }
 
   const result = await res.json();
-  console.log('[notes.api] ✅ Note permanently deleted:', result);
-  
+  log.info('✅ Note permanently deleted:', result);
+
   return result;
 }

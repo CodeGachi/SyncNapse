@@ -158,37 +158,37 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
     <Panel isOpen={isOpen} borderColor="gray" title="AI Assistant" onClose={onClose}>
       <div className="flex flex-col h-full">
         {/* 빠른 액션 카드 - Sticky Header */}
-        <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#252525] flex-shrink-0">
+        <div className="px-4 py-3 border-b border-border bg-background-elevated flex-shrink-0">
           {messages.length === 0 ? (
             <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center justify-center gap-2 text-gray-400 py-1">
-                <Sparkles size={14} className="text-[#AFC02B]" />
+              <div className="flex items-center justify-center gap-2 text-foreground-tertiary py-1">
+                <Sparkles size={14} className="text-brand" />
                 <span className="text-xs font-medium">무엇을 도와드릴까요?</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleQuickAction("question")}
                   disabled={isLoading}
-                  className="group flex flex-col items-center justify-center gap-1.5 py-3 bg-[#333] hover:bg-[#3a3a3a] border border-[#444] hover:border-[#AFC02B]/50 rounded-xl transition-all duration-200 disabled:opacity-50"
+                  className="group flex flex-col items-center justify-center gap-1.5 py-3 bg-background-overlay hover:bg-background-base border border-border hover:border-brand/50 rounded-xl transition-all duration-200 disabled:opacity-50"
                 >
-                  <MessageSquare size={16} className="text-gray-400 group-hover:text-[#AFC02B] transition-colors" />
-                  <span className="text-[11px] text-gray-300 group-hover:text-white font-medium">질문</span>
+                  <MessageSquare size={16} className="text-foreground-tertiary group-hover:text-brand transition-colors" />
+                  <span className="text-[11px] text-foreground-secondary group-hover:text-foreground font-medium">질문</span>
                 </button>
                 <button
                   onClick={() => handleQuickAction("summary")}
                   disabled={isLoading}
-                  className="group flex flex-col items-center justify-center gap-1.5 py-3 bg-[#333] hover:bg-[#3a3a3a] border border-[#444] hover:border-[#AFC02B]/50 rounded-xl transition-all duration-200 disabled:opacity-50"
+                  className="group flex flex-col items-center justify-center gap-1.5 py-3 bg-background-overlay hover:bg-background-base border border-border hover:border-brand/50 rounded-xl transition-all duration-200 disabled:opacity-50"
                 >
-                  <FileText size={16} className="text-gray-400 group-hover:text-[#AFC02B] transition-colors" />
-                  <span className="text-[11px] text-gray-300 group-hover:text-white font-medium">요약</span>
+                  <FileText size={16} className="text-foreground-tertiary group-hover:text-brand transition-colors" />
+                  <span className="text-[11px] text-foreground-secondary group-hover:text-foreground font-medium">요약</span>
                 </button>
                 <button
                   onClick={() => handleQuickAction("quiz")}
                   disabled={isLoading}
-                  className="group flex flex-col items-center justify-center gap-1.5 py-3 bg-[#333] hover:bg-[#3a3a3a] border border-[#444] hover:border-[#AFC02B]/50 rounded-xl transition-all duration-200 disabled:opacity-50"
+                  className="group flex flex-col items-center justify-center gap-1.5 py-3 bg-background-overlay hover:bg-background-base border border-border hover:border-brand/50 rounded-xl transition-all duration-200 disabled:opacity-50"
                 >
-                  <BrainCircuit size={16} className="text-gray-400 group-hover:text-[#AFC02B] transition-colors" />
-                  <span className="text-[11px] text-gray-300 group-hover:text-white font-medium">퀴즈</span>
+                  <BrainCircuit size={16} className="text-foreground-tertiary group-hover:text-brand transition-colors" />
+                  <span className="text-[11px] text-foreground-secondary group-hover:text-foreground font-medium">퀴즈</span>
                 </button>
               </div>
             </div>
@@ -198,7 +198,7 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
                 <button
                   onClick={() => handleQuickAction("question")}
                   disabled={isLoading}
-                  className="px-2.5 py-1.5 bg-[#333] hover:bg-[#3a3a3a] border border-[#444] hover:border-[#AFC02B]/50 text-gray-300 hover:text-white text-[10px] rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 bg-background-overlay hover:bg-background-base border border-border hover:border-brand/50 text-foreground-secondary hover:text-foreground text-[10px] rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <MessageSquare size={10} />
                   질문
@@ -206,7 +206,7 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
                 <button
                   onClick={() => handleQuickAction("summary")}
                   disabled={isLoading}
-                  className="px-2.5 py-1.5 bg-[#333] hover:bg-[#3a3a3a] border border-[#444] hover:border-[#AFC02B]/50 text-gray-300 hover:text-white text-[10px] rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 bg-background-overlay hover:bg-background-base border border-border hover:border-brand/50 text-foreground-secondary hover:text-foreground text-[10px] rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <FileText size={10} />
                   요약
@@ -214,7 +214,7 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
                 <button
                   onClick={() => handleQuickAction("quiz")}
                   disabled={isLoading}
-                  className="px-2.5 py-1.5 bg-[#333] hover:bg-[#3a3a3a] border border-[#444] hover:border-[#AFC02B]/50 text-gray-300 hover:text-white text-[10px] rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 bg-background-overlay hover:bg-background-base border border-border hover:border-brand/50 text-foreground-secondary hover:text-foreground text-[10px] rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <BrainCircuit size={10} />
                   퀴즈
@@ -223,7 +223,7 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
               <button
                 onClick={handleClearChat}
                 disabled={isLoading}
-                className="flex items-center gap-1 px-2 py-1.5 text-gray-500 hover:text-gray-300 hover:bg-white/5 rounded-lg text-[10px] transition-all disabled:opacity-50"
+                className="flex items-center gap-1 px-2 py-1.5 text-foreground-tertiary hover:text-foreground-secondary hover:bg-foreground/5 rounded-lg text-[10px] transition-all disabled:opacity-50"
                 title="새 대화"
               >
                 <RefreshCw size={12} />
@@ -233,11 +233,11 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
         </div>
 
         {/* 메시지 목록 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar bg-[#1e1e1e]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar bg-background-surface">
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-3 opacity-60">
-              <div className="w-12 h-12 bg-[#252525] rounded-full flex items-center justify-center">
-                <Bot size={24} className="text-gray-400" />
+            <div className="flex flex-col items-center justify-center h-full text-foreground-tertiary space-y-3 opacity-60">
+              <div className="w-12 h-12 bg-background-elevated rounded-full flex items-center justify-center">
+                <Bot size={24} className="text-foreground-tertiary" />
               </div>
               <p className="text-xs font-medium">대화를 시작해보세요</p>
             </div>
@@ -249,26 +249,26 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
             >
               <div className={`max-w-[85%] ${message.role === "assistant" ? "flex gap-3" : ""}`}>
                 {message.role === "assistant" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#252525] border border-[#3c3c3c] flex items-center justify-center shadow-sm mt-1">
-                    <Bot size={16} className="text-[#AFC02B]" />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-background-elevated border border-border flex items-center justify-center shadow-sm mt-1">
+                    <Bot size={16} className="text-brand" />
                   </div>
                 )}
                 <div className="flex flex-col gap-1">
                   {message.type && message.type !== "normal" && message.role === "user" && (
-                    <span className="text-[10px] text-gray-500 flex items-center gap-1 justify-end px-1">
+                    <span className="text-[10px] text-foreground-tertiary flex items-center gap-1 justify-end px-1">
                       {getTypeIcon(message.type)}
                       {getTypeBadge(message.type)}
                     </span>
                   )}
                   <div
                     className={`px-4 py-2.5 text-sm leading-relaxed shadow-sm ${message.role === "user"
-                      ? "bg-[#AFC02B]/10 border border-[#AFC02B]/20 text-gray-100 rounded-2xl rounded-tr-sm"
-                      : "bg-[#252525] border border-[#3c3c3c] text-gray-200 rounded-2xl rounded-tl-sm"
+                      ? "bg-brand/10 border border-brand/20 text-foreground rounded-2xl rounded-tr-sm"
+                      : "bg-background-elevated border border-border text-foreground-secondary rounded-2xl rounded-tl-sm"
                       }`}
                   >
                     {message.content}
                   </div>
-                  <span className={`text-[10px] text-gray-600 px-1 ${message.role === "user" ? "text-right" : ""}`}>
+                  <span className={`text-[10px] text-foreground-tertiary px-1 ${message.role === "user" ? "text-right" : ""}`}>
                     {message.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
@@ -278,14 +278,14 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
           {isLoading && (
             <div className="flex justify-start animate-in fade-in duration-300">
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#252525] border border-[#3c3c3c] flex items-center justify-center shadow-sm mt-1">
-                  <Bot size={16} className="text-[#AFC02B]" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-background-elevated border border-border flex items-center justify-center shadow-sm mt-1">
+                  <Bot size={16} className="text-brand" />
                 </div>
-                <div className="bg-[#252525] border border-[#3c3c3c] px-4 py-3 rounded-2xl rounded-tl-sm">
+                <div className="bg-background-elevated border border-border px-4 py-3 rounded-2xl rounded-tl-sm">
                   <div className="flex gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-[#AFC02B] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1.5 h-1.5 bg-[#AFC02B] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1.5 h-1.5 bg-[#AFC02B] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               </div>
@@ -295,8 +295,8 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
         </div>
 
         {/* 입력창 */}
-        <div className="p-3 border-t border-[#3c3c3c] bg-[#252525]">
-          <div className="flex gap-2 items-end bg-[#1e1e1e] p-1.5 rounded-xl border border-[#3c3c3c] focus-within:border-[#AFC02B]/50 transition-colors">
+        <div className="p-3 border-t border-border bg-background-elevated">
+          <div className="flex gap-2 items-end bg-background-surface p-1.5 rounded-xl border border-border focus-within:border-brand/50 transition-colors">
             <div className="flex-1 relative">
               <input
                 type="text"
@@ -304,14 +304,14 @@ export function ChatbotPanel({ isOpen, onClose, noteId }: ChatbotPanelProps) {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="메시지를 입력하세요..."
-                className="w-full bg-transparent text-white text-sm px-3 py-2 focus:outline-none placeholder-gray-600"
+                className="w-full bg-transparent text-foreground text-sm px-3 py-2 focus:outline-none placeholder-foreground-tertiary"
                 disabled={isLoading}
               />
             </div>
             <button
               onClick={() => handleSendMessage(inputValue)}
               disabled={!inputValue.trim() || isLoading}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center bg-[#333] hover:bg-[#AFC02B] text-[#AFC02B] hover:text-black border border-[#AFC02B]/30 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-600 disabled:border-transparent transition-all duration-200"
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center bg-background-overlay hover:bg-brand text-brand hover:text-black border border-brand/30 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-background-overlay disabled:text-foreground-tertiary disabled:border-transparent transition-all duration-200"
             >
               <Send size={16} />
             </button>

@@ -132,7 +132,7 @@ export function Sidebar({
                   {/* 새 노트 Button */}
                   <button
                     onClick={() => setIsNoteDropdownOpen(!isNoteDropdownOpen)}
-                    className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] z-50 relative bg-gradient-to-br from-brand to-brand-secondary shadow-[0_0_20px_rgba(175,192,43,0.3)] hover:shadow-[0_0_30px_rgba(175,192,43,0.5)] hover:scale-105 transition-all duration-300 border border-brand/50"
+                    className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] z-50 relative bg-gradient-to-br from-brand to-brand-secondary shadow-[0_0_20px_rgba(175,192,43,0.3)] hover:shadow-[0_0_30px_rgba(175,192,43,0.5)] hover:scale-105 transition-all duration-300 border border-[#6B7A20] dark:border-brand"
                   >
                     <div className="flex items-center gap-1">
                       <Image

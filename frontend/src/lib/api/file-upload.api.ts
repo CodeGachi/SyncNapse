@@ -5,6 +5,10 @@
  * 엔드포인트: POST /api/notes/:noteId/files (multipart/form-data)
  */
 
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("FileUpload");
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export interface FileUploadResponse {
@@ -46,7 +50,7 @@ export async function uploadFileToServer(
     const formData = new FormData();
     formData.append("file", file);
 
-    console.log(`[파일 업로드] 백엔드로 업로드 시작: ${file.name}, noteId: ${noteId}`);
+    log.info(`백엔드로 업로드 시작: ${file.name}, noteId: ${noteId}`);
 
     const token = getAuthToken();
     const headers: HeadersInit = {};
@@ -85,14 +89,14 @@ export async function uploadFileToServer(
       fileUrl: data.storageUrl,
     };
 
-    console.log(`[파일 업로드] 백엔드 업로드 완료:`, {
+    log.info(`백엔드 업로드 완료:`, {
       fileName: result.fileName,
       storageUrl: result.storageUrl,
     });
 
     return result;
   } catch (error) {
-    console.error("[파일 업로드] 백엔드 업로드 실패:", error);
+    log.error("백엔드 업로드 실패:", error);
     throw error;
   }
 }
@@ -114,7 +118,7 @@ export async function getFileDownloadUrl(fileId: string): Promise<string> {
     const { url } = await response.json();
     return url;
   } catch (error) {
-    console.error("[파일 다운로드] URL 가져오기 실패:", error);
+    log.error("URL 가져오기 실패:", error);
     throw error;
   }
 }

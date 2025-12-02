@@ -44,7 +44,7 @@ export function EducatorNoteContent({
   }, [resetPanels]);
 
   return (
-    <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
+    <div className="flex items-start bg-background-surface h-screen w-full">
       {/* 헤더 - 제목 + 녹음바 */}
       <NoteHeader
         noteId={noteId}

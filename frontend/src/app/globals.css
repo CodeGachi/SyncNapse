@@ -15,13 +15,13 @@
 
   /* 텍스트 */
   --text-primary: #1a1a1a;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --text-secondary: #374151;
+  --text-tertiary: #4b5563;
 
   /* 보더 */
   --border-default: #e5e7eb;
-  --border-subtle: #f3f4f6;
-  --border-strong: #d1d5db;
+  --border-subtle: #d1d5db;
+  --border-strong: #9ca3af;
 
   /* 브랜드 */
   --brand-primary: #AFC02B;

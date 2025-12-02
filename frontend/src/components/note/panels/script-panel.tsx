@@ -227,7 +227,7 @@ export function ScriptPanel({
     <Panel isOpen={isOpen} borderColor="gray" title="스크립트" onClose={handleClose}>
       <div className="flex flex-col h-full">
         {/* Translation Controls - Sticky Header */}
-        <div className="px-4 py-3 border-b border-[#3c3c3c] bg-[#252525] flex-shrink-0">
+        <div className="px-4 py-3 border-b border-border bg-background-elevated flex-shrink-0">
           <div className="flex items-center justify-between">
             {/* Translation Toggle */}
             <label className={`flex items-center gap-2 cursor-pointer group ${isEditMode ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -239,9 +239,9 @@ export function ScriptPanel({
                   disabled={isEditMode}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#AFC02B] peer-checked:after:bg-white peer-checked:after:border-white transition-colors"></div>
+                <div className="w-9 h-5 bg-background-overlay peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground-tertiary after:border-foreground-tertiary after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand peer-checked:after:bg-white peer-checked:after:border-white transition-colors"></div>
               </div>
-              <span className={`text-xs font-medium transition-colors ${isTranslationEnabled ? "text-[#AFC02B]" : "text-gray-400 group-hover:text-gray-300"}`}>
+              <span className={`text-xs font-medium transition-colors ${isTranslationEnabled ? "text-brand" : "text-foreground-tertiary group-hover:text-foreground-secondary"}`}>
                 실시간 번역
               </span>
             </label>
@@ -253,7 +253,7 @@ export function ScriptPanel({
                   <button
                     onClick={handleSaveEdit}
                     disabled={saveStatus === 'saving'}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#AFC02B] hover:bg-[#AFC02B]/10 rounded-md transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-brand hover:bg-brand/10 rounded-md transition-colors disabled:opacity-50"
                   >
                     <Check size={14} />
                     완료
@@ -261,7 +261,7 @@ export function ScriptPanel({
                   <button
                     onClick={handleCancelEdit}
                     disabled={saveStatus === 'saving'}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-[#333] rounded-md transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-foreground-tertiary hover:text-foreground hover:bg-background-overlay rounded-md transition-colors disabled:opacity-50"
                   >
                     <X size={14} />
                     취소
@@ -272,7 +272,7 @@ export function ScriptPanel({
                   {!isRecording && scriptSegments.length > 0 && (
                     <button
                       onClick={handleStartEdit}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-[#333] rounded-md transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-foreground-tertiary hover:text-foreground hover:bg-background-overlay rounded-md transition-colors"
                     >
                       <Pencil size={14} />
                       편집
@@ -281,19 +281,19 @@ export function ScriptPanel({
                   {/* Language Select */}
                   {isTranslationEnabled && (
                     <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                      <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1e1e1e] rounded-lg border border-[#3c3c3c]">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-background-surface rounded-lg border border-border">
+                        <span className="text-[10px] text-foreground-tertiary uppercase tracking-wider font-bold">
                           {originalLanguage}
                         </span>
-                        <ArrowRight size={10} className="text-gray-600" />
+                        <ArrowRight size={10} className="text-foreground-tertiary" />
                         <select
                           value={targetLanguage}
                           onChange={(e) => setTargetLanguage(e.target.value as SupportedLanguage)}
-                          className="bg-transparent text-white text-xs font-medium focus:outline-none cursor-pointer"
+                          className="bg-transparent text-foreground text-xs font-medium focus:outline-none cursor-pointer"
                         >
                           {LANGUAGE_OPTIONS.filter((opt) => opt.code !== originalLanguage).map(
                             (option) => (
-                              <option key={option.code} value={option.code} className="bg-[#252525]">
+                              <option key={option.code} value={option.code} className="bg-background-elevated">
                                 {option.nativeName}
                               </option>
                             )
@@ -311,22 +311,22 @@ export function ScriptPanel({
           <div className="flex items-center gap-3 mt-2">
             {isTranslating && (
               <div className="flex items-center gap-1.5">
-                <Loader2 size={10} className="animate-spin text-[#AFC02B]" />
-                <span className="text-[10px] text-[#AFC02B]">번역 중...</span>
+                <Loader2 size={10} className="animate-spin text-brand" />
+                <span className="text-[10px] text-brand">번역 중...</span>
               </div>
             )}
             {/* 사용량 표시 */}
             {isTranslationEnabled && usageInfo && (
               <div className="flex items-center gap-2">
-                <div className="w-12 h-1.5 bg-[#333] rounded-full overflow-hidden">
+                <div className="w-12 h-1.5 bg-background-overlay rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      usageInfo.remaining < 50000 ? 'bg-yellow-500' : 'bg-[#AFC02B]'
+                      usageInfo.remaining < 50000 ? 'bg-yellow-500' : 'bg-brand'
                     }`}
                     style={{ width: `${Math.min(100, (usageInfo.used / usageInfo.limit) * 100)}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-foreground-tertiary">
                   {Math.round(usageInfo.remaining / 1000)}K
                 </span>
               </div>
@@ -357,15 +357,15 @@ export function ScriptPanel({
         )}
 
         {/* Script Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#1e1e1e]">
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-background-surface">
           {scriptSegments.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-60">
-              <div className="w-16 h-16 bg-[#252525] rounded-full flex items-center justify-center mb-2">
-                <ScrollText size={32} className="text-gray-500" />
+              <div className="w-16 h-16 bg-background-elevated rounded-full flex items-center justify-center mb-2">
+                <ScrollText size={32} className="text-foreground-tertiary" />
               </div>
               <div>
-                <p className="text-gray-300 text-sm font-medium">스크립트가 없습니다</p>
-                <p className="text-gray-500 text-xs mt-1">음성을 녹음하거나 파일을 업로드하세요</p>
+                <p className="text-foreground-secondary text-sm font-medium">스크립트가 없습니다</p>
+                <p className="text-foreground-tertiary text-xs mt-1">음성을 녹음하거나 파일을 업로드하세요</p>
               </div>
             </div>
           ) : (
@@ -384,31 +384,31 @@ export function ScriptPanel({
                     key={segment.id}
                     onClick={() => !isPartial && !isEditMode && handleSegmentClick(segment.timestamp)}
                     className={`group relative rounded-xl p-3 transition-all ${isPartial
-                      ? 'bg-[#252525]/50 opacity-60 cursor-default border border-dashed border-gray-700'
+                      ? 'bg-background-elevated/50 opacity-60 cursor-default border border-dashed border-border'
                       : isEditMode
                         ? isEdited
-                          ? 'bg-[#252525] border border-[#AFC02B]/50'  // 편집됨
-                          : 'bg-[#252525] border border-[#444]'        // 편집 모드
+                          ? 'bg-background-elevated border border-brand/50'  // 편집됨
+                          : 'bg-background-elevated border border-border'        // 편집 모드
                         : isActive
-                          ? 'bg-[#AFC02B]/5 border border-[#AFC02B]/30 shadow-[0_0_15px_rgba(175,192,43,0.05)]'
-                          : 'bg-[#252525] border border-[#333] hover:border-[#444] cursor-pointer'
+                          ? 'bg-brand/5 border border-brand/30 shadow-[0_0_15px_rgba(175,192,43,0.05)]'
+                          : 'bg-background-elevated border border-border hover:border-border-hover cursor-pointer'
                       }`}
                   >
                     {/* Active Indicator Line */}
                     {isActive && (
-                      <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-[#AFC02B] rounded-r-full" />
+                      <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-brand rounded-r-full" />
                     )}
 
                     {/* Header: Time & Speaker & Revert Button */}
                     <div className="flex items-center justify-between mb-2">
                       {!isRecording && !isPartial && (
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-[#AFC02B]/20 text-[#AFC02B]' : 'bg-[#333] text-gray-400'
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-brand/20 text-brand' : 'bg-background-overlay text-foreground-tertiary'
                             }`}>
                             {formatTime(segment.timestamp / 1000)}
                           </span>
                           {segment.speaker && (
-                            <span className="text-gray-500 text-[10px] font-medium uppercase tracking-wider">
+                            <span className="text-foreground-tertiary text-[10px] font-medium uppercase tracking-wider">
                               {segment.speaker}
                             </span>
                           )}
@@ -418,10 +418,10 @@ export function ScriptPanel({
                       {isRecording && isPartial && (
                         <div className="flex items-center gap-1.5">
                           <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#AFC02B] opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#AFC02B]"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
                           </span>
-                          <span className="text-[10px] text-[#AFC02B] font-medium animate-pulse">인식 중...</span>
+                          <span className="text-[10px] text-brand font-medium animate-pulse">인식 중...</span>
                         </div>
                       )}
 
@@ -432,7 +432,7 @@ export function ScriptPanel({
                             e.stopPropagation();
                             revertSegment(segment.id);
                           }}
-                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-[#AFC02B] hover:bg-[#333] rounded transition-colors"
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-foreground-tertiary hover:text-brand hover:bg-background-overlay rounded transition-colors"
                           title="원본으로 되돌리기"
                         >
                           <RotateCcw size={12} />
@@ -448,16 +448,16 @@ export function ScriptPanel({
                           value={editedSegments[segment.id] ?? segment.originalText}
                           onChange={(e) => updateEditedSegment(segment.id, e.target.value)}
                           onClick={(e) => e.stopPropagation()}
-                          className={`w-full bg-[#1e1e1e] text-sm leading-relaxed text-gray-200 border rounded-lg p-2 resize-none focus:outline-none focus:border-[#AFC02B] transition-colors ${
+                          className={`w-full bg-background-surface text-sm leading-relaxed text-foreground border rounded-lg p-2 resize-none focus:outline-none focus:border-brand transition-colors ${
                             editedSegments[segment.id]
-                              ? 'border-[#AFC02B]/50'
-                              : 'border-[#444]'
+                              ? 'border-brand/50'
+                              : 'border-border'
                           }`}
                           rows={Math.max(2, Math.ceil((editedSegments[segment.id] ?? segment.originalText).length / 40))}
                           placeholder="스크립트를 입력하세요..."
                         />
                       ) : segment.words && segment.words.length > 0 ? (
-                        <p className={`text-sm leading-relaxed ${isActive ? 'text-gray-100' : 'text-gray-300'}`}>
+                        <p className={`text-sm leading-relaxed ${isActive ? 'text-foreground' : 'text-foreground-secondary'}`}>
                           {segment.words.map((word) => {
                             const isCurrentWord = isActive && currentWord?.wordIndex === word.wordIndex;
 
@@ -467,9 +467,9 @@ export function ScriptPanel({
                                 onClick={(e) => !isPartial && handleWordClick(word.startTime, e)}
                                 className={`inline-block px-0.5 rounded-sm transition-all duration-150 mx-[1px] ${isPartial
                                   ? 'cursor-default'
-                                  : 'cursor-pointer hover:text-[#AFC02B]'
+                                  : 'cursor-pointer hover:text-brand'
                                   } ${isCurrentWord
-                                    ? 'bg-[#AFC02B]/20 text-[#AFC02B] font-medium shadow-sm'
+                                    ? 'bg-brand/20 text-brand font-medium shadow-sm'
                                     : ''
                                   }`}
                                 title={isPartial ? '인식 중...' : `${formatTime(word.startTime)}`}
@@ -480,16 +480,16 @@ export function ScriptPanel({
                           })}
                         </p>
                       ) : (
-                        <p className={`text-sm leading-relaxed ${isActive ? 'text-gray-100' : 'text-gray-300'}`}>
+                        <p className={`text-sm leading-relaxed ${isActive ? 'text-foreground' : 'text-foreground-secondary'}`}>
                           {segment.originalText}
                         </p>
                       )}
 
                       {/* Translation - 번역 텍스트가 있으면 항상 표시 */}
                       {segment.translatedText && (
-                        <div className="mt-3 pt-2 border-t border-[#333] flex gap-2">
-                          <Languages size={14} className="text-[#AFC02B] mt-0.5 flex-shrink-0 opacity-70" />
-                          <p className="text-gray-400 text-sm leading-relaxed">
+                        <div className="mt-3 pt-2 border-t border-border flex gap-2">
+                          <Languages size={14} className="text-brand mt-0.5 flex-shrink-0 opacity-70" />
+                          <p className="text-foreground-tertiary text-sm leading-relaxed">
                             {segment.translatedText}
                           </p>
                         </div>
@@ -499,21 +499,21 @@ export function ScriptPanel({
                       {pageContext && (() => {
                         const fileName = getFileNameByBackendId(pageContext.fileId);
                         return (
-                          <div className="mt-2 pt-2 border-t border-[#333]/50">
+                          <div className="mt-2 pt-2 border-t border-border/50">
                             <button
                               onClick={(e) => handlePageBadgeClick(pageContext, e)}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 bg-[#333]/50 hover:bg-[#444]/50 rounded-md text-[10px] text-gray-400 hover:text-gray-200 transition-colors group/badge"
+                              className="inline-flex items-center gap-1.5 px-2 py-1 bg-background-overlay/50 hover:bg-background-overlay rounded-md text-[10px] text-foreground-tertiary hover:text-foreground transition-colors group/badge"
                               title={fileName ? `${fileName} ${pageContext.pageNumber}페이지로 이동` : `${pageContext.pageNumber}페이지로 이동`}
                             >
-                              <FileText size={12} className="text-gray-500 group-hover/badge:text-[#AFC02B]" />
+                              <FileText size={12} className="text-foreground-tertiary group-hover/badge:text-brand" />
                               {fileName && (
                                 <>
                                   <span className="truncate max-w-[100px]">{fileName}</span>
-                                  <span className="text-gray-500">·</span>
+                                  <span className="text-foreground-tertiary">·</span>
                                 </>
                               )}
                               <span className="font-medium">{pageContext.pageNumber}p</span>
-                              <ChevronRight size={12} className="text-gray-600 group-hover/badge:text-[#AFC02B] group-hover/badge:translate-x-0.5 transition-transform" />
+                              <ChevronRight size={12} className="text-foreground-tertiary group-hover/badge:text-brand group-hover/badge:translate-x-0.5 transition-transform" />
                             </button>
                           </div>
                         );
@@ -528,11 +528,11 @@ export function ScriptPanel({
 
         {/* Footer Info */}
         {scriptSegments.length > 0 && (
-          <div className="px-4 py-2 bg-[#252525] border-t border-[#3c3c3c] flex items-center justify-between text-[10px] text-gray-500">
+          <div className="px-4 py-2 bg-background-elevated border-t border-border flex items-center justify-between text-[10px] text-foreground-tertiary">
             {isEditMode ? (
               /* 편집 모드 푸터 */
               <>
-                <span className={editedCount > 0 ? 'text-[#AFC02B]' : ''}>
+                <span className={editedCount > 0 ? 'text-brand' : ''}>
                   {editedCount > 0 ? `${editedCount}개 수정됨` : '수정 없음'}
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -544,8 +544,8 @@ export function ScriptPanel({
                   )}
                   {saveStatus === 'saved' && (
                     <>
-                      <Check size={10} className="text-[#AFC02B]" />
-                      <span className="text-[#AFC02B]">저장됨</span>
+                      <Check size={10} className="text-brand" />
+                      <span className="text-brand">저장됨</span>
                     </>
                   )}
                   {saveStatus === 'error' && (

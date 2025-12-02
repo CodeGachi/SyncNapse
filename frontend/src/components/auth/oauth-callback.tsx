@@ -12,7 +12,6 @@ import { setCookie } from "@/lib/utils/cookie";
 import { AuthLoading } from "./auth-loading";
 
 const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7일
-const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30일
 
 export function OAuthCallback() {
   const router = useRouter();
@@ -21,9 +20,9 @@ export function OAuthCallback() {
 
   useEffect(() => {
     const processCallback = async () => {
-      const accessToken = searchParams.get("accessToken");
-      const refreshToken = searchParams.get("refreshToken");
-      const errorParam = searchParams.get("error");
+      const accessToken = searchParams?.get("accessToken");
+      const refreshToken = searchParams?.get("refreshToken");
+      const errorParam = searchParams?.get("error");
 
       if (errorParam) {
         alert("로그인에 실패했습니다.");
@@ -33,13 +32,13 @@ export function OAuthCallback() {
 
       if (accessToken && refreshToken) {
         try {
-          // 1. localStorage에 토큰 저장
+          // 1. localStorage에 accessToken만 저장
+          // refreshToken은 백엔드가 httpOnly 쿠키로 관리
           localStorage.setItem("authToken", accessToken);
-          localStorage.setItem("refreshToken", refreshToken);
 
-          // 2. 쿠키에 토큰 저장 (미들웨어 호환)
+          // 2. authToken만 쿠키에 저장 (미들웨어 호환)
+          // refreshToken은 백엔드가 이미 httpOnly 쿠키로 설정함
           setCookie("authToken", accessToken, ACCESS_TOKEN_MAX_AGE);
-          setCookie("refreshToken", refreshToken, REFRESH_TOKEN_MAX_AGE);
 
           // 3. 사용자 정보 조회 및 캐시 업데이트
           const user = await getCurrentUser();

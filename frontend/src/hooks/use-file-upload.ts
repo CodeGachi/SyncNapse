@@ -1,8 +1,11 @@
 /**
- * File upload hook (V2 - IndexedDB + Sync Queue)
+ * 파일 업로드 훅 (V2 - IndexedDB + 동기화 큐)
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("FileUpload");
 import { saveMultipleFiles as saveMultipleFilesApi } from "@/lib/api/services/files.api";
 import type { UploadResult } from "@/lib/api/services/files.api";
 import type { DBFile } from "@/lib/db/files";
@@ -96,9 +99,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const startUpload = useCallback(async () => {
     // If noteId is not provided, just stage files without uploading
     if (!noteId) {
-      console.warn(
-        "useFileUpload: noteId not provided. Files are staged but not uploaded. Provide noteId to upload files."
-      );
+      log.warn("noteId 미제공. 파일이 준비되었지만 업로드되지 않음. 업로드하려면 noteId를 제공하세요.");
       return;
     }
 

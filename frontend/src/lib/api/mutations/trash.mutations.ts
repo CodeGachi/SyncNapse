@@ -1,7 +1,7 @@
 /**
- * Trash Related TanStack Query Mutations
+ * 휴지통 관련 TanStack Query 뮤테이션
  *
- * Trash restore/delete operations using useMutation hooks
+ * useMutation 훅을 사용한 휴지통 복원/삭제 작업
  */
 import {
   useMutation,
@@ -17,7 +17,7 @@ import {
 import type { DBTrashItem } from "@/lib/db/trash";
 
 /**
- * Trash item restore mutation
+ * 휴지통 항목 복원 뮤테이션
  *
  * @example
  * const restoreItem = useRestoreTrashItem({
@@ -80,7 +80,7 @@ export function useRestoreTrashItem(
 }
 
 /**
- * Trash item permanent delete mutation
+ * 휴지통 항목 영구 삭제 뮤테이션
  *
  * @example
  * const deleteItem = usePermanentlyDeleteTrashItem({
@@ -134,7 +134,7 @@ export function usePermanentlyDeleteTrashItem(
 }
 
 /**
- * Empty trash mutation (permanently delete all items)
+ * 휴지통 비우기 뮤테이션 (모든 항목 영구 삭제)
  *
  * @example
  * const emptyTrash = useEmptyTrash({
@@ -184,7 +184,7 @@ export function useEmptyTrash(
 }
 
 /**
- * Expired trash items auto-delete mutation
+ * 만료된 휴지통 항목 자동 삭제 뮤테이션
  *
  * @example
  * const cleanupExpired = useCleanupExpiredTrashItems();

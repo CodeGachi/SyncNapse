@@ -1,13 +1,16 @@
 /**
- * Audio Playback Hook
- * Manages audio playback controls and script segment synchronization
- * Separated from RightSidePanel for better separation of concerns
+ * 오디오 재생 훅
+ * 오디오 재생 컨트롤 및 스크립트 세그먼트 동기화 관리
+ * 관심사 분리를 위해 RightSidePanel에서 분리됨
  */
 
 "use client";
 
 import { useEffect, useState, RefObject } from "react";
 import type { ScriptSegment } from "@/lib/types";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("AudioPlayback");
 
 interface UseAudioPlaybackProps {
   audioRef: RefObject<HTMLAudioElement | null>;
@@ -25,21 +28,21 @@ export function useAudioPlayback({
   const [currentTime, setCurrentTime] = useState(0);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
 
-  // Track active transcript segment based on audio playback time
+  // 오디오 재생 시간 기반 활성 트랜스크립트 세그먼트 추적
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || scriptSegments.length === 0) return;
 
     const handleTimeUpdate = () => {
-      const audioCurrentTime = audio.currentTime; // in seconds
+      const audioCurrentTime = audio.currentTime; // 초 단위
 
-      // Update currentTime state
+      // currentTime 상태 업데이트
       setCurrentTime(audioCurrentTime);
 
-      // Find the active segment - segment.timestamp is in milliseconds
+      // 활성 세그먼트 찾기 - segment.timestamp는 밀리초 단위
       const activeSegment = scriptSegments.find((segment) => {
-        const segmentStartTime = (segment.timestamp || 0) / 1000; // Convert ms to seconds
-        const segmentEndTime = segmentStartTime + 5; // 5 second window
+        const segmentStartTime = (segment.timestamp || 0) / 1000; // ms를 초로 변환
+        const segmentEndTime = segmentStartTime + 5; // 5초 윈도우
         return (
           audioCurrentTime >= segmentStartTime &&
           audioCurrentTime < segmentEndTime
@@ -47,7 +50,7 @@ export function useAudioPlayback({
       });
 
       if (activeSegment) {
-        console.log("[useAudioPlayback] Active segment:", {
+        log.debug("활성 세그먼트:", {
           id: activeSegment.id,
           text: activeSegment.originalText?.substring(0, 30),
           segmentTime: ((activeSegment.timestamp || 0) / 1000).toFixed(2) + "s",
@@ -64,7 +67,7 @@ export function useAudioPlayback({
     };
   }, [audioRef, scriptSegments]);
 
-  // Audio playback controls (for saved recordings)
+  // 오디오 재생 컨트롤 (저장된 녹음용)
   const handleAudioPlayToggle = () => {
     if (audioRef.current && audioRef.current.src) {
       if (isPlaying) {
@@ -84,25 +87,25 @@ export function useAudioPlayback({
     }
   };
 
-  // Handle timeline seek
+  // 타임라인 탐색 처리
   const handleSeek = (time: number) => {
     if (audioRef.current) {
-      // Validate time value
+      // 시간 값 검증
       if (!isFinite(time) || time < 0) {
-        console.warn("[useAudioPlayback] Invalid seek time:", time);
+        log.warn("유효하지 않은 탐색 시간:", time);
         return;
       }
 
-      // Clamp time to valid range
+      // 유효 범위로 시간 값 제한
       const maxTime = audioRef.current.duration || 0;
       const validTime = Math.max(0, Math.min(time, maxTime));
 
       audioRef.current.currentTime = validTime;
-      console.log("[useAudioPlayback] Seek to:", validTime);
+      log.debug("탐색:", validTime);
     }
   };
 
-  // Format time helper
+  // 시간 포맷 헬퍼
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;

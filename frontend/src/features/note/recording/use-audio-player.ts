@@ -1,6 +1,6 @@
 /**
- * Audio Player Hook
- * Manages audio playback for recordings
+ * 오디오 플레이어 훅
+ * 녹음 오디오 재생 관리
  */
 
 "use client";
@@ -10,6 +10,9 @@ import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
 import * as transcriptionApi from "@/lib/api/transcription.api";
 import * as audioApi from "@/lib/api/audio.api";
 import type { WordWithTime, PageContext } from "@/lib/types";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("AudioPlayer");
 
 // 🔥 스토어 직접 접근 (stale closure 방지)
 const getAudioPlayerStore = () => useAudioPlayerStore.getState();
@@ -25,7 +28,7 @@ function getSharedAudio(): HTMLAudioElement {
   }
   if (!sharedAudioInstance) {
     sharedAudioInstance = new Audio();
-    console.log('[useAudioPlayer] Created shared Audio instance');
+    log.debug("공유 Audio 인스턴스 생성됨");
   }
   return sharedAudioInstance;
 }
@@ -60,7 +63,7 @@ export function useAudioPlayer() {
   // Play/Pause 토글
   const togglePlay = () => setIsPlaying((prev) => !prev);
 
-  // audio Initialize and Event listeners
+  // 오디오 초기화 및 이벤트 리스너
   useEffect(() => {
     // 🔥 싱글톤 Audio 인스턴스 사용
     audioRef.current = getSharedAudio();
@@ -86,7 +89,7 @@ export function useAudioPlayer() {
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
-      console.log('[useAudioPlayer] Duration loaded:', audio.duration);
+      log.debug("재생 시간 로드됨:", audio.duration);
     };
 
     const handlePlay = () => {
@@ -103,7 +106,7 @@ export function useAudioPlayer() {
       if (!audio.src || audio.src === window.location.href) {
         return;
       }
-      console.error('[useAudioPlayer] ❌ Audio error:', {
+      log.error("오디오 에러:", {
         error: audio.error?.code,
         message: audio.error?.message,
         src: audio.src,
@@ -111,7 +114,7 @@ export function useAudioPlayer() {
     };
 
     const handleCanPlay = () => {
-      console.log('[useAudioPlayer] ✅ Audio can play');
+      log.debug("오디오 재생 가능");
     };
 
     audio.addEventListener("ended", handleEnded);
@@ -132,16 +135,16 @@ export function useAudioPlayer() {
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("error", handleError);
       audio.removeEventListener("canplay", handleCanPlay);
-      console.log('[useAudioPlayer] Cleanup - event listeners removed (audio continues)');
+      log.debug("정리 - 이벤트 리스너 제거됨 (오디오 계속 재생)");
     };
   }, [timelineEvents]);
 
-  // Recording Select Handler - Load session data and play audio
+  // 녹음 선택 핸들러 - 세션 데이터 로드 및 오디오 재생
   // audioRecordingId는 선택적 파라미터로 타임라인 이벤트 로드용
   const handleRecordingSelect = async (sessionIdParam: string, audioRecordingIdParam?: string) => {
     try {
       setIsLoadingSession(true);
-      console.log('[useAudioPlayer] Loading recording with sessionId:', sessionIdParam);
+      log.debug("녹음 로드 중, sessionId:", sessionIdParam);
 
       // 🔥 다른 세션으로 변경하기 전에 현재 편집 내용 자동 저장
       const scriptStore = getScriptTranslationStore();
@@ -153,24 +156,24 @@ export function useAudioPlayer() {
         Object.keys(scriptStore.editedSegments).length > 0 &&
         scriptStore.saveRevisionCallback
       ) {
-        console.log('[useAudioPlayer] 🔄 Auto-saving before session change');
+        log.debug("세션 변경 전 자동 저장 중");
         try {
           await scriptStore.saveRevisionCallback(audioStore.currentSessionId, scriptStore.editedSegments);
           scriptStore.resetEdits();
           scriptStore.setEditMode(false);
-          console.log('[useAudioPlayer] ✅ Auto-save completed');
+          log.debug("자동 저장 완료");
         } catch (saveError) {
-          console.error('[useAudioPlayer] ❌ Auto-save failed:', saveError);
+          log.error("자동 저장 실패:", saveError);
         }
       }
 
       const sessionId = sessionIdParam;
 
-      console.log('[useAudioPlayer] Fetching session:', sessionId);
+      log.debug("세션 가져오는 중:", sessionId);
 
-      // Fetch session data from backend
+      // 백엔드에서 세션 데이터 가져오기
       const sessionData = await transcriptionApi.getSession(sessionId);
-      console.log('[useAudioPlayer] Session data loaded:', {
+      log.debug("세션 데이터 로드됨:", {
         segments: sessionData.segments?.length || 0,
         fullAudioUrl: sessionData.fullAudioUrl,
         fullAudioKey: sessionData.fullAudioKey,
@@ -178,7 +181,7 @@ export function useAudioPlayer() {
         status: sessionData.status,
       });
 
-      // Load segments into ScriptPanel
+      // ScriptPanel에 세그먼트 로드
       if (sessionData.segments && sessionData.segments.length > 0) {
         // 최신 리비전 확인
         let revisionMap: Record<string, string> = {};
@@ -187,7 +190,7 @@ export function useAudioPlayer() {
           if (revisions && revisions.length > 0) {
             // 가장 최신 리비전 (version이 가장 높은 것)
             const latestRevision = revisions[0]; // 이미 version desc로 정렬됨
-            console.log('[useAudioPlayer] 📝 Latest revision:', {
+            log.debug("최신 리비전:", {
               version: latestRevision.version,
               segmentsCount: latestRevision.content?.segments?.length || 0,
             });
@@ -200,7 +203,7 @@ export function useAudioPlayer() {
             }
           }
         } catch (revisionError) {
-          console.warn('[useAudioPlayer] Failed to load revisions:', revisionError);
+          log.warn("리비전 로드 실패:", revisionError);
         }
 
         const scriptSegments = sessionData.segments.map((segment) => {
@@ -208,7 +211,7 @@ export function useAudioPlayer() {
           const editedText = revisionMap[segment.id];
           return {
             id: segment.id,
-            timestamp: segment.startTime * 1000, // Convert seconds to milliseconds
+            timestamp: segment.startTime * 1000, // 초를 밀리초로 변환
             originalText: editedText || segment.text, // 리비전 적용
             translatedText: undefined,
             speaker: undefined,
@@ -223,14 +226,14 @@ export function useAudioPlayer() {
         });
 
         setScriptSegments(scriptSegments);
-        console.log('[useAudioPlayer] Loaded', scriptSegments.length, 'segments into ScriptPanel',
-          Object.keys(revisionMap).length > 0 ? `(${Object.keys(revisionMap).length} edited)` : '');
+        log.debug("ScriptPanel에 세그먼트 로드됨:", scriptSegments.length,
+          Object.keys(revisionMap).length > 0 ? `(${Object.keys(revisionMap).length}개 편집됨)` : "");
       } else {
-        console.warn('[useAudioPlayer] No segments found in session');
+        log.warn("세션에 세그먼트 없음");
         setScriptSegments([]);
       }
 
-      // Play audio - Blob URL 방식 우선, 실패시 직접 URL로 fallback
+      // 오디오 재생 - Blob URL 방식 우선, 실패시 직접 URL로 fallback
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -241,7 +244,7 @@ export function useAudioPlayer() {
         if (sessionData.fullAudioUrl) {
           // MinIO URL을 그대로 사용 (이중 인코딩 하지 않음)
           audioUrl = sessionData.fullAudioUrl;
-          console.log('[useAudioPlayer] Using audio URL:', audioUrl);
+          log.debug("오디오 URL 사용:", audioUrl);
         }
 
         if (audioUrl) {
@@ -252,7 +255,7 @@ export function useAudioPlayer() {
           const backendDuration = Number(sessionData.duration) || 0;
           if (backendDuration > 0) {
             setDuration(backendDuration);
-            console.log('[useAudioPlayer] Using backend duration:', backendDuration);
+            log.debug("백엔드 재생 시간 사용:", backendDuration);
           }
 
           // 🔥 pendingSeekTime이 있으면 해당 시간으로 점프
@@ -260,20 +263,20 @@ export function useAudioPlayer() {
           if (store.pendingSeekTime !== null) {
             audioRef.current.currentTime = store.pendingSeekTime;
             setCurrentTime(store.pendingSeekTime);
-            console.log('[useAudioPlayer] ⏩ Jumped to pending seek time:', store.pendingSeekTime);
+            log.debug("대기 중인 탐색 시간으로 점프:", store.pendingSeekTime);
             store.setPendingSeekTime(null); // 사용 후 초기화
           }
 
           // 자동 재생 시도
           try {
             await audioRef.current.play();
-            console.log('[useAudioPlayer] ✅ Auto-play started');
+            log.debug("자동 재생 시작됨");
           } catch (playError) {
             // 자동 재생 실패 시 (브라우저 정책) - 사용자가 직접 재생 버튼 클릭 필요
-            console.warn('[useAudioPlayer] Auto-play blocked, user interaction required:', playError);
+            log.warn("자동 재생 차단됨, 사용자 상호작용 필요:", playError);
           }
         } else {
-          console.error('[useAudioPlayer] ❌ No audio URL available');
+          log.error("사용 가능한 오디오 URL 없음");
         }
       }
 
@@ -281,18 +284,18 @@ export function useAudioPlayer() {
       setCurrentSessionId(sessionId); // 🔥 전역 스토어에도 저장 (편집 시 리비전 저장용)
       setCurrentAudioRecordingId(audioRecordingIdParam || null);
 
-      console.log('[useAudioPlayer] 🔍 audioRecordingIdParam:', audioRecordingIdParam);
+      log.debug("audioRecordingIdParam:", audioRecordingIdParam);
 
       // 타임라인 이벤트 로드 (audioRecordingId가 있는 경우)
       // 🔥 스토어 직접 접근으로 stale closure 방지
       const store = getAudioPlayerStore();
       if (audioRecordingIdParam) {
         try {
-          console.log('[useAudioPlayer] 📥 Loading timeline events for:', audioRecordingIdParam);
+          log.debug("타임라인 이벤트 로드 중:", audioRecordingIdParam);
           const events = await audioApi.getTimelineEvents(audioRecordingIdParam);
-          console.log('[useAudioPlayer] 📤 Saving to store:', events.length, 'events');
+          log.debug("스토어에 저장:", events.length, "개 이벤트");
           store.setTimelineEvents(events);
-          console.log('[useAudioPlayer] ✅ Stored', events.length, 'timeline events');
+          log.debug("타임라인 이벤트 저장 완료:", events.length, "개");
 
           // 초기 페이지 컨텍스트 설정 (첫 번째 이벤트)
           if (events.length > 0) {
@@ -300,7 +303,7 @@ export function useAudioPlayer() {
             store.setCurrentPageContext(initialContext);
           }
         } catch (timelineError) {
-          console.error('[useAudioPlayer] Failed to load timeline events:', timelineError);
+          log.error("타임라인 이벤트 로드 실패:", timelineError);
           store.clearTimeline();
         }
       } else {
@@ -308,13 +311,13 @@ export function useAudioPlayer() {
       }
 
     } catch (error) {
-      console.error('[useAudioPlayer] Failed to load recording:', error);
+      log.error("녹음 로드 실패:", error);
     } finally {
       setIsLoadingSession(false);
     }
   };
 
-  // Play Stop
+  // 재생 중지
   const handleStopPlayback = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -337,7 +340,7 @@ export function useAudioPlayer() {
     setCurrentRecordingId(null);
     setCurrentAudioRecordingId(null);
     getAudioPlayerStore().clearTimeline(); // 🔥 스토어 직접 접근
-    console.log('[useAudioPlayer] Audio player reset');
+    log.debug("오디오 플레이어 초기화됨");
   };
 
   // 특정 시간의 페이지 컨텍스트 조회 (외부에서 사용 가능)
@@ -350,7 +353,7 @@ export function useAudioPlayer() {
     if (audioRef.current) {
       audioRef.current.currentTime = timeInSeconds;
       setCurrentTime(timeInSeconds);
-      console.log('[useAudioPlayer] ⏩ Seeked to:', timeInSeconds, 'seconds');
+      log.debug("탐색:", timeInSeconds, "초");
     }
   };
 

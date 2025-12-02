@@ -145,7 +145,7 @@ export function FolderNotes({
                     onDeleteNote(note.id, note.title);
                   }
                 }}
-                className="p-1 hover:bg-background-elevated rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="p-1 hover:bg-foreground/10 rounded transition-colors opacity-0 group-hover:opacity-100"
                 title="Delete note"
               >
                 <svg
@@ -190,7 +190,7 @@ export function FolderNotes({
                 }
                 closeNoteContextMenu();
               }}
-              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-background-overlay hover:text-foreground transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-foreground/10 hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"

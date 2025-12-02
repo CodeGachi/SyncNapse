@@ -1,6 +1,6 @@
 /**
- * Folder Related TanStack Query Mutations 
-*/ 
+ * 폴더 관련 TanStack Query 뮤테이션
+ */ 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createFolder as createFolderApi,
@@ -10,7 +10,7 @@ import {
 import type { Folder } from "@/lib/types";
 
 /**
- * Create folder Mutation
+ * 폴더 생성 뮤테이션
  */
 export function useCreateFolder(options?: {
   onSuccess?: (data: Folder) => void;
@@ -34,7 +34,7 @@ export function useCreateFolder(options?: {
 }
 
 /**
- * Folder Edit Mutation (Name Change)
+ * 폴더 수정 뮤테이션 (이름 변경)
  */
 export function useUpdateFolder(options?: {
   onSuccess?: () => void;
@@ -99,7 +99,7 @@ export function useUpdateFolder(options?: {
 }
 
 /**
- * Delete folder Mutation (Trash with) 
+ * 폴더 삭제 뮤테이션 (휴지통으로 이동)
  */
 export function useDeleteFolder(options?: {
   onSuccess?: () => void;

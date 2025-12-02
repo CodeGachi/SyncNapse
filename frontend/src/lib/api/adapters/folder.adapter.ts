@@ -1,17 +1,17 @@
 /**
- * Folder Adapter
- * Converts folder types from IndexedDB and Backend API to domain types
+ * 폴더 어댑터
+ * IndexedDB와 백엔드 API의 폴더 타입을 도메인 타입으로 변환
  */
 import type { Folder } from "@/lib/types";
 import type { DBFolder } from "@/lib/db";
 import type { ApiFolderResponse, ApiFolderCreateRequest } from "../types/api.types";
 
 // ============================================================================
-// IndexedDB → Domain type conversion
+// IndexedDB → 도메인 타입 변환
 // ============================================================================
 
 /**
- * Convert IndexedDB folder to domain folder
+ * IndexedDB 폴더를 도메인 폴더로 변환
  */
 export function dbToFolder(dbFolder: DBFolder): Folder {
   return {
@@ -24,14 +24,14 @@ export function dbToFolder(dbFolder: DBFolder): Folder {
 }
 
 /**
- * Convert an array of IndexedDB folders to an array of domain folders
+ * IndexedDB 폴더 배열을 도메인 폴더 배열로 변환
  */
 export function dbToFolders(dbFolders: DBFolder[]): Folder[] {
   return dbFolders.map(dbToFolder);
 }
 
 /**
- * Convert domain folder to IndexedDB folder
+ * 도메인 폴더를 IndexedDB 폴더로 변환
  */
 export function folderToDb(folder: Folder): DBFolder {
   return {
@@ -44,11 +44,11 @@ export function folderToDb(folder: Folder): DBFolder {
 }
 
 // ============================================================================
-// Backend API → Domain type conversion
+// 백엔드 API → 도메인 타입 변환
 // ============================================================================
 
 /**
- * Convert Backend API folder response to domain folder
+ * 백엔드 API 폴더 응답을 도메인 폴더로 변환
  */
 export function apiToFolder(apiFolder: ApiFolderResponse): Folder {
   return {
@@ -61,18 +61,18 @@ export function apiToFolder(apiFolder: ApiFolderResponse): Folder {
 }
 
 /**
- * Convert an array of Backend API folders to an array of domain folders
+ * 백엔드 API 폴더 배열을 도메인 폴더 배열로 변환
  */
 export function apiToFolders(apiFolders: ApiFolderResponse[]): Folder[] {
   return apiFolders.map(apiToFolder);
 }
 
 // ============================================================================
-// Domain type → Backend API request conversion
+// 도메인 타입 → 백엔드 API 요청 변환
 // ============================================================================
 
 /**
- * Convert domain folder to Backend API create request
+ * 도메인 폴더를 백엔드 API 생성 요청으로 변환
  */
 export function toApiFolderCreateRequest(
   name: string,

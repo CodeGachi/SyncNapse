@@ -49,7 +49,7 @@ export function NoteHeader({
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-      className="fixed top-0 left-0 right-0 z-50 bg-[#1e1e1e] border-b border-[#2f2f2f]"
+      className="fixed top-0 left-0 right-0 z-50 bg-background-surface border-b border-border"
     >
       <div className="flex items-center justify-between px-4 py-2 relative">
         {/* 왼쪽: 아이콘 + 제목 영역 */}
@@ -57,7 +57,7 @@ export function NoteHeader({
           {/* 홈 아이콘 */}
           <button
             onClick={handleHomeClick}
-            className="w-8 h-8 flex items-center justify-center transition-colors cursor-pointer hover:bg-[#2f2f2f] rounded"
+            className="w-8 h-8 flex items-center justify-center transition-colors cursor-pointer hover:bg-background-elevated rounded"
             title="대시보드로 이동"
           >
             <Image src="/home.svg" alt="Home" width={22} height={22} />
@@ -66,14 +66,14 @@ export function NoteHeader({
           {/* 메뉴 아이콘 */}
           <button
             onClick={handleMenuClick}
-            className="w-8 h-8 flex items-center justify-center transition-colors cursor-pointer hover:bg-[#2f2f2f] rounded"
+            className="w-8 h-8 flex items-center justify-center transition-colors cursor-pointer hover:bg-background-elevated rounded"
             title="메뉴"
           >
             <Image src="/menu.svg" alt="Menu" width={22} height={22} />
           </button>
 
           {/* 제목 */}
-          <h1 className="text-[18px] font-bold text-white leading-[22px]">
+          <h1 className="text-[18px] font-bold text-foreground leading-[22px]">
             {noteTitle}
           </h1>
 
@@ -81,7 +81,7 @@ export function NoteHeader({
           {isEducatorNote && !isSharedView && (
             <button
               onClick={() => openSharingModal(noteId || "", noteTitle)}
-              className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-[#AFC02B] transition-colors cursor-pointer"
+              className="w-6 h-6 flex items-center justify-center text-foreground-tertiary hover:text-brand transition-colors cursor-pointer"
               title="공유 설정"
             >
               <svg

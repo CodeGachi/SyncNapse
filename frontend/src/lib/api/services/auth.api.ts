@@ -1,9 +1,13 @@
 /**
- * Authentication API
- * Handles authentication-related API calls
+ * 인증 API 서비스
+ * 인증 관련 API 호출 처리
  */
 
+import { createLogger } from "@/lib/utils/logger";
 import { apiClient } from "../client";
+import { getValidAccessToken, clearTokens } from "@/lib/auth/token-manager";
+
+const log = createLogger("Auth");
 
 export interface User {
   id: string;
@@ -19,18 +23,18 @@ export interface LoginResponse {
 }
 
 /**
- * Start Google OAuth login
- * Redirects to the backend Google OAuth endpoint
+ * Google OAuth 로그인 시작
+ * 백엔드 Google OAuth 엔드포인트로 리다이렉트
  */
 export function getGoogleLoginUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   const url = `${baseUrl}/api/auth/google`;
-  console.log("[Auth] Google OAuth URL:", url, "API_URL:", baseUrl);
+  log.info("Google OAuth URL:", url, "API_URL:", baseUrl);
   return url;
 }
 
 /**
- * Check authentication status
+ * 인증 상태 확인
  */
 export async function checkAuthStatus(): Promise<{ ok: boolean }> {
   return apiClient<{ ok: boolean }>("/api/auth/check", {
@@ -39,11 +43,11 @@ export async function checkAuthStatus(): Promise<{ ok: boolean }> {
 }
 
 /**
- * Get current user info from backend
- * Fetches user information from the backend API
+ * 백엔드에서 현재 사용자 정보 가져오기
+ * 백엔드 API에서 사용자 정보 조회
  */
 export async function getCurrentUserFromAPI(): Promise<User> {
-  console.log("[Auth] Calling GET /api/users/me...");
+  log.debug("Calling GET /api/users/me...");
   const response = await apiClient<{
     id: string;
     email: string;
@@ -55,7 +59,7 @@ export async function getCurrentUserFromAPI(): Promise<User> {
     method: "GET",
   });
 
-  console.log("[Auth] GET /api/users/me response:", response);
+  log.debug("GET /api/users/me response:", response);
 
   // Backend returns { displayName, email, ... } but we need to map it
   return {
@@ -68,15 +72,15 @@ export async function getCurrentUserFromAPI(): Promise<User> {
 }
 
 /**
- * Update user profile
- * Updates user information via backend API
+ * 사용자 프로필 업데이트
+ * 백엔드 API를 통해 사용자 정보 업데이트
  */
 export interface UpdateUserDto {
   displayName?: string;
 }
 
 export async function updateUserProfile(data: UpdateUserDto): Promise<User> {
-  console.log("[Auth] Calling PATCH /api/users/me with:", data);
+  log.debug("Calling PATCH /api/users/me with:", data);
   const response = await apiClient<{
     id: string;
     email: string;
@@ -89,7 +93,7 @@ export async function updateUserProfile(data: UpdateUserDto): Promise<User> {
     body: JSON.stringify(data),
   });
 
-  console.log("[Auth] PATCH /api/users/me response:", response);
+  log.debug("PATCH /api/users/me response:", response);
 
   return {
     id: response.id,
@@ -101,52 +105,39 @@ export async function updateUserProfile(data: UpdateUserDto): Promise<User> {
 }
 
 /**
- * Get current user info from backend API
- * First validates token, then fetches fresh user data from API
+ * 백엔드 API에서 현재 사용자 정보 가져오기
+ * token-manager를 통해 토큰 유효성을 검증하고 필요시 자동 갱신
  */
 export async function getCurrentUser(): Promise<User | null> {
-  const token = localStorage.getItem("authToken");
-  if (!token) {
-    localStorage.removeItem("user");
-    return null;
-  }
-
   try {
-    // JWT 토큰 형식 검증 (3 parts: header.payload.signature)
-    const parts = token.split(".");
-    if (parts.length !== 3) {
-      console.warn("[Auth] Invalid JWT token format, removing...");
-      clearAuthTokens();
-      return null;
-    }
+    // token-manager를 통해 유효한 토큰 가져오기 (자동 갱신 포함)
+    const token = await getValidAccessToken();
 
-    // JWT 토큰 디코드 (만료 확인용)
-    const decoded = JSON.parse(
-      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
-    );
-
-    // 필수 필드 확인
-    if (!decoded || (!decoded.sub && !decoded.id)) {
-      console.warn("[Auth] Token missing user ID, removing...");
-      clearAuthTokens();
-      return null;
-    }
-
-    // 토큰 만료 확인
-    if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-      console.warn("[Auth] Token expired, removing...");
-      clearAuthTokens();
+    if (!token) {
+      log.debug("No valid token available");
+      localStorage.removeItem("user");
       return null;
     }
 
     // 백엔드 API에서 최신 사용자 정보 가져오기
     try {
       const user = await getCurrentUserFromAPI();
-      console.log("[Auth] Fetched user from API:", user);
+      log.debug("Fetched user from API:", user);
       return user;
     } catch (apiError) {
-      console.warn("[Auth] API call failed, falling back to token data:", apiError);
+      log.warn("API call failed, falling back to token data:", apiError);
+
       // API 호출 실패 시 토큰 데이터로 폴백
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        clearTokens();
+        return null;
+      }
+
+      const decoded = JSON.parse(
+        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+      );
+
       return {
         id: decoded.sub || decoded.id,
         email: decoded.email || "",
@@ -158,23 +149,22 @@ export async function getCurrentUser(): Promise<User | null> {
       };
     }
   } catch (error) {
-    console.error("[Auth] getCurrentUser 실패:", error);
-    clearAuthTokens();
+    log.error("getCurrentUser 실패:", error);
+    clearTokens();
     return null;
   }
 }
 
 /**
- * Clear all auth tokens from localStorage
+ * localStorage에서 모든 인증 토큰 제거
  */
 function clearAuthTokens(): void {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("refreshToken");
+  clearTokens();
   localStorage.removeItem("user");
 }
 
 /**
- * Logout
+ * 로그아웃
  * - HTTP Client V2 사용
  * - 항상 로컬 토큰 제거
  */

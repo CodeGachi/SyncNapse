@@ -18,7 +18,7 @@ export function LoginForm() {
 
   // 쿼리 파라미터에서 리다이렉트 URL 저장
   useEffect(() => {
-    const callbackUrl = searchParams.get("callbackUrl");
+    const callbackUrl = searchParams?.get("callbackUrl");
     if (callbackUrl && callbackUrl !== "/" && !callbackUrl.startsWith("/auth")) {
       localStorage.setItem("redirectAfterLogin", callbackUrl);
       log.debug("리다이렉트 URL 저장:", callbackUrl);

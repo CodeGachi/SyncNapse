@@ -41,7 +41,7 @@ export function AdminHeader() {
   const router = useRouter();
 
   // 브레드크럼 생성
-  const breadcrumbs = generateBreadcrumbs(pathname);
+  const breadcrumbs = generateBreadcrumbs(pathname ?? "");
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");

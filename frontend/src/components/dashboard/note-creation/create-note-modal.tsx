@@ -64,7 +64,7 @@ export function NoteSettingsModal({
       isOpen={isOpen}
       onClose={handleClose}
       title={noteType === "student" ? "새 개인 노트" : "새 강의 노트"}
-      contentClassName="flex flex-col p-10 gap-8 bg-background-sidebar/95 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[800px] max-h-[90vh]"
+      contentClassName="flex flex-col p-10 gap-8 bg-background-sidebar/95 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl w-[800px] max-h-[90vh]"
     >
 
       {/* 입력 영역: 제목 + 폴더 선택 */}
@@ -129,7 +129,7 @@ export function NoteSettingsModal({
 
       {/* 파일 업로드 영역 */}
       <div
-        className={`flex flex-col justify-center items-center p-8 gap-4 w-full min-h-[300px] bg-foreground/[0.02] border-2 border-dashed border-foreground/10 rounded-2xl transition-all ${isDragActive ? "border-brand-secondary bg-brand-secondary/5" : "hover:border-foreground/20 hover:bg-foreground/[0.04]"
+        className={`flex flex-col justify-center items-center p-8 gap-4 w-full min-h-[300px] bg-foreground/[0.02] dark:bg-foreground/[0.02] bg-black/[0.03] border-2 border-dashed border-[#9ca3af] dark:border-foreground/10 rounded-2xl transition-all ${isDragActive ? "border-brand-secondary bg-brand-secondary/5" : "hover:border-foreground/20 hover:bg-foreground/[0.04]"
           }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}

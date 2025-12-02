@@ -27,23 +27,23 @@ export function Panel({
   if (!isOpen) return null;
 
   const borderClass =
-    borderColor === "green" ? "border-[#AFC02B]" : "border-[#b9b9b9]";
+    borderColor === "green" ? "border-brand" : "border-border";
 
   const heightClass = height ? height : "h-full";
 
   return (
     <div
-      className={`bg-[#2f2f2f] border-2 ${borderClass} rounded-lg flex flex-col overflow-hidden transition-all duration-300 ${heightClass}`}
+      className={`bg-background-elevated border-2 ${borderClass} rounded-lg flex flex-col overflow-hidden transition-all duration-300 ${heightClass}`}
     >
       {/* Header with title and close button */}
       {(title || onClose) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#444444] flex-shrink-0">
-          {title && <h3 className="text-white text-sm font-bold">{title}</h3>}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+          {title && <h3 className="text-foreground text-sm font-bold">{title}</h3>}
           {!title && <div />}
           {onClose && (
             <button
               onClick={onClose}
-              className="text-[#b9b9b9] hover:text-white transition-colors"
+              className="text-foreground-tertiary hover:text-foreground transition-colors"
               title="닫기"
             >
               <svg

@@ -1,17 +1,18 @@
 /**
- * Batch file validation utility
- * Validates multiple files at once
+ * 배치 파일 검증 유틸리티
+ * 여러 파일을 한 번에 검증
  */
 
 import { validateFile, validateFileCount, validateTotalSize } from "./file-validation";
 import { validateFileName, detectDuplicateFile } from "./file-name";
 
 /**
- * Batch file validation (multiple files at once)
- *
- * @returns validFiles - Files that passed validation
- * @returns invalidFiles - Files that failed validation (with error messages)
- * @returns duplicates - Duplicate files
+ * 여러 파일 일괄 검증
+ * @param files - 검증할 파일 배열
+ * @param existingFiles - 기존 파일 배열 (중복 체크용)
+ * @returns validFiles - 검증 통과 파일
+ * @returns invalidFiles - 검증 실패 파일 (에러 메시지 포함)
+ * @returns duplicates - 중복 파일
  */
 export function validateFiles(
   files: File[],

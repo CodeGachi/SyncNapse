@@ -1,9 +1,12 @@
 /**
- * Note Content React Query Hooks
+ * 노트 컨텐츠 React Query 훅
  * IndexedDB 우선, 백그라운드 백엔드 동기화
  */
 
+import { createLogger } from "@/lib/utils/logger";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+const log = createLogger("NoteContentQuery");
 import { fetchNoteContentWithSync } from "../services/note-content.api";
 import { useEffect } from "react";
 
@@ -33,7 +36,7 @@ export function useNoteContent(noteId: string | null, pageId: string) {
         customEvent.detail?.noteId === noteId &&
         customEvent.detail?.pageId === pageId
       ) {
-        console.log('[useNoteContent] Content synced from backend, refreshing cache');
+        log.debug('Content synced from backend, refreshing cache');
         // 캐시 무효화하여 화면 업데이트
         queryClient.invalidateQueries({ queryKey: ['note-content', noteId, pageId] });
       }

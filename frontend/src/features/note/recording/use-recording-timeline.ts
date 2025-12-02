@@ -11,6 +11,9 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import * as audioApi from "@/lib/api/audio.api";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("RecordingTimeline");
 
 interface UseRecordingTimelineProps {
   isRecording: boolean;
@@ -61,15 +64,15 @@ export function useRecordingTimeline({
           fileId: backendId, // 백엔드 File ID 직접 사용
           pageNumber: pageNumber,
         });
-        console.log("[useRecordingTimeline] ✅ Timeline event saved:", {
+        log.debug("✅ 타임라인 이벤트 저장됨:", {
           timestamp: intTimestamp + "s",
-          fileId: backendId || "(none)",
+          fileId: backendId || "(없음)",
           pageNumber,
         });
       } catch (error: unknown) {
         const apiError = error as { status?: number };
         if (apiError?.status !== 409) {
-          console.error("[useRecordingTimeline] Failed to save timeline event:", error);
+          log.error("타임라인 이벤트 저장 실패:", error);
           savedTimestampsRef.current.delete(intTimestamp);
         }
       }
@@ -82,7 +85,7 @@ export function useRecordingTimeline({
     // 녹음 종료 시 초기화
     if (!isRecording) {
       if (isInitialEventSavedRef.current) {
-        console.log("[useRecordingTimeline] Recording stopped - resetting state");
+        log.debug("녹음 중지됨 - 상태 초기화");
         isInitialEventSavedRef.current = false;
         prevBackendIdRef.current = undefined;
         prevPageRef.current = 1;
@@ -98,7 +101,7 @@ export function useRecordingTimeline({
 
     // 초기 이벤트 저장 (한 번만)
     if (!isInitialEventSavedRef.current) {
-      console.log("[useRecordingTimeline] 🎯 Saving initial timeline event...");
+      log.debug("🎯 초기 타임라인 이벤트 저장 중...");
       saveTimelineEvent(0, currentBackendId, currentPage);
       isInitialEventSavedRef.current = true;
       prevBackendIdRef.current = currentBackendId;
@@ -111,7 +114,7 @@ export function useRecordingTimeline({
     const pageChanged = currentPage !== prevPageRef.current;
 
     if (fileChanged || pageChanged) {
-      console.log("[useRecordingTimeline] Context changed:", {
+      log.debug("컨텍스트 변경됨:", {
         fileChanged,
         pageChanged,
         from: { fileId: prevBackendIdRef.current, page: prevPageRef.current },

@@ -368,9 +368,9 @@ export function MainContent() {
                   className="group relative flex flex-col p-5 bg-background-surface/60 backdrop-blur-md border border-border-subtle rounded-2xl cursor-pointer hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)] hover:border-brand/30 transition-all duration-300"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-2.5 rounded-xl ${note.type === 'educator'
-                      ? 'bg-brand/10 text-brand shadow-[0_0_10px_rgba(175,192,43,0.1)]'
-                      : 'bg-status-info/10 text-status-info shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                    <div className={`p-2.5 rounded-xl border ${note.type === 'educator'
+                      ? 'bg-brand/10 text-brand border-[#6B7A20] shadow-[0_0_10px_rgba(175,192,43,0.1)]'
+                      : 'bg-status-info/10 text-status-info border-[#2563EB] shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       }`}>
                       {note.type === 'educator' ? (
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -451,8 +451,8 @@ export function MainContent() {
                         <path d="M8.33332 7.5H6.66666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 ${note.type === 'educator'
-                        ? 'bg-brand/20 text-brand border border-brand/30'
-                        : 'bg-status-info/20 text-status-info border border-status-info/30'
+                        ? 'bg-brand/20 text-brand border border-[#6B7A20]'
+                        : 'bg-status-info/20 text-status-info border border-[#2563EB]'
                         }`}>
                         {note.type === 'educator' ? '강의' : '개인'}
                       </span>
@@ -612,14 +612,14 @@ export function MainContent() {
           setNewName("");
         }}
         title={`${renameModal?.type === 'note' ? '노트' : '폴더'} 이름 변경`}
-        contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px]"
+        contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px]"
       >
         <div className="flex flex-col gap-6">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="w-full px-4 py-3 bg-background-elevated border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
+            className="w-full px-4 py-3 bg-black/[0.03] dark:bg-background-elevated border border-[#9ca3af] dark:border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
             placeholder="새 이름 입력"
             autoFocus
             onKeyDown={(e) => {
@@ -659,10 +659,10 @@ export function MainContent() {
           setSelectedMoveFolder(null);
         }}
         title={`"${moveModal?.name}" 이동`}
-        contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px] max-h-[80vh]"
+        contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px] max-h-[80vh]"
       >
         <div className="flex flex-col gap-6">
-          <div className="bg-background-elevated border border-border rounded-xl p-2 max-h-[300px] overflow-y-auto space-y-1">
+          <div className="bg-black/[0.03] dark:bg-background-elevated border border-[#9ca3af] dark:border-border rounded-xl p-2 max-h-[300px] overflow-y-auto space-y-1">
             {/* 루트 폴더 */}
             <button
               onClick={() => setSelectedMoveFolder(null)}

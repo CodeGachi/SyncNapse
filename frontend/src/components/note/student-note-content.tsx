@@ -50,7 +50,7 @@ export function StudentNoteContent({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="flex items-start bg-[#1e1e1e] h-screen w-full"
+      className="flex items-start bg-background-surface h-screen w-full"
     >
       {/* 헤더 - 제목 + 녹음바 */}
       <NoteHeader

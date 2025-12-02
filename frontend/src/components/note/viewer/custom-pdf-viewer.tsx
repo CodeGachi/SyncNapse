@@ -376,10 +376,10 @@ export function CustomPdfViewer({
   };
 
   return (
-    <div className="w-full h-full bg-[#2f2f2f] border-x border-b border-[#3c3c3c] rounded-bl-[15px] rounded-br-[15px] flex flex-col overflow-hidden relative">
+    <div className="w-full h-full bg-background-elevated border-x border-b border-border rounded-bl-[15px] rounded-br-[15px] flex flex-col overflow-hidden relative">
       {/* 검색창 */}
       {isSearchOpen && isPdf && (
-        <div className="absolute top-2 right-2 z-50 bg-[#252525] border border-[#444444] rounded-lg shadow-lg p-2 flex items-center gap-2">
+        <div className="absolute top-2 right-2 z-50 bg-background-elevated border border-border rounded-lg shadow-lg p-2 flex items-center gap-2">
           <input
             ref={searchInputRef}
             type="text"
@@ -387,38 +387,38 @@ export function CustomPdfViewer({
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
             placeholder="검색..."
-            className="w-48 h-8 bg-[#1e1e1e] border border-[#444444] rounded px-3 text-white text-sm focus:outline-none focus:border-[#666666]"
+            className="w-48 h-8 bg-background-surface border border-border rounded px-3 text-foreground text-sm focus:outline-none focus:border-border-hover"
           />
-          <span className="text-gray-400 text-xs min-w-[60px] text-center">
+          <span className="text-foreground-tertiary text-xs min-w-[60px] text-center">
             {matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length}` : isSearching ? "검색 중..." : "0/0"}
           </span>
           <button
             onClick={goToPrevMatch}
             disabled={matches.length === 0}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             title="이전 (Shift+Enter)"
           >
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-              <path d="M10 14L10 6M10 6L6 10M10 6L14 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 14L10 6M10 6L6 10M10 6L14 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
             </svg>
           </button>
           <button
             onClick={goToNextMatch}
             disabled={matches.length === 0}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             title="다음 (Enter)"
           >
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-              <path d="M10 6L10 14M10 14L14 10M10 14L6 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 6L10 14M10 14L14 10M10 14L6 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
             </svg>
           </button>
           <button
             onClick={closeSearch}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay transition-colors"
             title="닫기 (Esc)"
           >
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-              <path d="M6 6L14 14M14 6L6 14" stroke="white" strokeWidth="2" strokeLinecap="round" />
+              <path d="M6 6L14 14M14 6L6 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-foreground" />
             </svg>
           </button>
         </div>
@@ -441,7 +441,7 @@ export function CustomPdfViewer({
         {/* 콘텐츠 영역 */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-auto bg-[#2a2a2a]"
+          className="flex-1 overflow-auto bg-background-elevated"
           onMouseDown={isPanModeEnabled && !drawingMode ? handleMouseDown : undefined}
           onMouseMove={isPanModeEnabled && !drawingMode ? handleMouseMove : undefined}
           onMouseUp={isPanModeEnabled && !drawingMode ? handleMouseUp : undefined}
@@ -463,7 +463,7 @@ export function CustomPdfViewer({
             }}
           >
             {!fileUrl ? (
-              <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
+              <div className="flex flex-col items-center justify-center text-foreground-tertiary gap-3">
                 <svg
                   width="64"
                   height="64"
@@ -563,7 +563,7 @@ export function CustomPdfViewer({
               </div>
             ) : (
               // 기타 파일
-              <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
+              <div className="flex flex-col items-center justify-center text-foreground-tertiary gap-3">
                 <svg
                   width="64"
                   height="64"
@@ -576,13 +576,13 @@ export function CustomPdfViewer({
                   <path d="M38 8v14h12" />
                 </svg>
                 <p className="text-sm">{fileName}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-foreground-tertiary">
                   이 파일 형식은 미리보기를 지원하지 않습니다
                 </p>
                 <a
                   href={fileUrl}
                   download={fileName}
-                  className="px-4 py-2 bg-[#444444] hover:bg-[#555555] text-white rounded-lg text-sm transition-colors"
+                  className="px-4 py-2 bg-background-overlay hover:bg-background-base text-foreground rounded-lg text-sm transition-colors"
                 >
                   다운로드
                 </a>
@@ -594,13 +594,13 @@ export function CustomPdfViewer({
 
       {/* PDF 컨트롤 바 */}
       {isPdf && fileUrl && numPages > 0 && (
-        <div className="flex-shrink-0 h-11 bg-[#252525] border-t border-[#3c3c3c] flex items-center justify-between px-3 gap-3">
+        <div className="flex-shrink-0 h-11 bg-background-elevated border-t border-border flex items-center justify-between px-3 gap-3">
           {/* 페이지 네비게이션 */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="이전 페이지"
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -621,15 +621,15 @@ export function CustomPdfViewer({
                 onChange={handlePageInput}
                 min={1}
                 max={numPages}
-                className="w-14 h-7 bg-[#1e1e1e] border border-[#444444] rounded text-white text-center text-xs focus:outline-none focus:border-[#666666]"
+                className="w-14 h-7 bg-background-surface border border-border rounded text-foreground text-center text-xs focus:outline-none focus:border-border-hover"
               />
-              <span className="text-gray-400 text-xs">/ {numPages}</span>
+              <span className="text-foreground-tertiary text-xs">/ {numPages}</span>
             </div>
 
             <button
               onClick={handleNextPage}
               disabled={currentPage === numPages}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="다음 페이지"
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -651,7 +651,7 @@ export function CustomPdfViewer({
               onClick={() => setIsPanModeEnabled(prev => !prev)}
               className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${isPanModeEnabled
                   ? "bg-blue-600 hover:bg-blue-700"
-                  : "hover:bg-[#3c3c3c]"
+                  : "hover:bg-background-overlay"
                 }`}
               title={isPanModeEnabled ? "이동 모드 끄기 (텍스트 선택 가능)" : "이동 모드 켜기 (드래그로 이동)"}
             >
@@ -666,12 +666,12 @@ export function CustomPdfViewer({
               </svg>
             </button>
 
-            <div className="w-px h-5 bg-[#444444] mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
 
             <button
               onClick={handleZoomOut}
               disabled={scale <= 0.5}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="축소"
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -685,14 +685,14 @@ export function CustomPdfViewer({
               </svg>
             </button>
 
-            <span className="text-white font-semibold text-xs w-16 text-center bg-[#1e1e1e] px-1.5 py-0.5 rounded border border-[#444444]">
+            <span className="text-foreground font-semibold text-xs w-16 text-center bg-background-surface px-1.5 py-0.5 rounded border border-border">
               {Math.round(scale * 100)}%
             </span>
 
             <button
               onClick={handleZoomIn}
               disabled={scale >= 10}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="확대"
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -708,7 +708,7 @@ export function CustomPdfViewer({
 
             <button
               onClick={handleResetZoom}
-              className="px-2 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors text-gray-400 text-xs"
+              className="px-2 h-7 flex items-center justify-center rounded hover:bg-background-overlay transition-colors text-foreground-tertiary text-xs"
               title="원본 크기"
             >
               리셋
@@ -719,7 +719,7 @@ export function CustomPdfViewer({
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleRotateLeft}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay transition-colors"
               title="왼쪽 회전"
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -741,7 +741,7 @@ export function CustomPdfViewer({
 
             <button
               onClick={handleRotateRight}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-background-overlay transition-colors"
               title="오른쪽 회전"
             >
               <svg

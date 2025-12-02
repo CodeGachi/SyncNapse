@@ -1,13 +1,12 @@
 /**
- * Backend API Response Types
- * Defines backend API response types
+ * 백엔드 API 응답 타입
  *
- * Note: These types may change depending on the backend API response structure.
- * When the backend structure changes, only this file needs to be updated.
+ * 백엔드 API 응답 타입 정의
+ * 백엔드 API 구조가 변경되면 이 파일만 수정하면 됨
  */
 
 // ============================================================================
-// Folder API Types
+// 폴더 API 타입
 // ============================================================================
 
 export interface ApiFolderResponse {
@@ -39,7 +38,7 @@ export interface ApiFolderUpdateRequest {
 }
 
 // ============================================================================
-// Note API Types
+// 노트 API 타입
 // ============================================================================
 
 /**
@@ -78,7 +77,7 @@ export interface ApiNoteUpdateRequest {
 }
 
 // ============================================================================
-// File API Types
+// 파일 API 타입
 // ============================================================================
 
 export interface ApiFileResponse {
@@ -92,7 +91,7 @@ export interface ApiFileResponse {
 }
 
 // ============================================================================
-// Trash API Types
+// 휴지통 API 타입
 // ============================================================================
 
 export interface ApiTrashItemResponse {
@@ -104,7 +103,7 @@ export interface ApiTrashItemResponse {
 }
 
 // ============================================================================
-// Common API Types
+// 공통 API 타입
 // ============================================================================
 
 /**
@@ -132,7 +131,7 @@ export interface ApiPaginatedResponse<T> {
 }
 
 // ============================================================================
-// Search API Types
+// 검색 API 타입
 // ============================================================================
 
 /**

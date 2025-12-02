@@ -1,5 +1,5 @@
 /**
- * PDF Search Hook
+ * PDF 검색 훅
  * PDF 내 텍스트 검색 기능
  *
  * Note: 키보드 단축키(Ctrl+F, Escape)는 useNoteKeyboard로 이동됨
@@ -8,6 +8,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, RefObject } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("PdfSearch");
 
 interface SearchMatch {
   pageNum: number;
@@ -187,7 +190,7 @@ export function usePdfSearch({
         setCurrentPage(foundMatches[0].pageNum);
       }
     } catch (err) {
-      console.error("검색 실패:", err);
+      log.error("검색 실패:", err);
     } finally {
       setIsSearching(false);
     }

@@ -6,10 +6,16 @@
  * 설치: npm install jszip
  */
 
+import { createLogger } from "./logger";
+
+const log = createLogger("Zip");
+
 import type { ExtractedFile, ZipProcessOptions } from "../types";
 
 /**
- * Check if the file is a ZIP file
+ * ZIP 파일 여부 확인
+ * @param file - 확인할 파일
+ * @returns ZIP 파일이면 true
  */
 export function isZipFile(file: File): boolean {
   return (
@@ -25,7 +31,7 @@ export function isZipFile(file: File): boolean {
  * TODO: JSZip 라이브러리 설치 후 구현
  */
 export async function getZipFileList(zipFile: File): Promise<string[]> {
-  console.warn("ZIP 파일 처리를 위해 JSZip 라이브러리가 필요합니다.");
+  log.warn("ZIP 파일 처리를 위해 JSZip 라이브러리가 필요합니다.");
   return [zipFile.name];
 }
 
@@ -38,7 +44,7 @@ export async function extractZipFile(
   zipFile: File,
   filter?: (fileName: string) => boolean
 ): Promise<ExtractedFile[]> {
-  console.warn("ZIP 파일 처리를 위해 JSZip 라이브러리가 필요합니다.");
+  log.warn("ZIP 파일 처리를 위해 JSZip 라이브러리가 필요합니다.");
 
   // 임시: ZIP 파일 자체를 반환
   return [
@@ -94,7 +100,7 @@ export async function processZipFile(
 
     return filtered.map(extractedFileToFile);
   } catch (error) {
-    console.error("ZIP 파일 처리 실패:", error);
+    log.error("ZIP 파일 처리 실패:", error);
     return [zipFile];
   }
 }

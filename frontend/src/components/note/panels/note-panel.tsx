@@ -201,11 +201,11 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col rounded-[15px] border border-gray-700 p-1 gap-2.5" style={{ backgroundColor: '#2f2f2f' }}>
+    <div className="h-full flex flex-col rounded-[15px] border border-border p-1 gap-2.5 bg-background-elevated">
       {/* 저장 상태 헤더 */}
-      <div className="flex items-center justify-between px-2 py-1 border-b" style={{ borderColor: '#565656' }}>
+      <div className="flex items-center justify-between px-2 py-1 border-b border-border">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-white">
+          <span className="text-xs font-medium text-foreground">
             Page {currentPage}
           </span>
           {isSaving && (
@@ -215,7 +215,7 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
             </span>
           )}
           {!isSaving && lastSavedAt && (
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-foreground-tertiary">
               저장됨 {lastSavedAt.toLocaleTimeString()}
             </span>
           )}
@@ -228,31 +228,28 @@ export function NotePanel({ isOpen, noteId }: NotePanelProps) {
           <LoadingScreen message="로딩 중..." />
         ) : (
           <div
-            className="h-full rounded-[15px] border border-gray-700 p-4"
-            style={{
-              backgroundColor: '#1e1e1e',
-            }}
+            className="h-full rounded-[15px] border border-border p-4 bg-background-surface"
           >
             <style dangerouslySetInnerHTML={{
               __html: `
                 .bn-container .bn-editor {
-                  background-color: #1e1e1e !important;
-                  color: #ffffff !important;
+                  background-color: var(--background-surface) !important;
+                  color: var(--foreground) !important;
                 }
                 .bn-container .bn-block-content {
-                  color: #ffffff !important;
+                  color: var(--foreground) !important;
                 }
                 .bn-container [data-content-type] {
-                  color: #ffffff !important;
+                  color: var(--foreground) !important;
                 }
                 .bn-container .ProseMirror {
-                  color: #ffffff !important;
+                  color: var(--foreground) !important;
                 }
                 .bn-container .bn-inline-content {
-                  color: #ffffff !important;
+                  color: var(--foreground) !important;
                 }
                 .bn-container p {
-                  color: #ffffff !important;
+                  color: var(--foreground) !important;
                 }
               `
             }} />

@@ -51,9 +51,9 @@ export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteD
     log.error("노트를 찾을 수 없음, ID:", noteId);
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-white text-xl">
+        <div className="text-foreground text-xl">
           노트를 찾을 수 없습니다.
-          <div className="text-sm text-gray-400 mt-2">Note ID: {noteId}</div>
+          <div className="text-sm text-foreground-secondary mt-2">Note ID: {noteId}</div>
         </div>
       </div>
     );
