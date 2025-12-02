@@ -1,10 +1,8 @@
 /**
- * Recordings API V2 - IndexedDB 우선 저장 + 백엔드 동기화
+ * Recordings API V2 - 즉시 백엔드 업로드 + IndexedDB 메타데이터 저장
  *
- * 새로운 구조:
- * 1. 모든 변경사항은 IndexedDB에 즉시 저장 (오프라인 우선)
- * 2. 동기화 큐에 추가
- * 3. 백그라운드에서 백엔드와 동기화
+ * 녹음 파일은 용량이 크므로 즉시 백엔드로 업로드하고
+ * IndexedDB에는 메타데이터만 저장 (backendUrl 포함)
  */
 
 import type { DBRecording } from "@/lib/db/recordings";
@@ -15,7 +13,9 @@ import {
   deleteRecording as deleteRecordingInDB,
   renameRecording as renameRecordingInDB,
 } from "@/lib/db/recordings";
-import { useSyncStore } from "@/lib/sync/sync-store";
+import { getAccessToken } from "@/lib/auth/token-manager";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 /**
  * Fetch all recordings for a note
@@ -30,8 +30,8 @@ export async function fetchRecordingsByNote(
 
 /**
  * Save recording
- * - IndexedDB에 즉시 저장
- * - 동기화 큐에 추가
+ * - 즉시 백엔드에 업로드 (용량이 크므로)
+ * - 성공 시 IndexedDB에 메타데이터 저장
  */
 export async function saveRecording(
   noteId: string,
@@ -39,73 +39,101 @@ export async function saveRecording(
   recordingBlob: Blob,
   duration: number
 ): Promise<DBRecording> {
-  // 1. IndexedDB에 즉시 저장
+  const token = getAccessToken();
+
+  // 1. 즉시 백엔드에 업로드
+  const formData = new FormData();
+  formData.append("recording", recordingBlob, `${name}.webm`);
+  formData.append("name", name);
+  formData.append("duration", String(duration));
+
+  const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/recordings`, {
+    method: "POST",
+    body: formData,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`녹음 업로드 실패: ${response.status} - ${errorText}`);
+  }
+
+  const uploadResult = await response.json();
+
+  // 2. IndexedDB에 메타데이터 저장 (Blob 데이터 없이)
   const dbRecording = await saveRecordingInDB(
     noteId,
     name,
-    recordingBlob,
+    recordingBlob, // 오프라인 재생을 위해 로컬에도 저장
     duration
   );
 
-  // 2. 동기화 큐에 추가
-  const syncStore = useSyncStore.getState();
-  syncStore.addToSyncQueue({
-    entityType: "recording",
-    entityId: dbRecording.id,
-    operation: "create",
-    data: {
-      noteId,
-      name,
-      duration,
-      recordingSize: recordingBlob.size,
-      recordingType: recordingBlob.type,
-    },
-  });
+  // 백엔드 ID와 URL 정보 업데이트 가능하도록 확장 필요 시 여기서 처리
+  console.log(`[Recording] ✅ Uploaded to backend: ${uploadResult.id}`);
 
   return dbRecording;
 }
 
 /**
  * Delete recording
- * - IndexedDB에서 즉시 삭제
- * - 동기화 큐에 추가
+ * - 즉시 백엔드에서 삭제
+ * - IndexedDB에서도 삭제
  */
 export async function deleteRecording(recordingId: string): Promise<void> {
-  // 1. IndexedDB에서 삭제
-  await deleteRecordingInDB(recordingId);
+  const token = getAccessToken();
 
-  // 2. 동기화 큐에 추가
-  const syncStore = useSyncStore.getState();
-  syncStore.addToSyncQueue({
-    entityType: "recording",
-    entityId: recordingId,
-    operation: "delete",
-    data: null,
-  });
+  // 1. 백엔드에서 삭제 시도
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/recordings/${recordingId}`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "include",
+    });
+
+    if (!response.ok && response.status !== 404) {
+      console.warn(`[Recording] Backend delete failed: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("[Recording] Backend delete error:", error);
+  }
+
+  // 2. IndexedDB에서 삭제
+  await deleteRecordingInDB(recordingId);
 }
 
 /**
  * Rename recording
- * - IndexedDB에서 즉시 업데이트
- * - 동기화 큐에 추가
+ * - 즉시 백엔드 업데이트
+ * - IndexedDB에서도 업데이트
  */
 export async function renameRecording(
   recordingId: string,
   newName: string
 ): Promise<void> {
-  // 1. IndexedDB에서 업데이트
-  await renameRecordingInDB(recordingId, newName);
+  const token = getAccessToken();
 
-  // 2. 동기화 큐에 추가
-  const syncStore = useSyncStore.getState();
-  syncStore.addToSyncQueue({
-    entityType: "recording",
-    entityId: recordingId,
-    operation: "update",
-    data: {
-      name: newName,
-    },
-  });
+  // 1. 백엔드 업데이트 시도
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/recordings/${recordingId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ name: newName }),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      console.warn(`[Recording] Backend rename failed: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("[Recording] Backend rename error:", error);
+  }
+
+  // 2. IndexedDB에서 업데이트
+  await renameRecordingInDB(recordingId, newName);
 }
 
 /**
