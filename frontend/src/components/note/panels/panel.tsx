@@ -33,7 +33,7 @@ export function Panel({
 
   return (
     <div
-      className={`bg-background-elevated border-2 ${borderClass} rounded-lg flex flex-col overflow-hidden transition-all duration-300 ${heightClass}`}
+      className={`bg-[#f5f5f5] dark:bg-background-elevated border-2 ${borderClass} rounded-lg flex flex-col overflow-hidden transition-all duration-300 ${heightClass}`}
     >
       {/* Header with title and close button */}
       {(title || onClose) && (

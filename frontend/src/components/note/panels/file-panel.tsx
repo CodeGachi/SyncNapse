@@ -83,8 +83,8 @@ export function FilePanel({
                 onFocus={() => setFocusedFileId(file.id)}
                 onBlur={() => setFocusedFileId(null)}
                 className={`flex items-center justify-between px-3 py-2 rounded-md transition-all cursor-pointer outline-none group relative ${selectedFileId === file.id
-                    ? "bg-[#e5e7eb] dark:bg-foreground/5"
-                    : "bg-transparent hover:bg-[#e5e7eb] dark:hover:bg-foreground/5"
+                    ? "bg-brand/20"
+                    : "bg-transparent hover:bg-foreground/10"
                   }`}
               >
                 {/* Selection Indicator */}

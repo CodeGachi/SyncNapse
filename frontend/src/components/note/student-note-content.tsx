@@ -63,7 +63,7 @@ export function StudentNoteContent({
       <NoteDataLoader noteId={noteId}>
         {/* 메인 레이아웃 - 뷰어 + 패널 + 아이콘 */}
         <main className="flex-1 h-full">
-          <div className="flex gap-1 h-full pt-20 px-2 pb-4">
+          <div className="flex gap-1 h-full pt-16 md:pt-20 px-1 md:px-2 pb-2 md:pb-4">
             {/* 메인 컨텐츠 영역 - PDF 뷰어 + BlockNote 에디터 */}
             <NoteContentArea noteId={noteId} noteTitle={noteTitle} />
 

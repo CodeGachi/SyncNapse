@@ -44,7 +44,7 @@ export function FolderSelectorModal({
       isOpen={isOpen}
       onClose={onClose}
       title="폴더 선택"
-      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[480px] max-h-[80vh]"
+      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[480px] max-w-[480px] max-h-[80vh]"
     >
       <div className="flex flex-col gap-6">
         {/* 폴더 트리 */}

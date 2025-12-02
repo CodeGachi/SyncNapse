@@ -61,7 +61,7 @@ export function CreateFolderModal({
       isOpen={isOpen}
       onClose={handleClose}
       title="새 폴더 만들기"
-      contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl w-[500px]"
+      contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl w-[90vw] md:w-[500px] max-w-[500px]"
     >
       <div className="flex flex-col gap-6 p-6 pt-0">
         <div className="flex flex-col gap-2">

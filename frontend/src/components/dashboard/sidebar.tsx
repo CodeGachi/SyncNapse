@@ -22,11 +22,13 @@ import { useIsAdmin } from "@/components/admin/admin-guard";
 interface SidebarProps {
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null) => void;
+  onCloseMobile?: () => void;
 }
 
 export function Sidebar({
   selectedFolderId,
   onSelectFolder,
+  onCloseMobile,
 }: SidebarProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -66,7 +68,20 @@ export function Sidebar({
   return (
     <>
       {/* Sidebar - width: 307px, bg: #121212 (Deep Premium Dark) */}
-      <aside className="w-[307px] h-screen bg-background-sidebar flex flex-col py-0 px-0 border-r border-border-subtle">
+      <aside className="w-[280px] md:w-[307px] h-screen bg-background-sidebar flex flex-col py-0 px-0 border-r border-border-subtle relative">
+        {/* 모바일/태블릿 닫기 버튼 */}
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="xl:hidden absolute top-4 right-4 p-2 text-foreground-tertiary hover:text-foreground hover:bg-foreground/10 rounded-lg transition-colors z-10"
+            aria-label="사이드바 닫기"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
         {/* Card - padding: 0px 8px */}
         <div className="flex flex-col justify-between items-start px-2 py-0 w-full h-full">
           {/* Inner Card - padding: 4px 12px, gap: 8px */}
@@ -193,7 +208,9 @@ export function Sidebar({
 
                 {/* 새 폴더 Button */}
                 <button
-                  onClick={() => setIsCreateFolderModalOpen(true)}
+                  onClick={() => {
+                    setIsCreateFolderModalOpen(true);
+                  }}
                   className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] bg-foreground/5 border border-border hover:bg-foreground/10 hover:scale-105 transition-all duration-300"
                 >
                   <div className="flex items-center gap-1 text-foreground">

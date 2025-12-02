@@ -60,12 +60,12 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
       isOpen={isOpen}
       onClose={onClose}
       title="키보드 단축키"
-      contentClassName="flex flex-col bg-background-modal/90 border border-foreground/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[600px] max-h-[80vh] overflow-hidden"
+      contentClassName="flex flex-col bg-background-modal/90 border border-foreground/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[90vw] md:w-[600px] max-w-[600px] max-h-[80vh] overflow-hidden"
     >
 
       {/* 본문 - 2열 레이아웃 */}
       <div className="flex-1 overflow-y-auto px-6 pb-8">
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 왼쪽 열 */}
           <div>
             <ShortcutSection title="PDF 뷰어" shortcuts={NOTE_KEYBOARD_SHORTCUTS.pdf} />

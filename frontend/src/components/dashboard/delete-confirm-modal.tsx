@@ -21,7 +21,7 @@ export function DeleteConfirmModal({
             isOpen={isOpen}
             onClose={onClose}
             title={`${type === 'note' ? '노트' : '폴더'} 삭제`}
-            contentClassName="bg-background-modal/90 border border-border shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px]"
+            contentClassName="bg-background-modal/90 border border-border shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[400px] max-w-[400px]"
         >
             <div className="flex flex-col gap-6">
                 <div className="text-foreground-secondary">

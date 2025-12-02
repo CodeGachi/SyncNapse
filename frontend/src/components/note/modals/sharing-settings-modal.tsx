@@ -130,7 +130,7 @@ export function SharingSettingsModal() {
       isOpen={isSharingModalOpen}
       onClose={closeSharingModal}
       title="공유 설정"
-      contentClassName="bg-background-base border border-border shadow-2xl shadow-black/50 rounded-3xl p-0 flex flex-col w-full max-w-[520px] overflow-hidden"
+      contentClassName="bg-background-base border border-border shadow-2xl shadow-black/50 rounded-3xl p-0 flex flex-col w-[90vw] md:w-full max-w-[520px] overflow-hidden"
     >
       <div className="p-6 flex flex-col gap-6">
 
