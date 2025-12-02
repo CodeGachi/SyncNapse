@@ -79,7 +79,7 @@ export function LoginForm() {
               >
                 <div className="relative w-16 h-16">
                   <Image
-                    src="/대시보드/Logo.svg"
+                    src="/logo.svg"
                     alt="SyncNapse Logo"
                     fill
                     className="object-contain drop-shadow-[0_0_15px_rgba(175,192,43,0.3)]"

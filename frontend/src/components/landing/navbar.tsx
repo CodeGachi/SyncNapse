@@ -9,7 +9,7 @@ export function Navbar() {
         <Link href="/" className="flex items-center gap-3 group">
           <div className="relative w-9 h-9">
             <Image
-              src="/대시보드/Logo.svg"
+              src="/logo.svg"
               alt="SyncNapse"
               fill
               className="object-contain"

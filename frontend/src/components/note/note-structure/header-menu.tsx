@@ -96,12 +96,12 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFold
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="노트 검색..."
-            className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
+            className="w-full pl-12 pr-4 py-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
           />
         </div>
 
         {/* 노트 목록 */}
-        <div className="bg-background-elevated border border-border rounded-xl p-2 min-h-[280px] max-h-[350px] overflow-y-auto">
+        <div className="bg-transparent border border-border rounded-xl p-2 min-h-[280px] max-h-[350px] overflow-y-auto">
           {isLoading ? (
             <LoadingScreen message="로딩 중..." className="py-12" />
           ) : filteredNotes.length === 0 ? (
@@ -211,7 +211,7 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="노트 제목을 입력하세요"
-            className="w-full px-4 py-3 bg-background-elevated border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
+            className="w-full px-4 py-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
           />
         </div>
 

@@ -32,13 +32,13 @@ export function OAuthCallback() {
 
       if (accessToken && refreshToken) {
         try {
-          // 1. localStorage에 accessToken만 저장
-          // refreshToken은 백엔드가 httpOnly 쿠키로 관리
+          // 1. localStorage에 accessToken 저장
           localStorage.setItem("authToken", accessToken);
 
-          // 2. authToken만 쿠키에 저장 (미들웨어 호환)
-          // refreshToken은 백엔드가 이미 httpOnly 쿠키로 설정함
+          // 2. 쿠키에 토큰 저장
           setCookie("authToken", accessToken, ACCESS_TOKEN_MAX_AGE);
+          // refreshToken도 쿠키에 저장 (백엔드가 /api/auth/refresh에서 쿠키로 읽음)
+          setCookie("refreshToken", refreshToken, 60 * 60 * 24 * 30); // 30일
 
           // 3. 사용자 정보 조회 및 캐시 업데이트
           const user = await getCurrentUser();

@@ -48,7 +48,7 @@ export function FolderSelectorModal({
     >
       <div className="flex flex-col gap-6">
         {/* 폴더 트리 */}
-        <div className="bg-background-elevated border border-border rounded-xl p-2 max-h-[400px] overflow-y-auto">
+        <div className="bg-transparent border border-border rounded-xl p-2 max-h-[400px] overflow-y-auto">
           {/* 루트 폴더 */}
           <button
             onClick={() => setTempSelectedId("root")}

@@ -7,7 +7,7 @@ export function Footer() {
         <div className="flex items-center gap-2">
           <div className="relative w-5 h-5 opacity-50">
             <Image
-              src="/대시보드/Logo.svg"
+              src="/logo.svg"
               alt="SyncNapse"
               fill
               className="object-contain"
