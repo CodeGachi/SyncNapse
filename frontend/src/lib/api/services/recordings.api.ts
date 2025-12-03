@@ -41,12 +41,14 @@ export async function saveRecording(
   const token = getAccessToken();
 
   // 1. 즉시 백엔드에 업로드
+  // 백엔드 DTO 필드명에 맞춤: file, noteId, title, durationSec
   const formData = new FormData();
-  formData.append("recording", recordingBlob, `${name}.webm`);
-  formData.append("name", name);
-  formData.append("duration", String(duration));
+  formData.append("file", recordingBlob, `${name}.webm`);
+  formData.append("noteId", noteId);
+  formData.append("title", name);
+  formData.append("durationSec", String(duration));
 
-  const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/recordings`, {
+  const response = await fetch(`${API_BASE_URL}/api/audio/recordings`, {
     method: "POST",
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
