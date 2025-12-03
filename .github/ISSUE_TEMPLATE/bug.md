@@ -2,8 +2,8 @@
 name: Bug
 about: Bug report
 title: "[BUG] "
-labels: Bug
-assignees: ''
+labels: Bug, Plan
+assignees: Nyam2C, ansrudgh, hmink8
 
 ---
 
