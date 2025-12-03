@@ -3,7 +3,7 @@ name: Plan
 about: Plan Template
 title: "[PLAN] "
 labels: Plan
-assignees: ''
+assignees: ansrudgh, hmink8, Nyam2C
 
 ---
 
