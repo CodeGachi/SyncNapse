@@ -22,11 +22,9 @@ import {
   checkDuplicateFolderName,
 } from "@/lib/db/folders";
 import { dbToFolder, dbToFolders, apiToFolder, apiToFolders } from "../adapters/folder.adapter";
-import { getAuthHeaders } from "../client";
-// import { getSyncQueue } from "@/lib/sync"; // TODO: Use useSyncStore instead
+import { getAuthHeaders, API_BASE_URL } from "../client";
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 /**
  * 모든 폴더 가져오기

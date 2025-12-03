@@ -14,8 +14,7 @@ import {
   renameRecording as renameRecordingInDB,
 } from "@/lib/db/recordings";
 import { getAccessToken } from "@/lib/auth/token-manager";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+import { API_BASE_URL } from "../client";
 
 /**
  * Fetch all recordings for a note

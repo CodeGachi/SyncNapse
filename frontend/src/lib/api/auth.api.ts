@@ -3,7 +3,7 @@
  * Authentication-related API functions that communicate with the backend
  */
 
-import { apiClient, getAuthHeaders } from "./client";
+import { apiClient, getAuthHeaders, API_BASE_URL } from "./client";
 import { getRefreshToken, setAccessToken, setRefreshToken } from "@/lib/auth/token-manager";
 
 export interface User {
@@ -31,8 +31,7 @@ export interface OAuthTokenResponse {
  * Returns the URL to redirect to the backend Google OAuth endpoint
  */
 export function getGoogleLoginUrl(): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  return `${baseUrl}/api/auth/google`;
+  return `${API_BASE_URL}/api/auth/google`;
 }
 
 /**
@@ -41,8 +40,7 @@ export function getGoogleLoginUrl(): string {
  */
 export async function exchangeCodeForToken(code: string, state: string): Promise<OAuthTokenResponse> {
   // Call backend callback URL with code and state
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  const response = await fetch(`${baseUrl}/api/auth/google/callback?code=${code}&state=${state}`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google/callback?code=${code}&state=${state}`, {
     credentials: "include",
   });
   
@@ -83,8 +81,7 @@ export async function refreshAccessToken(): Promise<OAuthTokenResponse> {
     throw new Error("No refresh token available");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  const response = await fetch(`${baseUrl}/api/auth/refresh`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

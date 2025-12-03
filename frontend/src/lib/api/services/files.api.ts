@@ -24,6 +24,7 @@ import {
 } from "@/lib/db/files";
 import { useSyncStore } from "@/lib/sync/sync-store";
 import { uploadFileToServer } from "@/lib/api/file-upload.api";
+import { API_BASE_URL } from "../client";
 
 // Re-export for backward compatibility
 import { decodeFilename } from "@/lib/utils/decode-filename";
@@ -90,7 +91,6 @@ export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId
  */
 async function syncFilesInBackground(noteId: string): Promise<void> {
   try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     const token = getAccessToken();
 
     if (!token) {

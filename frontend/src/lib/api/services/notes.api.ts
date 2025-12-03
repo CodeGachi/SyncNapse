@@ -24,12 +24,10 @@ import {
   checkDuplicateNoteTitle,
 } from "@/lib/db/notes";
 import { dbToNote, dbToNotes, apiToNote, apiToNotes } from "../adapters/note.adapter";
-import { getAuthHeaders } from "../client";
+import { getAuthHeaders, API_BASE_URL } from "../client";
 import { getAccessToken } from "@/lib/auth/token-manager";
-// import { getSyncQueue } from "@/lib/sync"; // TODO: Use useSyncStore instead
 
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 /**
  * 모든 노트 가져오기

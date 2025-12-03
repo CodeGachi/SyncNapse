@@ -5,6 +5,7 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { getAccessToken } from "@/lib/auth/token-manager";
+import { API_BASE_URL } from "@/lib/api/client";
 import {
   saveSearchNotes,
   saveSearchFiles,
@@ -20,8 +21,6 @@ import type {
 } from "./index";
 
 const log = createLogger("SearchSync");
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // ============================================
 // API 응답 타입

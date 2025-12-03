@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from "@/lib/utils/logger";
-import { apiClient } from "../client";
+import { apiClient, API_BASE_URL } from "../client";
 import { getValidAccessToken, clearTokens } from "@/lib/auth/token-manager";
 
 const log = createLogger("Auth");
@@ -27,9 +27,8 @@ export interface LoginResponse {
  * 백엔드 Google OAuth 엔드포인트로 리다이렉트
  */
 export function getGoogleLoginUrl(): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  const url = `${baseUrl}/api/auth/google`;
-  log.info("Google OAuth URL:", url, "API_URL:", baseUrl);
+  const url = `${API_BASE_URL}/api/auth/google`;
+  log.info("Google OAuth URL:", url, "API_URL:", API_BASE_URL);
   return url;
 }
 

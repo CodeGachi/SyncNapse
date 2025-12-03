@@ -15,7 +15,7 @@ import { getAccessToken } from "@/lib/auth/token-manager";
 
 const log = createLogger("API");
 
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // 재시도 설정
