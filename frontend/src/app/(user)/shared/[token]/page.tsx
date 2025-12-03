@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 import { getAccessToken } from "@/lib/auth/token-manager";
+import { saveSharedReturnUrl } from "@/lib/utils/shared-return-url";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("SharedNote");
@@ -24,9 +25,6 @@ const log = createLogger("SharedNote");
 interface SharedNotePageProps {
   params: { token: string };
 }
-
-// 공유 링크 returnUrl을 localStorage에 저장하는 키
-const SHARED_RETURN_URL_KEY = "syncnapse_shared_return_url";
 
 export default function SharedNotePage({ params }: SharedNotePageProps) {
   const router = useRouter();
@@ -52,7 +50,7 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
     if (!isAuthenticated) {
       // 현재 URL을 저장하여 로그인 후 복귀
       const currentUrl = window.location.href;
-      localStorage.setItem(SHARED_RETURN_URL_KEY, currentUrl);
+      saveSharedReturnUrl(currentUrl);
 
       log.info("로그인 필요 - 로그인 페이지로 이동", { currentUrl });
 
@@ -152,18 +150,4 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
   }
 
   return <LoadingScreen fullScreen message="공유 노트로 이동 중..." />;
-}
-
-/**
- * 로그인 후 저장된 공유 링크 URL을 가져오고 삭제
- * 로그인 성공 후 호출하여 원래 공유 링크로 복귀
- */
-export function getAndClearSharedReturnUrl(): string | null {
-  if (typeof window === "undefined") return null;
-
-  const url = localStorage.getItem(SHARED_RETURN_URL_KEY);
-  if (url) {
-    localStorage.removeItem(SHARED_RETURN_URL_KEY);
-  }
-  return url;
 }

@@ -6,11 +6,44 @@ import {
   Settings,
   TextNode,
   MetadataMode,
+  BaseEmbedding,
 } from 'llamaindex';
 import { PrismaService } from '../../db/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { ChatMode, Citation } from '../dto/chat.dto';
 import { PDFParse } from 'pdf-parse';
+
+/**
+ * Gemini Embedding 구현체
+ * @google/generative-ai를 사용하여 text-embedding-004 모델로 임베딩 생성
+ */
+class GeminiEmbedding extends BaseEmbedding {
+  private genAI: GoogleGenerativeAI;
+  private model: string;
+
+  constructor(apiKey: string, model = 'text-embedding-004') {
+    super();
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = model;
+  }
+
+  async getTextEmbedding(text: string): Promise<number[]> {
+    const embeddingModel = this.genAI.getGenerativeModel({ model: this.model });
+    const result = await embeddingModel.embedContent(text);
+    return result.embedding.values;
+  }
+
+  getTextEmbeddings = async (texts: string[]): Promise<number[][]> => {
+    const embeddingModel = this.genAI.getGenerativeModel({ model: this.model });
+    const results = await Promise.all(
+      texts.map(async (text) => {
+        const result = await embeddingModel.embedContent(text);
+        return result.embedding.values;
+      }),
+    );
+    return results;
+  };
+}
 
 // RAG 설정 상수
 const CHUNK_SIZE = 512;
@@ -34,7 +67,7 @@ export class RagEngineService {
     }
 
     this.genAI = new GoogleGenerativeAI(this.apiKey);
-    const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash-lite';
     this.geminiModel = this.genAI.getGenerativeModel({ model: modelName });
 
     // LlamaIndex 글로벌 설정
@@ -43,11 +76,14 @@ export class RagEngineService {
 
   private initializeLlamaIndex() {
     try {
+      // Gemini Embedding 모델 설정
+      Settings.embedModel = new GeminiEmbedding(this.apiKey, 'text-embedding-004');
+
       // LlamaIndex 기본 설정
       Settings.chunkSize = CHUNK_SIZE;
       Settings.chunkOverlap = CHUNK_OVERLAP;
 
-      this.logger.log('LlamaIndex initialized');
+      this.logger.log('LlamaIndex initialized with Gemini embedding');
     } catch (error) {
       this.logger.error('Failed to initialize LlamaIndex', error);
     }
@@ -316,22 +352,22 @@ export class RagEngineService {
     } catch (error) {
       this.logger.error('RAG query failed', error);
       
-      // LlamaIndex embedding 에러 발생시 fallback: Gemini 직접 사용
+      // LlamaIndex 설정 에러 발생시 fallback: Gemini 직접 사용
       const errorMessage = (error as Error).message || '';
-      if (errorMessage.includes('Cannot find Embedding')) {
-        this.logger.warn('Embedding model not available, using direct Gemini fallback');
-        
+      if (errorMessage.includes('Cannot find Embedding') || errorMessage.includes('Cannot find LLM')) {
+        this.logger.warn('LlamaIndex model not available, using direct Gemini fallback');
+
         // 문서들을 하나의 컨텍스트로 합치기
         const documents = await this.fetchNoteDocuments(lectureNoteId);
         const context = documents.map(doc => doc.getText()).join('\n\n');
-        
+
         const answer = await this.queryWithoutRag(question, context, mode);
         return {
           answer,
           citations: [],
         };
       }
-      
+
       throw new Error('Failed to generate answer: ' + (error as Error).message);
     }
   }
