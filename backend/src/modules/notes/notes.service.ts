@@ -205,7 +205,7 @@ export class NotesService {
       },
     });
 
-    let isOwner = !!folderNoteLink;
+    const isOwner = !!folderNoteLink;
 
     // If not owner, check for shared access
     if (!folderNoteLink) {

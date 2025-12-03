@@ -21,9 +21,18 @@ export interface Citation {
   text?: string;
 }
 
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
 export interface ChatResponse {
   answer: string;
   citations?: Citation[];
+  quiz?: QuizQuestion[];
 }
 
 export interface AiHealthResponse {

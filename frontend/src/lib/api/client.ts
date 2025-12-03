@@ -11,7 +11,7 @@
  */
 
 import { createLogger } from "@/lib/utils/logger";
-import { getAccessToken } from "@/lib/auth/token-manager";
+import { getAccessToken, getValidAccessToken } from "@/lib/auth/token-manager";
 
 const log = createLogger("API");
 
@@ -220,8 +220,8 @@ async function performRequest<T>(
   const timeout = config?.timeout ?? DEFAULT_TIMEOUT;
   const skipInterceptors = config?.skipInterceptors ?? false;
 
-  // Get auth token
-  const token = getAccessToken();
+  // Get auth token (with auto-refresh if expired)
+  const token = await getValidAccessToken();
 
   let requestConfig: RequestInit & { url: string } = {
     ...options,
