@@ -61,7 +61,7 @@ export function CreateFolderModal({
       isOpen={isOpen}
       onClose={handleClose}
       title="새 폴더 만들기"
-      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[500px]"
+      contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl w-[90vw] md:w-[500px] max-w-[500px]"
     >
       <div className="flex flex-col gap-6 p-6 pt-0">
         <div className="flex flex-col gap-2">
@@ -72,7 +72,7 @@ export function CreateFolderModal({
             onChange={(e) => setFolderName(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="폴더 이름을 입력하세요"
-            className="bg-foreground/5 border border-border-subtle rounded-xl px-4 py-3 text-foreground placeholder-foreground-tertiary focus:outline-none focus:ring-2 focus:ring-brand-secondary text-lg"
+            className="bg-black/[0.03] dark:bg-foreground/5 border border-[#9ca3af] dark:border-border-subtle rounded-xl px-4 py-3 text-foreground placeholder-foreground-tertiary focus:outline-none focus:ring-2 focus:ring-brand-secondary text-lg"
             autoFocus
           />
         </div>
@@ -81,7 +81,7 @@ export function CreateFolderModal({
           <label className="text-sm font-medium text-foreground-secondary">위치</label>
           <button
             onClick={() => setIsFolderSelectorOpen(true)}
-            className="flex items-center justify-between bg-foreground/5 border border-border-subtle rounded-xl px-4 py-3 text-foreground hover:bg-foreground/10 transition-colors"
+            className="flex items-center justify-between bg-black/[0.03] dark:bg-foreground/5 border border-[#9ca3af] dark:border-border-subtle rounded-xl px-4 py-3 text-foreground hover:bg-foreground/10 transition-colors"
           >
             <span className="flex items-center gap-2">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-foreground-tertiary">

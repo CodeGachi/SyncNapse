@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SyncNapseDB";
-const DB_VERSION = 6; // v6: questions 스토어 추가
+const DB_VERSION = 7; // v7: 검색용 스토어 추가
 
 // DB 스키마
 export interface DBFolder {
@@ -112,6 +112,57 @@ export interface DBQuestion {
   isSharedToAll: boolean; // 전체 공유 여부
 }
 
+// ============================================
+// 검색용 스토어 인터페이스 (v7)
+// 백엔드에서 동기화된 경량 메타데이터
+// ============================================
+
+/**
+ * 검색용 노트 메타데이터
+ */
+export interface DBSearchNote {
+  id: string;
+  title: string;
+  type: "student" | "educator";
+  folderId: string;
+  updatedAt: number;
+}
+
+/**
+ * 검색용 파일 메타데이터
+ */
+export interface DBSearchFile {
+  id: string;
+  fileName: string;
+  noteId: string;
+  noteTitle: string;
+  updatedAt: number;
+}
+
+/**
+ * 검색용 음성 세그먼트
+ */
+export interface DBSearchSegment {
+  id: string;
+  text: string;
+  startTime: number;
+  endTime: number;
+  sessionId: string;
+  sessionTitle: string;
+  noteId: string;
+  noteTitle: string;
+  confidence: number;
+}
+
+/**
+ * 동기화 메타데이터
+ */
+export interface DBSyncMeta {
+  id: string; // 'search' 고정
+  lastSyncedAt: number;
+  version: number;
+}
+
 let dbInstance: IDBDatabase | null = null;
 
 /**
@@ -193,6 +244,38 @@ export async function initDB(): Promise<IDBDatabase> {
         questionStore.createIndex("noteId", "noteId", { unique: false });
         questionStore.createIndex("createdAt", "createdAt", { unique: false });
         questionStore.createIndex("isPinned", "isPinned", { unique: false });
+      }
+
+      // ============================================
+      // 검색용 스토어 (v7)
+      // ============================================
+
+      // 검색용 노트 메타데이터
+      if (!db.objectStoreNames.contains("searchNotes")) {
+        const searchNoteStore = db.createObjectStore("searchNotes", { keyPath: "id" });
+        searchNoteStore.createIndex("title", "title", { unique: false });
+        searchNoteStore.createIndex("updatedAt", "updatedAt", { unique: false });
+      }
+
+      // 검색용 파일 메타데이터
+      if (!db.objectStoreNames.contains("searchFiles")) {
+        const searchFileStore = db.createObjectStore("searchFiles", { keyPath: "id" });
+        searchFileStore.createIndex("fileName", "fileName", { unique: false });
+        searchFileStore.createIndex("noteId", "noteId", { unique: false });
+        searchFileStore.createIndex("updatedAt", "updatedAt", { unique: false });
+      }
+
+      // 검색용 음성 세그먼트
+      if (!db.objectStoreNames.contains("searchSegments")) {
+        const searchSegmentStore = db.createObjectStore("searchSegments", { keyPath: "id" });
+        searchSegmentStore.createIndex("text", "text", { unique: false });
+        searchSegmentStore.createIndex("noteId", "noteId", { unique: false });
+        searchSegmentStore.createIndex("sessionId", "sessionId", { unique: false });
+      }
+
+      // 동기화 메타데이터
+      if (!db.objectStoreNames.contains("syncMeta")) {
+        db.createObjectStore("syncMeta", { keyPath: "id" });
       }
     };
   });

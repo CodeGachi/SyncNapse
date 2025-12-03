@@ -1,12 +1,15 @@
 /**
- * Dashboard Context Provider
- * Shares selectedFolderId state across dashboard pages
- * Persists selected folder to localStorage
+ * 대시보드 컨텍스트 프로바이더
+ * 대시보드 페이지 간 selectedFolderId 상태 공유
+ * 선택된 폴더를 localStorage에 영속화
  */
 
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("DashboardProvider");
 import { getAllFolders, createFolder as createFolderInDB, saveFolder } from "@/lib/db/folders";
 import { getAuthHeaders } from "@/lib/api/client";
 import type { DBFolder } from "@/lib/db/folders";
@@ -30,12 +33,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Restore selected folder from localStorage on mount, or default to Root folder
   useEffect(() => {
-    console.log('[DashboardProvider] Initializing...');
+    log.debug('[DashboardProvider] Initializing...');
 
     const initializeFolder = async () => {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        console.log('[DashboardProvider] Saved folder ID:', saved);
+        log.debug('[DashboardProvider] Saved folder ID:', saved);
 
         if (saved !== null && saved !== "null") {
           // Use saved folder if exists
@@ -49,19 +52,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           const rootFolder = folders.find(f => f.name === "Root" && f.parentId === null);
 
           if (rootFolder) {
-            console.log('[DashboardProvider] Setting Root folder as default:', rootFolder.id);
+            log.debug('[DashboardProvider] Setting Root folder as default:', rootFolder.id);
             setSelectedFolderIdState(rootFolder.id);
             localStorage.setItem(STORAGE_KEY, rootFolder.id);
           } else {
-            console.log('[DashboardProvider] Root folder not found after creation attempt');
+            log.debug('[DashboardProvider] Root folder not found after creation attempt');
             setSelectedFolderIdState(null);
           }
         }
       } catch (error) {
-        console.error("Failed to load selected folder from localStorage:", error);
+        log.error("Failed to load selected folder from localStorage:", error);
       } finally {
         setIsInitialized(true);
-        console.log('[DashboardProvider] Initialization complete');
+        log.debug('[DashboardProvider] Initialization complete');
       }
     };
 
@@ -74,7 +77,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, id === null ? "null" : id);
     } catch (error) {
-      console.error("Failed to save selected folder to localStorage:", error);
+      log.error("Failed to save selected folder to localStorage:", error);
     }
   };
 
@@ -83,7 +86,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
    */
   async function ensureRootFolder() {
     try {
-      console.log('[DashboardProvider] Ensuring Root folder exists...');
+      log.debug('[DashboardProvider] Ensuring Root folder exists...');
 
       // 1. Check server for Root folder
       const res = await fetch(`${API_BASE_URL}/api/folders`, {
@@ -94,7 +97,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       });
 
       if (!res.ok) {
-        console.warn('[DashboardProvider] Failed to fetch folders from server:', res.status);
+        log.warn('[DashboardProvider] Failed to fetch folders from server:', res.status);
         return;
       }
 
@@ -102,7 +105,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       const serverHasRoot = serverFolders.some((f: any) => f.name === "Root" && f.parent_id === null);
 
       if (serverHasRoot) {
-        console.log('[DashboardProvider] Root folder exists on server');
+        log.debug('[DashboardProvider] Root folder exists on server');
 
         // Sync to local if not exists (with same ID from server!)
         const localFolders = await getAllFolders();
@@ -119,10 +122,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             updatedAt: new Date(serverRoot.updated_at || Date.now()).getTime(),
           };
           await saveFolder(dbFolder);
-          console.log('[DashboardProvider] Root folder synced from server to local with ID:', serverRoot.id);
+          log.debug('[DashboardProvider] Root folder synced from server to local with ID:', serverRoot.id);
         } else if (localRoot && serverRoot && localRoot.id !== serverRoot.id) {
           // 로컬 Root ID가 서버와 다른 경우 → 서버 ID로 교체
-          console.log('[DashboardProvider] Local Root ID mismatch, syncing with server ID');
+          log.debug('[DashboardProvider] Local Root ID mismatch, syncing with server ID');
           const { permanentlyDeleteFolder } = await import('@/lib/db/folders');
           await permanentlyDeleteFolder(localRoot.id);
           const dbFolder: DBFolder = {
@@ -133,13 +136,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             updatedAt: new Date(serverRoot.updated_at || Date.now()).getTime(),
           };
           await saveFolder(dbFolder);
-          console.log('[DashboardProvider] Root folder replaced with server ID:', serverRoot.id);
+          log.debug('[DashboardProvider] Root folder replaced with server ID:', serverRoot.id);
         }
         return;
       }
 
       // 2. Root folder doesn't exist on server - create dummy note to trigger Root creation
-      console.log('[DashboardProvider] Root folder missing on server, creating via dummy note...');
+      log.debug('[DashboardProvider] Root folder missing on server, creating via dummy note...');
 
       try {
         // 더미 노트 생성 (백엔드가 자동으로 Root 폴더 생성)
@@ -159,7 +162,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
         if (createNoteRes.ok) {
           const dummyNote = await createNoteRes.json();
-          console.log('[DashboardProvider] Dummy note created:', dummyNote.id);
+          log.debug('[DashboardProvider] Dummy note created:', dummyNote.id);
 
           // 더미 노트 삭제
           const deleteRes = await fetch(`${API_BASE_URL}/api/notes/${dummyNote.id}`, {
@@ -171,7 +174,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           });
 
           if (deleteRes.ok) {
-            console.log('[DashboardProvider] Dummy note deleted');
+            log.debug('[DashboardProvider] Dummy note deleted');
           }
 
           // 서버에서 Root 폴더 다시 가져오기
@@ -196,17 +199,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
                 updatedAt: new Date(serverRoot.updated_at || Date.now()).getTime(),
               };
               await saveFolder(dbFolder);
-              console.log('[DashboardProvider] ✅ Root folder synced from server:', serverRoot.id);
+              log.debug('[DashboardProvider] Root folder synced from server:', serverRoot.id);
             }
           }
         } else {
-          console.error('[DashboardProvider] Failed to create dummy note:', createNoteRes.status);
+          log.error('[DashboardProvider] Failed to create dummy note:', createNoteRes.status);
         }
       } catch (error) {
-        console.error('[DashboardProvider] Error creating Root folder via dummy note:', error);
+        log.error('[DashboardProvider] Error creating Root folder via dummy note:', error);
       }
     } catch (error) {
-      console.error('[DashboardProvider] Error ensuring Root folder:', error);
+      log.error('[DashboardProvider] Error ensuring Root folder:', error);
     }
   }
 

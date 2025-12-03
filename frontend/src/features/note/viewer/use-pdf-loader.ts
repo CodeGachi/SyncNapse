@@ -1,11 +1,14 @@
 /**
- * PDF Loader Hook
- * Handles PDF.js loading and document initialization
+ * PDF 로더 훅
+ * PDF.js 로딩 및 문서 초기화 처리
  */
 
 "use client";
 
 import { useState, useEffect } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("PdfLoader");
 import { useNoteEditorStore } from "@/stores";
 
 export function usePdfLoader(fileUrl?: string | null, fileType?: string | null) {
@@ -59,7 +62,7 @@ export function usePdfLoader(fileUrl?: string | null, fileType?: string | null) 
           }
         };
       } catch (err) {
-        console.error("PDF.js 로드 실패:", err);
+        log.error("PDF.js 로드 실패:", err);
         setError("PDF 뷰어를 로드할 수 없습니다");
       }
     };

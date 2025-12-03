@@ -82,7 +82,7 @@ export function PollPanel({
   // Educator만 투표 생성 가능
   if (!isEducator && !activePoll) {
     return (
-      <div className="text-center py-8 text-white/40 text-sm flex flex-col items-center gap-2">
+      <div className="text-center py-8 text-foreground/40 text-sm flex flex-col items-center gap-2">
         <BarChart3 size={32} />
         <p>진행 중인 투표가 없습니다</p>
         <p className="text-xs">Educator가 투표를 생성할 때까지 대기하세요</p>
@@ -94,7 +94,7 @@ export function PollPanel({
     <div className="flex flex-col gap-3 h-full">
       {/* 토스트 알림 */}
       {showToast && (
-        <div className="fixed top-4 right-4 z-50 bg-[#AFC02B] text-black px-4 py-2 rounded-lg shadow-lg animate-slide-in-right">
+        <div className="fixed top-4 right-4 z-50 bg-brand text-black px-4 py-2 rounded-lg shadow-lg animate-slide-in-right">
           {toastMessage}
         </div>
       )}
@@ -105,32 +105,32 @@ export function PollPanel({
           {!isCreating ? (
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-[#AFC02B]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 size={32} className="text-[#AFC02B]" />
+                <div className="w-16 h-16 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 size={32} className="text-brand" />
                 </div>
-                <h4 className="text-white text-lg font-bold">새로운 투표 만들기</h4>
-                <p className="text-gray-400 text-sm">
+                <h4 className="text-foreground text-lg font-bold">새로운 투표 만들기</h4>
+                <p className="text-foreground-secondary text-sm">
                   실시간 투표를 통해<br />학생들의 의견을 수집해보세요
                 </p>
               </div>
               <button
                 onClick={() => setIsCreating(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#333] text-[#AFC02B] border border-[#AFC02B]/30 rounded-xl font-bold hover:bg-[#AFC02B] hover:text-black transition-all shadow-lg hover:scale-105 active:scale-95"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-background-elevated text-brand border border-brand/30 rounded-xl font-bold hover:bg-brand hover:text-black transition-all shadow-lg hover:scale-105 active:scale-95"
               >
                 <Plus size={20} />
                 <span>투표 생성하기</span>
               </button>
             </div>
           ) : (
-            <div className="bg-[#252525] border border-[#3c3c3c] rounded-xl p-4 space-y-4 shadow-lg">
-              <div className="flex items-center justify-between border-b border-[#3c3c3c] pb-3">
-                <h4 className="text-white text-sm font-bold flex items-center gap-2">
-                  <BarChart3 size={16} className="text-[#AFC02B]" />
+            <div className="bg-background-surface border border-border rounded-xl p-4 space-y-4 shadow-lg">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h4 className="text-foreground text-sm font-bold flex items-center gap-2">
+                  <BarChart3 size={16} className="text-brand" />
                   투표 생성
                 </h4>
                 <button
                   onClick={() => setIsCreating(false)}
-                  className="text-gray-500 hover:text-white transition-colors"
+                  className="text-foreground-tertiary hover:text-foreground transition-colors"
                 >
                   <X size={18} />
                 </button>
@@ -138,19 +138,19 @@ export function PollPanel({
 
               {/* 질문 */}
               <div className="space-y-1.5">
-                <label className="text-xs text-gray-400 font-medium ml-1">질문</label>
+                <label className="text-xs text-foreground-secondary font-medium ml-1">질문</label>
                 <input
                   type="text"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="투표 질문을 입력하세요..."
-                  className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#AFC02B] transition-colors"
+                  className="w-full bg-background-base border border-border rounded-lg px-3 py-2.5 text-foreground text-sm placeholder:text-foreground-tertiary focus:outline-none focus:border-brand transition-colors"
                 />
               </div>
 
               {/* 옵션 */}
               <div className="space-y-2">
-                <label className="text-xs text-gray-400 font-medium ml-1">옵션</label>
+                <label className="text-xs text-foreground-secondary font-medium ml-1">옵션</label>
                 {options.map((option, index) => (
                   <div key={index} className="flex gap-2">
                     <input
@@ -158,12 +158,12 @@ export function PollPanel({
                       value={option}
                       onChange={(e) => handleOptionChange(index, e.target.value)}
                       placeholder={`옵션 ${index + 1}`}
-                      className="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#AFC02B] transition-colors"
+                      className="flex-1 bg-background-base border border-border rounded-lg px-3 py-2.5 text-foreground text-sm placeholder:text-foreground-tertiary focus:outline-none focus:border-brand transition-colors"
                     />
                     {options.length > 2 && (
                       <button
                         onClick={() => handleRemoveOption(index)}
-                        className="px-2 text-gray-500 hover:text-red-400 transition-colors"
+                        className="px-2 text-foreground-tertiary hover:text-status-error transition-colors"
                       >
                         <X size={16} />
                       </button>
@@ -175,7 +175,7 @@ export function PollPanel({
               {/* 옵션 추가 */}
               <button
                 onClick={handleAddOption}
-                className="w-full px-3 py-2.5 bg-[#333] text-gray-400 rounded-lg text-xs font-medium hover:bg-[#444] hover:text-white transition-colors border border-dashed border-[#444]"
+                className="w-full px-3 py-2.5 bg-background-elevated text-foreground-secondary rounded-lg text-xs font-medium hover:bg-background-overlay hover:text-foreground transition-colors border border-dashed border-border-strong"
               >
                 + 옵션 추가
               </button>
@@ -187,7 +187,7 @@ export function PollPanel({
                   !question.trim() ||
                   options.filter((opt) => opt.trim()).length < 2
                 }
-                className="w-full px-4 py-3 bg-[#333] text-[#AFC02B] border border-[#AFC02B]/30 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#AFC02B] hover:text-black transition-all shadow-md mt-2"
+                className="w-full px-4 py-3 bg-background-elevated text-brand border border-brand/30 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand hover:text-black transition-all shadow-md mt-2"
               >
                 투표 시작
               </button>
@@ -200,18 +200,18 @@ export function PollPanel({
       {activePoll && (
         <div className="flex-1 flex flex-col gap-4 h-full">
           {/* 질문 */}
-          <div className="bg-[#252525] border border-[#3c3c3c] rounded-xl p-4 shadow-sm">
+          <div className="bg-background-surface border border-border rounded-xl p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[#AFC02B]/20 text-[#AFC02B] mb-2">
+                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-brand/20 text-brand mb-2">
                   진행 중
                 </span>
-                <h3 className="text-white text-lg font-bold leading-tight">
+                <h3 className="text-foreground text-lg font-bold leading-tight">
                   {activePoll.question}
                 </h3>
               </div>
               <div className="text-right">
-                <p className="text-gray-500 text-[10px] font-mono">
+                <p className="text-foreground-tertiary text-[10px] font-mono">
                   {new Date(activePoll.createdAt).toLocaleTimeString("ko-KR", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -240,24 +240,24 @@ export function PollPanel({
                   onClick={() => handleVote(activePoll.id, index)}
                   disabled={!activePoll.isActive}
                   className={`w-full text-left p-4 rounded-xl border transition-all relative overflow-hidden group ${isVoted
-                    ? "border-[#AFC02B] bg-[#AFC02B]/5 shadow-[0_0_15px_rgba(175,192,43,0.1)]"
-                    : "border-[#3c3c3c] bg-[#252525] hover:border-[#555] hover:bg-[#2a2a2a]"
+                    ? "border-brand bg-brand/5 shadow-[0_0_15px_rgba(175,192,43,0.1)]"
+                    : "border-border bg-background-surface hover:border-border-strong hover:bg-background-elevated"
                     } ${!activePoll.isActive ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {/* 배경 진행 바 */}
                   <div
-                    className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${isVoted ? "bg-[#AFC02B]/10" : "bg-white/5"
+                    className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${isVoted ? "bg-brand/10" : "bg-foreground/5"
                       }`}
                     style={{ width: `${percentage}%` }}
                   />
 
                   <div className="relative z-10">
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <span className={`text-sm font-bold flex-1 ${isVoted ? "text-[#AFC02B]" : "text-white"}`}>
+                      <span className={`text-sm font-bold flex-1 ${isVoted ? "text-brand" : "text-foreground"}`}>
                         {option.text}
                       </span>
                       {isVoted && (
-                        <div className="bg-[#AFC02B] text-black rounded-full p-0.5">
+                        <div className="bg-brand text-black rounded-full p-0.5">
                           <CheckCircle2 size={14} />
                         </div>
                       )}
@@ -266,17 +266,17 @@ export function PollPanel({
                     {/* 통계 */}
                     <div className="flex items-end justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-24 bg-[#1e1e1e] rounded-full overflow-hidden">
+                        <div className="h-1.5 w-24 bg-background-base rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${isVoted ? "bg-[#AFC02B]" : "bg-gray-500"}`}
+                            className={`h-full rounded-full transition-all duration-500 ${isVoted ? "bg-brand" : "bg-foreground-tertiary"}`}
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
-                        <span className="text-gray-500 text-xs font-medium">
+                        <span className="text-foreground-tertiary text-xs font-medium">
                           {option.votes.length}명
                         </span>
                       </div>
-                      <span className={`text-lg font-bold ${isVoted ? "text-[#AFC02B]" : "text-white"}`}>
+                      <span className={`text-lg font-bold ${isVoted ? "text-brand" : "text-foreground"}`}>
                         {percentage}%
                       </span>
                     </div>
@@ -290,7 +290,7 @@ export function PollPanel({
           {isEducator && activePoll.isActive && (
             <button
               onClick={() => handleEndPoll(activePoll.id)}
-              className="w-full px-4 py-3 bg-[#252525] border border-red-500/30 text-red-400 rounded-xl font-bold hover:bg-red-500/10 hover:border-red-500/50 transition-all shadow-sm"
+              className="w-full px-4 py-3 bg-background-surface border border-status-error/30 text-status-error rounded-xl font-bold hover:bg-status-error/10 hover:border-status-error/50 transition-all shadow-sm"
             >
               투표 종료하기
             </button>
@@ -298,7 +298,7 @@ export function PollPanel({
 
           {/* 투표 종료 메시지 */}
           {!activePoll.isActive && (
-            <div className="text-center py-3 text-gray-500 text-sm bg-[#252525] rounded-xl border border-[#3c3c3c]">
+            <div className="text-center py-3 text-foreground-tertiary text-sm bg-background-surface rounded-xl border border-border">
               투표가 종료되었습니다
             </div>
           )}

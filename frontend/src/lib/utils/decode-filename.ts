@@ -1,6 +1,12 @@
 /**
- * Decode filename from Latin-1 to UTF-8
- * Multer encodes non-ASCII filenames as Latin-1, so we need to decode them properly
+ * 파일명 디코딩 유틸리티
+ * Multer가 non-ASCII 파일명을 Latin-1로 인코딩하므로 UTF-8로 디코딩 필요
+ */
+
+/**
+ * Latin-1로 인코딩된 파일명을 UTF-8로 디코딩
+ * @param filename - 디코딩할 파일명
+ * @returns 디코딩된 파일명
  */
 export function decodeFilename(filename: string): string {
   try {

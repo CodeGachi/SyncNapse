@@ -276,12 +276,12 @@ export function MainContent() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="absolute top-6 right-9 z-20 flex flex-row items-center gap-6"
+        className="absolute top-4 xl:top-6 left-14 right-4 xl:left-auto xl:right-9 z-20 flex flex-row items-center gap-6"
       >
         {/* 검색 입력 */}
-        <div ref={searchContainerRef} className="relative">
-          <div className={`flex flex-row items-center px-4 py-2.5 gap-3 w-[320px] h-[48px] bg-background-surface/60 backdrop-blur-xl border rounded-full shadow-lg shadow-black/20 transition-all duration-300 group ${
-            isSearchOpen && searchQuery.trim() ? 'border-brand/50' : 'border-border-subtle hover:border-brand/30'
+        <div ref={searchContainerRef} className="relative w-full xl:w-auto">
+          <div className={`flex flex-row items-center px-3 xl:px-4 py-2 xl:py-2.5 gap-2 xl:gap-3 w-full xl:w-[320px] h-[42px] xl:h-[48px] bg-background-surface/60 backdrop-blur-xl border rounded-full shadow-lg shadow-black/20 transition-all duration-300 group focus-within:outline-none ${
+            isSearchOpen && searchQuery.trim() ? 'border-brand/50' : 'border-border-subtle hover:border-brand/30 focus-within:border-brand/50'
           }`}>
             <div className="w-5 h-5 flex items-center justify-center text-foreground-tertiary group-hover:text-brand transition-colors">
               {isSearchLoading ? (
@@ -302,7 +302,7 @@ export function MainContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.trim() && setIsSearchOpen(true)}
-              className="flex-1 bg-transparent text-foreground text-sm font-medium outline-none placeholder:text-foreground-tertiary"
+              className="flex-1 bg-transparent text-foreground text-sm font-medium outline-none focus:ring-0 placeholder:text-foreground-tertiary"
             />
             {searchQuery && (
               <button
@@ -327,18 +327,10 @@ export function MainContent() {
             />
           )}
         </div>
-
-        {/* 알림 아이콘 */}
-        <button className="w-10 h-10 flex items-center justify-center rounded-full bg-background-surface/60 backdrop-blur-xl border border-border-subtle hover:bg-foreground/10 transition-all text-foreground">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
       </motion.div>
 
       {/* 메인 컨텐츠 */}
-      <div className="flex flex-col items-start px-9 py-12 gap-12 flex-1 bg-background-deep overflow-y-auto pt-24">
+      <div className="flex flex-col items-start px-4 lg:px-6 xl:px-9 py-8 xl:py-12 gap-8 xl:gap-12 flex-1 bg-background-deep overflow-y-auto pt-20 xl:pt-24">
         {/* 최근 접근한 노트 섹션 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -350,7 +342,7 @@ export function MainContent() {
             최근 접근한 노트
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 w-full">
             {isLoading ? (
               <LoadingScreen message="노트를 불러오는 중..." className="py-8 col-span-full" />
             ) : recentNotes.length === 0 ? (
@@ -368,9 +360,9 @@ export function MainContent() {
                   className="group relative flex flex-col p-5 bg-background-surface/60 backdrop-blur-md border border-border-subtle rounded-2xl cursor-pointer hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)] hover:border-brand/30 transition-all duration-300"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-2.5 rounded-xl ${note.type === 'educator'
-                      ? 'bg-brand/10 text-brand shadow-[0_0_10px_rgba(175,192,43,0.1)]'
-                      : 'bg-status-info/10 text-status-info shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                    <div className={`p-2.5 rounded-xl border ${note.type === 'educator'
+                      ? 'bg-brand/10 text-brand border-[#6B7A20] shadow-[0_0_10px_rgba(175,192,43,0.1)]'
+                      : 'bg-status-info/10 text-status-info border-[#2563EB] shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       }`}>
                       {note.type === 'educator' ? (
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -418,7 +410,7 @@ export function MainContent() {
             <div className="flex-1 text-foreground font-medium text-base leading-[19px]">
               이름
             </div>
-            <div className="w-[150px] text-foreground font-medium text-base leading-[19px] hidden sm:block flex-shrink-0">
+            <div className="w-[150px] text-foreground font-medium text-base leading-[19px] hidden xl:block flex-shrink-0">
               수정일
             </div>
             <div className="w-[24px] flex-shrink-0"></div>
@@ -451,8 +443,8 @@ export function MainContent() {
                         <path d="M8.33332 7.5H6.66666" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 ${note.type === 'educator'
-                        ? 'bg-brand/20 text-brand border border-brand/30'
-                        : 'bg-status-info/20 text-status-info border border-status-info/30'
+                        ? 'bg-brand/20 text-brand border border-[#6B7A20]'
+                        : 'bg-status-info/20 text-status-info border border-[#2563EB]'
                         }`}>
                         {note.type === 'educator' ? '강의' : '개인'}
                       </span>
@@ -462,7 +454,7 @@ export function MainContent() {
                     </div>
 
                     {/* 수정일 */}
-                    <div className="w-[150px] text-foreground font-normal text-base leading-[19px] hidden sm:block flex-shrink-0">
+                    <div className="w-[150px] text-foreground font-normal text-base leading-[19px] hidden xl:block flex-shrink-0">
                       {formatDate(note.updatedAt || note.createdAt)}
                     </div>
 
@@ -499,7 +491,7 @@ export function MainContent() {
                     </div>
 
                     {/* 수정일 */}
-                    <div className="w-[150px] text-foreground font-normal text-base leading-[19px] hidden sm:block flex-shrink-0">
+                    <div className="w-[150px] text-foreground font-normal text-base leading-[19px] hidden xl:block flex-shrink-0">
                       {formatDate(folder.updatedAt || folder.createdAt)}
                     </div>
 
@@ -612,14 +604,14 @@ export function MainContent() {
           setNewName("");
         }}
         title={`${renameModal?.type === 'note' ? '노트' : '폴더'} 이름 변경`}
-        contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px]"
+        contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[400px] max-w-[400px]"
       >
         <div className="flex flex-col gap-6">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="w-full px-4 py-3 bg-background-elevated border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
+            className="w-full px-4 py-3 bg-black/[0.03] dark:bg-background-elevated border border-[#9ca3af] dark:border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
             placeholder="새 이름 입력"
             autoFocus
             onKeyDown={(e) => {
@@ -659,10 +651,10 @@ export function MainContent() {
           setSelectedMoveFolder(null);
         }}
         title={`"${moveModal?.name}" 이동`}
-        contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-8 flex flex-col gap-6 w-[400px] max-h-[80vh]"
+        contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[400px] max-w-[400px] max-h-[80vh]"
       >
         <div className="flex flex-col gap-6">
-          <div className="bg-background-elevated border border-border rounded-xl p-2 max-h-[300px] overflow-y-auto space-y-1">
+          <div className="bg-black/[0.03] dark:bg-background-elevated border border-[#9ca3af] dark:border-border rounded-xl p-2 max-h-[300px] overflow-y-auto space-y-1">
             {/* 루트 폴더 */}
             <button
               onClick={() => setSelectedMoveFolder(null)}

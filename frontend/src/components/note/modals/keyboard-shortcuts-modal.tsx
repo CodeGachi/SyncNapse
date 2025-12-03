@@ -15,7 +15,7 @@ interface KeyboardShortcutsModalProps {
 // 키 표시 컴포넌트
 function KeyBadge({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-[#1e1e1e] border border-[#4f4f4f] rounded text-xs text-gray-300 font-mono">
+    <kbd className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-background-base border border-border rounded text-xs text-foreground-secondary font-mono">
       {children}
     </kbd>
   );
@@ -29,11 +29,11 @@ function ShortcutRow({ keys, description }: { keys: readonly string[]; descripti
         {keys.map((key, index) => (
           <span key={index} className="flex items-center gap-1">
             <KeyBadge>{key}</KeyBadge>
-            {index < keys.length - 1 && <span className="text-gray-500 text-xs">+</span>}
+            {index < keys.length - 1 && <span className="text-foreground-tertiary text-xs">+</span>}
           </span>
         ))}
       </div>
-      <span className="text-sm text-gray-300">{description}</span>
+      <span className="text-sm text-foreground-secondary">{description}</span>
     </div>
   );
 }
@@ -42,7 +42,7 @@ function ShortcutRow({ keys, description }: { keys: readonly string[]; descripti
 function ShortcutSection({ title, shortcuts }: { title: string; shortcuts: readonly { keys: readonly string[]; description: string }[] }) {
   return (
     <div className="mb-4">
-      <h3 className="text-sm font-semibold text-[#AFC02B] mb-2 pb-1 border-b border-[#3f3f3f]">
+      <h3 className="text-sm font-semibold text-brand mb-2 pb-1 border-b border-border">
         {title}
       </h3>
       <div className="space-y-0.5">
@@ -60,12 +60,12 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
       isOpen={isOpen}
       onClose={onClose}
       title="키보드 단축키"
-      contentClassName="flex flex-col bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[600px] max-h-[80vh] overflow-hidden"
+      contentClassName="flex flex-col bg-background-modal/90 border border-foreground/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-[90vw] md:w-[600px] max-w-[600px] max-h-[70vh] overflow-hidden"
     >
 
       {/* 본문 - 2열 레이아웃 */}
-      <div className="flex-1 overflow-y-auto px-6 pb-8">
-        <div className="grid grid-cols-2 gap-6">
+      <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 왼쪽 열 */}
           <div>
             <ShortcutSection title="PDF 뷰어" shortcuts={NOTE_KEYBOARD_SHORTCUTS.pdf} />

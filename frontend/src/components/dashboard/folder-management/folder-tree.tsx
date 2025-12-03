@@ -199,7 +199,7 @@ export function FolderTree({
             {/* 이름 변경 */}
             <button
               onClick={() => handleContextMenuAction(() => onRenameFolder(contextMenu.folderId))}
-              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-background-overlay hover:text-foreground transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-foreground/10 hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"
@@ -220,7 +220,7 @@ export function FolderTree({
             {/* 하위 폴더 추가 */}
             <button
               onClick={() => handleContextMenuAction(() => onCreateSubFolder(contextMenu.folderId))}
-              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-background-overlay hover:text-foreground transition-colors flex items-center gap-2"
+              className="w-full px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-foreground/10 hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg
                 className="w-4 h-4"

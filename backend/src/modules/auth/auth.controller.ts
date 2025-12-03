@@ -75,9 +75,12 @@ export class AuthController {
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token' })
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    // Check 'refreshToken' cookie (frontend name) first, fallback to 'refresh_token' just in case
-    const refreshToken = req.cookies['refreshToken'] || req.cookies['refresh_token'];
-    
+    // Check X-Refresh-Token header first (for cross-origin), then cookies
+    const refreshToken =
+      req.headers['x-refresh-token'] ||
+      req.cookies['refreshToken'] ||
+      req.cookies['refresh_token'];
+
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token found');
     }
@@ -95,7 +98,12 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return { accessToken: tokens.accessToken, expiresIn: tokens.expiresIn };
+    // Return new refreshToken in response body (for cross-origin clients)
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+    };
   }
 
   @Post('logout')

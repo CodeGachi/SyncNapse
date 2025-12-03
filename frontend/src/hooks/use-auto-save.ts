@@ -6,6 +6,9 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("AutoSave");
 import { useNoteEditorStore } from "@/stores";
 
 interface UseAutoSaveOptions {
@@ -32,8 +35,7 @@ export function useAutoSave({
       updateLastSavedAt();
       // 성공 알림은 표시하지 않음 (너무 빈번)
     } catch (error) {
-      console.error("자동저장 실패:", error);
-      // 알림 제거됨 - console.error로 대체
+      log.error("자동저장 실패:", error);
     }
   }, [enabled, onSave, updateLastSavedAt]);
 

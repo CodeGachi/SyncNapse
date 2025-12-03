@@ -41,13 +41,13 @@ export function RecordingNameModal({
       isOpen={isOpen}
       onClose={onCancel}
       title="녹음 저장"
-      contentClassName="bg-[#1a1a1a]/90 border border-white/10 shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-full max-w-md"
+      contentClassName="bg-background-surface/90 border border-border shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-full max-w-md"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-6 pt-0">
         <div>
           <label
             htmlFor="recording-name"
-            className="block text-sm font-medium text-gray-300 mb-2"
+            className="block text-sm font-medium text-foreground-secondary mb-2"
           >
             녹음 이름
           </label>
@@ -57,7 +57,7 @@ export function RecordingNameModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={getDefaultName()}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#899649] transition-all"
+            className="w-full px-4 py-3 bg-foreground/5 border border-border rounded-xl text-foreground placeholder-foreground-tertiary focus:outline-none focus:ring-2 focus:ring-brand transition-all"
             autoFocus
           />
         </div>

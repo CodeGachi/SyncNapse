@@ -1,17 +1,28 @@
 /**
- * Recording Control Hook
- * Manages recording state and operations
+ * 녹음 제어 훅
+ * 녹음 상태 및 작업 관리
  */
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("RecordingControl");
 import { useQueryClient } from "@tanstack/react-query";
 import { useRecording } from "./use-recording";
-import type { TranscriptionSession } from "@/lib/api/transcription.api";
+import { useRecordingStore } from "@/stores";
+import type { TranscriptionSession } from "@/lib/api/services/transcription.api";
 
 export function useRecordingControl(noteId?: string | null) {
   const queryClient = useQueryClient();
+
+  // 전역 store 연동
+  const {
+    setIsRecording: setGlobalIsRecording,
+    setIsPaused: setGlobalIsPaused,
+    setStopRecordingCallback,
+  } = useRecordingStore();
 
   const {
     isRecording,
@@ -28,18 +39,24 @@ export function useRecordingControl(noteId?: string | null) {
     cancelRecording,
   } = useRecording(noteId);
 
-  // Recording name modal state
+  // 녹음 이름 모달 상태
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isSavingRecording, setIsSavingRecording] = useState(false);
 
+  // 전역 store와 로컬 상태 동기화
+  useEffect(() => {
+    setGlobalIsRecording(isRecording);
+    setGlobalIsPaused(isPaused);
+  }, [isRecording, isPaused, setGlobalIsRecording, setGlobalIsPaused]);
+
   /**
-   * Start recording
+   * 녹음 시작
    */
   const startRecording = useCallback(async () => {
     try {
       await startBasicRecording();
     } catch (error) {
-      console.error('[RecordingControl] Failed to start recording:', error);
+      log.error("녹음 시작 실패:", error);
     }
   }, [startBasicRecording]);
 
@@ -65,12 +82,18 @@ export function useRecordingControl(noteId?: string | null) {
   };
 
   // 녹음 종료 버튼 클릭 (모달 먼저 열기)
-  const handleStopRecording = () => {
+  const handleStopRecording = useCallback(() => {
     if (isRecording) {
       // 녹음 중이면 모달 열기 (아직 stopRecording 호출 안함!)
       setIsNameModalOpen(true);
     }
-  };
+  }, [isRecording]);
+
+  // 전역 store에 stopRecording 콜백 등록 (페이지 이동 시 호출용)
+  useEffect(() => {
+    setStopRecordingCallback(handleStopRecording);
+    return () => setStopRecordingCallback(null);
+  }, [handleStopRecording, setStopRecordingCallback]);
 
   // 녹음 저장 (제목 입력 후 실제로 stopRecording 호출)
   const handleSaveRecording = async (title: string) => {
@@ -91,15 +114,15 @@ export function useRecordingControl(noteId?: string | null) {
         const seconds = String(recordingStartTime.getSeconds()).padStart(2, '0');
         
         finalTitle = `${year}_${month}_${day}_${hours}:${minutes}:${seconds}`;
-        console.log('[RecordingControl] Generated default title:', finalTitle);
+        log.debug("기본 제목 생성:", finalTitle);
       }
-      
-      console.log('[RecordingControl] Saving recording with title:', finalTitle);
+
+      log.debug("제목으로 녹음 저장:", finalTitle);
 
       // 이제 제목과 함께 stopRecording 호출
       const recordingData = await stopBasicRecording(finalTitle);
 
-      console.log('[RecordingControl] Recording saved:', recordingData);
+      log.debug("녹음 저장됨:", recordingData);
 
       // 🔥 Optimistic Update: 백엔드 응답 기다리지 않고 즉시 UI 업데이트
       if (recordingData.sessionId) {
@@ -120,18 +143,17 @@ export function useRecordingControl(noteId?: string | null) {
           ["recordings"],
           (old = []) => [newSession, ...old]
         );
-        console.log('[RecordingControl] ✅ Optimistic update: Added to cache immediately');
+        log.debug("✅ Optimistic update: 캐시에 즉시 추가됨");
 
-        // 🔥 즉시 백엔드와 동기화 (지연 제거)
-        queryClient.invalidateQueries({ queryKey: ["recordings"] });
-        console.log('[RecordingControl] 🔄 Invalidated recordings cache for immediate sync');
+        // invalidateQueries 제거 - 백엔드 동기화는 페이지 새로고침/포커스 시 자연스럽게 발생
+        // 즉시 invalidate하면 백엔드에서 아직 커밋되지 않은 데이터로 덮어씌워짐
       }
 
-      console.log('[RecordingControl] ✅ Recording saved with optimistic update');
+      log.debug("✅ Optimistic update로 녹음 저장됨");
 
       setIsNameModalOpen(false);
     } catch (error) {
-      console.error('[RecordingControl] Failed to save recording:', error);
+      log.error("녹음 저장 실패:", error);
       alert("녹음 저장에 실패했습니다");
     } finally {
       setIsSavingRecording(false);
@@ -143,7 +165,7 @@ export function useRecordingControl(noteId?: string | null) {
     // 녹음 완전히 취소: MediaRecorder 중지, 스트림 해제, 메모리 정리
     cancelRecording();
     setIsNameModalOpen(false);
-    console.log('[RecordingControl] Recording cancelled and discarded');
+    log.debug("녹음 취소됨 및 폐기됨");
   };
 
   return {

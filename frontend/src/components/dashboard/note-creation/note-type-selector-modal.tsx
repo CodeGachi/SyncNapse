@@ -6,7 +6,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
 import { NoteSettingsModal } from "./create-note-modal";
@@ -67,13 +66,11 @@ export function NoteTypeSelectorModal({
             className="flex-1 flex flex-col items-center gap-6 p-8 bg-brand/40 rounded-lg hover:bg-brand/60 transition-colors group"
           >
             <div className="flex items-center justify-center">
-              <Image
-                src="/대시보드/Text input.svg"
-                alt="개인 노트"
-                width={60}
-                height={60}
-                className="group-hover:scale-110 transition-transform"
-              />
+              <svg width="60" height="60" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform text-white">
+                <path d="M10 2.5C16 2.5 17.5 4 17.5 10C17.5 16 16 17.5 10 17.5C4 17.5 2.5 16 2.5 10C2.5 4 4 2.5 10 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12.5 10H7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 7.5V12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
             <div className="flex flex-col gap-2 items-center">
               <span className="text-foreground font-bold text-xl">개인 노트</span>

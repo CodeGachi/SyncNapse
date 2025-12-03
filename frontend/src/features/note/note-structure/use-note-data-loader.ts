@@ -1,5 +1,5 @@
 /**
- * NoteDataLoader Hook (리팩토링됨)
+ * 노트 데이터 로더 훅
  * 파일 로드만 담당 (blocks는 BlockNote 에디터가 직접 관리)
  */
 
@@ -7,6 +7,9 @@ import { useEffect } from "react";
 import { useNoteEditorStore } from "@/stores";
 import { useFilesWithIdByNote } from "@/lib/api/queries/files.queries";
 import { useQueryClient } from "@tanstack/react-query";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("NoteDataLoader");
 
 interface UseNoteDataLoaderProps {
   noteId: string | null;
@@ -25,7 +28,7 @@ export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
     const handleFilesSync = (event: Event) => {
       const customEvent = event as CustomEvent<{ noteId: string }>;
       if (customEvent.detail?.noteId === noteId) {
-        console.log('[NoteDataLoader] Files synced, refreshing...');
+        log.debug("파일 동기화됨, 새로고침...");
         queryClient.invalidateQueries({ queryKey: ["files", "note", noteId, "withId"] });
       }
     };
@@ -39,12 +42,12 @@ export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
   // 파일 목록이 변경되면 스토어에 로드
   useEffect(() => {
     if (!noteId) {
-      console.log('[NoteDataLoader] noteId 없음, 파일 초기화');
+      log.debug("noteId 없음, 파일 초기화");
       loadFilesToStore([]);
       return;
     }
 
-    console.log('[NoteDataLoader] 파일 로드 시작:', {
+    log.debug("파일 로드 시작:", {
       noteId,
       filesCount: filesWithId.length,
       files: filesWithId.map(f => ({ id: f.id, name: f.file.name, backendId: f.backendId })),
@@ -61,7 +64,7 @@ export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
       backendId: fileWithId.backendId, // Backend File ID (for timeline events)
     }));
 
-    console.log('[NoteDataLoader] Store에 파일 로드:', fileItems.length, '개');
+    log.debug("Store에 파일 로드:", fileItems.length, "개");
     loadFilesToStore(fileItems);
 
     // filesWithId.length로 추적하여 무한 루프 방지

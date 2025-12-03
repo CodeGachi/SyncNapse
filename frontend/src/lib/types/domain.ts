@@ -48,6 +48,11 @@ export interface NoteData {
 }
 
 /**
+ * 공개 접근 레벨
+ */
+export type PublicAccess = "PRIVATE" | "PUBLIC_READ" | "PUBLIC_EDIT";
+
+/**
  * Note main type
  * - Note type used in UI
  * - Used for conversion from IndexedDB and Backend API
@@ -62,6 +67,9 @@ export interface Note {
 
   // 새로 추가: 노트 타입
   type: "student" | "educator"; // student: 개인 노트, educator: 강의 공유 노트
+
+  // 새로 추가: 공개 설정 (백엔드와 동기화)
+  publicAccess?: PublicAccess;
 
   // 새로 추가: 생성자 정보
   createdBy?: string;

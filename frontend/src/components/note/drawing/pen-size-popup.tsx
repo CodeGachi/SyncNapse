@@ -57,11 +57,11 @@ export function PenSizePopup({
   return (
     <div
       ref={popupRef}
-      className="bg-[#363636] border-2 border-[#b9b9b9] rounded-lg p-3 shadow-lg z-50"
+      className="bg-background-elevated border-2 border-border-strong rounded-lg p-3 shadow-lg z-50"
       style={getPopupPosition()}
     >
       <div className="flex flex-col gap-2">
-        <div className="text-xs text-white/60 px-1">펜 굵기</div>
+        <div className="text-xs text-foreground/60 px-1">펜 굵기</div>
         {PRESET_SIZES.map((size) => (
           <button
             key={size}
@@ -71,8 +71,8 @@ export function PenSizePopup({
             }}
             className={`w-24 px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
               currentSize === size
-                ? "bg-[#AFC02B] text-black"
-                : "bg-white/10 text-white hover:bg-white/20"
+                ? "bg-brand text-black"
+                : "bg-foreground/10 text-foreground hover:bg-foreground/20"
             }`}
           >
             <span>{size}px</span>

@@ -7,9 +7,11 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin, useLogout } from "@/lib/api/mutations/auth.mutations";
-import { getGoogleLoginUrl } from "@/lib/api/auth.api";
+import { getGoogleLoginUrl } from "@/lib/api/services/auth.api";
 import { mockGoogleLogin, mockLogout } from "@/lib/mock/auth.mock";
 import { createLogger } from "@/lib/utils/logger";
+import { clearTokens } from "@/lib/auth/token-manager";
+import { getCookie, setCookie, deleteCookie } from "@/lib/utils/cookie";
 
 const log = createLogger("GoogleLogin");
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
@@ -21,8 +23,8 @@ export function useGoogleLogin() {
   const loginMutation = useLogin({
     onSuccess: () => {
       // 저장된 리다이렉트 URL 확인
-      const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
-      localStorage.removeItem("redirectAfterLogin");
+      const redirectUrl = getCookie("redirectAfterLogin") || "/dashboard/main";
+      deleteCookie("redirectAfterLogin");
       log.debug("로그인 성공, 리다이렉트:", redirectUrl);
       router.push(redirectUrl);
     },
@@ -43,14 +45,14 @@ export function useGoogleLogin() {
       if (USE_MOCK) {
         await mockGoogleLogin();
         // 저장된 리다이렉트 URL 확인
-        const redirectUrl = localStorage.getItem("redirectAfterLogin") || "/dashboard/main";
-        localStorage.removeItem("redirectAfterLogin");
+        const redirectUrl = getCookie("redirectAfterLogin") || "/dashboard/main";
+        deleteCookie("redirectAfterLogin");
         window.location.href = redirectUrl;
       } else {
         // 로그인 후 돌아올 현재 URL 저장 (쿼리 파라미터 포함)
         const currentPath = window.location.pathname + window.location.search + window.location.hash;
         if (currentPath !== "/" && currentPath !== "/login" && !currentPath.startsWith("/auth")) {
-          localStorage.setItem("redirectAfterLogin", currentPath);
+          setCookie("redirectAfterLogin", currentPath, 60 * 60); // 1시간
           log.debug("리다이렉트 URL 저장:", currentPath);
         }
 
@@ -71,16 +73,9 @@ export function useGoogleLogin() {
   const handleLogout = async () => {
     try {
       // 중요: API 호출이나 네비게이션 전에 토큰을 먼저 삭제
-      // 페이지 리로드가 토큰 정리 전에 발생하는 경쟁 상태 방지
-      log.debug("localStorage 토큰 정리 중...");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-      localStorage.removeItem("redirectAfterLogin");
-
-      // 쿠키 삭제
-      document.cookie = "authToken=; path=/; max-age=0";
-      document.cookie = "refreshToken=; path=/; max-age=0";
+      log.debug("토큰 정리 중...");
+      clearTokens();
+      deleteCookie("redirectAfterLogin");
 
       log.debug("토큰 정리 완료, 로그아웃 진행...");
 

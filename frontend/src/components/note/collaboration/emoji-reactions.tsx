@@ -95,15 +95,15 @@ export function EmojiReactions({
               y: -20,
               transition: { duration: 0.3, ease: "backIn" }
             }}
-            className="bg-[#1a1a1a]/90 backdrop-blur-md rounded-2xl px-5 py-3 shadow-2xl border border-[#AFC02B]/20 flex items-center gap-4 min-w-[180px]"
+            className="bg-background-modal/90 backdrop-blur-md rounded-2xl px-5 py-3 shadow-2xl border border-brand/20 flex items-center gap-4 min-w-[180px]"
           >
             <span className="text-3xl filter drop-shadow-md animate-bounce-subtle">{reaction.emoji}</span>
             <div className="flex flex-col">
-              <span className="text-white text-sm font-bold tracking-wide">{reaction.userName}</span>
+              <span className="text-foreground text-sm font-bold tracking-wide">{reaction.userName}</span>
             </div>
 
             {/* 장식용 글로우 효과 */}
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#AFC02B]/10 to-transparent opacity-50" />
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-brand/10 to-transparent opacity-50" />
           </motion.div>
         ))}
       </AnimatePresence>

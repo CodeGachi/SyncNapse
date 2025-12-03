@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState } from "react";
 import {
   Title,
@@ -39,7 +37,7 @@ import {
   mockPlans,
   mockPlanHistory,
   mockDelay,
-} from "@/lib/api/mock/admin.mock";
+} from "@/lib/mock/admin.mock";
 import type { Plan, PlanFeature, PlanHistory, PlanStatus } from "@/lib/api/types/admin.types";
 
 /**

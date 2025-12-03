@@ -1,5 +1,5 @@
 /**
- * NoteContentArea Hook
+ * 노트 콘텐츠 영역 훅
  * viewerHeight, isDragging, resize/drag 핸들러, 탭 관리 로직
  */
 

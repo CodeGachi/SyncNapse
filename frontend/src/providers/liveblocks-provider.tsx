@@ -1,5 +1,5 @@
 /**
- * Liveblocks Provider
+ * Liveblocks 프로바이더
  *
  * Liveblocks RoomProvider를 래핑하여 재사용 가능한 Provider 컴포넌트 생성
  */
@@ -7,6 +7,9 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("Liveblocks");
 import { ClientSideSuspense } from "@liveblocks/react";
 import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage, useMutation, LiveList, LiveObject } from "@/lib/liveblocks/liveblocks.config";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
@@ -32,14 +35,14 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
     const apiKey = process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY;
     if (!apiKey) {
       setConnectionError("Liveblocks API 키가 설정되지 않았습니다.");
-      console.error("[Liveblocks Error] API 키가 없습니다. .env.local 파일을 확인해주세요.");
+      log.error("[Liveblocks] API 키가 없습니다. .env.local 파일을 확인해주세요.");
       return;
     }
 
-    console.log("[Liveblocks] 초기화 시작...");
+    log.debug("[Liveblocks] 초기화 시작...");
 
     if (currentUser) {
-      console.log(`[Liveblocks] 인증된 사용자: ${userName} (${userId})`);
+      log.debug(`[Liveblocks] 인증된 사용자: ${userName} (${userId})`);
     }
   }, [currentUser, userName, userId]);
 
@@ -77,13 +80,7 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
   const roomId = getNoteRoomId(noteId);
   const userColor = getUserColor(userId);
 
-  console.log(`[Liveblocks] ====================================`);
-  console.log(`[Liveblocks] RoomProvider 초기화 중...`);
-  console.log(`[Liveblocks] Room ID: ${roomId}`);
-  console.log(`[Liveblocks] Note ID: ${noteId}`);
-  console.log(`[Liveblocks] User: ${userName} (${userId})`);
-  console.log(`[Liveblocks] Color: ${userColor}`);
-  console.log(`[Liveblocks] ====================================`);
+  log.debug(`[Liveblocks] RoomProvider 초기화: Room=${roomId}, Note=${noteId}, User=${userName} (${userId}), Color=${userColor}`);
 
   return (
     <RoomProvider
@@ -116,7 +113,7 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
         }
       >
         {() => {
-          console.log("[Liveblocks] ClientSideSuspense - 연결 완료! children 렌더링 시작");
+          log.debug("[Liveblocks] ClientSideSuspense - 연결 완료! children 렌더링 시작");
           return (
             <>
               <ConnectionMonitor />
@@ -147,44 +144,44 @@ function ConnectionMonitor() {
 
   // Storage 초기화 Mutation
   const initializeStorage = useMutation(({ storage }) => {
-    console.log("[Liveblocks] Storage 초기화 시작...");
+    log.debug("[Liveblocks] Storage 초기화 시작...");
 
     // === 배열 필드: LiveList로 변환 (기존 데이터 보존) ===
     // handRaises
     const handRaises = storage.get("handRaises");
     if (handRaises === undefined || handRaises === null) {
       storage.set("handRaises", new LiveList([]));
-      console.log(`[Liveblocks] handRaises 초기화됨 (LiveList)`);
+      log.debug(`[Liveblocks] handRaises 초기화됨 (LiveList)`);
     } else if (Array.isArray(handRaises)) {
       storage.set("handRaises", new LiveList(handRaises));
-      console.log(`[Liveblocks] handRaises LiveList 변환 완료!`);
+      log.debug(`[Liveblocks] handRaises LiveList 변환 완료!`);
     }
 
     // polls
     const polls = storage.get("polls");
     if (polls === undefined || polls === null) {
       storage.set("polls", new LiveList([]));
-      console.log(`[Liveblocks] polls 초기화됨 (LiveList)`);
+      log.debug(`[Liveblocks] polls 초기화됨 (LiveList)`);
     } else if (Array.isArray(polls)) {
       storage.set("polls", new LiveList(polls));
-      console.log(`[Liveblocks] polls LiveList 변환 완료!`);
+      log.debug(`[Liveblocks] polls LiveList 변환 완료!`);
     }
 
     // questions
     const questions = storage.get("questions");
     if (questions === undefined || questions === null) {
       storage.set("questions", new LiveList([]));
-      console.log(`[Liveblocks] questions 초기화됨 (LiveList)`);
+      log.debug(`[Liveblocks] questions 초기화됨 (LiveList)`);
     } else if (Array.isArray(questions)) {
       storage.set("questions", new LiveList(questions));
-      console.log(`[Liveblocks] questions LiveList 변환 완료!`);
+      log.debug(`[Liveblocks] questions LiveList 변환 완료!`);
     }
 
     // files (일반 배열)
     const files = storage.get("files");
     if (files === undefined || files === null) {
       storage.set("files", []);
-      console.log(`[Liveblocks] files 초기화됨 (Array)`);
+      log.debug(`[Liveblocks] files 초기화됨 (Array)`);
     }
 
     // === 객체 필드: Record 타입 (일반 객체) ===
@@ -192,66 +189,56 @@ function ConnectionMonitor() {
     const pageNotes = storage.get("pageNotes");
     if (pageNotes === undefined || pageNotes === null) {
       storage.set("pageNotes", {});
-      console.log(`[Liveblocks] pageNotes 초기화됨 (Record)`);
+      log.debug(`[Liveblocks] pageNotes 초기화됨 (Record)`);
     }
 
     // canvasData
     const canvasDataField = storage.get("canvasData");
     if (canvasDataField === undefined || canvasDataField === null) {
       storage.set("canvasData", {});
-      console.log(`[Liveblocks] canvasData 초기화됨 (Record)`);
+      log.debug(`[Liveblocks] canvasData 초기화됨 (Record)`);
     }
 
     // === 기타 필드 ===
     if (storage.get("currentPage") === undefined) {
       storage.set("currentPage", 1);
-      console.log("[Liveblocks] currentPage 초기화됨");
+      log.debug("[Liveblocks] currentPage 초기화됨");
     }
     if (storage.get("currentFileId") === undefined) {
       storage.set("currentFileId", null);
-      console.log("[Liveblocks] currentFileId 초기화됨");
+      log.debug("[Liveblocks] currentFileId 초기화됨");
     }
     if (storage.get("noteInfo") === undefined) {
       storage.set("noteInfo", null);
-      console.log("[Liveblocks] noteInfo 초기화됨");
+      log.debug("[Liveblocks] noteInfo 초기화됨");
     }
 
-    console.log("[Liveblocks] Storage 초기화/변환 완료!");
+    log.debug("[Liveblocks] Storage 초기화/변환 완료!");
   }, []);
 
   useEffect(() => {
-    console.log("[Liveblocks] ConnectionMonitor 마운트됨 - RoomProvider 내부 렌더링 성공!");
+    log.debug("[Liveblocks] ConnectionMonitor 마운트됨 - RoomProvider 내부 렌더링 성공!");
   }, []);
 
   useEffect(() => {
-    console.log(`[Liveblocks] 연결 상태 변경: ${status}`);
+    log.debug(`[Liveblocks] 연결 상태 변경: ${status}`);
 
     // 연결되면 Storage 초기화 (필요한 경우)
     if (status === "connected") {
-      console.log("[Liveblocks] 연결됨! Storage 초기화 시도...");
+      log.debug("[Liveblocks] 연결됨! Storage 초기화 시도...");
       initializeStorage();
     }
   }, [status, initializeStorage]);
 
   useEffect(() => {
     if (room) {
-      console.log(`[Liveblocks] Room 객체 사용 가능:`, {
-        id: room.id,
-      });
+      log.debug(`[Liveblocks] Room 객체 사용 가능: id=${room.id}`);
     }
   }, [room]);
 
   // Storage 변경 감지
   useEffect(() => {
-    console.log(`[Liveblocks Storage] 전체 상태:`, {
-      questions: questions?.length ?? 'undefined',
-      polls: polls?.length ?? 'undefined',
-      handRaises: handRaises?.length ?? 'undefined',
-      files: files?.length ?? 'undefined',
-      noteInfo: noteInfo ? 'exists' : 'null',
-      currentPage: currentPage ?? 'undefined',
-      currentFileId: currentFileId ?? 'undefined',
-    });
+    log.debug(`[Liveblocks Storage] 전체 상태: questions=${questions?.length ?? 'undefined'}, polls=${polls?.length ?? 'undefined'}, handRaises=${handRaises?.length ?? 'undefined'}, files=${files?.length ?? 'undefined'}, noteInfo=${noteInfo ? 'exists' : 'null'}, currentPage=${currentPage ?? 'undefined'}, currentFileId=${currentFileId ?? 'undefined'}`);
   }, [questions, polls, handRaises, noteInfo, files, currentPage, currentFileId]);
 
   return null;

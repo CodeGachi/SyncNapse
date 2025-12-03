@@ -6,6 +6,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("BlockNoteAutoSave");
 import type { BlockNoteEditor } from "@blocknote/core";
 import { saveNoteContentWithSync } from "@/lib/api/services/note-content.api";
 
@@ -37,7 +40,7 @@ export function useBlockNoteAutoSave({
     }
 
     const handleChange = async () => {
-      console.log('[useBlockNoteAutoSave] Editor content changed');
+      log.debug('에디터 콘텐츠 변경됨');
 
       // 이전 타이머 취소
       if (timeoutRef.current) {
@@ -48,7 +51,7 @@ export function useBlockNoteAutoSave({
       timeoutRef.current = setTimeout(async () => {
         try {
           const blocks = editor.document;
-          console.log('[useBlockNoteAutoSave] Saving to IndexedDB:', {
+          log.debug('IndexedDB에 저장 중:', {
             noteId,
             pageId,
             blocksCount: blocks.length,
@@ -57,9 +60,9 @@ export function useBlockNoteAutoSave({
           // IndexedDB에 저장 + 백그라운드 동기화 큐에 추가
           await saveNoteContentWithSync(noteId, pageId, blocks);
 
-          console.log('[useBlockNoteAutoSave] ✅ Auto-save completed');
+          log.debug('✅ 자동저장 완료');
         } catch (error) {
-          console.error('[useBlockNoteAutoSave] ❌ Auto-save failed:', error);
+          log.error('❌ 자동저장 실패:', error);
         }
       }, debounceMs);
     };
@@ -87,7 +90,7 @@ export function useBlockNoteAutoSave({
       if (editor && noteId && pageId && enabled) {
         const blocks = editor.document;
         saveNoteContentWithSync(noteId, pageId, blocks).catch((error) => {
-          console.error('[useBlockNoteAutoSave] ❌ Unmount save failed:', error);
+          log.error('❌ Unmount 저장 실패:', error);
         });
       }
     };

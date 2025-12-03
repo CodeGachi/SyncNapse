@@ -6,7 +6,10 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as transcriptionApi from "@/lib/api/transcription.api";
+import * as transcriptionApi from "@/lib/api/services/transcription.api";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("RecordingList");
 
 interface FormattedRecording {
   id: number;
@@ -26,7 +29,7 @@ export function useRecordingList(noteId?: string | null) {
   const { data: sessions = [], isLoading, refetch } = useQuery({
     queryKey: ["recordings"],
     queryFn: async () => {
-      console.log('[useRecordingList] 🔄 Fetching recordings from backend...');
+      log.debug("🔄 백엔드에서 녹음 목록 조회 중...");
       const result = await transcriptionApi.getSessions();
 
       // 최신 녹음 확인 (createdAt 기준 정렬)
@@ -34,14 +37,14 @@ export function useRecordingList(noteId?: string | null) {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       const newest = sorted[0];
-      console.log('[useRecordingList] ✅ Fetched', result.length, 'recordings. Newest:',
-        newest ? { title: newest.title, noteId: newest.noteId, createdAt: newest.createdAt } : 'none'
+      log.debug("✅ 조회 완료:", result.length, "개 녹음. 최신:",
+        newest ? { title: newest.title, noteId: newest.noteId, createdAt: newest.createdAt } : "없음"
       );
       return result;
     },
-    staleTime: 0, // 항상 stale 상태로 유지하여 invalidate 시 즉시 refetch
+    staleTime: 1000 * 10, // 10초간 fresh 상태 유지 (저장 직후 불필요한 refetch 방지)
     gcTime: 1000 * 60 * 30, // 30분간 캐시 유지
-    refetchOnWindowFocus: true, // 윈도우 포커스 시 refetch
+    refetchOnWindowFocus: false, // 포커스 시 refetch 비활성화 (Optimistic Update와 충돌 방지)
   });
 
   // noteId가 주어지면 해당 노트의 녹음만 필터링
@@ -69,7 +72,7 @@ export function useRecordingList(noteId?: string | null) {
         (old = []) => old.filter((s) => s.id !== sessionId)
       );
 
-      console.log('[useRecordingList] ✅ Optimistic update: Removed from UI');
+      log.debug("✅ Optimistic update: UI에서 제거됨");
 
       return { previousRecordings };
     },
@@ -78,14 +81,14 @@ export function useRecordingList(noteId?: string | null) {
     onError: (error, sessionId, context) => {
       if (context?.previousRecordings) {
         queryClient.setQueryData(["recordings"], context.previousRecordings);
-        console.error('[useRecordingList] ❌ Rollback: Restored previous data', error);
+        log.error("❌ 롤백: 이전 데이터 복원됨", error);
       }
     },
 
     // 성공 시 재검증
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recordings"] });
-      console.log('[useRecordingList] ✅ Recording deleted successfully');
+      log.debug("✅ 녹음 삭제 완료");
     },
   });
 

@@ -9,6 +9,7 @@
 
 import { createClient, LiveList, LiveObject } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
+import { getAccessToken } from "@/lib/auth/token-manager";
 
 // Liveblocks 클라이언트 생성
 // Note: Public key가 설정되지 않은 경우 에러 방지를 위해 기본값 사용
@@ -25,14 +26,26 @@ if (!publicKey || publicKey === "") {
 }
 
 const client = createClient({
-  // Use a valid dummy key format if not configured to prevent errors
-  // Liveblocks requires keys to start with "pk_"
-  publicApiKey: publicKey && publicKey.startsWith("pk_") 
-    ? publicKey 
-    : "pk_dev_placeholder_key_for_development_only",
+  // 백엔드 인증 엔드포인트 사용 (권한 검증)
+  authEndpoint: async (room) => {
+    // 쿠키에서 JWT 토큰 가져오기 (token-manager 사용)
+    const token = getAccessToken();
 
-  // 인증이 필요한 경우 (향후 구현)
-  // authEndpoint: "/api/liveblocks-auth",
+    const response = await fetch("/api/liveblocks-auth", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ room }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Liveblocks auth failed: ${response.status}`);
+    }
+
+    return response.json();
+  },
 
   // 연결 옵션
   throttle: 16, // 16ms마다 업데이트 (60fps)
@@ -237,8 +250,9 @@ export function getUserColor(userId: string): string {
 }
 
 // Room ID 생성 헬퍼
+// 백엔드와 동일한 형식 사용: "note:{noteId}"
 export function getNoteRoomId(noteId: string): string {
-  return `note-${noteId}`;
+  return `note:${noteId}`;
 }
 
 // Canvas Data Key 생성 헬퍼

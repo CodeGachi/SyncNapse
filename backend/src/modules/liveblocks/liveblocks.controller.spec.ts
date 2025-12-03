@@ -1,11 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LiveblocksController } from './liveblocks.controller';
 import { LiveblocksService } from './liveblocks.service';
+import { PrismaService } from '../db/prisma.service';
 
 describe('LiveblocksController', () => {
   let controller: LiveblocksController;
   const mockLiveblocksService = {
     authorize: jest.fn(),
+  };
+  const mockPrismaService = {
+    user: {
+      findUnique: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -13,6 +19,7 @@ describe('LiveblocksController', () => {
       controllers: [LiveblocksController],
       providers: [
         { provide: LiveblocksService, useValue: mockLiveblocksService },
+        { provide: PrismaService, useValue: mockPrismaService },
       ],
     }).compile();
 

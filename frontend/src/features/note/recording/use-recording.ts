@@ -1,5 +1,6 @@
 /**
- * 실제 녹음 기능 훅 (MediaRecorder API + Web Speech API for transcription)
+ * 실제 녹음 기능 훅
+ * MediaRecorder API + Web Speech API를 사용한 녹음 및 실시간 음성 인식
  */
 
 "use client";
@@ -9,8 +10,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SpeechRecognitionService, type SpeechSegment } from "@/lib/speech/speech-recognition";
 import { useScriptTranslationStore } from "@/stores";
 import type { WordWithTime } from "@/lib/types";
-import * as transcriptionApi from "@/lib/api/transcription.api";
-import * as audioApi from "@/lib/api/audio.api";
+import * as transcriptionApi from "@/lib/api/services/transcription.api";
+import * as audioApi from "@/lib/api/services/audio.api";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("Recording");
 
 export interface RecordingData {
   id: string;
@@ -23,11 +27,11 @@ export interface RecordingData {
 }
 
 /**
- * Estimate word-level timestamps for a text segment
- * @param text - Full text of the segment
- * @param startTime - Segment start time in seconds
- * @param confidence - Recognition confidence (0-1)
- * @returns Array of words with estimated timestamps
+ * 텍스트 세그먼트에 대한 단어별 타임스탬프 추정
+ * @param text - 세그먼트의 전체 텍스트
+ * @param startTime - 세그먼트 시작 시간 (초)
+ * @param confidence - 인식 신뢰도 (0-1)
+ * @returns 추정된 타임스탬프가 포함된 단어 배열
  */
 function estimateWordTimestamps(
   text: string,
@@ -52,7 +56,7 @@ function estimateWordTimestamps(
     });
   }
 
-  console.log('[useRecording] Estimated word timestamps:', {
+  log.debug('단어 타임스탬프 추정:', {
     text: text.substring(0, 50),
     wordCount: words.length,
     startTime,
@@ -109,7 +113,7 @@ export function useRecording(noteId?: string | null) {
       pauseStartTimeRef.current = 0;
       speechRecognitionStartTimeRef.current = 0;
       audioRecordingTimeAtSpeechStartRef.current = 0;
-      console.log('[useRecording] Cleared previous script segments and reset timing');
+      log.debug('이전 스크립트 세그먼트 정리 및 타이밍 리셋');
 
       // Create AudioRecording for timeline events (if noteId exists)
       let createdAudioRecordingId: string | null = null;
@@ -122,9 +126,9 @@ export function useRecording(noteId?: string | null) {
           });
           createdAudioRecordingId = audioRecording.id;
           setAudioRecordingId(audioRecording.id);
-          console.log('[useRecording] Created AudioRecording for timeline:', audioRecording.id);
+          log.debug('타임라인용 AudioRecording 생성됨:', audioRecording.id);
         } catch (audioRecordingError) {
-          console.error('[useRecording] Failed to create AudioRecording:', audioRecordingError);
+          log.error('AudioRecording 생성 실패:', audioRecordingError);
           // Continue recording even if AudioRecording creation fails
         }
       }
@@ -140,7 +144,7 @@ export function useRecording(noteId?: string | null) {
         }
       });
       
-      console.log('[useRecording] Audio stream acquired:', {
+      log.debug('오디오 스트림 획득:', {
         sampleRate: stream.getAudioTracks()[0]?.getSettings().sampleRate,
         channelCount: stream.getAudioTracks()[0]?.getSettings().channelCount,
       });
@@ -161,35 +165,35 @@ export function useRecording(noteId?: string | null) {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      // 데이터 수집 - continuous collection for seamless audio
+      // 데이터 수집 - 끊김 없는 오디오를 위한 연속 수집
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
-          console.log('[useRecording] Audio chunk collected:', event.data.size, 'bytes', 
-                      '| Total chunks:', audioChunksRef.current.length,
-                      '| Total size:', audioChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0), 'bytes');
+          log.debug('오디오 청크 수집:', event.data.size, 'bytes',
+                      '| 총 청크:', audioChunksRef.current.length,
+                      '| 총 크기:', audioChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0), 'bytes');
         }
       };
 
       // 녹음 상태 로깅
       mediaRecorder.onstart = () => {
-        console.log('[useRecording] MediaRecorder started');
+        log.debug('MediaRecorder 시작됨');
       };
 
       mediaRecorder.onpause = () => {
-        console.log('[useRecording] MediaRecorder paused');
+        log.debug('MediaRecorder 일시정지됨');
       };
 
       mediaRecorder.onresume = () => {
-        console.log('[useRecording] MediaRecorder resumed');
+        log.debug('MediaRecorder 재개됨');
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[useRecording] MediaRecorder stopped, total chunks:', audioChunksRef.current.length);
+        log.debug('MediaRecorder 중지됨, 총 청크:', audioChunksRef.current.length);
       };
 
       mediaRecorder.onerror = (event: any) => {
-        console.error('[useRecording] MediaRecorder error:', event.error);
+        log.error('MediaRecorder 오류:', event.error);
       };
 
       // Initialize Web Speech API for transcription
@@ -207,7 +211,7 @@ export function useRecording(noteId?: string | null) {
               // We need to add the audio recording time at that point
               const actualRecordingTime = audioRecordingTimeAtSpeechStartRef.current + segment.startTime;
               
-              console.log('[useRecording] Speech segment:', {
+              log.debug('음성 세그먼트:', {
                 text: segment.text.substring(0, 30) + '...',
                 segmentStartTime: segment.startTime.toFixed(2) + 's',
                 audioTimeAtSpeechStart: audioRecordingTimeAtSpeechStartRef.current.toFixed(2) + 's',
@@ -245,7 +249,7 @@ export function useRecording(noteId?: string | null) {
                   }
                 });
                 segmentsMapRef.current.set(scriptSegment.id, scriptSegment);
-                console.log('[useRecording] Finalized segment with', words.length, 'words');
+                log.debug('세그먼트 확정됨:', words.length, '개 단어');
               }
 
               // Update script store with all segments (sorted by time)
@@ -254,8 +258,8 @@ export function useRecording(noteId?: string | null) {
               setScriptSegments(allSegments);
             },
             onError: (error) => {
-              console.error('[useRecording] Speech recognition error:', error);
-              // Don't stop recording on speech recognition error
+              log.error('음성 인식 오류:', error);
+              // 음성 인식 오류 시 녹음은 계속
             },
           }
         );
@@ -263,20 +267,20 @@ export function useRecording(noteId?: string | null) {
         speechRecognitionRef.current = speechRecognition;
         speechRecognition.start();
         
-        // Record when Speech Recognition started and current audio recording time
+        // 음성 인식 시작 시간과 현재 오디오 녹음 시간 기록
         speechRecognitionStartTimeRef.current = Date.now();
-        audioRecordingTimeAtSpeechStartRef.current = 0; // Starting fresh
-        console.log('[useRecording] Speech recognition started at recording time: 0s');
+        audioRecordingTimeAtSpeechStartRef.current = 0; // 새로 시작
+        log.debug('음성 인식 시작됨, 녹음 시간: 0s');
       } catch (speechError) {
-        console.error('[useRecording] Failed to start speech recognition:', speechError);
-        // Continue recording even if speech recognition fails
+        log.error('음성 인식 시작 실패:', speechError);
+        // 음성 인식 실패해도 녹음은 계속
       }
 
       // 녹음 시작 (timeslice 없이 - /transcription 페이지와 동일한 방식)
       // timeslice 없이 시작하여 stop() 호출 시 모든 데이터를 한 번에 수집
       // 이 방식이 가장 안정적이고 끊김이 없음 (webm 파일 무결성 보장)
       mediaRecorder.start();
-      console.log('[useRecording] MediaRecorder started without timeslice (following /transcription pattern)');
+      log.debug('MediaRecorder 시작됨 (timeslice 없이 - /transcription 패턴 준수)');
       setIsRecording(true);
       isRecordingRef.current = true; // 🔥 FIX: Update ref
       setIsPaused(false);
@@ -288,7 +292,7 @@ export function useRecording(noteId?: string | null) {
       }, 1000);
 
     } catch (err) {
-      console.error("녹음 시작 실패:", err);
+      log.error("녹음 시작 실패:", err);
       setError("마이크 권한이 필요합니다");
     }
   }, [clearScriptSegments, setScriptSegments]);
@@ -301,16 +305,16 @@ export function useRecording(noteId?: string | null) {
       mediaRecorderRef.current.pause();
       setIsPaused(true);
       
-      // Track pause start time
+      // 일시정지 시작 시간 추적
       pauseStartTimeRef.current = Date.now();
-      console.log('[useRecording] Paused at:', pauseStartTimeRef.current, 
-                  '| Chunks collected so far:', audioChunksRef.current.length);
+      log.debug('일시정지됨:', pauseStartTimeRef.current,
+                  '| 수집된 청크:', audioChunksRef.current.length);
 
-      // Stop speech recognition during pause
+      // 일시정지 중 음성 인식 중지
       if (speechRecognitionRef.current) {
         speechRecognitionRef.current.stop();
-        speechRecognitionRef.current = null; // Reset to allow restart
-        console.log('[useRecording] Speech recognition stopped for pause');
+        speechRecognitionRef.current = null; // 재시작 허용을 위해 리셋
+        log.debug('일시정지를 위해 음성 인식 중지됨');
       }
 
       if (timerRef.current) {
@@ -326,11 +330,11 @@ export function useRecording(noteId?: string | null) {
       mediaRecorderRef.current.resume();
       setIsPaused(false);
 
-      // Add paused duration to total
+      // 일시정지 시간을 총합에 추가
       const pauseDuration = Date.now() - pauseStartTimeRef.current;
       totalPausedTimeRef.current += pauseDuration;
-      console.log('[useRecording] Resumed after', (pauseDuration / 1000).toFixed(2) + 's', 
-                  '| Total paused:', (totalPausedTimeRef.current / 1000).toFixed(2) + 's');
+      log.debug('재개됨:', (pauseDuration / 1000).toFixed(2) + 's 후',
+                  '| 총 일시정지 시간:', (totalPausedTimeRef.current / 1000).toFixed(2) + 's');
 
       // Restart speech recognition with same callbacks
       if (!speechRecognitionRef.current && streamRef.current) {
@@ -346,7 +350,7 @@ export function useRecording(noteId?: string | null) {
                 // Calculate actual recording time based on Speech Recognition restart
                 const actualRecordingTime = audioRecordingTimeAtSpeechStartRef.current + segment.startTime;
                 
-                console.log('[useRecording] Speech segment (after resume):', {
+                log.debug('음성 세그먼트 (재개 후):', {
                   text: segment.text.substring(0, 30) + '...',
                   segmentStartTime: segment.startTime.toFixed(2) + 's',
                   audioTimeAtSpeechStart: audioRecordingTimeAtSpeechStartRef.current.toFixed(2) + 's',
@@ -382,7 +386,7 @@ export function useRecording(noteId?: string | null) {
                     }
                   });
                   segmentsMapRef.current.set(scriptSegment.id, scriptSegment);
-                  console.log('[useRecording] Finalized segment with', words.length, 'words');
+                  log.debug('세그먼트 확정됨:', words.length, '개 단어');
                 }
 
                 const allSegments = Array.from(segmentsMapRef.current.values())
@@ -390,7 +394,7 @@ export function useRecording(noteId?: string | null) {
                 setScriptSegments(allSegments);
               },
               onError: (error) => {
-                console.error('[useRecording] Speech recognition error:', error);
+                log.error('음성 인식 오류:', error);
               },
             }
           );
@@ -398,12 +402,12 @@ export function useRecording(noteId?: string | null) {
           speechRecognitionRef.current = speechRecognition;
           speechRecognition.start();
           
-          // Record when Speech Recognition restarted and current audio recording time
+          // 음성 인식 재시작 시간과 현재 오디오 녹음 시간 기록
           speechRecognitionStartTimeRef.current = Date.now();
-          audioRecordingTimeAtSpeechStartRef.current = recordingTime; // Current recording time
-          console.log('[useRecording] Speech recognition restarted at recording time:', recordingTime + 's');
+          audioRecordingTimeAtSpeechStartRef.current = recordingTime; // 현재 녹음 시간
+          log.debug('음성 인식 재시작됨, 녹음 시간:', recordingTime + 's');
         } catch (error) {
-          console.error('[useRecording] Failed to restart speech recognition:', error);
+          log.error('음성 인식 재시작 실패:', error);
         }
       }
 
@@ -425,27 +429,27 @@ export function useRecording(noteId?: string | null) {
       mediaRecorderRef.current.onstop = async () => {
         try {
           // Blob 생성 - 모든 chunk를 순서대로 병합
-          console.log('[useRecording] Creating final audio blob from', audioChunksRef.current.length, 'chunks');
+          log.debug('최종 오디오 Blob 생성 중:', audioChunksRef.current.length, '개 청크');
           const audioBlob = new Blob(audioChunksRef.current, {
             type: mediaRecorderRef.current?.mimeType || "audio/webm",
           });
-          console.log('[useRecording] Final audio blob size:', audioBlob.size, 'bytes', 
-                      '| Type:', audioBlob.type);
+          log.debug('최종 오디오 Blob 크기:', audioBlob.size, 'bytes',
+                      '| 타입:', audioBlob.type);
 
-          // Stop speech recognition
+          // 음성 인식 중지
           if (speechRecognitionRef.current) {
             speechRecognitionRef.current.stop();
             speechRecognitionRef.current = null;
-            console.log('[useRecording] Speech recognition stopped');
+            log.debug('음성 인식 중지됨');
           }
 
-          // Remove interim segments, keep only final ones
+          // 임시 세그먼트 제거, 최종 세그먼트만 유지
           const finalSegments = Array.from(segmentsMapRef.current.values())
             .filter(seg => !seg.isPartial)
             .sort((a, b) => a.timestamp - b.timestamp);
-          
+
           setScriptSegments(finalSegments);
-          console.log('[useRecording] Kept', finalSegments.length, 'final segments, removed interim segments');
+          log.debug('최종 세그먼트', finalSegments.length, '개 유지, 임시 세그먼트 제거됨');
 
           // 스트림 정리
           if (streamRef.current) {
@@ -471,7 +475,7 @@ export function useRecording(noteId?: string | null) {
             const seconds = String(recordingStartTime.getSeconds()).padStart(2, '0');
             
             recordingTitle = `${year}_${month}_${day}_${hours}:${minutes}:${seconds}`;
-            console.log('[useRecording] Generated default title from start time:', recordingTitle);
+            log.debug('시작 시간으로 기본 제목 생성:', recordingTitle);
           } else if (!recordingTitle) {
             // Fallback if recordingStartTime is not available
             recordingTitle = `Recording ${new Date().toLocaleString('ko-KR', {
@@ -482,17 +486,17 @@ export function useRecording(noteId?: string | null) {
             })}`;
           }
 
-          // Save to backend (create session, upload audio, save segments)
+          // 백엔드에 저장 (세션 생성, 오디오 업로드, 세그먼트 저장)
           setIsSaving(true);
           let sessionId: string | undefined;
 
           try {
-            console.log('[useRecording] Creating transcription session:', recordingTitle, 'noteId:', noteId, 'audioRecordingId:', audioRecordingId);
+            log.debug('트랜스크립션 세션 생성 중:', recordingTitle, 'noteId:', noteId, 'audioRecordingId:', audioRecordingId);
 
-            // 1. Create session (audioRecordingId 포함하여 타임라인 연동)
+            // 1. 세션 생성 (audioRecordingId 포함하여 타임라인 연동)
             const session = await transcriptionApi.createSession(recordingTitle, noteId || undefined, audioRecordingId || undefined);
             sessionId = session.id;
-            console.log('[useRecording] Created session:', sessionId, 'with audioRecordingId:', audioRecordingId);
+            log.debug('세션 생성됨:', sessionId, 'audioRecordingId:', audioRecordingId);
 
             // 2. Convert audio blob to base64 data URL
             const audioDataUrl = await new Promise<string>((resolve) => {
@@ -501,8 +505,8 @@ export function useRecording(noteId?: string | null) {
               reader.readAsDataURL(audioBlob);
             });
 
-            // 3. Upload full audio
-            console.log('[useRecording] Uploading full audio...', {
+            // 3. 전체 오디오 업로드
+            log.debug('전체 오디오 업로드 중...', {
               sessionId,
               audioBlobSize: audioBlob.size,
               audioBlobType: audioBlob.type,
@@ -514,15 +518,15 @@ export function useRecording(noteId?: string | null) {
               audioUrl: audioDataUrl,
               duration: recordingTime,
             });
-            console.log('[useRecording] Full audio upload result:', {
+            log.debug('전체 오디오 업로드 결과:', {
               fullAudioUrl: uploadResult.fullAudioUrl,
               fullAudioKey: uploadResult.fullAudioKey,
               status: uploadResult.status,
             });
 
-            // 4. Save transcription segments (병렬 처리로 성능 개선)
+            // 4. 트랜스크립션 세그먼트 저장 (병렬 처리로 성능 개선)
             if (finalSegments.length > 0 && sessionId) {
-              console.log('[useRecording] Saving', finalSegments.length, 'transcription segments in parallel...');
+              log.debug('트랜스크립션 세그먼트', finalSegments.length, '개 병렬 저장 중...');
               const startTime = Date.now();
 
               // Promise.all로 병렬 처리 - 훨씬 빠름!
@@ -544,8 +548,8 @@ export function useRecording(noteId?: string | null) {
                     })),
                   });
                 } catch (segmentError) {
-                  console.error('[useRecording] Failed to save segment:', segmentError);
-                  // Continue with other segments
+                  log.error('세그먼트 저장 실패:', segmentError);
+                  // 다른 세그먼트는 계속 저장
                 }
               });
 
@@ -553,20 +557,20 @@ export function useRecording(noteId?: string | null) {
               await Promise.all(savePromises);
 
               const elapsed = Date.now() - startTime;
-              console.log('[useRecording] All segments saved in', elapsed + 'ms',
-                          '(avg:', (elapsed / finalSegments.length).toFixed(0) + 'ms per segment)');
+              log.debug('모든 세그먼트 저장 완료:', elapsed + 'ms',
+                          '(평균:', (elapsed / finalSegments.length).toFixed(0) + 'ms/세그먼트)');
             }
 
-            // 5. End session
+            // 5. 세션 종료
             await transcriptionApi.endSession(sessionId);
-            console.log('[useRecording] Session ended successfully');
+            log.debug('세션 종료 완료');
 
             // invalidateQueries는 use-recording-control.ts에서 처리함 (중복 호출 방지)
 
           } catch (saveError) {
-            console.error('[useRecording] Failed to save recording to backend:', saveError);
+            log.error('백엔드에 녹음 저장 실패:', saveError);
             setError('녹음 저장에 실패했습니다');
-            // Continue with local data even if backend save fails
+            // 백엔드 저장 실패해도 로컬 데이터로 계속
           } finally {
             setIsSaving(false);
           }
@@ -590,14 +594,14 @@ export function useRecording(noteId?: string | null) {
 
           resolve(recordingData);
         } catch (error) {
-          console.error('[useRecording] Error in stopRecording:', error);
+          log.error('stopRecording 오류:', error);
           reject(error);
         }
       };
 
       // 녹음 종료 - /transcription 패턴 따라 stop()만 호출
       // ondataavailable에서 자동으로 마지막 데이터를 수집함
-      console.log('[useRecording] Stopping recording... Current chunks:', audioChunksRef.current.length);
+      log.debug('녹음 중지 중... 현재 청크:', audioChunksRef.current.length);
       mediaRecorderRef.current.stop();
     });
   }, [recordingTime, setScriptSegments, queryClient, noteId]);
@@ -605,16 +609,16 @@ export function useRecording(noteId?: string | null) {
   // 녹음 취소
   const cancelRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      // Stop without requesting data - we're discarding anyway
+      // 데이터 요청 없이 중지 - 어차피 폐기할 데이터
       mediaRecorderRef.current.stop();
-      console.log('[useRecording] Recording cancelled');
+      log.debug('녹음 취소됨');
     }
 
-    // Stop speech recognition
+    // 음성 인식 중단
     if (speechRecognitionRef.current) {
       speechRecognitionRef.current.abort();
       speechRecognitionRef.current = null;
-      console.log('[useRecording] Speech recognition aborted');
+      log.debug('음성 인식 중단됨');
     }
 
     // 스트림 정리
@@ -629,12 +633,12 @@ export function useRecording(noteId?: string | null) {
       timerRef.current = null;
     }
 
-    // Clear script segments
+    // 스크립트 세그먼트 정리
     clearScriptSegments();
 
     // 상태 초기화
     setIsRecording(false);
-    isRecordingRef.current = false; // 🔥 FIX: Update ref
+    isRecordingRef.current = false; // ref 업데이트
     setIsPaused(false);
     setRecordingTime(0);
     audioChunksRef.current = [];
@@ -647,11 +651,11 @@ export function useRecording(noteId?: string | null) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }, []);
 
-  // ✅ 페이지 이동 시 경고 + 자동 저장
+  // 페이지 이동 시 경고 + 자동 저장
   useEffect(() => {
     if (!isRecording) return;
 
-    console.log('[useRecording] 🎤 Recording active - setting up beforeunload handler');
+    log.debug('🎤 녹음 활성 - beforeunload 핸들러 설정');
 
     let isSavingOnExit = false; // 중복 저장 방지 플래그
 
@@ -663,7 +667,7 @@ export function useRecording(noteId?: string | null) {
       // 페이지를 떠나기 전 자동 저장 시도 (visibilitychange가 먼저 처리될 수도 있음)
       if (!isSavingOnExit && mediaRecorderRef.current?.state !== 'inactive') {
         isSavingOnExit = true;
-        console.log('[useRecording] ⚠️ beforeunload: Attempting to save recording...');
+        log.debug('⚠️ beforeunload: 녹음 저장 시도 중...');
 
         // 자동 저장 제목 생성
         const autoSaveTitle = recordingStartTime
@@ -672,7 +676,7 @@ export function useRecording(noteId?: string | null) {
 
         // 녹음 중단 및 저장 (비동기지만 최선의 노력)
         stopRecording(autoSaveTitle).catch((err) => {
-          console.error('[useRecording] Failed to auto-save on beforeunload:', err);
+          log.error('beforeunload에서 자동 저장 실패:', err);
         });
       }
 
@@ -684,7 +688,7 @@ export function useRecording(noteId?: string | null) {
       // 페이지가 숨겨지고(hidden) 녹음 중이면 자동 저장
       if (document.hidden && isRecording && !isSavingOnExit && mediaRecorderRef.current?.state !== 'inactive') {
         isSavingOnExit = true;
-        console.log('[useRecording] 👁️ Page hidden - auto-saving recording...');
+        log.debug('👁️ 페이지 숨김 - 녹음 자동 저장 중...');
 
         try {
           // 자동 저장 제목 생성
@@ -693,9 +697,9 @@ export function useRecording(noteId?: string | null) {
             : `자동저장_${new Date().toISOString()}`;
 
           await stopRecording(autoSaveTitle);
-          console.log('[useRecording] ✅ Recording auto-saved successfully');
+          log.debug('✅ 녹음 자동 저장 성공');
         } catch (error) {
-          console.error('[useRecording] ❌ Failed to auto-save on visibility change:', error);
+          log.error('❌ visibilitychange에서 자동 저장 실패:', error);
         }
       }
     };
@@ -703,28 +707,28 @@ export function useRecording(noteId?: string | null) {
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 3. Cleanup: 컴포넌트 unmount 시 리소스 정리
+    // 3. 정리: 컴포넌트 unmount 시 리소스 정리
     return () => {
-      console.log('[useRecording] 🧹 Component unmounting...');
+      log.debug('🧹 컴포넌트 unmount 중...');
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
 
       // 녹음 중이면 리소스 정리 (저장은 beforeunload/visibilitychange에서 처리됨)
-      // 🔥 FIX: Use ref instead of state to prevent stale closure
+      // stale closure 방지를 위해 state 대신 ref 사용
       if (isRecordingRef.current && !isSavingOnExit) {
-        console.log('[useRecording] ⚠️ Recording still active during unmount - cleaning up resources');
+        log.debug('⚠️ unmount 중 녹음 활성 - 리소스 정리 중');
 
         // 음성 인식 중단
         if (speechRecognitionRef.current) {
           speechRecognitionRef.current.abort();
           speechRecognitionRef.current = null;
-          console.log('[useRecording] 🗣️ Speech recognition stopped');
+          log.debug('🗣️ 음성 인식 중지됨');
         }
 
         // 스트림 정리 (마이크 끄기)
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => {
-            console.log('[useRecording] 🎤 Stopping microphone track:', track.label);
+            log.debug('🎤 마이크 트랙 중지:', track.label);
             track.stop();
           });
           streamRef.current = null;
@@ -734,13 +738,13 @@ export function useRecording(noteId?: string | null) {
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
-          console.log('[useRecording] ⏱️ Timer cleared');
+          log.debug('⏱️ 타이머 정리됨');
         }
 
-        console.log('[useRecording] ✅ Resources cleaned up');
+        log.debug('✅ 리소스 정리 완료');
       }
     };
-  }, []); // 🔥 FIX: dependency 제거 - mount/unmount 시에만 cleanup 실행
+  }, []); // dependency 제거 - mount/unmount 시에만 cleanup 실행
 
   return {
     isRecording,

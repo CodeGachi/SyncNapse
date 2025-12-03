@@ -51,13 +51,13 @@ const ThumbnailItem = memo(({
     <div
       onClick={onClick}
       className={`flex flex-col items-center p-2 rounded cursor-pointer transition-all ${isActive
-          ? "bg-[#AFC02B]/20 border-2 border-[#AFC02B]"
-          : "bg-[#2f2f2f] border-2 border-transparent hover:border-[#3c3c3c]"
+          ? "bg-brand/20 border-2 border-brand"
+          : "bg-background-elevated border-2 border-transparent hover:border-border"
         }`}
     >
       {/* 썸네일 이미지 */}
       <div
-        className="w-full flex items-center justify-center overflow-hidden rounded bg-[#1e1e1e]"
+        className="w-full flex items-center justify-center overflow-hidden rounded bg-background-surface"
         style={{ minHeight: "100px" }}
       >
         {thumbnailUrl ? (
@@ -73,7 +73,7 @@ const ThumbnailItem = memo(({
       </div>
 
       {/* 페이지 번호 */}
-      <div className={`mt-1 text-xs font-medium ${isActive ? "text-[#AFC02B]" : "text-gray-400"
+      <div className={`mt-1 text-xs font-medium ${isActive ? "text-brand" : "text-foreground-tertiary"
         }`}>
         {pageNum}
       </div>
@@ -112,10 +112,10 @@ export const PdfThumbnailSidebar = memo(({
 
   if (!isOpen) {
     return (
-      <div className="flex items-center justify-center w-8 bg-[#252525] border-r border-[#3c3c3c]">
+      <div className="flex items-center justify-center w-8 bg-background-elevated border-r border-border">
         <button
           onClick={onToggle}
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-background-overlay transition-colors"
           title="썸네일 열기"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
@@ -127,13 +127,13 @@ export const PdfThumbnailSidebar = memo(({
   }
 
   return (
-    <div className="flex flex-col w-[150px] bg-[#252525] border-r border-[#3c3c3c]">
+    <div className="flex flex-col w-[150px] bg-background-elevated border-r border-border">
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#3c3c3c]">
-        <span className="text-xs font-medium text-gray-400">썸네일</span>
+      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
+        <span className="text-xs font-medium text-foreground-tertiary">썸네일</span>
         <button
           onClick={onToggle}
-          className="w-5 h-5 flex items-center justify-center rounded hover:bg-[#3c3c3c] transition-colors"
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-background-overlay transition-colors"
           title="썸네일 닫기"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="white">

@@ -61,6 +61,7 @@ export function apiToNote(apiNote: ApiNoteResponse): Note {
     title: apiNote.title,
     folderId: apiNote.folder_id,
     type: (apiNote.type as "student" | "educator") || "student", // Default to student if not provided
+    publicAccess: apiNote.public_access, // 공유 설정
     createdAt: new Date(apiNote.created_at).getTime(),
     updatedAt: new Date(apiNote.updated_at).getTime(),
     thumbnail: apiNote.thumbnail,

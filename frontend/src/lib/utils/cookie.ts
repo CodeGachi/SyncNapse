@@ -31,7 +31,8 @@ export function setCookie(
   maxAge: number = 60 * 60 * 24 * 7
 ): void {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Strict`;
+  // SameSite=Lax: 백엔드(cross-origin)로 요청 시 쿠키 전송 허용
+  document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Lax`;
 }
 
 /**

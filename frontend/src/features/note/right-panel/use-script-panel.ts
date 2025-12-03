@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, RefObject } from "react";
-import { getPageContextAtTime, type AudioTimelineEvent } from "@/lib/api/audio.api";
+import { getPageContextAtTime, type AudioTimelineEvent } from "@/lib/api/services/audio.api";
 import type { PageContext, WordWithTime } from "@/lib/types";
 import { createLogger } from "@/lib/utils/logger";
 

@@ -11,7 +11,11 @@
  * - 백엔드에서 영구 URL 받아서 Liveblocks 동기화에 사용
  */
 
+import { createLogger } from "@/lib/utils/logger";
 import type { DBFile } from "@/lib/db/files";
+import { getAccessToken } from "@/lib/auth/token-manager";
+
+const log = createLogger("FilesAPI");
 import {
   saveFile as saveFileInDB,
   getFilesByNote as getFilesByNoteFromDB,
@@ -19,7 +23,8 @@ import {
   dbFileToFile,
 } from "@/lib/db/files";
 import { useSyncStore } from "@/lib/sync/sync-store";
-import { uploadFileToServer } from "@/lib/api/file-upload.api";
+import { uploadFileToServer } from "./file-upload.api";
+import { API_BASE_URL } from "../client";
 
 // Re-export for backward compatibility
 import { decodeFilename } from "@/lib/utils/decode-filename";
@@ -63,11 +68,11 @@ export async function fetchFilesByNote(noteId: string): Promise<File[]> {
  * - 백그라운드에서 백엔드와 동기화
  */
 export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId[]> {
-  console.log(`[FilesAPI] Fetching files for note: ${noteId}`);
-  
+  log.debug(`Fetching files for note: ${noteId}`);
+
   // 1. IndexedDB에서 로컬 파일 먼저 가져오기
   const dbFiles = await getFilesByNoteFromDB(noteId);
-  console.log(`[FilesAPI] IndexedDB files count: ${dbFiles.length}`);
+  log.debug(`IndexedDB files count: ${dbFiles.length}`);
   
   // 2. 백그라운드에서 백엔드 동기화
   syncFilesInBackground(noteId);
@@ -86,15 +91,14 @@ export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId
  */
 async function syncFilesInBackground(noteId: string): Promise<void> {
   try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    const token = localStorage.getItem("authToken");
-    
+    const token = getAccessToken();
+
     if (!token) {
-      console.log(`[FilesAPI] No auth token, skipping backend sync`);
+      log.debug(`No auth token, skipping backend sync`);
       return;
     }
-    
-    console.log(`[FilesAPI] Syncing files with backend for note: ${noteId}`);
+
+    log.debug(`Syncing files with backend for note: ${noteId}`);
     
     const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/files`, {
       credentials: "include",
@@ -104,12 +108,12 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
     });
     
     if (!res.ok) {
-      console.warn(`[FilesAPI] Failed to fetch files from backend: ${res.status}`);
+      log.warn(`Failed to fetch files from backend: ${res.status}`);
       return;
     }
-    
+
     const backendFiles = await res.json();
-    console.log(`[FilesAPI] Backend files count: ${backendFiles.length}`, backendFiles);
+    log.debug(`Backend files count: ${backendFiles.length}`, backendFiles);
 
     // 백엔드 파일을 IndexedDB와 동기화
     if (backendFiles.length > 0) {
@@ -129,7 +133,7 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
           });
           if (matchingBackend) {
             await updateFileBackendId(localFile.id, matchingBackend.id);
-            console.log(`[FilesAPI] ✅ Updated backendId for existing file: ${localFile.fileName} -> ${matchingBackend.id}`);
+            log.info(`✅ Updated backendId for existing file: ${localFile.fileName} -> ${matchingBackend.id}`);
             backendIdUpdated = true;
           }
         }
@@ -147,11 +151,11 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
       });
       
       if (filesToDownload.length > 0) {
-        console.log(`[FilesAPI] Downloading ${filesToDownload.length} files from backend...`);
-        
+        log.info(`Downloading ${filesToDownload.length} files from backend...`);
+
         for (const backendFile of filesToDownload) {
           try {
-            console.log(`[FilesAPI] Downloading file: ${backendFile.fileName}`);
+            log.debug(`Downloading file: ${backendFile.fileName}`);
             
             // 파일 다운로드 (Base64로 받음)
             const downloadRes = await fetch(
@@ -165,7 +169,7 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
             );
             
             if (!downloadRes.ok) {
-              console.error(`[FilesAPI] Failed to download file ${backendFile.fileName}: ${downloadRes.status}`);
+              log.error(`Failed to download file ${backendFile.fileName}: ${downloadRes.status}`);
               continue;
             }
             
@@ -174,7 +178,7 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
             // Decode filename from Latin-1 to UTF-8 (for Korean and other non-ASCII filenames)
             const decodedFileName = decodeFilename(downloadData.fileName);
 
-            console.log(`[FilesAPI] Downloaded file data:`, {
+            log.debug(`Downloaded file data:`, {
               originalFileName: downloadData.fileName,
               decodedFileName: decodedFileName,
               fileType: downloadData.fileType,
@@ -199,9 +203,9 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
             
             // IndexedDB에 저장 (backendId 포함)
             await saveFileInDB(noteId, file, backendFile.url, backendFile.id);
-            console.log(`[FilesAPI] ✅ File saved to IndexedDB: ${file.name}, backendId: ${backendFile.id}`);
+            log.info(`✅ File saved to IndexedDB: ${file.name}, backendId: ${backendFile.id}`);
           } catch (error) {
-            console.error(`[FilesAPI] Failed to download/save file ${backendFile.fileName}:`, error);
+            log.error(`Failed to download/save file ${backendFile.fileName}:`, error);
           }
         }
         
@@ -210,11 +214,11 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
           window.dispatchEvent(new CustomEvent('files-synced', { detail: { noteId } }));
         }
       } else {
-        console.log(`[FilesAPI] All files already in IndexedDB`);
+        log.debug(`All files already in IndexedDB`);
       }
     }
   } catch (error) {
-    console.error(`[FilesAPI] Failed to sync files with backend:`, error);
+    log.error(`Failed to sync files with backend:`, error);
   }
 }
 
@@ -224,7 +228,7 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
  * - 오프라인/실패: IndexedDB에 저장 → 동기화 큐에 추가 (나중에 동기화)
  */
 export async function saveFile(noteId: string, file: File): Promise<DBFile> {
-  console.log('[FilesAPI V2] saveFile 호출:', {
+  log.debug('saveFile 호출:', {
     noteId,
     fileName: file.name,
     fileSize: file.size,
@@ -240,24 +244,24 @@ export async function saveFile(noteId: string, file: File): Promise<DBFile> {
 
   if (isOnline) {
     try {
-      console.log(`[FilesAPI V2] 백엔드로 업로드 시도: ${file.name}`);
+      log.debug(`백엔드로 업로드 시도: ${file.name}`);
       const backendResponse = await uploadFileToServer(file, noteId);
       backendUrl = backendResponse.storageUrl || backendResponse.fileUrl;
       backendId = backendResponse.id; // 백엔드 파일 ID 저장
       backendUploadSuccess = true;
-      console.log(`[FilesAPI V2] ✅ 백엔드 업로드 완료: url=${backendUrl}, id=${backendId}`);
+      log.info(`✅ 백엔드 업로드 완료: url=${backendUrl}, id=${backendId}`);
     } catch (error) {
-      console.warn("[FilesAPI V2] ⚠️ 백엔드 업로드 실패, IndexedDB에 저장 후 나중에 동기화:", error);
+      log.warn("⚠️ 백엔드 업로드 실패, IndexedDB에 저장 후 나중에 동기화:", error);
       backendUploadSuccess = false;
     }
   } else {
-    console.log("[FilesAPI V2] 오프라인 상태, IndexedDB에 저장 후 나중에 동기화");
+    log.debug("오프라인 상태, IndexedDB에 저장 후 나중에 동기화");
   }
 
   // 2. IndexedDB에 저장 (로컬 백업, 백엔드 URL 및 ID 있으면 포함)
-  console.log('[FilesAPI V2] IndexedDB 저장 시작...');
+  log.debug('IndexedDB 저장 시작...');
   const dbFile = await saveFileInDB(noteId, file, backendUrl, backendId);
-  console.log('[FilesAPI V2] IndexedDB 저장 완료:', dbFile.id, 'backendId:', backendId || 'none');
+  log.debug('IndexedDB 저장 완료:', dbFile.id, 'backendId:', backendId || 'none');
 
   // 3. 백엔드 업로드 실패 시에만 동기화 큐에 추가 (나중에 재시도)
   if (!backendUploadSuccess) {
@@ -275,7 +279,7 @@ export async function saveFile(noteId: string, file: File): Promise<DBFile> {
         // 파일 바이너리는 IndexedDB에서 조회해야 함 (Sync Manager에서 처리)
       },
     });
-    console.log('[FilesAPI V2] 동기화 큐에 추가 완료 (나중에 백엔드 동기화)');
+    log.debug('동기화 큐에 추가 완료 (나중에 백엔드 동기화)');
   }
 
   // 4. 즉시 반환
@@ -294,7 +298,7 @@ export async function deleteFile(fileId: string): Promise<void> {
   const file = await getFile(fileId);
   const backendId = file?.backendId;
 
-  console.log(`[FilesAPI] Deleting file: ${fileId}, backendId: ${backendId || 'none'}`);
+  log.debug(`Deleting file: ${fileId}, backendId: ${backendId || 'none'}`);
 
   // 2. IndexedDB에서 즉시 삭제
   await deleteFileInDB(fileId);
@@ -332,7 +336,7 @@ export async function saveMultipleFiles(
 
   // 1. 온라인이면 각 파일을 백엔드로 업로드 시도
   if (isOnline) {
-    console.log(`[다중 파일 저장] 백엔드로 ${files.length}개 파일 업로드 시도`);
+    log.info(`다중 파일 저장: 백엔드로 ${files.length}개 파일 업로드 시도`);
 
     await Promise.all(
       files.map(async (file) => {
@@ -345,15 +349,15 @@ export async function saveMultipleFiles(
           if (backendResponse.id) {
             backendIdMap.set(file.name, backendResponse.id);
           }
-          console.log(`[다중 파일 저장] ✅ ${file.name} 백엔드 업로드 완료, id=${backendResponse.id}`);
+          log.info(`✅ ${file.name} 백엔드 업로드 완료, id=${backendResponse.id}`);
         } catch (error) {
-          console.warn(`[다중 파일 저장] ⚠️ ${file.name} 백엔드 업로드 실패:`, error);
+          log.warn(`⚠️ ${file.name} 백엔드 업로드 실패:`, error);
           failedUploads.add(file.name);
         }
       })
     );
   } else {
-    console.log("[다중 파일 저장] 오프라인 상태, 모든 파일을 로컬에 저장 후 나중에 동기화");
+    log.debug("오프라인 상태, 모든 파일을 로컬에 저장 후 나중에 동기화");
     files.forEach((file) => failedUploads.add(file.name));
   }
 
@@ -380,7 +384,7 @@ export async function saveMultipleFiles(
           // 파일 바이너리는 IndexedDB에서 조회해야 함 (Sync Manager에서 처리)
         },
       });
-      console.log(`[다중 파일 저장] ${dbFile.fileName} 동기화 큐에 추가 (나중에 백엔드 동기화)`);
+      log.debug(`${dbFile.fileName} 동기화 큐에 추가 (나중에 백엔드 동기화)`);
     }
   });
 

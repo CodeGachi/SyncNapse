@@ -44,12 +44,13 @@ export function EducatorNoteContent({
   }, [resetPanels]);
 
   return (
-    <div className="flex items-start bg-[#1e1e1e] h-screen w-full">
+    <div className="flex items-start bg-background-surface h-screen w-full">
       {/* 헤더 - 제목 + 녹음바 */}
       <NoteHeader
         noteId={noteId}
         noteTitle={noteTitle}
         isEducatorNote={true}
+        isSharedView={isSharedView}
       />
 
       {/* 공유 설정 모달 - Zustand로 관리 */}
@@ -65,7 +66,7 @@ export function EducatorNoteContent({
         >
           {/* 메인 레이아웃 - 뷰어 + 패널 + 아이콘 */}
           <main className="flex-1 h-full">
-            <div className="flex gap-1 h-full pt-20 px-2 pb-4">
+            <div className="flex gap-1 h-full pt-16 md:pt-20 px-1 md:px-2 pb-2 md:pb-4">
               {/* 메인 컨텐츠 영역 - PDF 뷰어 + BlockNote 에디터 (협업) */}
               <NoteContentArea
                 noteId={noteId}
@@ -76,7 +77,7 @@ export function EducatorNoteContent({
               />
 
               {/* 우측 사이드 패널 - 스크립트, 파일, 협업 등 */}
-              <RightSidePanel noteId={noteId} isEducator={true} />
+              <RightSidePanel noteId={noteId} isEducator={true} isSharedView={isSharedView} />
 
               {/* 우측 사이드바 아이콘 - 패널 닫혔을 때 */}
               <SidebarIcons noteId={noteId} isEducator={true} />

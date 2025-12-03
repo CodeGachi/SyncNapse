@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from "react";
-import { saveRevision, getSession, getRevisions, type RevisionContent } from "@/lib/api/transcription.api";
+import { saveRevision, getSession, getRevisions, type RevisionContent } from "@/lib/api/services/transcription.api";
 import type { ScriptSegment, WordWithTime } from "@/lib/types";
 import { createLogger } from "@/lib/utils/logger";
 

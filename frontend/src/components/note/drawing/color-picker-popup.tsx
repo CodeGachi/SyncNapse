@@ -66,13 +66,13 @@ export function ColorPickerPopup({
   return (
     <div
       ref={popupRef}
-      className="bg-[#363636] border-2 border-[#b9b9b9] rounded-lg p-3 shadow-lg z-50"
+      className="bg-background-elevated border-2 border-border-strong rounded-lg p-3 shadow-lg z-50"
       style={getPopupPosition()}
     >
       <div className="flex flex-col gap-4">
         {/* 프리셋 색상 */}
         <div>
-          <div className="text-xs text-white/60 mb-2">프리셋 색상</div>
+          <div className="text-xs text-foreground/60 mb-2">프리셋 색상</div>
           <div className="grid grid-cols-4 gap-3">
             {PRESET_COLORS.map((color) => (
               <button
@@ -83,7 +83,7 @@ export function ColorPickerPopup({
                 }}
                 className={`w-8 h-8 rounded-md transition-all ${
                   currentColor.toLowerCase() === color.value.toLowerCase()
-                    ? "ring-2 ring-[#AFC02B] ring-offset-2 ring-offset-[#363636]"
+                    ? "ring-2 ring-brand ring-offset-2 ring-offset-background-elevated"
                     : "hover:scale-110"
                 }`}
                 style={{ backgroundColor: color.value }}
@@ -95,7 +95,7 @@ export function ColorPickerPopup({
 
         {/* 커스텀 색상 선택 */}
         <div>
-          <div className="text-xs text-white/60 mb-2">커스텀 색상</div>
+          <div className="text-xs text-foreground/60 mb-2">커스텀 색상</div>
           <div className="flex gap-3 items-center">
             <input
               type="color"
@@ -118,7 +118,7 @@ export function ColorPickerPopup({
                   }
                 }
               }}
-              className="flex-1 px-2 py-1 bg-white/10 text-white text-xs rounded border border-white/20 focus:outline-none focus:border-[#AFC02B]"
+              className="flex-1 px-2 py-1 bg-foreground/10 text-foreground text-xs rounded border border-foreground/20 focus:outline-none focus:border-brand"
               placeholder="#000000"
               maxLength={7}
             />

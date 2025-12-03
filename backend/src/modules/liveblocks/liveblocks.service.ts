@@ -52,6 +52,8 @@ export class LiveblocksService {
   }
 
   private async checkNoteAccess(userId: string, userEmail: string, noteId: string): Promise<'EDITOR' | 'VIEWER' | 'NONE'> {
+    this.logger.debug(`[checkNoteAccess] userId=${userId} email=${userEmail} noteId=${noteId}`);
+
     // 1. Check Note Existence & Ownership
     const note = await this.prisma.lectureNote.findUnique({
       where: { id: noteId },
@@ -60,29 +62,50 @@ export class LiveblocksService {
       }
     });
 
-    if (!note) return 'NONE';
+    if (!note) {
+      this.logger.debug(`[checkNoteAccess] Note not found: ${noteId}`);
+      return 'NONE';
+    }
+
+    this.logger.debug(`[checkNoteAccess] Note found: publicAccess=${note.publicAccess}`);
 
     // Owner check
     const isOwner = note.foldersLink.some(link => link.folder.userId === userId);
-    if (isOwner) return 'EDITOR';
+    if (isOwner) {
+      this.logger.debug(`[checkNoteAccess] User is owner`);
+      return 'EDITOR';
+    }
 
     // 2. Check Collaborator List
     // Check by userId first (most reliable)
     const collabByUser = await this.prisma.noteCollaborator.findFirst({
       where: { noteId, userId }
     });
-    if (collabByUser) return collabByUser.permission;
+    if (collabByUser) {
+      this.logger.debug(`[checkNoteAccess] Found collaborator by userId: ${collabByUser.permission}`);
+      return collabByUser.permission;
+    }
 
     // Check by email (fallback for invites)
     const collabByEmail = await this.prisma.noteCollaborator.findUnique({
       where: { noteId_email: { noteId, email: userEmail } }
     });
-    if (collabByEmail) return collabByEmail.permission;
+    if (collabByEmail) {
+      this.logger.debug(`[checkNoteAccess] Found collaborator by email: ${collabByEmail.permission}`);
+      return collabByEmail.permission;
+    }
 
     // 3. Check Public Access
-    if (note.publicAccess === 'PUBLIC_EDIT') return 'EDITOR';
-    if (note.publicAccess === 'PUBLIC_READ') return 'VIEWER';
+    if (note.publicAccess === 'PUBLIC_EDIT') {
+      this.logger.debug(`[checkNoteAccess] Public edit access granted`);
+      return 'EDITOR';
+    }
+    if (note.publicAccess === 'PUBLIC_READ') {
+      this.logger.debug(`[checkNoteAccess] Public read access granted`);
+      return 'VIEWER';
+    }
 
+    this.logger.debug(`[checkNoteAccess] No access - publicAccess=${note.publicAccess}`);
     return 'NONE';
   }
 }

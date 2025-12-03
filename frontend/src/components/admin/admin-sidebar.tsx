@@ -66,7 +66,7 @@ export function AdminSidebar() {
     if (href === "/admin") {
       return pathname === "/admin";
     }
-    return pathname.startsWith(href);
+    return pathname?.startsWith(href) ?? false;
   };
 
   return (

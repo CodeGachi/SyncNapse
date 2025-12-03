@@ -95,3 +95,56 @@ export function timestampToDate(timestamp: number): Date {
 export function isoToTimestamp(isoString: string): number {
   return new Date(isoString).getTime();
 }
+
+/**
+ * 제네릭 동기화 유틸리티
+ * 두 배열을 비교하여 추가/업데이트/삭제 대상 분리
+ */
+export interface SyncResult<T> {
+  toUpdate: T[];
+  toAdd: T[];
+  toDelete: string[];
+}
+
+export interface SyncableEntity {
+  id: string;
+  updatedAt: number;
+}
+
+/**
+ * 제네릭 엔티티 동기화
+ * @param localItems 로컬 데이터
+ * @param serverItems 서버 데이터
+ * @returns 추가/업데이트/삭제 대상
+ */
+export function syncEntities<T extends SyncableEntity>(
+  localItems: T[],
+  serverItems: T[]
+): SyncResult<T> {
+  const toUpdate: T[] = [];
+  const toAdd: T[] = [];
+  const toDelete: string[] = [];
+
+  const localMap = new Map(localItems.map((item) => [item.id, item]));
+  const serverMap = new Map(serverItems.map((item) => [item.id, item]));
+
+  // 서버 아이템 확인: 추가 또는 업데이트
+  for (const serverItem of serverItems) {
+    const localItem = localMap.get(serverItem.id);
+
+    if (!localItem) {
+      toAdd.push(serverItem);
+    } else if (serverItem.updatedAt > localItem.updatedAt) {
+      toUpdate.push(serverItem);
+    }
+  }
+
+  // 로컬 아이템 확인: 서버에 없으면 삭제
+  for (const localItem of localItems) {
+    if (!serverMap.has(localItem.id)) {
+      toDelete.push(localItem.id);
+    }
+  }
+
+  return { toUpdate, toAdd, toDelete };
+}

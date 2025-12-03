@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { AudioTimelineEvent } from "@/lib/api/audio.api";
+import type { AudioTimelineEvent } from "@/lib/api/services/audio.api";
 import type { PageContext } from "@/lib/types";
 
 interface AudioPlayerState {

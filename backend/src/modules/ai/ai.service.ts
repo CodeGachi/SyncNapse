@@ -1,12 +1,52 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RagEngineService } from './services/rag-engine.service';
-import { ChatRequestDto, ChatResponseDto, ChatMode } from './dto/chat.dto';
+import { ChatRequestDto, ChatResponseDto, ChatMode, QuizQuestion } from './dto/chat.dto';
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
   constructor(private readonly ragEngine: RagEngineService) {}
+
+  /**
+   * 퀴즈 JSON 파싱
+   */
+  private parseQuizResponse(answer: string): QuizQuestion[] | null {
+    try {
+      // JSON 블록 추출 시도
+      let jsonStr = answer;
+
+      // ```json ... ``` 형식 처리
+      const jsonMatch = answer.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      }
+
+      // { 로 시작하는 부분 찾기
+      const startIdx = jsonStr.indexOf('{');
+      const endIdx = jsonStr.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        jsonStr = jsonStr.slice(startIdx, endIdx + 1);
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        return parsed.questions.map((q: any, idx: number) => ({
+          id: q.id || `q${idx + 1}`,
+          question: q.question || '',
+          options: Array.isArray(q.options) ? q.options : [],
+          correctIndex: typeof q.correctIndex === 'number' ? q.correctIndex : 0,
+          explanation: q.explanation || '',
+        }));
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.warn('Failed to parse quiz JSON, returning as text', error);
+      return null;
+    }
+  }
 
   /**
    * 챗봇 대화 처리 (RAG 기반)
@@ -27,6 +67,18 @@ export class AiService {
         params.question,
         params.mode || ChatMode.QUESTION
       );
+
+      // 퀴즈 모드일 때 JSON 파싱 시도
+      if (params.mode === ChatMode.QUIZ) {
+        const quiz = this.parseQuizResponse(answer);
+        if (quiz && quiz.length > 0) {
+          return {
+            answer: '퀴즈가 생성되었습니다. 문제를 풀어보세요!',
+            citations,
+            quiz,
+          };
+        }
+      }
 
       return {
         answer,

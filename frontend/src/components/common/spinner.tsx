@@ -20,7 +20,7 @@ export function Spinner({ className, size = "md" }: SpinnerProps) {
         <div className={cn("relative flex items-center justify-center", sizeClasses[size], className)}>
             {/* Outer Ring */}
             <motion.div
-                className="absolute inset-0 rounded-full border-2 border-brand/20"
+                className="absolute inset-0 rounded-full border-2 border-[#9ca3af] dark:border-[#374151]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
