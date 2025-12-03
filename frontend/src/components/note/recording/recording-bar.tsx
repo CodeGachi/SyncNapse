@@ -1,12 +1,12 @@
 /**
  * 녹음바 UI 컴포넌트
  * - 컴팩트: 녹음, 저장, 시간
- * - 확장: + 프로그레스, 재생, 뒤로, 목록
+ * - 확장: + 재생, 뒤로, 목록
  */
 
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState } from "react";
 
 // 초를 mm:ss 형식으로 변환
 const formatTime = (seconds: number): string => {
@@ -28,7 +28,6 @@ interface RecordingBarProps {
   recordingCount?: number;
   currentTime?: number;
   duration?: number;
-  onSeek?: (time: number) => void;
 }
 
 export function RecordingBar({
@@ -43,51 +42,10 @@ export function RecordingBar({
   onToggleRecordingList,
   currentTime = 0,
   duration = 0,
-  onSeek,
 }: RecordingBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const progressRef = useRef<HTMLDivElement>(null);
 
   const isPlaybackMode = duration > 0 && !isRecording;
-
-  // 프로그레스바 위치 계산
-  const calculateSeekTime = useCallback((clientX: number) => {
-    if (!progressRef.current || !isPlaybackMode || duration <= 0) return;
-    const rect = progressRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const percentage = x / rect.width;
-    const newTime = percentage * duration;
-    onSeek?.(newTime);
-  }, [isPlaybackMode, duration, onSeek]);
-
-  // 드래그 핸들러
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!isPlaybackMode) return;
-    setIsDragging(true);
-    calculateSeekTime(e.clientX);
-  }, [isPlaybackMode, calculateSeekTime]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
-    calculateSeekTime(e.clientX);
-  }, [isDragging, calculateSeekTime]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  // 드래그 이벤트 리스너
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
     <div
@@ -162,7 +120,7 @@ export function RecordingBar({
           flex items-center gap-2 overflow-hidden
           transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
           ${isExpanded
-            ? "max-w-[180px] opacity-100 scale-100"
+            ? "max-w-[140px] opacity-100 scale-100"
             : "max-w-0 opacity-0 scale-95"
           }
         `}
@@ -171,40 +129,6 @@ export function RecordingBar({
           transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        {/* 재생 위치 바 */}
-        <div
-          ref={progressRef}
-          className={`
-            w-[40px] h-[4px] flex-shrink-0 relative bg-[#d1d5db] dark:bg-background-overlay rounded-full
-            transition-all duration-300
-            ${isPlaybackMode ? "cursor-pointer hover:h-[6px]" : "cursor-not-allowed opacity-50"}
-          `}
-          onMouseDown={handleMouseDown}
-        >
-          {isPlaybackMode && duration > 0 && (
-            <div
-              className={`absolute left-0 top-0 h-full bg-brand rounded-full ${isDragging ? "" : "transition-all duration-150"}`}
-              style={{ width: `${Math.min((currentTime / duration) * 100, 100)}%` }}
-            />
-          )}
-          {isPlaybackMode && duration > 0 && (
-            <div
-              className={`
-                absolute top-1/2 w-3 h-3 bg-white rounded-full shadow-md
-                transition-all duration-150 hover:scale-125
-                ${isDragging ? "scale-125" : ""}
-              `}
-              style={{
-                left: `${Math.min((currentTime / duration) * 100, 100)}%`,
-                transform: "translate(-50%, -50%)"
-              }}
-            />
-          )}
-        </div>
-
-        {/* 간격 */}
-        <div className="w-2 flex-shrink-0" />
-
         {/* 재생/일시정지 */}
         <button
           onClick={isPlaybackMode && onStop ? onStop : undefined}

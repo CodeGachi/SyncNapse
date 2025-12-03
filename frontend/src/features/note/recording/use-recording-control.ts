@@ -145,9 +145,8 @@ export function useRecordingControl(noteId?: string | null) {
         );
         log.debug("✅ Optimistic update: 캐시에 즉시 추가됨");
 
-        // 🔥 즉시 백엔드와 동기화 (지연 제거)
-        queryClient.invalidateQueries({ queryKey: ["recordings"] });
-        log.debug("🔄 즉시 동기화를 위해 recordings 캐시 무효화");
+        // invalidateQueries 제거 - 백엔드 동기화는 페이지 새로고침/포커스 시 자연스럽게 발생
+        // 즉시 invalidate하면 백엔드에서 아직 커밋되지 않은 데이터로 덮어씌워짐
       }
 
       log.debug("✅ Optimistic update로 녹음 저장됨");

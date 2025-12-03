@@ -42,9 +42,9 @@ export function useRecordingList(noteId?: string | null) {
       );
       return result;
     },
-    staleTime: 0, // 항상 stale 상태로 유지하여 invalidate 시 즉시 refetch
+    staleTime: 1000 * 10, // 10초간 fresh 상태 유지 (저장 직후 불필요한 refetch 방지)
     gcTime: 1000 * 60 * 30, // 30분간 캐시 유지
-    refetchOnWindowFocus: true, // 윈도우 포커스 시 refetch
+    refetchOnWindowFocus: false, // 포커스 시 refetch 비활성화 (Optimistic Update와 충돌 방지)
   });
 
   // noteId가 주어지면 해당 노트의 녹음만 필터링

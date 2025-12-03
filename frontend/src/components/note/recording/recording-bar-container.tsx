@@ -121,13 +121,6 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
     setIsRecordingListOpen(!isRecordingListOpen);
   };
 
-  // 재생 위치 변경 핸들러
-  const handleSeek = (time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-    }
-  };
-
   // 저장 핸들러 (녹음 중일 때만)
   const handleSave = () => {
     if (isRecording) {
@@ -164,7 +157,6 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
           recordingCount={recordings.length}
           currentTime={currentTime}
           duration={duration}
-          onSeek={handleSeek}
         />
 
         {/* 녹음 목록 드롭다운 */}
