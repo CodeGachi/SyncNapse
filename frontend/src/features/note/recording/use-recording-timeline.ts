@@ -10,7 +10,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import * as audioApi from "@/lib/api/audio.api";
+import * as audioApi from "@/lib/api/services/audio.api";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("RecordingTimeline");

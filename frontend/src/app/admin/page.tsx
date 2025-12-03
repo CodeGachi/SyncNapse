@@ -25,7 +25,7 @@ import {
   mockServerStatus,
   mockDelay,
   isMockEnabled,
-} from "@/lib/api/mock/admin.mock";
+} from "@/lib/mock/admin.mock";
 import type { DashboardStats, ServerStatus } from "@/lib/api/types/admin.types";
 
 /**

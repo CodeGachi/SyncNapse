@@ -9,8 +9,7 @@ import {
   useQueryClient,
   UseMutationOptions,
 } from "@tanstack/react-query";
-import { exchangeCodeForToken, logout as logoutApi, type OAuthTokenResponse } from "../auth.api";
-import { getCurrentUser } from "../services/auth.api";
+import { exchangeCodeForToken, logout as logoutApi, getCurrentUser, type OAuthTokenResponse } from "../services/auth.api";
 import { setAccessToken, setRefreshToken, clearTokens } from "@/lib/auth/token-manager";
 
 const log = createLogger("AuthMutation");

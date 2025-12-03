@@ -39,7 +39,7 @@ import {
   mockPlans,
   mockPlanHistory,
   mockDelay,
-} from "@/lib/api/mock/admin.mock";
+} from "@/lib/mock/admin.mock";
 import type { Plan, PlanFeature, PlanHistory, PlanStatus } from "@/lib/api/types/admin.types";
 
 /**

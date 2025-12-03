@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient } from '../client';
 import { getAccessToken } from '@/lib/auth/token-manager';
 
 export interface TranscriptionSession {

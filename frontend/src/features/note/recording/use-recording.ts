@@ -10,8 +10,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SpeechRecognitionService, type SpeechSegment } from "@/lib/speech/speech-recognition";
 import { useScriptTranslationStore } from "@/stores";
 import type { WordWithTime } from "@/lib/types";
-import * as transcriptionApi from "@/lib/api/transcription.api";
-import * as audioApi from "@/lib/api/audio.api";
+import * as transcriptionApi from "@/lib/api/services/transcription.api";
+import * as audioApi from "@/lib/api/services/audio.api";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("Recording");

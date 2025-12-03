@@ -43,7 +43,7 @@ import {
   mockDelay,
   filterUsers,
   paginateData,
-} from "@/lib/api/mock/admin.mock";
+} from "@/lib/mock/admin.mock";
 import type { AdminUser, AdminUserDetail, UserRole, UserStatus } from "@/lib/api/types/admin.types";
 
 const PAGE_SIZE = 10;

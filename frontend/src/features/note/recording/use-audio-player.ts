@@ -7,8 +7,8 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
-import * as transcriptionApi from "@/lib/api/transcription.api";
-import * as audioApi from "@/lib/api/audio.api";
+import * as transcriptionApi from "@/lib/api/services/transcription.api";
+import * as audioApi from "@/lib/api/services/audio.api";
 import type { WordWithTime, PageContext } from "@/lib/types";
 import { createLogger } from "@/lib/utils/logger";
 

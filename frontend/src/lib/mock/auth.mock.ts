@@ -3,7 +3,7 @@
  * Used for development when the backend is not available
  */
 
-import type { User, LoginResponse } from "../api/auth.api";
+import type { User, LoginResponse } from "../api/services/auth.api";
 import { setAccessToken, getAccessToken, clearTokens } from "../auth/token-manager";
 import { setCookie, getCookie } from "../utils/cookie";
 

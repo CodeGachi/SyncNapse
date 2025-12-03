@@ -7,7 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin, useLogout } from "@/lib/api/mutations/auth.mutations";
-import { getGoogleLoginUrl } from "@/lib/api/auth.api";
+import { getGoogleLoginUrl } from "@/lib/api/services/auth.api";
 import { mockGoogleLogin, mockLogout } from "@/lib/mock/auth.mock";
 import { createLogger } from "@/lib/utils/logger";
 import { clearTokens } from "@/lib/auth/token-manager";

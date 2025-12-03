@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { restoreAccount, permanentDeleteAccount } from "@/lib/api/auth.api";
+import { restoreAccount, permanentDeleteAccount } from "@/lib/api/services/auth.api";
 import { createLogger } from "@/lib/utils/logger";
 import Link from "next/link";
 import { motion } from "framer-motion";

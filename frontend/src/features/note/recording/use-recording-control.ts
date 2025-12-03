@@ -11,7 +11,7 @@ import { createLogger } from "@/lib/utils/logger";
 const log = createLogger("RecordingControl");
 import { useQueryClient } from "@tanstack/react-query";
 import { useRecording } from "./use-recording";
-import type { TranscriptionSession } from "@/lib/api/transcription.api";
+import type { TranscriptionSession } from "@/lib/api/services/transcription.api";
 
 export function useRecordingControl(noteId?: string | null) {
   const queryClient = useQueryClient();

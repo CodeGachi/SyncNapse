@@ -22,35 +22,29 @@ export {
 } from "./client";
 
 // ============================================================================
-// Auth API
+// Auth Service (통합됨)
 // ============================================================================
 export {
+  // OAuth Functions
   getGoogleLoginUrl,
   exchangeCodeForToken,
   verifyToken,
-  getCurrentUser,
   refreshAccessToken,
-  logout,
+  // Account Management
   restoreAccount,
   permanentDeleteAccount,
   deleteAccount,
+  // Auth Status
+  checkAuthStatus,
+  getCurrentUserFromAPI,
+  updateUserProfile,
+  getCurrentUser,
+  logout,
+  // Types
   type User,
   type LoginResponse,
   type OAuthTokenResponse,
   type DeleteAccountResponse,
-} from "./auth.api";
-
-// ============================================================================
-// Services
-// ============================================================================
-
-// Auth Service
-export {
-  checkAuthStatus,
-  getCurrentUserFromAPI,
-  updateUserProfile,
-  getCurrentUser as getCurrentUserWithToken,
-  logout as logoutWithClear,
   type UpdateUserDto,
 } from "./services/auth.api";
 

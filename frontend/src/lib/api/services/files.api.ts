@@ -23,7 +23,7 @@ import {
   dbFileToFile,
 } from "@/lib/db/files";
 import { useSyncStore } from "@/lib/sync/sync-store";
-import { uploadFileToServer } from "@/lib/api/file-upload.api";
+import { uploadFileToServer } from "./file-upload.api";
 import { API_BASE_URL } from "../client";
 
 // Re-export for backward compatibility

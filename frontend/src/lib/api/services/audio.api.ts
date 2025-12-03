@@ -3,7 +3,7 @@
  * AudioRecording 및 타임라인 이벤트 관리
  */
 
-import { apiClient } from './client';
+import { apiClient } from '../client';
 
 // ===== Types =====
 

@@ -6,7 +6,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as transcriptionApi from "@/lib/api/transcription.api";
+import * as transcriptionApi from "@/lib/api/services/transcription.api";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("RecordingList");

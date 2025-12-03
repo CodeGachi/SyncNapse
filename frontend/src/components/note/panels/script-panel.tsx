@@ -487,9 +487,9 @@ export function ScriptPanel({
 
                       {/* Translation - 번역 텍스트가 있으면 항상 표시 */}
                       {segment.translatedText && (
-                        <div className="mt-3 pt-2 border-t border-border flex gap-2">
-                          <Languages size={14} className="text-brand mt-0.5 flex-shrink-0 opacity-70" />
-                          <p className="text-foreground-tertiary text-sm leading-relaxed">
+                        <div className={`mt-3 pt-2 border-t flex gap-2 ${isActive ? 'border-brand/30' : 'border-border'}`}>
+                          <Languages size={14} className={`mt-0.5 flex-shrink-0 ${isActive ? 'text-brand' : 'text-brand opacity-70'}`} />
+                          <p className={`text-sm leading-relaxed ${isActive ? 'text-foreground-secondary' : 'text-foreground-tertiary'}`}>
                             {segment.translatedText}
                           </p>
                         </div>
@@ -499,21 +499,25 @@ export function ScriptPanel({
                       {pageContext && (() => {
                         const fileName = getFileNameByBackendId(pageContext.fileId);
                         return (
-                          <div className="mt-2 pt-2 border-t border-border/50">
+                          <div className={`mt-2 pt-2 border-t ${isActive ? 'border-brand/30' : 'border-border/50'}`}>
                             <button
                               onClick={(e) => handlePageBadgeClick(pageContext, e)}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 bg-background-overlay/50 hover:bg-background-overlay rounded-md text-[10px] text-foreground-tertiary hover:text-foreground transition-colors group/badge"
+                              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] transition-colors group/badge ${
+                                isActive
+                                  ? 'bg-brand/10 text-foreground-secondary hover:bg-brand/20 hover:text-foreground'
+                                  : 'bg-background-overlay/50 text-foreground-tertiary hover:bg-background-overlay hover:text-foreground'
+                              }`}
                               title={fileName ? `${fileName} ${pageContext.pageNumber}페이지로 이동` : `${pageContext.pageNumber}페이지로 이동`}
                             >
-                              <FileText size={12} className="text-foreground-tertiary group-hover/badge:text-brand" />
+                              <FileText size={12} className={`${isActive ? 'text-brand' : 'text-foreground-tertiary'} group-hover/badge:text-brand`} />
                               {fileName && (
                                 <>
                                   <span className="truncate max-w-[100px]">{fileName}</span>
-                                  <span className="text-foreground-tertiary">·</span>
+                                  <span className={isActive ? 'text-foreground-tertiary' : 'text-foreground-tertiary'}>·</span>
                                 </>
                               )}
                               <span className="font-medium">{pageContext.pageNumber}p</span>
-                              <ChevronRight size={12} className="text-foreground-tertiary group-hover/badge:text-brand group-hover/badge:translate-x-0.5 transition-transform" />
+                              <ChevronRight size={12} className={`${isActive ? 'text-brand' : 'text-foreground-tertiary'} group-hover/badge:text-brand group-hover/badge:translate-x-0.5 transition-transform`} />
                             </button>
                           </div>
                         );

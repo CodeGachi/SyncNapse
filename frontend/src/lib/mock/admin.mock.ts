@@ -20,7 +20,7 @@ import type {
   ChurnAnalysis,
   Subscription,
   PlanDistribution,
-} from "../types/admin.types";
+} from "../api/types/admin.types";
 
 // ============ 사용자 Mock 데이터 ============
 export const mockUsers: AdminUser[] = [
