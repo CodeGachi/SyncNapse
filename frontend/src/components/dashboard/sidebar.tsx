@@ -17,7 +17,6 @@ import { useAuth } from "@/features/auth/use-auth";
 import { useFolders } from "@/features/dashboard";
 import { useDashboardSidebar } from "@/features/dashboard";
 import { useDashboard } from "@/features/dashboard";
-import { useIsAdmin } from "@/components/admin/admin-guard";
 
 interface SidebarProps {
   selectedFolderId: string | null;
@@ -34,7 +33,6 @@ export function Sidebar({
   const { user } = useAuth();
   const { buildFolderTree } = useFolders();
   const { handleCreateNote } = useDashboard();
-  const { isAdmin, isOperator } = useIsAdmin();
 
   // UI 상태
   const [isNoteDropdownOpen, setIsNoteDropdownOpen] = useState(false);
@@ -257,37 +255,6 @@ export function Sidebar({
                   홈
                 </span>
               </button>
-
-              {/* 즐겨찾기 */}
-              <button
-                onClick={() => router.push("/dashboard/favorites")}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 hover:backdrop-blur-sm transition-all duration-200 group"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground opacity-70 group-hover:opacity-100 transition-opacity">
-                  <path d="M10 1.66667L12.575 6.88334L18.3333 7.725L14.1667 11.7833L15.15 17.5167L10 14.8083L4.85 17.5167L5.83333 11.7833L1.66667 7.725L7.425 6.88334L10 1.66667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className="text-foreground/70 group-hover:text-foreground font-medium text-sm leading-[17px] font-['Inter'] transition-colors">
-                  즐겨찾기
-                </span>
-              </button>
-
-              {/* 관리자 콘솔 - admin 또는 operator만 표시 */}
-              {(isAdmin || isOperator) && (
-                <button
-                  onClick={() => router.push("/admin")}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 hover:backdrop-blur-sm transition-all duration-200 group"
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground opacity-70 group-hover:opacity-100 transition-opacity">
-                    <path d="M8.33333 2.5H2.5V8.33333H8.33333V2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M17.5 2.5H11.6667V8.33333H17.5V2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M17.5 11.6667H11.6667V17.5H17.5V11.6667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M8.33333 11.6667H2.5V17.5H8.33333V11.6667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span className="text-foreground/70 group-hover:text-foreground font-medium text-sm leading-[17px] font-['Inter'] transition-colors">
-                    관리자 콘솔
-                  </span>
-                </button>
-              )}
             </div>
 
             {/* Folder Section - padding: 12px 0px, gap: 8px */}
