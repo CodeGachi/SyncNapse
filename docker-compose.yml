@@ -1,45 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: syncnapse-redis
-    ports:
-      - "${REDIS_PORT_PUBLIC}:6379"
-    volumes:
-      - ./data/redis:/data  # Use local directory instead of named volume
-    # Redis is used by n8n queue mode (Bull)
-
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: syncnapse-n8n
-    environment:
-      - N8N_HOST=${N8N_HOST}
-      - N8N_PORT=${N8N_PORT}
-      - N8N_PROTOCOL=${N8N_PROTOCOL}
-      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
-      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE}
-      - N8N_USER_MANAGEMENT_DISABLED=${N8N_USER_MANAGEMENT_DISABLED}
-      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
-      - N8N_BLOCK_ENV_ACCESS_IN_NODE=${N8N_BLOCK_ENV_ACCESS_IN_NODE}
-      - N8N_GIT_NODE_DISABLE_BARE_REPOS=${N8N_GIT_NODE_DISABLE_BARE_REPOS}
-      - DB_SQLITE_POOL_SIZE=${DB_SQLITE_POOL_SIZE}
-      # Queue mode (Redis)
-      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
-      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
-      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
-      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
-      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
-      - QUEUE_HEALTH_CHECK_ACTIVE=${QUEUE_HEALTH_CHECK_ACTIVE}
-      # Encryption key for credentials at rest
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-    depends_on:
-      - redis
-    volumes:
-      - ./data/n8n:/home/node/.n8n  # Use local directory instead of named volume
-      - ${N8N_EXPORTS_DIR}:/exports
-    ports:
-      - "${N8N_PORT_PUBLIC}:5678"
-
   frontend:
     build:
       context: ./frontend
@@ -80,10 +39,6 @@ services:
       - STORAGE_ENCRYPTION_KEY=${STORAGE_ENCRYPTION_KEY}
     ports:
       - "${BACKEND_PORT_PUBLIC}:4000"
-
-# volumes:
-#   n8n_data:  # No longer needed - using bind mounts instead
-#   redis_data:
 
 networks:
   default:

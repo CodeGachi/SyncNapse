@@ -42,11 +42,7 @@
     "dev:all": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml up -d --build",
     "dev:down": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml down",
     "dev:restart": "npm run dev:down && npm run dev:all",
-    "dev:logs": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml logs -f",
-    "n8n:export:workflows": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'mkdir -p /exports && n8n export:workflow --all --separate --output=/exports'",
-    "n8n:export:credentials": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'mkdir -p /exports && n8n export:credentials --all --output=/exports'",
-    "n8n:import:workflows": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'n8n import:workflow --input=/exports'",
-    "n8n:import:credentials": "docker compose -f docker-compose.yml -f docker-compose.dev.yml exec n8n bash -lc 'n8n import:credentials --input=/exports'"
+    "dev:logs": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml logs -f"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.705.0",

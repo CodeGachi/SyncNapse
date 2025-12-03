@@ -49,7 +49,9 @@ async function bootstrap() {
   }
 
   app.enableCors({
-    origin: [/^http:\/\/localhost:\d+$/],
+    origin: process.env.NODE_ENV === 'production' 
+      ? [process.env.FRONTEND_URL || 'https://sync5.app'] 
+      : [/^http:\/\/localhost:\d+$/, /^https?:\/\/.*\.ngrok-free\.app$/],
     credentials: true,
   });
 
