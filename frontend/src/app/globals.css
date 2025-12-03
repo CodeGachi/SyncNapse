@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 라이트 모드 (기본) */
+:root {
+  /* 배경 */
+  --bg-base: #ffffff;
+  --bg-surface: #f8f9fa;
+  --bg-elevated: #f1f3f5;
+  --bg-overlay: #e9ecef;
+  --bg-deep: #f8f9fa;
+  --bg-sidebar: #ffffff;
+  --bg-modal: #ffffff;
+
+  /* 텍스트 */
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+
+  /* 보더 */
+  --border-default: #e5e7eb;
+  --border-subtle: #f3f4f6;
+  --border-strong: #d1d5db;
+
+  /* 브랜드 */
+  --brand-primary: #AFC02B;
+  --brand-secondary: #899649;
+  --brand-hover: #9DB025;
+
+  /* 버튼 */
+  --btn-face: #e5e7eb;
+  --btn-inner: #f3f4f6;
+
+  /* 상태 */
+  --status-error: #EF4444;
+  --status-success: #22C55E;
+  --status-info: #3B82F6;
+}
+
+/* 다크 모드 */
+.dark {
+  /* 배경 */
+  --bg-base: #1e1e1e;
+  --bg-surface: #252525;
+  --bg-elevated: #2f2f2f;
+  --bg-overlay: #3c3c3c;
+  --bg-deep: #0A0A0A;
+  --bg-sidebar: #121212;
+  --bg-modal: #1a1a1a;
+
+  /* 텍스트 */
+  --text-primary: #ffffff;
+  --text-secondary: #b9b9b9;
+  --text-tertiary: #575757;
+
+  /* 보더 */
+  --border-default: #3c3c3c;
+  --border-subtle: #2f2f2f;
+  --border-strong: #444444;
+
+  /* 브랜드 */
+  --brand-primary: #AFC02B;
+  --brand-secondary: #899649;
+  --brand-hover: #c2d43b;
+
+  /* 버튼 */
+  --btn-face: #444444;
+  --btn-inner: #2f2f2f;
+
+  /* 상태 */
+  --status-error: #EF4444;
+  --status-success: #22C55E;
+  --status-info: #3B82F6;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* 스크롤바 숨김 - IE, Edge, Firefox */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE, Edge */
+}
+
+/* 스크롤바 숨김 - Chrome, Safari, Opera */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* PDF.js 텍스트 레이어 스타일 (3.x 호환) */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+  /* PDF.js 3.x 기본값 */
+  --scale-factor: 1;
+  /* 선택 영역이 밖으로 나가지 않도록 */
+  contain: paint;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  margin: 0;
+  padding: 0;
+  /* 글자 겹침 시 선택 영역이 넘치지 않도록 */
+  overflow: hidden;
+}
+
+/* PDF.js 3.x 스타일 - 텍스트 위치 및 크기 계산 */
+.textLayer span {
+  font-size: calc(10px * var(--scale-factor));
+}
+
+/* 텍스트 레이어 전체의 선택 스타일 - 겹침 방지 */
+.textLayer {
+  isolation: isolate;
+}
+
+/* 텍스트 선택 시 하이라이트 스타일 */
+.textLayer ::selection {
+  background: rgba(66, 133, 244, 0.5) !important;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+.textLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.4);
+  border-radius: 4px;
+}
+
+.textLayer .highlight.appended {
+  position: initial;
+}
+
+.textLayer .highlight.begin {
+  border-radius: 4px 0 0 4px;
+}
+
+.textLayer .highlight.end {
+  border-radius: 0 4px 4px 0;
+}
+
+.textLayer .highlight.middle {
+  border-radius: 0;
+}
+
+.textLayer .highlight.selected {
+  background-color: rgba(0, 100, 0, 0.4);
+}
+
+/* PDF 검색 하이라이트 스타일 */
+.search-highlight {
+  background-color: rgba(255, 255, 0, 0.4) !important;
+  color: transparent !important;
+}
+
+.search-highlight-current {
+  background-color: rgba(255, 150, 50, 0.5) !important;
+  color: transparent !important;
+}

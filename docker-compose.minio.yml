@@ -1,0 +1,71 @@
+# MinIO 설정 (S3 대안)
+# 사용법: docker-compose -f docker-compose.dev.yml -f docker-compose.minio.yml up -d
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: syncnapse-minio
+    ports:
+      - "9000:9000"      # API 포트
+      - "9001:9001"      # 웹 콘솔 (UI)
+    env_file:
+      - .env
+    environment:
+      # Account settings (from .env)
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      # Console settings
+      MINIO_SERVER_URL: ${MINIO_SERVER_URL:-http://localhost:9000}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./data/minio:/data  # Use local directory instead of named volume
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO 클라이언트 (버킷 자동 생성 및 CORS 설정)
+  minio-mc:
+    image: minio/mc:latest
+    container_name: syncnapse-minio-mc
+    depends_on:
+      - minio
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+      mc mb local/${STORAGE_BUCKET:-syncnapse-files} --ignore-existing;
+      mc anonymous set download local/${STORAGE_BUCKET:-syncnapse-files};
+      cat <<EOF > /tmp/cors.json
+      {
+        \"CORSRules\": [
+          {
+            \"AllowedOrigins\": [\"http://localhost:3000\", \"http://127.0.0.1:3000\"],
+            \"AllowedMethods\": [\"GET\", \"HEAD\", \"PUT\", \"POST\", \"DELETE\"],
+            \"AllowedHeaders\": [\"*\"],
+            \"ExposeHeaders\": [\"ETag\", \"Content-Length\", \"Content-Type\"]
+          }
+        ]
+      }
+      EOF
+      mc cors set /tmp/cors.json local/${STORAGE_BUCKET:-syncnapse-files};
+      echo '✅ MinIO bucket created with CORS: ${STORAGE_BUCKET:-syncnapse-files}';
+      exit 0;
+      "
+    networks:
+      - default
+
+# volumes: # No longer needed - using bind mounts instead
+#   minio-data:
+#     driver: local
+
+networks:
+  default:
+    name: syncnapse_net
+

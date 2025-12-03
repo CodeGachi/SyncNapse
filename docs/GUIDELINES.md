@@ -215,6 +215,86 @@ npm run ci:test:backend
 
 ---
 
+## GitHub Actions Local Testing
+
+### Overview
+
+Before pushing to GitHub, you can test GitHub Actions workflows locally using `act`.
+
+### Setup
+
+1. **Install act:**
+   ```bash
+   brew install act
+   ```
+
+2. **Install actionlint (optional, for syntax checking):**
+   ```bash
+   brew install actionlint
+   ```
+
+3. **Setup secrets:**
+   ```bash
+   npm run act:setup
+   # Edit .github/workflows/.secrets with your GitHub PAT
+   ```
+
+### Usage
+
+#### Quick Commands
+
+```bash
+# Check syntax only
+npm run act:lint
+
+# Dry-run (see what would execute)
+npm run act:dry
+
+# Run CI workflow locally
+npm run act:ci
+
+# Run with verbose output
+npm run act:ci:verbose
+```
+
+#### Manual act Commands
+
+```bash
+# List all jobs
+act -l
+
+# Run specific event
+act push
+act pull_request
+
+# Run specific job
+act -j build-and-test
+
+# With secrets
+act push --secret-file .github/workflows/.secrets
+```
+
+### Important Notes
+
+⚠️ **Limitations:**
+- `act` simulates GitHub Actions but isn't 100% identical
+- Some GitHub-specific features may not work locally
+- Network-dependent actions might behave differently
+
+✅ **Benefits:**
+- Fast feedback loop
+- Test secrets configuration
+- Validate workflow syntax
+- Debug workflow issues locally
+
+### Files
+
+- `.actrc` - act configuration
+- `.github/workflows/.secrets.example` - Template for secrets
+- `.github/workflows/.secrets` - Your actual secrets (gitignored)
+
+---
+
 ## 백엔드 코드 구조(요약과 예시)
 
 ### NestJS 모듈 구성

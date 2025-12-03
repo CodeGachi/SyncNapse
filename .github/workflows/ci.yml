@@ -22,18 +22,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '22.20.0'
           cache: 'npm'
+      
       - name: Install root deps
         run: npm i --ignore-scripts
+      
       - name: Install workspaces deps
         run: |
           npm -w frontend i --ignore-scripts
           npm -w backend i --ignore-scripts
+      
       - name: Generate Prisma Client
         run: npm -w backend run prisma:generate
+      
+      - name: Setup environment files
+        env:
+          GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
+          ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
+        run: |
+          # Fetch environment from private repo using HTTPS + PAT
+          npm run env:sync || {
+            echo "❌ Environment sync failed"
+            echo "📋 Check if ENV_REPO_PAT secret has correct permissions:"
+            echo "   - repo (Full control of private repositories)"
+            echo "   - CodeGachi/.env repository must exist with dev branch"
+            exit 1
+          }
+          echo "✅ Environment files synced"
+          
+          # Also copy to .env for Docker Compose
+          cp .env.dev .env
       - name: Test
         run: |
           npm -w frontend run test:ci
@@ -44,5 +66,5 @@ jobs:
           npm -w backend run lint
       - name: Build
         run: |
-          npm -w frontend run build
-          npm -w backend run build
+          NODE_ENV=production npm -w frontend run build
+          NODE_ENV=production npm -w backend run build

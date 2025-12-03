@@ -1,144 +1,320 @@
-# SyncNapse
+# 🧠 SyncNapse
 
-SyncNapse는 강의 노트 기반 실시간 필기/요약을 지원하는 웹 플랫폼입니다.
+AI 기반 실시간 강의 노트 생성 및 협업 플랫폼
 
-## 1) 개요
+---
 
-- 프론트엔드: Next.js 14 (App Router)
-- 백엔드: Nest.js 10, Prisma(PostgreSQL)
-- 데이터베이스: PostgreSQL (로컬 컨테이너 / 운영 외부 DB)
-- 자동화: n8n 기반 플로우(JSON으로 버전관리)
-- 관측성: Loki + Promtail + Grafana
+## 🚀 빠른 시작
 
-## 2) 실행 가이드(로컬)
+### 1️⃣ 환경 변수 설정
 
-사전 준비: Docker Desktop, Node.js 22+, npm 10+
-
-1. 환경 변수 동기화
 ```bash
-cp .env.example .env
-node scripts/sync-envs.mjs   # backend/.env 자동 생성
+# Private repository에서 개발 환경 변수 가져오기
+npm run env:sync
+
+# 또는 전체 설정 (환경 변수 + 의존성 설치 + DB 설정)
+npm run setup
 ```
 
-2. 전체 스택 실행/중지/로그
+**참고:** 환경 변수는 CodeGachi Organization의 private repository에서 관리됩니다.
+- 상세 가이드: [docs/ENV_MANAGEMENT.md](./docs/ENV_MANAGEMENT.md)
+- 빠른 시작: [docs/QUICK_START.md](./docs/QUICK_START.md)
+- AI 설정: [docs/AI_SETUP.md](./docs/AI_SETUP.md)
+
+### 2️⃣ 개발 환경 실행
+
 ```bash
+# 모든 서비스 시작 (Frontend, Backend, DB, n8n, Monitoring)
 npm run dev:all
-npm run dev:all:logs
-npm run dev:all:down
+
+# MinIO 포함 (S3 대신 자체 오브젝트 스토리지)
+npm run dev:minio
 ```
 
-3. 주요 엔드포인트
-- 프론트: http://localhost:3000
-- 백엔드 헬스체크: http://localhost:4000/health
-- Swagger UI: http://localhost:4000/docs
-- OpenAPI JSON: http://localhost:4000/api/docs-json
-- n8n: http://localhost:5678
-- Grafana: http://localhost:3001 (초기 대시보드 `SyncNapse Logs`)
+### 3️⃣ 서비스 접속
 
-## 3) 개발 워크플로우(요약)
-
-- 설치
-```bash
-npm install
+```
+Frontend:  http://localhost:3000
+Backend:   http://localhost:4000
+Grafana:   http://localhost:3001
+n8n:       http://localhost:5678
+MinIO:     http://localhost:9001 (dev:minio 사용 시)
 ```
 
-- 프론트/백엔드 동시 개발
+---
+
+## 🧪 GitHub Actions 로컬 테스트
+
 ```bash
-npm run dev
+# act 설치
+brew install act
+brew install actionlint
+
+# Secrets 설정
+npm run act:setup
+vi .github/workflows/.secrets  # PAT 입력
+
+# 문법 검사
+npm run act:lint
+
+# CI 워크플로우 테스트
+npm run act:ci
+
+# 자세한 로그로 실행
+npm run act:ci:verbose
 ```
 
-- 테스트/린트/빌드
+**자세한 내용:** [GitHub Actions 테스트 가이드](docs/GUIDELINES.md#github-actions-local-testing)
+
+---
+
+## 📦 서비스 구성
+
+| 서비스 | 포트 | 설명 |
+|--------|------|------|
+| **Frontend** | 3000 | Next.js (React) |
+| **Backend** | 4000 | NestJS (Node.js) |
+| **PostgreSQL** | 5432 | 데이터베이스 |
+| **Redis** | 6379 | 캐시 & 큐 |
+| **n8n** | 5678 | 워크플로우 자동화 |
+| **Grafana** | 3001 | 모니터링 대시보드 |
+| **Loki** | 3100 | 로그 수집 |
+| **MinIO** | 9000/9001 | 오브젝트 스토리지 (옵션) |
+
+---
+
+## 🛠️ 스토리지 설정
+
+### 옵션 1: 로컬 스토리지 (기본, 개발용)
+
 ```bash
+# .env
+STORAGE_PROVIDER=local
+STORAGE_LOCAL_PATH=./var/storage
+```
+
+### 옵션 2: MinIO (권장, S3 대신)
+
+```bash
+# 1. MinIO 시작
+npm run dev:minio
+
+# 2. 샘플 파일 업로드 (002_seed_data.sql의 파일들)
+npm run seed:minio
+
+# .env
+STORAGE_PROVIDER=s3
+STORAGE_BUCKET=syncnapse-files
+STORAGE_ENDPOINT=http://minio:9000
+STORAGE_ACCESS_KEY_ID=minioadmin
+STORAGE_SECRET_ACCESS_KEY=minioadmin123
+```
+
+**샘플 파일 업로드:** `npm run seed:minio` 명령어는 다음 파일들을 자동으로 생성하여 MinIO에 업로드합니다:
+- 📄 Documents: `documents/sample-slides-*.pdf` (5개)
+- 🎵 Audio: `audio/sample-lecture-*.mp3` (5개)
+- 🖼️ Pages: `pages/*.png` (8개)
+- 📦 Uploads: `uploads/user-test-*/` (2개)
+
+**MinIO 콘솔 접속:** http://localhost:9001 (minioadmin / minioadmin123)
+
+**가이드:** `backend/var/storage/MINIO_SETUP.md`
+
+### 옵션 3: AWS S3
+
+```bash
+# .env
+STORAGE_PROVIDER=s3
+STORAGE_BUCKET=your-bucket
+STORAGE_REGION=ap-northeast-2
+STORAGE_ACCESS_KEY_ID=AKIA...
+STORAGE_SECRET_ACCESS_KEY=wJal...
+```
+
+**자세한 내용:** `docs/STORAGE.md`
+
+---
+
+## 📚 문서
+
+### 시작하기
+- **빠른 시작**: `docs/QUICK_START.md`
+- **환경 변수 관리**: `docs/ENV_MANAGEMENT.md`
+- **환경 변수 Push/Sync**: `docs/ENV_PUSH_PULL_GUIDE.md`
+- **Dev/Prod 환경 분리**: `docs/ENV_SEPARATION_COMPLETE.md`
+- **개발 가이드라인**: `docs/GUIDELINES.md`
+
+### 스토리지
+- **스토리지 설정**: `docs/STORAGE.md`
+- **S3 대안**: `docs/STORAGE_ALTERNATIVES.md`
+- **아키텍처 비교**: `docs/ARCHITECTURE_COMPARISON.md`
+- **MinIO 빠른 시작**: `backend/var/storage/MINIO_SETUP.md`
+- **DB 저장 경고**: `docs/DB_STORAGE_WARNING.md`
+
+---
+
+## 🧪 테스트
+
+```bash
+# 전체 테스트
 npm test
+
+# Backend만
+npm run ci:test:backend
+
+# Frontend만
+npm run ci:test:frontend
+```
+
+---
+
+## 🔧 개발 명령어
+
+```bash
+# 환경 변수
+npm run env:sync         # 개발 환경 변수 가져오기 (dev branch)
+npm run env:sync:prod    # 프로덕션 환경 변수 가져오기 (main branch)
+npm run env:push         # 개발 환경 변수 업로드 (dev branch)
+npm run env:push:prod    # 프로덕션 환경 변수 업로드 (main branch)
+npm run setup            # 전체 프로젝트 설정 (환경 변수 + 의존성 + DB)
+
+# 개발 서버 시작
+npm run dev:all          # 전체 (Docker)
+npm run dev:minio        # MinIO 포함
+npm run dev              # 로컬 (Frontend + Backend)
+
+# 로그 확인
+npm run dev:all:logs
+
+# 서비스 중지
+npm run dev:all:down
+
+# 린트
 npm run lint
-npm run build
+
+# 포맷
+npm run format
 ```
 
-### 필수 명령어 모음(카테고리)
+---
 
-- 실행/개발
-  - `npm run dev`: 프론트/백 동시 개발 서버 실행
-  - `npm run dev:all`: 도커로 전체 스택(dev) 실행
-  - `npm run dev:all:logs`: 전체 스택 로그 팔로우
-  - `npm run dev:all:down`: 전체 스택 중지/정리
+## 🌐 프로덕션 배포
 
-- 도커 등가 환경(CI 동일) Lint/Test/Build
-  - `npm run ci:lint`: 프론트/백 린트(컨테이너 내부, EACCES 무관)
-  - `npm run ci:test`: 프론트/백 테스트(컨테이너 내부)
-  - `npm run ci:build`: 프론트/백 빌드(도커 이미지 빌드)
-  - 대상 지정: `ci:lint:frontend`, `ci:lint:backend`, `ci:test:frontend`, `ci:test:backend`
+### AWS ECS (권장)
 
-- 데이터베이스/유틸
-  - `npm run db:up` / `npm run db:down` / `npm run db:logs`
-  - `npm -w backend run prisma:generate`
-
-## 4) 프로젝트 구조
-
-```
-📦SyncNapse
- ┣ 📂frontend/          # Next.js 앱 (App Router)
- ┣ 📂backend/           # Nest.js 앱
- ┃  ┣ 📂src/modules/
- ┃  ┃  ┣ 📂auth/        # 인증 모듈(JWT)
- ┃  ┃  ┣ 📂hypermedia/  # HAL(HATEOAS) 유틸과 링크 빌더
- ┃  ┃  ┣ 📂sessions/    # 세션/노트/오디오/자료 API
- ┃  ┃  ┣ 📂logging/     # 요청 로깅/서비스 로깅
- ┃  ┃  ┗ 📂common, users, db 등
- ┣ 📂db/                # 로컬 Postgres compose 와 초기 스키마
- ┣ 📂monitor/     # Loki/Promtail/Grafana 설정
- ┣ 📂docs/              # 문서 (GUIDELINES.md 등)
- ┣ 📂nginx/             # 리버스 프록시 설정
- ┣ 📜docker-compose.yml
- ┣ 📜docker-compose.dev.yml
- ┗ 📜README.md
+```bash
+# CI/CD는 GitHub Actions로 자동화됨
+# .github/workflows/ 참고
 ```
 
-## 5) 협업 브랜치 전략
+### 환경 변수
 
-- `dev` → `feature/<scope>-<desc>` → PR → 리뷰/CI 통과 → `main` 머지
-- `dev → main` 머지 시 squash 권장(히스토리 간결화)
+프로덕션 환경에서는 다음 변수들을 설정하세요:
 
-## 6) HATEOAS(HAL) 합의와 프런트 탐색 흐름
-
-- 모든 API 응답은 `_links`를 포함하고, 미디어 타입은 `application/hal+json`을 권장합니다.
-- 진입점(`/api`)에서 링크를 따라가며 필요한 리소스를 탐색합니다.
-
-요청 예시
-```http
-GET /api
-Accept: application/hal+json
+```bash
+NODE_ENV=production
+DATABASE_URL=postgresql://...
+JWT_SECRET=<strong-secret>
+STORAGE_PROVIDER=s3
+STORAGE_BUCKET=your-production-bucket
 ```
 
-응답 예시
-```json
-{
-  "_links": {
-    "self": { "href": "/api" },
-    "sessions": { "href": "/api/sessions" },
-    "profile": { "href": "/api/users/me" }
-  }
-}
+---
+
+## 📊 모니터링
+
+### Grafana 대시보드
+
+```
+URL: http://localhost:3001
+ID: admin
+PW: admin (변경하세요!)
 ```
 
-프론트 접근 예시(TypeScript)
-```ts
-const entry = await fetch('/api', { headers: { Accept: 'application/hal+json' } }).then(r => r.json());
-const sessionsList = await fetch(entry._links.sessions.href).then(r => r.json());
+**대시보드:**
+- SyncNapse Logs
+- 시스템 메트릭
+- 애플리케이션 성능
+
+---
+
+## 🔐 보안
+
+### 환경 변수 관리
+
+**중요:** 환경 변수는 별도의 private repository에서 관리됩니다.
+- Repository: `github.com/CodeGachi/.env` (Private)
+- Dev 환경: `dev` branch → `.env.dev`
+- Production 환경: `main` branch → `.env.prod`
+
+자세한 내용: [docs/ENV_MANAGEMENT.md](./docs/ENV_MANAGEMENT.md)
+
+### 프로덕션 체크리스트
+
+- [ ] `.env`, `.env.dev`, `.env.prod` 파일을 Git에 커밋하지 않음
+- [ ] `JWT_SECRET` 강력한 값으로 변경
+- [ ] Grafana 기본 비밀번호 변경
+- [ ] MinIO 기본 비밀번호 변경
+- [ ] PostgreSQL 비밀번호 변경
+- [ ] HTTPS 설정
+- [ ] 방화벽 설정
+- [ ] Private env repository 접근 권한 확인
+
+---
+
+## 🤝 기여
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📝 라이선스
+
+이 프로젝트는 MIT 라이선스를 따릅니다.
+
+---
+
+## 💡 문제 해결
+
+### 환경 변수가 없다는 오류
+```bash
+# 환경 변수 동기화
+npm run env:sync
+
+# .env-repo 디렉토리 삭제 후 재시도
+rm -rf .env-repo
+npm run env:sync
 ```
 
-더 많은 예시는 `docs/GUIDELINES.md`의 Backend/Frontend 섹션을 참고하세요.
+### SSH 키 인증 실패
+```bash
+# SSH 연결 테스트
+ssh -T git@github.com
 
-## 7) 디버그 로깅 가이드(요약)
+# Private repository 접근 권한 요청
+# CodeGachi Organization 관리자에게 문의
+```
 
-- 백엔드: `Logger.debug` 사용, 동적 값만 기록. 하드코딩된 상수 로깅 금지.
-- 프론트: `console.debug`로 네트워크/상태 변화를 로그. 민감정보/토큰 출력 금지.
-- 로깅 레벨은 `.env`로 제어하며, 운영에서는 디버그 로그를 최소화합니다.
+### 파일 업로드가 안 돼요
+- MinIO 실행 확인: `docker ps | grep minio`
+- 환경 변수 확인: `.env.dev` 파일
+- 가이드: `backend/var/storage/MINIO_SETUP.md`
 
-## 8) CI/CD 개요
+### 데이터베이스 연결 실패
+```bash
+# DB 재시작
+docker compose -f docker-compose.yml -f docker-compose.dev.yml restart postgres
+```
 
-- CI: 테스트 → 린트 → 빌드 (GitHub Actions)
-- 배포: ECR 푸시(sha/latest) 후 ECS 서비스 재배포(별도 워크플로우)
+### 로그 확인
+```bash
+npm run dev:all:logs
+```
 
-## 9) 라이선스
+---
 
-TBU
+**SyncNapse - AI로 강의를 더 스마트하게** ✨

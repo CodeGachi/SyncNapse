@@ -4,10 +4,14 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // Debug: print effective parameters to help diagnose env issues (no hardcoding)
-function debugLog(message, extra = {}) {
-  const ts = new Date().toISOString();
-  // English comments and logs only
-  console.debug(`[docker-ci][${ts}] ${message}`, extra);
+let debugLog;
+function initDebugLog() {
+  // Initialize debugLog after loadDotenvIntoProcessEnv is defined
+  debugLog = function(message, extra = {}) {
+    const ts = new Date().toISOString();
+    // English comments and logs only
+    console.debug(`[docker-ci][${ts}] ${message}`, extra);
+  };
 }
 
 function exitWith(msg, code = 1) {
@@ -23,11 +27,20 @@ if (!target || !['frontend', 'backend', 'all'].includes(target)) {
   exitWith('Target must be one of: frontend | backend | all');
 }
 
-// Load .env from repo root if present (host-side), but do not override existing envs
+// Load .env file from repo root if present (host-side), but do not override existing envs
 function loadDotenvIntoProcessEnv() {
   try {
-    const envPath = resolve(process.cwd(), '.env');
-    if (!existsSync(envPath)) return;
+    // Determine environment file based on ENV_TARGET (defaults to dev)
+    // Use ENV_TARGET to avoid conflicts with build tools that expect NODE_ENV=production
+    const environment = process.env.ENV_TARGET || process.env.NODE_ENV || 'dev';
+    const envFileName = environment === 'production' || environment === 'prod' ? '.env.prod' : '.env.dev';
+    const envPath = resolve(process.cwd(), envFileName);
+    
+    if (!existsSync(envPath)) {
+      console.warn(`[docker-ci] ${envFileName} not found, using process env only`);
+      return;
+    }
+    
     const raw = readFileSync(envPath, 'utf8');
     for (const line of raw.split(/\r?\n/)) {
       if (!line || line.trim().startsWith('#')) continue;
@@ -39,11 +52,13 @@ function loadDotenvIntoProcessEnv() {
         process.env[key] = val;
       }
     }
+    debugLog(`Loaded environment from ${envFileName}`, { environment });
   } catch (e) {
-    console.warn('[docker-ci] failed to read .env:', (e && e.message) || 'unknown');
+    console.warn('[docker-ci] failed to read env file:', (e && e.message) || 'unknown');
   }
 }
 
+initDebugLog();
 loadDotenvIntoProcessEnv();
 
 const env = process.env;
@@ -94,8 +109,14 @@ async function main() {
   if (!mapping) exitWith('Unsupported task');
 
   const selected = target === 'all' ? Object.values(mapping) : [mapping[target]];
+  
+  // Determine env file for docker compose
+  // Use ENV_TARGET to avoid conflicts with build tools that expect NODE_ENV=production
+  const environment = process.env.ENV_TARGET || process.env.NODE_ENV || 'dev';
+  const envFile = environment === 'production' || environment === 'prod' ? '.env.prod' : '.env.dev';
+  
   for (const service of selected) {
-    const args = ['compose', '-f', toolsFile, 'run', '--rm', service, ...restArgs];
+    const args = ['compose', '--env-file', envFile, '-f', toolsFile, 'run', '--rm', service, ...restArgs];
     await run('docker', args);
   }
 }

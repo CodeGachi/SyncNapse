@@ -60,7 +60,7 @@ services:
       - "${FRONTEND_PORT_PUBLIC}:3000"
     volumes:
       - ./frontend:/app
-      - ./frontend/node_modules:/app/node_modules
+      - /app/node_modules
     command: sh -lc "npm install --no-audit --no-fund && npm run dev"
     depends_on:
       - backend
@@ -80,12 +80,14 @@ services:
       - PORT=${BACKEND_PORT}
       - CHOKIDAR_USEPOLLING=true
       - NPM_CONFIG_LOGLEVEL=warn
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME}
     ports:
       - "${BACKEND_PORT_PUBLIC}:4000"
     volumes:
       - ./backend:/app
-      - ./backend/node_modules:/app/node_modules
-    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push && npm run start:dev"
+      - /app/node_modules
+    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push --accept-data-loss && npm run start:dev"
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,32 +100,9 @@ services:
     env_file:
       - .env
 
-  n8n:
-    extends:
-      file: docker-compose.yml
-      service: n8n
-    container_name: syncnapse-n8n-dev
-    environment:
-      - N8N_HOST=${N8N_HOST}
-      - N8N_PORT=${N8N_PORT}
-      - N8N_PROTOCOL=${N8N_PROTOCOL}
-      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
-      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE}
-      - N8N_USER_MANAGEMENT_DISABLED=${N8N_USER_MANAGEMENT_DISABLED}
-      - EXECUTIONS_MODE=${EXECUTIONS_MODE}
-      - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
-      - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT}
-      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
-      - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
-      - QUEUE_HEALTH_CHECK_ACTIVE=${QUEUE_HEALTH_CHECK_ACTIVE}
-    env_file:
-      - .env
-
 networks:
   default:
     name: syncnapse_net
 volumes:
   grafana-data:
-  pgdata:
   loki-data:
