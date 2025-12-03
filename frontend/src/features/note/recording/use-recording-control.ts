@@ -5,16 +5,24 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("RecordingControl");
 import { useQueryClient } from "@tanstack/react-query";
 import { useRecording } from "./use-recording";
+import { useRecordingStore } from "@/stores";
 import type { TranscriptionSession } from "@/lib/api/services/transcription.api";
 
 export function useRecordingControl(noteId?: string | null) {
   const queryClient = useQueryClient();
+
+  // 전역 store 연동
+  const {
+    setIsRecording: setGlobalIsRecording,
+    setIsPaused: setGlobalIsPaused,
+    setStopRecordingCallback,
+  } = useRecordingStore();
 
   const {
     isRecording,
@@ -34,6 +42,12 @@ export function useRecordingControl(noteId?: string | null) {
   // 녹음 이름 모달 상태
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isSavingRecording, setIsSavingRecording] = useState(false);
+
+  // 전역 store와 로컬 상태 동기화
+  useEffect(() => {
+    setGlobalIsRecording(isRecording);
+    setGlobalIsPaused(isPaused);
+  }, [isRecording, isPaused, setGlobalIsRecording, setGlobalIsPaused]);
 
   /**
    * 녹음 시작
@@ -68,12 +82,18 @@ export function useRecordingControl(noteId?: string | null) {
   };
 
   // 녹음 종료 버튼 클릭 (모달 먼저 열기)
-  const handleStopRecording = () => {
+  const handleStopRecording = useCallback(() => {
     if (isRecording) {
       // 녹음 중이면 모달 열기 (아직 stopRecording 호출 안함!)
       setIsNameModalOpen(true);
     }
-  };
+  }, [isRecording]);
+
+  // 전역 store에 stopRecording 콜백 등록 (페이지 이동 시 호출용)
+  useEffect(() => {
+    setStopRecordingCallback(handleStopRecording);
+    return () => setStopRecordingCallback(null);
+  }, [handleStopRecording, setStopRecordingCallback]);
 
   // 녹음 저장 (제목 입력 후 실제로 stopRecording 호출)
   const handleSaveRecording = async (title: string) => {

@@ -8,10 +8,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RecordingBarContainer } from '@/components/note/recording/recording-bar-container';
-import * as transcriptionApi from '@/lib/api/transcription.api';
+import * as transcriptionApi from '@/lib/api/services/transcription.api';
 
 // Mock transcription API
-vi.mock('@/lib/api/transcription.api');
+vi.mock('@/lib/api/services/transcription.api');
 
 // Mock MediaRecorder API
 const mockMediaRecorder = {

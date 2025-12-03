@@ -153,6 +153,7 @@ export function RecordingBarContainer({ noteId }: RecordingBarContainerProps) {
       <div className="relative">
         <RecordingBar
           isPlaying={isRecording ? !isPaused : isPlaying}
+          isRecordingActive={isRecording && !isPaused}
           time={recordingTime}
           onPlayToggle={onPlayToggle}
           onStop={onStop}

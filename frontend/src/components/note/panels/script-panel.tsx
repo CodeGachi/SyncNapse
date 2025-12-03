@@ -1,7 +1,7 @@
 /**
  * 스크립트 패널 컴포넌트
  *
- * 녹음 스크립트 표시 및 번역 기능 (DeepL API)
+ * 녹음 스크립트 표시 및 번역 기능 (Chrome Translator API)
  */
 
 "use client";
@@ -9,7 +9,7 @@
 import { useEffect } from "react";
 import { useScriptTranslationStore, useAudioPlayerStore } from "@/stores";
 import { Panel } from "./panel";
-import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight, Pencil, Check, X, RotateCcw } from "lucide-react";
+import { ScrollText, ArrowRight, Loader2, AlertCircle, Languages, Globe, FileText, ChevronRight, Pencil, Check, X, RotateCcw, Download } from "lucide-react";
 import type { SupportedLanguage, LanguageOption, PageContext } from "@/lib/types";
 import { useTranscriptTranslation, useScriptPanel } from "@/features/note/right-panel";
 import { createLogger } from "@/lib/utils/logger";
@@ -30,7 +30,7 @@ interface ScriptPanelProps {
   onSaveRevision?: (sessionId: string, editedSegments: Record<string, string>) => Promise<void>;
 }
 
-// DeepL 지원 언어만 표시 (아랍어 제외)
+// Chrome Translator 지원 언어
 const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "ko", name: "Korean", nativeName: "한국어" },
   { code: "en", name: "English", nativeName: "English" },
@@ -72,7 +72,7 @@ export function ScriptPanel({
     originalLanguage,
     isTranslating,
     translationError,
-    usageInfo,
+    downloadProgress,
     toggleTranslation,
     setTargetLanguage,
     // Edit Mode
@@ -87,12 +87,11 @@ export function ScriptPanel({
     setSaveRevisionCallback,
   } = useScriptTranslationStore();
 
-  // DeepL 번역 Hook 사용
-  useTranscriptTranslation();
+  // Chrome Translator 번역 Hook 사용
+  const { isSupported } = useTranscriptTranslation();
 
   // 스크립트 패널 훅 (세그먼트/워드 클릭, 페이지 컨텍스트 탐색)
   const {
-    currentTime,
     handleSegmentClick,
     handleWordClick,
     handlePageBadgeClick,
@@ -230,13 +229,13 @@ export function ScriptPanel({
         <div className="px-4 py-3 border-b border-border bg-background-elevated flex-shrink-0">
           <div className="flex items-center justify-between">
             {/* Translation Toggle */}
-            <label className={`flex items-center gap-2 cursor-pointer group ${isEditMode ? 'opacity-50 pointer-events-none' : ''}`}>
+            <label className={`flex items-center gap-2 cursor-pointer group ${isEditMode || !isSupported ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="relative">
                 <input
                   type="checkbox"
                   checked={isTranslationEnabled}
                   onChange={toggleTranslation}
-                  disabled={isEditMode}
+                  disabled={isEditMode || !isSupported}
                   className="sr-only peer"
                 />
                 <div className="w-9 h-5 bg-background-overlay peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground-tertiary after:border-foreground-tertiary after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand peer-checked:after:bg-white peer-checked:after:border-white transition-colors"></div>
@@ -309,26 +308,31 @@ export function ScriptPanel({
 
           {/* Status Indicators */}
           <div className="flex items-center gap-3 mt-2">
-            {isTranslating && (
+            {/* 브라우저 미지원 경고 */}
+            {!isSupported && (
+              <div className="flex items-center gap-1.5">
+                <AlertCircle size={10} className="text-yellow-500" />
+                <span className="text-[10px] text-yellow-500">Chrome 138+ 필요</span>
+              </div>
+            )}
+            {/* 번역 중 상태 */}
+            {isTranslating && !downloadProgress?.isDownloading && (
               <div className="flex items-center gap-1.5">
                 <Loader2 size={10} className="animate-spin text-brand" />
                 <span className="text-[10px] text-brand">번역 중...</span>
               </div>
             )}
-            {/* 사용량 표시 */}
-            {isTranslationEnabled && usageInfo && (
+            {/* 모델 다운로드 진행률 */}
+            {downloadProgress?.isDownloading && (
               <div className="flex items-center gap-2">
-                <div className="w-12 h-1.5 bg-background-overlay rounded-full overflow-hidden">
+                <Download size={10} className="text-brand animate-pulse" />
+                <div className="w-16 h-1.5 bg-background-overlay rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${
-                      usageInfo.remaining < 50000 ? 'bg-yellow-500' : 'bg-brand'
-                    }`}
-                    style={{ width: `${Math.min(100, (usageInfo.used / usageInfo.limit) * 100)}%` }}
+                    className="h-full bg-brand rounded-full transition-all"
+                    style={{ width: `${downloadProgress.progress}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-foreground-tertiary">
-                  {Math.round(usageInfo.remaining / 1000)}K
-                </span>
+                <span className="text-[10px] text-brand">{downloadProgress.progress}%</span>
               </div>
             )}
           </div>
@@ -337,18 +341,20 @@ export function ScriptPanel({
         {/* 번역 에러 배너 */}
         {translationError && (
           <div className={`px-4 py-2 border-b flex-shrink-0 ${
-            translationError === 'quota_exceeded'
+            translationError === 'not_supported' || translationError === 'language_unavailable'
               ? 'bg-yellow-500/10 border-yellow-500/20'
               : 'bg-red-500/10 border-red-500/20'
           }`}>
             <div className={`flex items-center gap-2 text-xs ${
-              translationError === 'quota_exceeded' ? 'text-yellow-500' : 'text-red-400'
+              translationError === 'not_supported' || translationError === 'language_unavailable'
+                ? 'text-yellow-500'
+                : 'text-red-400'
             }`}>
               <AlertCircle size={14} />
               <span>
-                {translationError === 'config_error' && 'API 키가 설정되지 않았습니다.'}
-                {translationError === 'auth_error' && 'API 키가 유효하지 않습니다.'}
-                {translationError === 'quota_exceeded' && '월간 번역 한도를 초과했습니다.'}
+                {translationError === 'not_supported' && '브라우저가 번역 기능을 지원하지 않습니다. Chrome 138 이상이 필요합니다.'}
+                {translationError === 'language_unavailable' && '선택한 언어쌍은 지원되지 않습니다.'}
+                {translationError === 'download_failed' && '번역 모델 다운로드에 실패했습니다.'}
                 {translationError === 'api_error' && '번역 중 오류가 발생했습니다.'}
                 {translationError === 'network_error' && '네트워크 오류가 발생했습니다.'}
               </span>

@@ -1,26 +1,25 @@
 /**
  * script Translation Status Management Store * Record script Translation feature Management
-*/
+ */
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { SupportedLanguage, ScriptSegment } from "@/lib/types";
 
-// 번역 에러 타입
+// 번역 에러 타입 (Chrome Translator API용)
 export type TranslationErrorType =
-  | 'config_error'    // API 키 미설정
-  | 'auth_error'      // API 키 유효하지 않음
-  | 'quota_exceeded'  // 한도 초과
-  | 'api_error'       // 기타 API 에러
-  | 'network_error';  // 네트워크 에러
+  | 'not_supported'        // 브라우저 미지원
+  | 'language_unavailable' // 언어쌍 미지원
+  | 'download_failed'      // 모델 다운로드 실패
+  | 'api_error'            // 기타 API 에러
+  | 'network_error';       // 네트워크 에러
 
 // 저장 상태 타입
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-// 사용량 정보
-export interface TranslationUsageInfo {
-  used: number;
-  limit: number;
-  remaining: number;
+// 다운로드 진행 정보
+export interface DownloadProgress {
+  isDownloading: boolean;
+  progress: number; // 0 to 100
 }
 
 // 자동 저장 콜백 타입
@@ -33,10 +32,10 @@ interface ScriptTranslationState {
   targetLanguage: SupportedLanguage;
   originalLanguage: SupportedLanguage;
 
-  // Translation Status (DeepL)
+  // Translation Status (Chrome Translator)
   isTranslating: boolean;
   translationError: TranslationErrorType | null;
-  usageInfo: TranslationUsageInfo | null;
+  downloadProgress: DownloadProgress | null;
 
   // Edit Mode State
   isEditMode: boolean;
@@ -57,7 +56,7 @@ interface ScriptTranslationState {
   // Translation Status Actions
   setIsTranslating: (isTranslating: boolean) => void;
   setTranslationError: (error: TranslationErrorType | null) => void;
-  setUsageInfo: (info: TranslationUsageInfo | null) => void;
+  setDownloadProgress: (progress: DownloadProgress | null) => void;
 
   // Edit Mode Actions
   setEditMode: (isEdit: boolean) => void;
@@ -80,7 +79,7 @@ const initialState = {
   originalLanguage: "ko" as SupportedLanguage,
   isTranslating: false,
   translationError: null as TranslationErrorType | null,
-  usageInfo: null as TranslationUsageInfo | null,
+  downloadProgress: null as DownloadProgress | null,
   // Edit Mode
   isEditMode: false,
   editedSegments: {} as Record<string, string>,
@@ -144,7 +143,7 @@ export const useScriptTranslationStore = create<ScriptTranslationState>()(
       // Translation Status Actions
       setIsTranslating: (isTranslating) => set({ isTranslating }),
       setTranslationError: (error) => set({ translationError: error }),
-      setUsageInfo: (info) => set({ usageInfo: info }),
+      setDownloadProgress: (progress) => set({ downloadProgress: progress }),
 
       // Edit Mode Actions
       setEditMode: (isEdit) => set({ isEditMode: isEdit }),

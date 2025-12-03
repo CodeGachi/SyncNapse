@@ -7,10 +7,10 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRecording } from '@/features/note/recording/use-recording';
-import * as transcriptionApi from '@/lib/api/transcription.api';
+import * as transcriptionApi from '@/lib/api/services/transcription.api';
 
 // Mock transcription API
-vi.mock('@/lib/api/transcription.api');
+vi.mock('@/lib/api/services/transcription.api');
 
 // Mock MediaRecorder
 const mockMediaRecorder = {

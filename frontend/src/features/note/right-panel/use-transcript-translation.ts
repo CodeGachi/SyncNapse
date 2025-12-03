@@ -1,6 +1,6 @@
 /**
  * 트랜스크립트 번역 훅
- * DeepL API를 사용한 실시간 번역
+ * Chrome Translator API를 사용한 실시간 번역
  */
 
 "use client";
@@ -12,12 +12,13 @@ const log = createLogger("TranscriptTranslation");
 import { useScriptTranslationStore } from "@/stores";
 import type { TranslationErrorType } from "@/stores/script-translation-store";
 import {
+  isTranslatorSupported,
+  checkLanguageAvailability,
   translateBatch,
-  getUsage,
-  toDeepLLanguage,
-  TranslationConfigError,
-  TranslationAuthError,
-  TranslationQuotaError,
+  clearTranslatorCache,
+  TranslationNotSupportedError,
+  TranslationLanguageNotAvailableError,
+  TranslationDownloadError,
 } from "@/lib/api/services/translation.api";
 
 export function useTranscriptTranslation() {
@@ -30,7 +31,7 @@ export function useTranscriptTranslation() {
     updateSegmentTranslation,
     setIsTranslating,
     setTranslationError,
-    setUsageInfo,
+    setDownloadProgress,
   } = useScriptTranslationStore();
 
   // 번역된 세그먼트 추적 (언어쌍별)
@@ -40,12 +41,12 @@ export function useTranscriptTranslation() {
    * 에러 타입 매핑
    */
   const handleError = useCallback((error: unknown): TranslationErrorType => {
-    if (error instanceof TranslationConfigError) {
-      return 'config_error';
-    } else if (error instanceof TranslationAuthError) {
-      return 'auth_error';
-    } else if (error instanceof TranslationQuotaError) {
-      return 'quota_exceeded';
+    if (error instanceof TranslationNotSupportedError) {
+      return 'not_supported';
+    } else if (error instanceof TranslationLanguageNotAvailableError) {
+      return 'language_unavailable';
+    } else if (error instanceof TranslationDownloadError) {
+      return 'download_failed';
     } else if (error instanceof Error && error.message.includes('fetch')) {
       return 'network_error';
     }
@@ -53,26 +54,32 @@ export function useTranscriptTranslation() {
   }, []);
 
   /**
-   * 사용량 조회 및 업데이트
+   * 브라우저 지원 여부 체크
    */
-  const updateUsage = useCallback(async () => {
-    try {
-      const usage = await getUsage();
-      setUsageInfo({
-        used: usage.used,
-        limit: usage.limit,
-        remaining: usage.remaining,
-      });
-    } catch (error) {
-      log.warn('사용량 조회 실패:', error);
+  const checkSupport = useCallback(async (): Promise<boolean> => {
+    if (!isTranslatorSupported()) {
+      setTranslationError('not_supported');
+      return false;
     }
-  }, [setUsageInfo]);
+
+    const availability = await checkLanguageAvailability(originalLanguage, targetLanguage);
+    if (availability === 'unavailable') {
+      setTranslationError('language_unavailable');
+      return false;
+    }
+
+    return true;
+  }, [originalLanguage, targetLanguage, setTranslationError]);
 
   /**
-   * 모든 미번역 세그먼트 번역 (배치)
+   * 모든 미번역 세그먼트 번역
    */
   const translateAllSegments = useCallback(async () => {
     if (!isTranslationEnabled) return;
+
+    // 브라우저 지원 체크
+    const supported = await checkSupport();
+    if (!supported) return;
 
     // 언어 쌍 키 생성
     const langPairKey = `${originalLanguage}-${targetLanguage}`;
@@ -95,25 +102,31 @@ export function useTranscriptTranslation() {
     setTranslationError(null);
 
     try {
-      // DeepL 언어 코드로 변환
-      const sourceLang = toDeepLLanguage(originalLanguage);
-      const targetLang = toDeepLLanguage(targetLanguage);
-
       log.debug('번역 시작:', {
         segments: untranslatedSegments.length,
-        from: sourceLang,
-        to: targetLang,
+        from: originalLanguage,
+        to: targetLanguage,
       });
 
-      // 배치 사이즈 (DeepL 권장: 50개 이하)
-      const batchSize = 20;
+      // 배치 사이즈 (Chrome Translator는 순차 처리하므로 작게)
+      const batchSize = 10;
 
       for (let i = 0; i < untranslatedSegments.length; i += batchSize) {
         const batch = untranslatedSegments.slice(i, i + batchSize);
         const texts = batch.map((seg) => seg.originalText);
 
-        // 배치 번역 (단일 API 호출)
-        const translatedTexts = await translateBatch(texts, targetLang, sourceLang);
+        // 번역 (다운로드 진행률 모니터링 포함)
+        const translatedTexts = await translateBatch(
+          texts,
+          targetLanguage,
+          originalLanguage,
+          (progress) => {
+            setDownloadProgress(progress);
+          }
+        );
+
+        // 다운로드 완료 후 진행률 숨김
+        setDownloadProgress(null);
 
         // 결과 업데이트
         batch.forEach((segment, idx) => {
@@ -125,23 +138,14 @@ export function useTranscriptTranslation() {
           updateSegmentTranslation(segment.id, translatedTexts[idx]);
           translatedSegmentIdsRef.current.add(`${segment.id}-${langPairKey}`);
         });
-
-        // 배치 간 딜레이 (rate limit 방지)
-        if (i + batchSize < untranslatedSegments.length) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
       }
 
       log.debug('번역 완료');
-
-      // 사용량 업데이트
-      await updateUsage();
     } catch (error) {
       log.error('번역 실패:', error);
       const errorType = handleError(error);
       setTranslationError(errorType);
-
-      // 실패한 세그먼트는 원본 유지 (이미 translatedText가 없으므로 별도 처리 불필요)
+      setDownloadProgress(null);
     } finally {
       setIsTranslating(false);
     }
@@ -150,49 +154,65 @@ export function useTranscriptTranslation() {
     scriptSegments,
     originalLanguage,
     targetLanguage,
+    checkSupport,
     updateSegmentTranslation,
     setIsTranslating,
     setTranslationError,
+    setDownloadProgress,
     handleError,
-    updateUsage,
   ]);
 
-  // 언어 변경 시 에러 초기화 (캐시는 유지 - 다른 언어쌍은 별도 캐시)
-  useEffect(() => {
-    setTranslationError(null);
-  }, [targetLanguage, originalLanguage, setTranslationError]);
+  // 이전 언어 추적
+  const prevTargetLanguageRef = useRef(targetLanguage);
 
-  // 번역 활성화 또는 새 세그먼트 추가 시 자동 번역
+  // 언어 변경 시 기존 번역 초기화
+  useEffect(() => {
+    if (prevTargetLanguageRef.current !== targetLanguage) {
+      log.debug('언어 변경 감지:', prevTargetLanguageRef.current, '→', targetLanguage);
+      prevTargetLanguageRef.current = targetLanguage;
+
+      // 번역 세그먼트 ID 캐시 초기화
+      translatedSegmentIdsRef.current.clear();
+
+      // Translator 인스턴스 캐시 초기화 (새 언어쌍용 인스턴스 생성 위해)
+      clearTranslatorCache();
+
+      // 기존 번역 텍스트 초기화 (undefined로 설정해야 falsy 체크 통과)
+      scriptSegments.forEach((segment) => {
+        if (segment.translatedText) {
+          updateSegmentTranslation(segment.id, undefined as unknown as string);
+        }
+      });
+
+      setTranslationError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetLanguage]);
+
+  // 언어 변경 후 재번역 트리거
   useEffect(() => {
     if (!isTranslationEnabled || isTranslating) return;
 
-    const langPairKey = `${originalLanguage}-${targetLanguage}`;
-
-    const needsTranslation = scriptSegments.some(
-      (seg) =>
-        !seg.translatedText &&
-        seg.originalText &&
-        !seg.isPartial &&
-        !translatedSegmentIdsRef.current.has(`${seg.id}-${langPairKey}`)
+    // 번역이 필요한 세그먼트가 있는지 확인
+    const hasUntranslated = scriptSegments.some(
+      (seg) => !seg.translatedText && seg.originalText && !seg.isPartial
     );
 
-    if (needsTranslation) {
-      log.debug('새 세그먼트 감지, 번역 시작...');
+    if (hasUntranslated) {
+      log.debug('미번역 세그먼트 감지, 번역 시작...');
       translateAllSegments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTranslationEnabled, scriptSegments.length, targetLanguage]);
+  }, [isTranslationEnabled, scriptSegments, targetLanguage]);
 
-  // 컴포넌트 마운트 시 사용량 조회
+  // 원본 언어 변경 시 에러 초기화
   useEffect(() => {
-    if (isTranslationEnabled) {
-      updateUsage();
-    }
-  }, [isTranslationEnabled, updateUsage]);
+    setTranslationError(null);
+  }, [originalLanguage, setTranslationError]);
 
   return {
     isTranslating,
     translateAllSegments,
-    updateUsage,
+    isSupported: isTranslatorSupported(),
   };
 }

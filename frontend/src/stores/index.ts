@@ -7,6 +7,7 @@ export { useDrawStore } from "./draw-store";
 export { useToolsStore } from "./tools-store";
 export { useAudioPlayerStore } from "./audio-player-store";
 export { useSearchSyncStore } from "./search-sync-store";
+export { useRecordingStore } from "./recording-store";
 
 // UI Stores
 export { useNoteUIStore } from "./ui/note-ui-store";

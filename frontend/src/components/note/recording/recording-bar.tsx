@@ -17,6 +17,7 @@ const formatTime = (seconds: number): string => {
 
 interface RecordingBarProps {
   isPlaying: boolean;
+  isRecordingActive?: boolean; // 녹음 중이고 일시정지가 아닌 상태 (마이크 아이콘 빨간색용)
   time: string;
   onPlayToggle: () => void;
   onStop?: () => void;
@@ -32,6 +33,7 @@ interface RecordingBarProps {
 
 export function RecordingBar({
   isPlaying,
+  isRecordingActive = false,
   time,
   onPlayToggle,
   onStop,
@@ -111,11 +113,11 @@ export function RecordingBar({
           viewBox="0 0 13 17"
           fill="none"
           className={`transition-all duration-300 ${
-            !isRecording
-              ? "text-foreground"
-              : isPlaying
-                ? "text-red-500"
-                : "text-foreground-tertiary"
+            isRecordingActive
+              ? "text-red-500"
+              : isRecording
+                ? "text-foreground-tertiary"
+                : "text-foreground"
           }`}
         >
           <path
