@@ -139,7 +139,13 @@ export function NoteHeader({
           </div>
 
           {/* 헤더 메뉴 */}
-          <HeaderMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} noteId={noteId} />
+          <HeaderMenu
+            isOpen={isMenuOpen}
+            onClose={() => setIsMenuOpen(false)}
+            noteId={noteId}
+            isSharedView={isSharedView}
+            sourceNoteTitle={noteTitle}
+          />
         </div>
       </motion.div>
 

@@ -2262,4 +2262,217 @@ export class NotesService {
 
     return { success: true };
   }
+
+  /**
+   * Copy a shared note to user's own folder
+   * Creates a new note with copied content and files
+   */
+  async copyNoteToMyFolder(
+    userId: string,
+    sourceNoteId: string,
+    targetFolderId?: string,
+    customTitle?: string,
+  ) {
+    this.logger.log(`[copyNoteToMyFolder] userId=${userId} sourceNoteId=${sourceNoteId} targetFolderId=${targetFolderId || 'default'} customTitle=${customTitle || 'auto'}`);
+
+    // Verify user has access to source note (shared or public)
+    const hasAccess = await this.checkNoteAccess(userId, sourceNoteId);
+    if (!hasAccess) {
+      throw new NotFoundException('Note not found or access denied');
+    }
+
+    // Get source note
+    const sourceNoteLink = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId: sourceNoteId,
+        note: { deletedAt: null },
+      },
+      include: {
+        note: true,
+      },
+    });
+
+    if (!sourceNoteLink) {
+      throw new NotFoundException('Source note not found');
+    }
+
+    const sourceNote = sourceNoteLink.note;
+
+    // Get user info
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Determine target folder
+    let folderId = targetFolderId;
+    if (!folderId) {
+      // Use default folder or create one
+      const defaultFolder = await this.prisma.folder.findFirst({
+        where: {
+          userId,
+          deletedAt: null,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (defaultFolder) {
+        folderId = defaultFolder.id;
+      } else {
+        // Create a default folder
+        const newFolder = await this.prisma.folder.create({
+          data: {
+            name: 'My Notes',
+            userId,
+          },
+        });
+        folderId = newFolder.id;
+      }
+    }
+
+    // Verify target folder belongs to user
+    const targetFolder = await this.prisma.folder.findFirst({
+      where: {
+        id: folderId,
+        userId,
+        deletedAt: null,
+      },
+    });
+
+    if (!targetFolder) {
+      throw new NotFoundException('Target folder not found');
+    }
+
+    // Create new note with custom or default title
+    const noteTitle = customTitle?.trim() || `${sourceNote.title} (복사본)`;
+    const newNote = await this.prisma.lectureNote.create({
+      data: {
+        title: noteTitle,
+        type: 'student', // Always create as student note
+        publicAccess: 'PRIVATE',
+      },
+    });
+
+    // Link to target folder
+    await this.prisma.folderLectureNote.create({
+      data: {
+        noteId: newNote.id,
+        folderId,
+      },
+    });
+
+    // Copy note content if exists
+    const sourceContent = await this.prisma.noteContent.findUnique({
+      where: { noteId: sourceNoteId },
+    });
+
+    if (sourceContent) {
+      await this.prisma.noteContent.create({
+        data: {
+          noteId: newNote.id,
+          content: sourceContent.content as any,
+          version: 1,
+        },
+      });
+    }
+
+    // Copy files and page contents
+    const sourceFiles = await this.prisma.file.findMany({
+      where: {
+        noteId: sourceNoteId,
+        deletedAt: null,
+      },
+    });
+
+    // Map old file IDs to new file IDs for NotePageContent
+    const fileIdMap = new Map<string, string>();
+
+    for (const sourceFile of sourceFiles) {
+      // Copy file metadata (storage is shared, files are read-only)
+      const newFile = await this.prisma.file.create({
+        data: {
+          noteId: newNote.id,
+          fileName: sourceFile.fileName,
+          fileType: sourceFile.fileType,
+          fileSize: sourceFile.fileSize,
+          storageKey: sourceFile.storageKey, // Share storage key
+          storageUrl: sourceFile.storageUrl,
+        },
+      });
+      fileIdMap.set(sourceFile.id, newFile.id);
+    }
+
+    // Copy page contents (per-page annotations/notes)
+    const sourcePageContents = await this.prisma.notePageContent.findMany({
+      where: { noteId: sourceNoteId },
+    });
+
+    for (const pageContent of sourcePageContents) {
+      const newFileId = fileIdMap.get(pageContent.fileId);
+      if (newFileId) {
+        await this.prisma.notePageContent.create({
+          data: {
+            noteId: newNote.id,
+            fileId: newFileId,
+            pageNumber: pageContent.pageNumber,
+            content: pageContent.content as any,
+            storageKey: pageContent.storageKey,
+          },
+        });
+      }
+    }
+
+    // Copy audio recordings and timeline events
+    const sourceRecordings = await this.prisma.audioRecording.findMany({
+      where: {
+        noteId: sourceNoteId,
+        isActive: true,
+      },
+      include: {
+        timelineEvents: true,
+      },
+    });
+
+    for (const sourceRecording of sourceRecordings) {
+      // Create new recording (share storage)
+      const newRecording = await this.prisma.audioRecording.create({
+        data: {
+          noteId: newNote.id,
+          title: sourceRecording.title,
+          fileUrl: sourceRecording.fileUrl,
+          storageKey: sourceRecording.storageKey, // Share storage key
+          durationSec: sourceRecording.durationSec,
+        },
+      });
+
+      // Copy timeline events for this recording
+      for (const event of sourceRecording.timelineEvents) {
+        // Map fileId to new file ID if exists
+        const newFileId = event.fileId ? fileIdMap.get(event.fileId) : null;
+        await this.prisma.audioTimelineEvent.create({
+          data: {
+            recordingId: newRecording.id,
+            timestamp: event.timestamp,
+            fileId: newFileId,
+            pageNumber: event.pageNumber,
+          },
+        });
+      }
+    }
+
+    this.logger.log(`[copyNoteToMyFolder] ✅ Created copy: ${newNote.id} (files: ${sourceFiles.length}, pageContents: ${sourcePageContents.length}, recordings: ${sourceRecordings.length})`);
+
+    return {
+      id: newNote.id,
+      title: newNote.title,
+      type: newNote.type,
+      folder_id: folderId,
+      public_access: newNote.publicAccess,
+      created_at: newNote.createdAt.toISOString(),
+      updated_at: newNote.updatedAt.toISOString(),
+    };
+  }
 }

@@ -259,4 +259,15 @@ export class NotesController {
     this.logger.debug(`[removeCollaborator] userId=${userId} noteId=${noteId} collaboratorId=${collaboratorId}`);
     return this.notesService.removeCollaborator(userId, noteId, collaboratorId);
   }
+
+  @Post(':noteId/copy')
+  @ApiOperation({ summary: 'Copy a shared note to my folder' })
+  async copyNoteToMyFolder(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Body() body: { folderId?: string; title?: string },
+  ) {
+    this.logger.debug(`[copyNoteToMyFolder] userId=${userId} noteId=${noteId} folderId=${body.folderId || 'default'} title=${body.title || 'auto'}`);
+    return this.notesService.copyNoteToMyFolder(userId, noteId, body.folderId, body.title);
+  }
 }

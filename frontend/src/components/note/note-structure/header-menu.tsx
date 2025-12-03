@@ -11,17 +11,21 @@ import { useFolders } from "@/features/dashboard";
 import { useCreateNote, useUpdateNote } from "@/lib/api/mutations/notes.mutations";
 import { useNote, useNotes } from "@/lib/api/queries/notes.queries";
 import { FolderSelectorModal } from "@/components/dashboard/folder-management/folder-selector-modal";
+import { FolderSelector } from "@/components/dashboard/folder-management/folder-selector";
 import { NoteSettingsModal } from "@/components/dashboard/note-creation/create-note-modal";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
 import { KeyboardShortcutsModal } from "@/components/note/modals/keyboard-shortcuts-modal";
 import type { Note, NoteData } from "@/lib/types";
 import { LoadingScreen } from "@/components/common/loading-screen";
+import { copyNoteToMyFolder } from "@/lib/api/services/sharing.api";
 
 interface HeaderMenuProps {
   isOpen: boolean;
   onClose: () => void;
   noteId: string | null;
+  isSharedView?: boolean;
+  sourceNoteTitle?: string; // 공유 노트의 제목 (복사 모달에서 사용)
 }
 
 interface MenuItemProps {
@@ -156,6 +160,112 @@ function NoteSelectModal({ isOpen, onClose, onSelect, currentNoteId, currentFold
   );
 }
 
+// 노트 복사 모달 (공유 노트를 내 폴더로 저장)
+interface CopyNoteModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sourceTitle: string;
+  onSubmit: (title: string, folderId: string) => void;
+  isSubmitting: boolean;
+}
+
+function CopyNoteModal({ isOpen, onClose, sourceTitle, onSubmit, isSubmitting }: CopyNoteModalProps) {
+  const [title, setTitle] = useState("");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const { buildFolderTree } = useFolders();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const folderTree = buildFolderTree();
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(`${sourceTitle} (복사본)`);
+      // 폴더 트리의 첫 번째 폴더(Root)를 기본 선택
+      if (folderTree.length > 0) {
+        setSelectedFolderId(folderTree[0].folder.id);
+      } else {
+        setSelectedFolderId(null);
+      }
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 100);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, sourceTitle]);
+
+  const handleSubmit = () => {
+    if (title.trim() && selectedFolderId) {
+      onSubmit(title.trim(), selectedFolderId);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+    } else if (e.key === "Escape") {
+      onClose();
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="노트 저장"
+      contentClassName="bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[480px] max-w-[480px]"
+    >
+      <div className="flex flex-col gap-6">
+        {/* 노트 제목 입력 */}
+        <div className="flex flex-col gap-2 w-full">
+          <label className="text-sm text-foreground-secondary font-medium">노트 제목</label>
+          <input
+            ref={inputRef}
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="노트 제목을 입력하세요"
+            className="w-full px-4 py-3 bg-transparent border border-border rounded-xl text-foreground outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all placeholder:text-foreground-tertiary"
+          />
+        </div>
+
+        {/* 폴더 선택 */}
+        <div className="flex flex-col gap-2 w-full">
+          <label className="text-sm text-foreground-secondary font-medium">저장 위치</label>
+          <div className="bg-transparent border border-border rounded-xl p-2 max-h-[200px] overflow-y-auto">
+            {folderTree.length > 0 ? (
+              <FolderSelector
+                tree={folderTree}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={setSelectedFolderId}
+              />
+            ) : (
+              <div className="text-sm text-foreground-tertiary py-4 text-center">
+                폴더가 없습니다
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 하단 버튼 */}
+        <div className="flex flex-row justify-end items-center gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            variant="brand"
+            onClick={handleSubmit}
+            disabled={!title.trim() || !selectedFolderId || isSubmitting}
+          >
+            {isSubmitting ? "저장 중..." : "저장"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // 제목 수정 모달
 interface TitleEditModalProps {
   isOpen: boolean;
@@ -233,11 +343,11 @@ function TitleEditModal({ isOpen, onClose, currentTitle, onSubmit, isSubmitting 
   );
 }
 
-export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
+export function HeaderMenu({ isOpen, onClose, noteId, isSharedView = false, sourceNoteTitle = "" }: HeaderMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const { data: note } = useNote(noteId, { enabled: !!noteId });
+  const { data: note } = useNote(noteId, { enabled: !!noteId && !isSharedView });
   const { buildFolderTree } = useFolders();
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
@@ -247,9 +357,11 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isTitleEditModalOpen, setIsTitleEditModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
 
   // 모달이 열려있는지 확인
-  const isAnyModalOpen = isNoteSelectModalOpen || isCreateNoteModalOpen || isFolderModalOpen || isTitleEditModalOpen || isShortcutsModalOpen;
+  const isAnyModalOpen = isNoteSelectModalOpen || isCreateNoteModalOpen || isFolderModalOpen || isTitleEditModalOpen || isShortcutsModalOpen || isCopyModalOpen;
 
   // 외부 클릭 감지
   useEffect(() => {
@@ -342,6 +454,35 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
     setIsShortcutsModalOpen(true);
   };
 
+  // 내 노트로 저장 (공유 모드에서만) - 모달 열기
+  const handleCopyToMyNotes = () => {
+    if (!noteId) return;
+    onClose();
+    setIsCopyModalOpen(true);
+  };
+
+  // 복사 모달에서 제출 시 실행
+  const handleCopySubmit = async (title: string, folderId: string) => {
+    if (!noteId || isCopying) return;
+
+    setIsCopying(true);
+
+    try {
+      const copiedNote = await copyNoteToMyFolder(noteId, {
+        title,
+        folderId: folderId === "root" ? undefined : folderId,
+      });
+      setIsCopyModalOpen(false);
+      // 복사된 노트로 이동
+      router.push(`/note/student/${copiedNote.id}`);
+    } catch (error) {
+      console.error("Failed to copy note:", error);
+      alert(error instanceof Error ? error.message : "노트 복사에 실패했습니다");
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
   const handleTitleSubmit = (newTitle: string) => {
     if (!noteId) return;
 
@@ -364,56 +505,76 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
           className="absolute top-14 left-14 w-[200px] bg-background-elevated border border-border rounded-[10px] shadow-lg z-50 overflow-hidden"
         >
           <div className="py-2">
-            {/* 노트 이동 (다른 노트로) */}
-            <MenuItem
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-              }
-              label="노트 이동"
-              onClick={handleNavigateToNote}
-            />
+            {/* 공유 모드: 내 노트로 저장 */}
+            {isSharedView && (
+              <MenuItem
+                icon={
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                }
+                label={isCopying ? "저장 중..." : "내 노트로 저장"}
+                onClick={handleCopyToMyNotes}
+              />
+            )}
 
-            {/* 새 노트 만들기 */}
-            <MenuItem
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-              }
-              label="새 노트 만들기"
-              onClick={handleCreateNote}
-            />
+            {/* 일반 모드 메뉴 (공유 모드가 아닐 때만) */}
+            {!isSharedView && (
+              <>
+                {/* 노트 이동 (다른 노트로) */}
+                <MenuItem
+                  icon={
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                  }
+                  label="노트 이동"
+                  onClick={handleNavigateToNote}
+                />
 
-            {/* 노트 위치 옮기기 */}
-            <MenuItem
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                  <line x1="12" y1="11" x2="12" y2="17" />
-                  <polyline points="9 14 12 17 15 14" />
-                </svg>
-              }
-              label="노트 위치 옮기기"
-              onClick={handleMoveNote}
-            />
+                {/* 새 노트 만들기 */}
+                <MenuItem
+                  icon={
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="12" y1="18" x2="12" y2="12" />
+                      <line x1="9" y1="15" x2="15" y2="15" />
+                    </svg>
+                  }
+                  label="새 노트 만들기"
+                  onClick={handleCreateNote}
+                />
 
-            {/* 제목 수정 */}
-            <MenuItem
-              icon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-              }
-              label="제목 수정"
-              onClick={handleEditTitle}
-            />
+                {/* 노트 위치 옮기기 */}
+                <MenuItem
+                  icon={
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      <line x1="12" y1="11" x2="12" y2="17" />
+                      <polyline points="9 14 12 17 15 14" />
+                    </svg>
+                  }
+                  label="노트 위치 옮기기"
+                  onClick={handleMoveNote}
+                />
+
+                {/* 제목 수정 */}
+                <MenuItem
+                  icon={
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  }
+                  label="제목 수정"
+                  onClick={handleEditTitle}
+                />
+              </>
+            )}
 
             {/* 구분선 */}
             <div className="my-1 mx-3 border-t border-border" />
@@ -473,6 +634,15 @@ export function HeaderMenu({ isOpen, onClose, noteId }: HeaderMenuProps) {
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      {/* 노트 복사 모달 (공유 모드) */}
+      <CopyNoteModal
+        isOpen={isCopyModalOpen}
+        onClose={() => setIsCopyModalOpen(false)}
+        sourceTitle={sourceNoteTitle}
+        onSubmit={handleCopySubmit}
+        isSubmitting={isCopying}
       />
     </>
   );

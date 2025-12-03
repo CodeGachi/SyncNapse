@@ -220,3 +220,49 @@ export function generateCollaborationLink(noteId: string): string {
   const token = `${noteId}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
   return `${window.location.origin}/shared/${token}`;
 }
+
+// 복사된 노트 응답 타입
+export interface CopiedNote {
+  id: string;
+  title: string;
+  type: string;
+  folder_id: string;
+  public_access: PublicAccess;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * 공유된 노트를 내 폴더로 복사
+ * @param noteId 복사할 노트 ID
+ * @param options 복사 옵션 (폴더 ID, 커스텀 제목)
+ */
+export async function copyNoteToMyFolder(
+  noteId: string,
+  options?: { folderId?: string; title?: string }
+): Promise<CopiedNote> {
+  log.debug(`Copying note ${noteId} to my folder`, options);
+
+  const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/copy`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      folderId: options?.folderId,
+      title: options?.title,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: "Failed to copy note" }));
+    log.error("Failed to copy note:", error);
+    throw new Error(error.message || "노트 복사에 실패했습니다");
+  }
+
+  const copiedNote = await res.json();
+  log.info(`Note copied successfully:`, copiedNote.id);
+  return copiedNote;
+}

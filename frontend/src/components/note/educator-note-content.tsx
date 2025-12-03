@@ -50,6 +50,7 @@ export function EducatorNoteContent({
         noteId={noteId}
         noteTitle={noteTitle}
         isEducatorNote={true}
+        isSharedView={isSharedView}
       />
 
       {/* 공유 설정 모달 - Zustand로 관리 */}
