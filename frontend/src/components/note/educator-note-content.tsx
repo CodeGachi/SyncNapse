@@ -76,7 +76,7 @@ export function EducatorNoteContent({
               />
 
               {/* 우측 사이드 패널 - 스크립트, 파일, 협업 등 */}
-              <RightSidePanel noteId={noteId} isEducator={true} />
+              <RightSidePanel noteId={noteId} isEducator={true} isSharedView={isSharedView} />
 
               {/* 우측 사이드바 아이콘 - 패널 닫혔을 때 */}
               <SidebarIcons noteId={noteId} isEducator={true} />

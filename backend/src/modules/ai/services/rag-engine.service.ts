@@ -10,8 +10,7 @@ import {
 import { PrismaService } from '../../db/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { ChatMode, Citation } from '../dto/chat.dto';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 
 // RAG 설정 상수
 const CHUNK_SIZE = 512;
@@ -90,39 +89,34 @@ export class RagEngineService {
           ? fileStream.body 
           : Buffer.from(await fileStream.body.transformToByteArray());
         
-        // PDF 텍스트 추출
-        const pdfData = await pdfParse(pdfBuffer);
-        const pdfText = pdfData.text;
+        // PDF 텍스트 추출 (pdf-parse v2 API)
+        const pdfParser = new PDFParse({ data: pdfBuffer });
+        const textResult = await pdfParser.getText();
+        const totalPages = textResult.total;
 
-        if (pdfText && pdfText.trim().length > 0) {
-          // 페이지별로 분리 (pdfData.numpages 사용)
-          const totalPages = pdfData.numpages;
-          const avgCharsPerPage = Math.ceil(pdfText.length / totalPages);
-          
-          // 간단한 페이지 분할 (정확하지 않을 수 있지만 근사치)
-          for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            const startIdx = (pageNum - 1) * avgCharsPerPage;
-            const endIdx = Math.min(pageNum * avgCharsPerPage, pdfText.length);
-            const pageText = pdfText.substring(startIdx, endIdx).trim();
-            
-            if (pageText.length > 0) {
-              const doc = new Document({
-                text: pageText,
-                metadata: {
-                  noteId: lectureNoteId,
-                  type: 'pdf_content',
-                  fileId: file.id,
-                  fileName: file.fileName,
-                  pageNumber: pageNum,
-                  totalPages: totalPages,
-                },
-              });
-              documents.push(doc);
-            }
+        for (const pageResult of textResult.pages) {
+          const pageText = pageResult.text?.trim() || '';
+
+          if (pageText.length > 0) {
+            const doc = new Document({
+              text: pageText,
+              metadata: {
+                noteId: lectureNoteId,
+                type: 'pdf_content',
+                fileId: file.id,
+                fileName: file.fileName,
+                pageNumber: pageResult.num,
+                totalPages: totalPages,
+              },
+            });
+            documents.push(doc);
           }
-          
-          this.logger.debug(`Extracted ${totalPages} pages from ${file.fileName}`);
         }
+
+        // 리소스 해제
+        await pdfParser.destroy();
+
+        this.logger.debug(`Extracted ${totalPages} pages from ${file.fileName}`);
       } catch (error) {
         this.logger.warn(`Failed to extract text from PDF ${file.fileName}:`, error);
         // PDF 추출 실패해도 계속 진행

@@ -3,6 +3,11 @@
  *
  * 공유 링크로 접속 시 이 페이지를 통해 educator 노트 페이지로 리다이렉트됩니다.
  * 토큰 형식: {noteId}-{timestamp}-{randomString}
+ *
+ * 흐름:
+ * 1. 로그인 여부 확인
+ * 2. 미로그인 시 → 로그인 페이지로 리다이렉트 (returnUrl 저장)
+ * 3. 로그인됨 → educator 노트 페이지로 리다이렉트
  */
 
 "use client";
@@ -10,49 +15,110 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingScreen } from "@/components/common/loading-screen";
+import { useCurrentUser } from "@/lib/api/queries/auth.queries";
+import { getAccessToken } from "@/lib/auth/token-manager";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SharedNote");
 
 interface SharedNotePageProps {
   params: { token: string };
 }
 
+// 공유 링크 returnUrl을 localStorage에 저장하는 키
+const SHARED_RETURN_URL_KEY = "syncnapse_shared_return_url";
+
 export default function SharedNotePage({ params }: SharedNotePageProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // 현재 사용자 정보 조회
+  const { data: currentUser, isLoading: isUserLoading } = useCurrentUser();
 
   useEffect(() => {
+    // 사용자 정보 로딩 중이면 대기
+    if (isUserLoading) {
+      return;
+    }
+
+    // 토큰 확인
+    const token = getAccessToken();
+    const isAuthenticated = !!token && !!currentUser;
+
+    setIsCheckingAuth(false);
+
+    // 미로그인 시 로그인 페이지로 리다이렉트
+    if (!isAuthenticated) {
+      // 현재 URL을 저장하여 로그인 후 복귀
+      const currentUrl = window.location.href;
+      localStorage.setItem(SHARED_RETURN_URL_KEY, currentUrl);
+
+      log.info("로그인 필요 - 로그인 페이지로 이동", { currentUrl });
+
+      // 로그인 페이지로 리다이렉트
+      router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+      return;
+    }
+
+    // 로그인된 사용자 - 노트 페이지로 리다이렉트
     try {
       // 토큰에서 noteId 추출
-      // 토큰 형식: {noteId}-{timestamp}-{randomString}
-      // noteId는 UUID 형식이므로 하이픈을 포함함 (예: 171378db-92da-437e-8512-2af45cf0926e)
-      // 따라서 마지막 2개 부분 (timestamp, randomString)을 제외한 나머지를 noteId로 추출
+      // 토큰 형식 1: 순수 UUID (예: 533297d0-935f-4b59-b9a2-c722863c947d) - 36자, 하이픈 5개 부분
+      // 토큰 형식 2: {noteId}-{timestamp}-{randomString} - 7개 이상 부분
       const parts = params.token.split("-");
 
-      if (parts.length < 3) {
+      if (parts.length < 5) {
         setError("유효하지 않은 공유 링크입니다.");
         return;
       }
 
-      // 마지막 2개 부분은 timestamp와 randomString
-      // 나머지는 noteId (UUID이므로 하이픈으로 join)
-      const noteId = parts.slice(0, parts.length - 2).join('-');
+      let noteId: string;
+
+      // UUID는 정확히 5개 부분 (8-4-4-4-12 형식), 총 36자
+      const isValidUUID = parts.length === 5 && params.token.length === 36;
+
+      if (isValidUUID) {
+        // 순수 UUID 형식 - 토큰 전체가 noteId
+        noteId = params.token;
+      } else if (parts.length >= 7) {
+        // {noteId}-{timestamp}-{randomString} 형식
+        // 마지막 2개 부분은 timestamp와 randomString
+        noteId = parts.slice(0, parts.length - 2).join("-");
+      } else {
+        setError("유효하지 않은 공유 링크입니다.");
+        return;
+      }
 
       if (!noteId) {
         setError("노트 ID를 찾을 수 없습니다.");
         return;
       }
 
-      console.log(`[Share Token] 토큰 파싱 완료: noteId=${noteId}`);
+      log.debug("토큰 파싱 완료:", {
+        원본토큰: params.token,
+        parts,
+        noteId,
+        noteIdLength: noteId.length,
+        user: currentUser?.email,
+      });
 
       // educator 노트 페이지로 리다이렉트 (공유 모드)
-      // ?view=shared 파라미터를 추가하여 공유 모드로 접속함을 표시
       const redirectUrl = `/note/educator/${noteId}?view=shared&token=${params.token}`;
+      log.info("리다이렉트:", redirectUrl);
       router.push(redirectUrl);
     } catch (err) {
-      console.error("공유 링크 처리 오류:", err);
+      log.error("공유 링크 처리 오류:", err);
       setError("공유 링크 처리 중 오류가 발생했습니다.");
     }
-  }, [params.token, router]);
+  }, [params.token, router, currentUser, isUserLoading]);
 
+  // 로딩 중
+  if (isUserLoading || isCheckingAuth) {
+    return <LoadingScreen fullScreen message="인증 확인 중..." />;
+  }
+
+  // 에러 발생
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background-base">
@@ -85,7 +151,19 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
     );
   }
 
-  return (
-    <LoadingScreen fullScreen message="공유 노트로 이동 중..." />
-  );
+  return <LoadingScreen fullScreen message="공유 노트로 이동 중..." />;
+}
+
+/**
+ * 로그인 후 저장된 공유 링크 URL을 가져오고 삭제
+ * 로그인 성공 후 호출하여 원래 공유 링크로 복귀
+ */
+export function getAndClearSharedReturnUrl(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const url = localStorage.getItem(SHARED_RETURN_URL_KEY);
+  if (url) {
+    localStorage.removeItem(SHARED_RETURN_URL_KEY);
+  }
+  return url;
 }

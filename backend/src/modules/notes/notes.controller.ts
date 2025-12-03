@@ -200,4 +200,63 @@ export class NotesController {
     this.logger.debug(`[permanentlyDeleteNote] userId=${userId} noteId=${noteId}`);
     return this.notesService.permanentlyDeleteNote(userId, noteId);
   }
+
+  // ============================================================================
+  // Sharing endpoints
+  // ============================================================================
+
+  @Patch(':noteId/public-access')
+  @ApiOperation({ summary: 'Update note public access level' })
+  async updatePublicAccess(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Body() body: { publicAccess: 'PRIVATE' | 'PUBLIC_READ' | 'PUBLIC_EDIT' },
+  ) {
+    this.logger.debug(`[updatePublicAccess] userId=${userId} noteId=${noteId} access=${body.publicAccess}`);
+    return this.notesService.updatePublicAccess(userId, noteId, body.publicAccess);
+  }
+
+  @Get(':noteId/collaborators')
+  @ApiOperation({ summary: 'Get note collaborators' })
+  async getCollaborators(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+  ) {
+    this.logger.debug(`[getCollaborators] userId=${userId} noteId=${noteId}`);
+    return this.notesService.getCollaborators(userId, noteId);
+  }
+
+  @Post(':noteId/collaborators')
+  @ApiOperation({ summary: 'Invite collaborator by email' })
+  async inviteCollaborator(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Body() body: { email: string; permission: 'VIEWER' | 'EDITOR' },
+  ) {
+    this.logger.debug(`[inviteCollaborator] userId=${userId} noteId=${noteId} email=${body.email}`);
+    return this.notesService.inviteCollaborator(userId, noteId, body.email, body.permission);
+  }
+
+  @Patch(':noteId/collaborators/:collaboratorId')
+  @ApiOperation({ summary: 'Update collaborator permission' })
+  async updateCollaboratorPermission(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('collaboratorId') collaboratorId: string,
+    @Body() body: { permission: 'VIEWER' | 'EDITOR' },
+  ) {
+    this.logger.debug(`[updateCollaboratorPermission] userId=${userId} noteId=${noteId} collaboratorId=${collaboratorId}`);
+    return this.notesService.updateCollaboratorPermission(userId, noteId, collaboratorId, body.permission);
+  }
+
+  @Delete(':noteId/collaborators/:collaboratorId')
+  @ApiOperation({ summary: 'Remove collaborator' })
+  async removeCollaborator(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('collaboratorId') collaboratorId: string,
+  ) {
+    this.logger.debug(`[removeCollaborator] userId=${userId} noteId=${noteId} collaboratorId=${collaboratorId}`);
+    return this.notesService.removeCollaborator(userId, noteId, collaboratorId);
+  }
 }

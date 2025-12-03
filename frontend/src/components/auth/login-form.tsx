@@ -18,10 +18,11 @@ export function LoginForm() {
 
   // 쿼리 파라미터에서 리다이렉트 URL 저장
   useEffect(() => {
-    const callbackUrl = searchParams?.get("callbackUrl");
-    if (callbackUrl && callbackUrl !== "/" && !callbackUrl.startsWith("/auth")) {
-      localStorage.setItem("redirectAfterLogin", callbackUrl);
-      log.debug("리다이렉트 URL 저장:", callbackUrl);
+    // returnUrl 또는 callbackUrl 파라미터 지원
+    const returnUrl = searchParams?.get("returnUrl") || searchParams?.get("callbackUrl");
+    if (returnUrl && returnUrl !== "/" && !returnUrl.startsWith("/auth")) {
+      localStorage.setItem("redirectAfterLogin", returnUrl);
+      log.debug("리다이렉트 URL 저장:", returnUrl);
     }
   }, [searchParams]);
 

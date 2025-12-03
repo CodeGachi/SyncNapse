@@ -52,6 +52,7 @@ export interface ApiNoteResponse {
   updated_at: string;
   thumbnail?: string;
   type?: "student" | "educator"; // 노트 타입 (student: 개인 노트, educator: 강의 공유 노트)
+  public_access?: "PRIVATE" | "PUBLIC_READ" | "PUBLIC_EDIT"; // 공유 설정
   // 노트의 옵션 추가할 수 있는 필드들
   // tags?: string[];
   // is_favorite?: boolean;

@@ -30,9 +30,10 @@ const log = createLogger("RightSidePanel");
 interface RightSidePanelProps {
   noteId: string | null;
   isEducator?: boolean; // 교육자 노트 여부
+  isSharedView?: boolean; // 공유 링크로 접속한 학생인지 여부
 }
 
-export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelProps) {
+export function RightSidePanel({ noteId, isEducator = false, isSharedView = false }: RightSidePanelProps) {
   // 백엔드 인증 사용자 정보 가져오기
   const { data: currentUser } = useCurrentUser();
 
@@ -204,7 +205,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
                 userId={userId}
                 userName={userName}
                 noteId={noteId!}
-                isEducator={true}
+                isEducator={!isSharedView}
                 onClose={toggleCollaborationPanel}
               />
             )}

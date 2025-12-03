@@ -10,3 +10,4 @@ export * from "./files.queries";
 export * from "./recordings.queries";
 export * from "./trash.queries";
 export * from "./note-content.queries";
+export * from "./sharing.queries";
