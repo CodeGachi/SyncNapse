@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Logo } from "@/components/common/logo";
 import { CreateFolderModal } from "@/components/dashboard/folder-management/create-folder-modal";
 import { RenameFolderModal } from "@/components/dashboard/folder-management/rename-folder-modal";
