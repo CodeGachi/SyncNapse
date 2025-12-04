@@ -32,6 +32,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^10.4.15",
     "@prisma/client": "^5.22.0",
+    "@smithy/node-http-handler": "^4.4.5",
     "@types/nodemailer": "^7.0.4",
     "@types/passport-google-oauth20": "^2.0.17",
     "bullmq": "^5.65.0",

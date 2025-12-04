@@ -100,9 +100,8 @@ export class StorageService {
       },
       forcePathStyle: !!this.config.endpoint,
       requestHandler: new NodeHttpHandler({
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,  // 자체 서명 인증서 허용
-        }),
+        connectionTimeout: 5000,
+        socketTimeout: 120000,
       }),
     });
 
