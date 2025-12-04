@@ -45,7 +45,7 @@ export interface AiHealthResponse {
  * POST /api/ai/chat
  */
 export async function chatWithAi(params: ChatRequest): Promise<ChatResponse> {
-  return apiClient<ChatResponse>("/api/ai/chat", {
+  return apiClient<ChatResponse>("/ai/chat", {
     method: "POST",
     body: JSON.stringify(params),
   });
@@ -56,7 +56,7 @@ export async function chatWithAi(params: ChatRequest): Promise<ChatResponse> {
  * GET /api/ai/health
  */
 export async function checkAiHealth(): Promise<AiHealthResponse> {
-  return apiClient<AiHealthResponse>("/api/ai/health", {
+  return apiClient<AiHealthResponse>("/ai/health", {
     method: "GET",
   });
 }

@@ -248,11 +248,11 @@ export function useAudioPlayer() {
           log.warn("백엔드 프록시 오디오 로드 실패:", proxyError);
           
           // 2. 실패 시 fullAudioUrl 직접 사용 (비암호화 파일 fallback)
-          if (sessionData.fullAudioUrl) {
-            audioUrl = sessionData.fullAudioUrl.replace(
+        if (sessionData.fullAudioUrl) {
+          audioUrl = sessionData.fullAudioUrl.replace(
               /(syncnapse-files(?:-prod)?)\/(syncnapse-files(?:-prod)?)/g,
               "$1"
-            );
+          );
             log.debug("MinIO 직접 URL로 fallback:", audioUrl);
           }
         }

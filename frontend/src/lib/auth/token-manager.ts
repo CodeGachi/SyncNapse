@@ -1,14 +1,17 @@
 /**
- * Token Manager - JWT 토큰 관리 (쿠키 기반)
+ * Token Manager - JWT 토큰 관리 (쿠키 기반) - HATEOAS
  *
  * - Access Token 저장/가져오기
  * - Refresh Token 저장/가져오기
- * - 토큰 갱신
+ * - 토큰 갱신 (HATEOAS - getCachedHref 사용)
  * - 토큰 유효성 검사
+ * 
+ * Note: Uses getCachedHref (sync) to avoid circular dependency with HAL client
  */
 
 import { getCookie, setCookie, deleteCookie } from "@/lib/utils/cookie";
 import { createLogger } from "@/lib/utils/logger";
+import { getCachedHref } from "@/lib/api/hal/api-discovery";
 
 const log = createLogger("TokenManager");
 
@@ -132,8 +135,8 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 async function performRefresh(): Promise<string | null> {
   try {
-    const API_BASE_URL =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    // HATEOAS: Get refresh URL from cached links (sync to avoid circular dependency)
+    const refreshUrl = getCachedHref("refresh");
 
     // 쿠키에서 refreshToken 가져오기
     const refreshToken = getRefreshToken();
@@ -142,7 +145,7 @@ async function performRefresh(): Promise<string | null> {
     }
 
     // refreshToken을 Authorization 헤더로 전송 (cross-origin에서 쿠키가 전송되지 않으므로)
-    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    const response = await fetch(refreshUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

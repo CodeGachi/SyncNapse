@@ -73,7 +73,7 @@ export async function savePageContent(
   });
 
   const response = await apiClient<PageContent>(
-    `/api/notes/${noteId}/pages/${pageNumber}/content`,
+    `/notes/${noteId}/pages/${pageNumber}/content`,
     {
       method: 'POST',
       body: JSON.stringify({
@@ -101,7 +101,7 @@ export async function getPageContent(
   });
 
   const response = await apiClient<PageContent>(
-    `/api/notes/${noteId}/pages/${pageNumber}/content`,
+    `/notes/${noteId}/pages/${pageNumber}/content`,
     {
       method: 'GET',
     },
@@ -126,7 +126,7 @@ export async function deletePageContent(
   });
 
   await apiClient<void>(
-    `/api/notes/${noteId}/pages/${pageNumber}/content`,
+    `/notes/${noteId}/pages/${pageNumber}/content`,
     {
       method: 'DELETE',
     },
@@ -168,7 +168,7 @@ export async function saveNoteContent(
   log.debug('📤 Full request body:', JSON.stringify(bodyData, null, 2));
 
   const response = await apiClient<NoteContent>(
-    `/api/notes/${noteId}/content`,
+    `/notes/${noteId}/content`,
     {
       method: 'POST',
       body: JSON.stringify(bodyData),
@@ -188,7 +188,7 @@ export async function getNoteContent(
   log.debug('Loading note content:', { noteId });
 
   const response = await apiClient<NoteContent>(
-    `/api/notes/${noteId}/content`,
+    `/notes/${noteId}/content`,
     {
       method: 'GET',
     },
@@ -223,7 +223,7 @@ export async function deleteNoteContent(
   log.debug('Deleting note content:', { noteId });
 
   await apiClient<void>(
-    `/api/notes/${noteId}/content`,
+    `/notes/${noteId}/content`,
     {
       method: 'DELETE',
     },

@@ -25,7 +25,7 @@ const DashboardContext = createContext<DashboardContextType | undefined>(
 );
 
 const STORAGE_KEY = "dashboard_selected_folder_id";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+import { getCachedHref } from "@/lib/api/hal";
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [selectedFolderId, setSelectedFolderIdState] = useState<string | null>(null);
@@ -88,8 +88,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     try {
       log.debug('[DashboardProvider] Ensuring Root folder exists...');
 
-      // 1. Check server for Root folder
-      const res = await fetch(`${API_BASE_URL}/api/folders`, {
+      // 1. Check server for Root folder - HATEOAS
+      const foldersUrl = getCachedHref("folders");
+      const res = await fetch(foldersUrl, {
         credentials: "include",
         headers: {
           ...getAuthHeaders(),
@@ -151,7 +152,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         formData.append("folder_id", ""); // 빈 값으로 보내면 백엔드가 Root 폴더에 생성
         formData.append("type", "student");
 
-        const createNoteRes = await fetch(`${API_BASE_URL}/api/notes`, {
+        // HATEOAS: Get notes URL from links
+        const notesUrl = getCachedHref("notes");
+        const createNoteRes = await fetch(notesUrl, {
           method: "POST",
           headers: {
             ...getAuthHeaders(),
@@ -164,8 +167,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           const dummyNote = await createNoteRes.json();
           log.debug('[DashboardProvider] Dummy note created:', dummyNote.id);
 
-          // 더미 노트 삭제
-          const deleteRes = await fetch(`${API_BASE_URL}/api/notes/${dummyNote.id}`, {
+          // 더미 노트 삭제 - HATEOAS
+          const noteUrl = getCachedHref("noteById", { noteId: dummyNote.id }) || `${notesUrl}/${dummyNote.id}`;
+          const deleteRes = await fetch(noteUrl, {
             method: "DELETE",
             headers: {
               ...getAuthHeaders(),
@@ -177,8 +181,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             log.debug('[DashboardProvider] Dummy note deleted');
           }
 
-          // 서버에서 Root 폴더 다시 가져오기
-          const refreshRes = await fetch(`${API_BASE_URL}/api/folders`, {
+          // 서버에서 Root 폴더 다시 가져오기 - HATEOAS
+          const refreshRes = await fetch(foldersUrl, {
             credentials: "include",
             headers: {
               ...getAuthHeaders(),

@@ -23,7 +23,7 @@ export async function searchAll(
   }
 
   return apiClient<ApiSearchResponse>(
-    `/api/search/all?q=${encodeURIComponent(query)}&limit=${limit}`,
+    `/search/all?q=${encodeURIComponent(query)}&limit=${limit}`,
     { method: "GET" },
     { cache: false } // 검색은 캐시하지 않음
   );

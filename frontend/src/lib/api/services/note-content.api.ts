@@ -1,6 +1,7 @@
 /**
- * Note Content API Service
+ * Note Content API Service (HATEOAS)
  * IndexedDB를 단일 진실 공급원으로, 백엔드는 백그라운드 동기화
+ * Uses HAL links for API navigation
  */
 
 import { createLogger } from "@/lib/utils/logger";
@@ -9,8 +10,33 @@ import { saveNoteContent as saveNoteContentInDB, getNoteContent as getNoteConten
 const log = createLogger("NoteContentAPI");
 import { getAuthHeaders } from "../client";
 import { useSyncStore } from "@/lib/sync/sync-store";
+import { getRootUrl, halFetchUrl, HalResource, HalError } from "../hal";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+// ==========================================
+// URL Builders (HATEOAS)
+// ==========================================
+
+async function getNoteContentUrl(noteId: string, pageId: string): Promise<string> {
+  // Try templated link first
+  const url = await getRootUrl("noteContent", { noteId });
+  if (url) return `${url}/${pageId}`;
+  
+  // Fallback: construct from notes base
+  const notesUrl = await getRootUrl("notes");
+  return notesUrl 
+    ? `${notesUrl}/${noteId}/content/${pageId}` 
+    : `/notes/${noteId}/content/${pageId}`;
+}
+
+// HAL Resource types
+interface NoteContentResource extends HalResource {
+  blocks: any[];
+  updatedAt?: string;
+}
+
+// ==========================================
+// Note Content API Functions (HATEOAS)
+// ==========================================
 
 /**
  * 노트 컨텐츠 조회 (백그라운드 동기화 포함)
@@ -42,7 +68,7 @@ export async function fetchNoteContentWithSync(
 }
 
 /**
- * 백그라운드 백엔드 동기화
+ * 백그라운드 백엔드 동기화 (HATEOAS)
  * - 백엔드에서 최신 데이터 가져오기
  * - 타임스탬프 비교하여 충돌 해결
  */
@@ -54,23 +80,17 @@ async function syncFromBackendInBackground(
   try {
     log.debug('🔄 Background sync started:', { noteId, pageId });
 
-    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/content/${pageId}`, {
-      credentials: 'include',
-      headers: { ...getAuthHeaders() },
+    // HATEOAS: Get content URL from links
+    const contentUrl = await getNoteContentUrl(noteId, pageId);
+    
+    const response = await halFetchUrl<NoteContentResource>(contentUrl, {
+      method: "GET",
     });
 
-    if (!res.ok) {
-      if (res.status === 404) {
-        log.debug('ℹ️ Content not found on backend (404)');
-        return;
-      }
-      log.warn('⚠️ Failed to fetch from backend:', res.status);
-      return;
-    }
-
-    const data = await res.json();
-    const serverBlocks = data.blocks || [];
-    const serverUpdatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now();
+    const serverBlocks = response.blocks || [];
+    const serverUpdatedAt = response.updatedAt 
+      ? new Date(response.updatedAt).getTime() 
+      : Date.now();
 
     log.debug('Backend response:', {
       blocksCount: serverBlocks.length,
@@ -110,6 +130,11 @@ async function syncFromBackendInBackground(
       }
     }
   } catch (error) {
+    // 404는 컨텐츠가 없는 것으로 간주
+    if (error instanceof HalError && error.status === 404) {
+      log.debug('ℹ️ Content not found on backend (404)');
+      return;
+    }
     log.error('❌ Background sync failed:', error);
   }
 }

@@ -5,7 +5,7 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { getAccessToken } from "@/lib/auth/token-manager";
-import { API_BASE_URL } from "@/lib/api/client";
+import { getRootUrl, getCachedHref } from "@/lib/api/hal";
 import {
   saveSearchNotes,
   saveSearchFiles,
@@ -182,7 +182,9 @@ export async function needsSync(): Promise<boolean> {
 
 async function fetchNotes(token: string): Promise<ApiNote[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/notes`, {
+    // HATEOAS: Get notes URL from links
+    const notesUrl = getCachedHref("notes");
+    const res = await fetch(notesUrl, {
       credentials: "include",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -202,7 +204,9 @@ async function fetchNotes(token: string): Promise<ApiNote[]> {
 
 async function fetchSessions(token: string): Promise<ApiSession[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/transcription/sessions`, {
+    // HATEOAS: Get transcription sessions URL from links
+    const sessionsUrl = getCachedHref("transcriptionSessions") || getCachedHref("transcription") + "/sessions";
+    const res = await fetch(sessionsUrl, {
       credentials: "include",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -232,7 +236,9 @@ async function fetchAllFiles(
   // 병렬로 각 노트의 파일 가져오기
   const filePromises = notes.map(async (note) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/notes/${note.id}/files`, {
+      // HATEOAS: Get note files URL from links
+      const noteFilesUrl = getCachedHref("noteFiles", { noteId: note.id }) || `${getCachedHref("notes")}/${note.id}/files`;
+      const res = await fetch(noteFilesUrl, {
         credentials: "include",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -275,8 +281,10 @@ async function fetchAllSegments(
   // 병렬로 각 세션의 세그먼트 가져오기
   const segmentPromises = sessions.map(async (session) => {
     try {
+      // HATEOAS: Get session URL from links
+      const sessionUrl = getCachedHref("sessionById", { sessionId: session.id }) || `${getCachedHref("transcription")}/sessions/${session.id}`;
       const res = await fetch(
-        `${API_BASE_URL}/api/transcription/sessions/${session.id}`,
+        sessionUrl,
         {
           credentials: "include",
           headers: {

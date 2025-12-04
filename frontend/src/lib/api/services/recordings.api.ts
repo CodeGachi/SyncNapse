@@ -1,5 +1,6 @@
 /**
- * Recordings API V2 - 즉시 백엔드 업로드 + IndexedDB 메타데이터 저장
+ * Recordings API V2 - 즉시 백엔드 업로드 + IndexedDB 메타데이터 저장 (HATEOAS)
+ * Uses HAL links for API navigation
  *
  * 녹음 파일은 용량이 크므로 즉시 백엔드로 업로드하고
  * IndexedDB에는 메타데이터만 저장 (backendUrl 포함)
@@ -14,10 +15,41 @@ import {
   renameRecording as renameRecordingInDB,
 } from "@/lib/db/recordings";
 import { getAccessToken } from "@/lib/auth/token-manager";
-import { API_BASE_URL } from "../client";
 import { createLogger } from "@/lib/utils/logger";
+import { getRootUrl, halFetchUrl, HalResource, HalError } from "../hal";
 
 const log = createLogger("RecordingsAPI");
+
+// ==========================================
+// URL Builders (HATEOAS)
+// ==========================================
+
+async function getAudioRecordingsUrl(): Promise<string> {
+  const url = await getRootUrl("audioRecordings");
+  if (url) return url;
+  
+  // Fallback
+  const baseUrl = await getRootUrl("self");
+  return baseUrl ? `${baseUrl}/audio/recordings` : "/audio/recordings";
+}
+
+async function getRecordingsUrl(): Promise<string> {
+  const url = await getRootUrl("recordings");
+  if (url) return url;
+  
+  // Fallback
+  const baseUrl = await getRootUrl("self");
+  return baseUrl ? `${baseUrl}/recordings` : "/recordings";
+}
+
+async function getRecordingUrl(recordingId: string): Promise<string> {
+  const recordingsUrl = await getRecordingsUrl();
+  return `${recordingsUrl}/${recordingId}`;
+}
+
+// ==========================================
+// Recordings API Functions (HATEOAS)
+// ==========================================
 
 /**
  * Fetch all recordings for a note
@@ -43,15 +75,16 @@ export async function saveRecording(
 ): Promise<DBRecording> {
   const token = getAccessToken();
 
-  // 1. 즉시 백엔드에 업로드
-  // 백엔드 DTO 필드명에 맞춤: file, noteId, title, durationSec
+  // 1. 즉시 백엔드에 업로드 - HATEOAS
+  const uploadUrl = await getAudioRecordingsUrl();
+  
   const formData = new FormData();
   formData.append("file", recordingBlob, `${name}.webm`);
   formData.append("noteId", noteId);
   formData.append("title", name);
   formData.append("durationSec", String(duration));
 
-  const response = await fetch(`${API_BASE_URL}/api/audio/recordings`, {
+  const response = await fetch(uploadUrl, {
     method: "POST",
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -84,21 +117,17 @@ export async function saveRecording(
  * - IndexedDB에서도 삭제
  */
 export async function deleteRecording(recordingId: string): Promise<void> {
-  const token = getAccessToken();
-
-  // 1. 백엔드에서 삭제 시도
+  // 1. 백엔드에서 삭제 시도 - HATEOAS
   try {
-    const response = await fetch(`${API_BASE_URL}/api/recordings/${recordingId}`, {
-      method: "DELETE",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      credentials: "include",
-    });
-
-    if (!response.ok && response.status !== 404) {
-      log.warn(`Backend delete failed: ${response.status}`);
-    }
+    const deleteUrl = await getRecordingUrl(recordingId);
+    await halFetchUrl<HalResource>(deleteUrl, { method: "DELETE" });
   } catch (error) {
-    log.warn("Backend delete error:", error);
+    // 404는 이미 삭제된 것으로 간주
+    if (error instanceof HalError && error.status === 404) {
+      log.debug(`Recording already deleted on backend: ${recordingId}`);
+    } else {
+      log.warn("Backend delete error:", error);
+    }
   }
 
   // 2. IndexedDB에서 삭제
@@ -114,23 +143,13 @@ export async function renameRecording(
   recordingId: string,
   newName: string
 ): Promise<void> {
-  const token = getAccessToken();
-
-  // 1. 백엔드 업데이트 시도
+  // 1. 백엔드 업데이트 시도 - HATEOAS
   try {
-    const response = await fetch(`${API_BASE_URL}/api/recordings/${recordingId}`, {
+    const updateUrl = await getRecordingUrl(recordingId);
+    await halFetchUrl<HalResource>(updateUrl, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
       body: JSON.stringify({ name: newName }),
-      credentials: "include",
     });
-
-    if (!response.ok) {
-      log.warn(`Backend rename failed: ${response.status}`);
-    }
   } catch (error) {
     log.warn("Backend rename error:", error);
   }
