@@ -170,6 +170,10 @@ jobs:
       
       - name: Prepare Environment Variables JSON
         run: |
+          # Debug: check .env file
+          echo "📋 .env file content (first 10 lines):"
+          head -10 .env || echo "❌ .env file not found"
+          
           node -e '
             const fs = require("fs");
             const env = fs.readFileSync(".env", "utf8");
@@ -183,36 +187,42 @@ jobs:
               .filter(Boolean);
             console.log(JSON.stringify(json));
           ' > env.json
+          
+          # Debug: check env.json
+          echo "📋 env.json entries count: $(jq length env.json)"
 
       - name: Update Task Definitions & Deploy
         run: |
           TAG="${{ needs.prepare.outputs.tag }}"
+          ENV_JSON=$(cat env.json)
           
           # Update Frontend Task Definition
           aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION_FRONTEND \
             --query 'taskDefinition' --output json > /tmp/td-fe.json
           
           jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_FRONTEND }}:$TAG" \
-             --slurpfile ENV env.json \
-            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
+             --argjson ENV "$ENV_JSON" \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             /tmp/td-fe.json > /tmp/new-td-fe.json
           
           FE_ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/new-td-fe.json \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "✅ Frontend task: $FE_ARN"
           
           # Update Backend Task Definition
           aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION_BACKEND \
             --query 'taskDefinition' --output json > /tmp/td-be.json
           
           jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_BACKEND }}:$TAG" \
-             --slurpfile ENV env.json \
-            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
+             --argjson ENV "$ENV_JSON" \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             /tmp/td-be.json > /tmp/new-td-be.json
           
           BE_ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/new-td-be.json \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "✅ Backend task: $BE_ARN"
           
           # Deploy both services in parallel
           aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_FRONTEND" \
