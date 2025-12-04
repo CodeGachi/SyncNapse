@@ -30,11 +30,11 @@ export async function POST(request: NextRequest) {
     log.debug("Auth header present:", !!authHeader);
     log.debug("Auth header:", authHeader?.substring(0, 30) + "...");
 
-    // Backend API URL (server-side uses Docker service name)
-    const apiUrl = process.env.INTERNAL_API_URL || "http://backend:4000";
+    // Backend API URL (server-side, ends with /api)
+    const apiUrl = process.env.INTERNAL_API_URL || "http://backend:4000/api";
 
-    // 백엔드 Liveblocks 인증 엔드포인트 호출 (백엔드는 /api prefix 사용)
-    const response = await fetch(`${apiUrl}/api/liveblocks/auth`, {
+    // Endpoint matches root.controller.ts liveblocksAuth link: /liveblocks/auth
+    const response = await fetch(`${apiUrl}/liveblocks/auth`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -11,6 +11,11 @@
  * - 백엔드에서 영구 URL 받아서 Liveblocks 동기화에 사용
  */
 
+/**
+ * Files API V2 - IndexedDB 우선 저장 + 백엔드 동기화 (HATEOAS)
+ * Uses HAL links for API navigation
+ */
+
 import { createLogger } from "@/lib/utils/logger";
 import type { DBFile } from "@/lib/db/files";
 import { getAccessToken } from "@/lib/auth/token-manager";
@@ -24,7 +29,26 @@ import {
 } from "@/lib/db/files";
 import { useSyncStore } from "@/lib/sync/sync-store";
 import { uploadFileToServer } from "./file-upload.api";
-import { API_BASE_URL } from "../client";
+import { getRootUrl, halFetchUrl, HalResource, HalError } from "../hal";
+
+// ==========================================
+// URL Builders (HATEOAS)
+// ==========================================
+
+async function getNoteFilesUrl(noteId: string): Promise<string> {
+  // Try templated link first
+  const url = await getRootUrl("noteFiles", { noteId });
+  if (url) return url;
+  
+  // Fallback: construct from notes base
+  const notesUrl = await getRootUrl("notes");
+  return notesUrl ? `${notesUrl}/${noteId}/files` : `/notes/${noteId}/files`;
+}
+
+async function getFileDownloadUrl(noteId: string, fileId: string): Promise<string> {
+  const filesUrl = await getNoteFilesUrl(noteId);
+  return `${filesUrl}/${fileId}/download`;
+}
 
 // Re-export for backward compatibility
 import { decodeFilename } from "@/lib/utils/decode-filename";
@@ -100,7 +124,9 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
 
     log.debug(`Syncing files with backend for note: ${noteId}`);
     
-    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}/files`, {
+    // HATEOAS: Get files URL from links
+    const filesUrl = await getNoteFilesUrl(noteId);
+    const res = await fetch(filesUrl, {
       credentials: "include",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -157,9 +183,10 @@ async function syncFilesInBackground(noteId: string): Promise<void> {
           try {
             log.debug(`Downloading file: ${backendFile.fileName}`);
             
-            // 파일 다운로드 (Base64로 받음)
+            // 파일 다운로드 (Base64로 받음) - HATEOAS
+            const downloadUrl = await getFileDownloadUrl(noteId, backendFile.id);
             const downloadRes = await fetch(
-              `${API_BASE_URL}/api/notes/${noteId}/files/${backendFile.id}/download`,
+              downloadUrl,
               {
                 credentials: "include",
                 headers: {

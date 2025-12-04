@@ -1,14 +1,12 @@
 /**
- * 폴더 API 서비스
- * - 도메인 타입(Folder) 반환
- * - IndexedDB와 백엔드 API 추상화
- * - 어댑터를 통한 타입 변환
+ * Folders API Service (HATEOAS)
+ * - Uses HAL links for API navigation
+ * - Domain types (Folder) returned
+ * - IndexedDB and Backend API abstracted
  */
 
 import { createLogger } from "@/lib/utils/logger";
 import type { Folder } from "@/lib/types";
-
-const log = createLogger("FoldersAPI");
 import type { ApiFolderResponse } from "../types/api.types";
 import {
   getAllFolders as getAllFoldersFromDB,
@@ -21,64 +19,111 @@ import {
   getFolderPath as getFolderPathFromDB,
   checkDuplicateFolderName,
 } from "@/lib/db/folders";
-import { dbToFolder, dbToFolders, apiToFolder, apiToFolders } from "../adapters/folder.adapter";
-import { getAuthHeaders, API_BASE_URL } from "../client";
+import {
+  dbToFolder,
+  dbToFolders,
+  apiToFolder,
+  apiToFolders,
+} from "../adapters/folder.adapter";
+import {
+  halFetchUrl,
+  getRootUrl,
+  HalResource,
+  HalError,
+  getApiBaseUrl,
+  storeResourceLinks,
+} from "../hal";
 
+const log = createLogger("FoldersAPI");
 const USE_LOCAL = process.env.NEXT_PUBLIC_USE_LOCAL_DB !== "false";
 
+// HAL Resource types
+interface FolderResource extends HalResource, ApiFolderResponse {}
+interface FoldersListResource extends HalResource {
+  items: FolderResource[];
+  count: number;
+}
+
+// ==========================================
+// URL Builders (HATEOAS)
+// ==========================================
+
+async function getFoldersUrl(parentId?: string | null): Promise<string> {
+  const baseUrl = await getRootUrl("folders");
+  const url = baseUrl || `${getApiBaseUrl()}/folders`;
+  
+  if (parentId !== undefined) {
+    return `${url}?parentId=${parentId === null ? "null" : parentId}`;
+  }
+  return url;
+}
+
+async function getFolderUrl(folderId: string): Promise<string> {
+  // Try templated link first
+  const templateUrl = await getRootUrl("folderById", { folderId });
+  if (templateUrl) return templateUrl;
+
+  // Fallback
+  const baseUrl = await getRootUrl("folders");
+  return baseUrl ? `${baseUrl}/${folderId}` : `${getApiBaseUrl()}/folders/${folderId}`;
+}
+
+// ==========================================
+// Folders API Functions (HATEOAS)
+// ==========================================
+
 /**
- * 모든 폴더 가져오기
- * 로컬 데이터를 즉시 반환하고 백그라운드에서 서버와 동기화
- * @returns 도메인 폴더 배열
+ * Fetch all folders
+ * Returns local data immediately, syncs with server in background
  */
 export async function fetchAllFolders(): Promise<Folder[]> {
-  // 1. 로컬 데이터 우선 반환 (빠른 응답)
+  // 1. Return local data first (fast response)
   const dbFolders = await getAllFoldersFromDB();
   const localFolders = dbToFolders(dbFolders);
 
-  // 2. 백그라운드에서 서버 동기화
+  // 2. Background server sync
   syncFoldersInBackground(localFolders);
 
   return localFolders;
 }
 
 /**
- * 백그라운드 폴더 동기화
+ * Background folder synchronization
  */
 async function syncFoldersInBackground(localFolders: Folder[]): Promise<void> {
   try {
-    // 서버에서 최신 데이터 가져오기
-    const res = await fetch(`${API_BASE_URL}/api/folders`, {
-      credentials: "include",
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
-    
-    if (!res.ok) {
-      log.warn('Failed to fetch from server for sync:', res.status);
-      return;
-    }
-    
-    const apiFolders: ApiFolderResponse[] = await res.json();
-    const serverFolders = apiToFolders(apiFolders);
+    const url = await getFoldersUrl();
+    const response = await halFetchUrl<FoldersListResource>(url, { method: "GET" });
 
-    // 동기화할 데이터 찾기
-    const { syncFolders } = await import('../sync-utils');
-    const { toUpdate, toAdd, toDelete } = await syncFolders(localFolders, serverFolders);
+    const apiFolders = Array.isArray(response)
+      ? response
+      : response.items || response;
+    const serverFolders = apiToFolders(apiFolders as ApiFolderResponse[]);
 
-    // Root 폴더는 삭제하지 않음 (보호)
-    const filteredToDelete = toDelete.filter(id => {
-      const folder = localFolders.find(f => f.id === id);
+    // Find data to sync
+    const { syncFolders } = await import("../sync-utils");
+    const { toUpdate, toAdd, toDelete } = await syncFolders(
+      localFolders,
+      serverFolders
+    );
+
+    // Don't delete Root folder (protected)
+    const filteredToDelete = toDelete.filter((id) => {
+      const folder = localFolders.find((f) => f.id === id);
       return !(folder?.name === "Root" && folder?.parentId === null);
     });
 
-    // IndexedDB 업데이트
-    if (toUpdate.length > 0 || toAdd.length > 0 || filteredToDelete.length > 0) {
-      const { saveFolder, permanentlyDeleteFolder } = await import('@/lib/db/folders');
-      const { folderToDb } = await import('../adapters/folder.adapter');
+    // Update IndexedDB
+    if (
+      toUpdate.length > 0 ||
+      toAdd.length > 0 ||
+      filteredToDelete.length > 0
+    ) {
+      const { saveFolder, permanentlyDeleteFolder } = await import(
+        "@/lib/db/folders"
+      );
+      const { folderToDb } = await import("../adapters/folder.adapter");
 
-      // toUpdate와 toAdd 모두 saveFolder로 처리 (put 메서드 사용)
       const allToSave = [...toUpdate, ...toAdd];
 
       for (const folder of allToSave) {
@@ -86,26 +131,26 @@ async function syncFoldersInBackground(localFolders: Folder[]): Promise<void> {
         await saveFolder(dbFolder);
       }
 
-      // toDelete 처리 - 서버에서 삭제된 폴더는 로컬에서도 영구 삭제 (Root 제외)
       for (const folderId of filteredToDelete) {
         await permanentlyDeleteFolder(folderId);
       }
 
-      log.info(`✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${filteredToDelete.length} deleted folders from server`);
+      log.info(
+        `✅ Synced ${toUpdate.length} updates, ${toAdd.length} new, ${filteredToDelete.length} deleted folders from server`
+      );
 
-      // React Query cache 무효화 (다음 쿼리에서 최신 데이터 가져오도록)
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('folders-synced'));
+      // Invalidate React Query cache
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("folders-synced"));
       }
     }
   } catch (error) {
-    log.error('Background sync failed:', error);
+    log.error("Background sync failed:", error);
   }
 }
 
 /**
- * 특정 폴더의 하위 폴더 가져오기
- * @returns 도메인 폴더 배열
+ * Fetch folders by parent
  */
 export async function fetchFoldersByParent(
   parentId: string | null
@@ -114,31 +159,27 @@ export async function fetchFoldersByParent(
     const dbFolders = await getFoldersByParentFromDB(parentId);
     return dbToFolders(dbFolders);
   } else {
-    const url = parentId
-      ? `${API_BASE_URL}/api/folders?parentId=${parentId}`
-      : `${API_BASE_URL}/api/folders?parentId=null`;
-    const res = await fetch(url, {
-      credentials: "include",
-      headers: {
-        ...getAuthHeaders(), // Add JWT token for authentication
-      },
+    const url = await getFoldersUrl(parentId);
+    const response = await halFetchUrl<FoldersListResource>(url, {
+      method: "GET",
     });
-    if (!res.ok) throw new Error("Failed to fetch folders");
-    const apiFolders: ApiFolderResponse[] = await res.json();
-    return apiToFolders(apiFolders);
+
+    const apiFolders = Array.isArray(response)
+      ? response
+      : response.items || response;
+    return apiToFolders(apiFolders as ApiFolderResponse[]);
   }
 }
 
 /**
- * 폴더 생성
- * IndexedDB에 즉시 저장 후 백엔드와 병렬 동기화
- * @returns 생성된 도메인 폴더
+ * Create folder
+ * Saves to IndexedDB immediately, syncs to backend in background
  */
 export async function createFolder(
   name: string,
   parentId: string | null = null
 ): Promise<Folder> {
-  // Check for duplicate name in the same parent folder
+  // Check for duplicate name
   const isDuplicate = await checkDuplicateFolderName(name, parentId);
   if (isDuplicate) {
     const parentLabel = parentId ? "이 폴더" : "루트 폴더";
@@ -148,48 +189,44 @@ export async function createFolder(
   let localResult: Folder | null = null;
   let folderId: string | null = null;
 
-  // 1. Save to IndexedDB immediately (fast local storage)
+  // 1. Save to IndexedDB immediately
   try {
     const dbFolder = await createFolderInDB(name, parentId);
-    folderId = dbFolder.id; // Use this ID for both local and backend
+    folderId = dbFolder.id;
     localResult = dbToFolder(dbFolder);
     log.debug(`Folder saved to IndexedDB with ID:`, folderId);
   } catch (error) {
     log.error("Failed to save to IndexedDB:", error);
   }
 
-  // 2. Sync to backend in parallel (don't wait for it)
+  // 2. Sync to backend in background
   const syncToBackend = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/folders`, {
+      const url = await getFoldersUrl();
+      const response = await halFetchUrl<FolderResource>(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        credentials: "include",
         body: JSON.stringify({ 
-          id: folderId, // Send the same ID to backend
+          id: folderId,
           name, 
-          parent_id: parentId 
+          parent_id: parentId,
         }), 
       });
 
-      if (!res.ok) throw new Error("Failed to create folder on backend");
+      log.info(`✅ Folder synced to backend:`, name, `ID: ${response.id}`);
 
-      const backendFolder: ApiFolderResponse = await res.json();
-      log.info(`✅ Folder synced to backend:`, name, `ID: ${backendFolder.id}`);
+      // Store links from created folder
+      if (response._links) {
+        storeResourceLinks("folder", response.id, response);
+      }
 
-      return backendFolder;
+      return response;
     } catch (error) {
       log.error("Failed to sync to backend:", error);
-      // TODO: Implement retry queue using useSyncStore
-      // getSyncQueue().addTask('folder-create', { id: folderId, name, parent_id: parentId });
       return null;
     }
   };
 
-  // Start background sync (non-blocking)
+  // Start background sync
   syncToBackend();
 
   // Return local result immediately
@@ -197,25 +234,19 @@ export async function createFolder(
     return localResult;
   }
 
-  // If IndexedDB failed, try API as last resort
-  const res = await fetch(`${API_BASE_URL}/api/folders`, {
+  // If IndexedDB failed, call API directly
+  const url = await getFoldersUrl();
+  const response = await halFetchUrl<FolderResource>(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-    },
-    credentials: "include",
     body: JSON.stringify({ name, parent_id: parentId }), 
   });
 
-  if (!res.ok) throw new Error("Failed to create folder");
-  const apiFolder: ApiFolderResponse = await res.json();
-  return apiToFolder(apiFolder);
+  return apiToFolder(response);
 }
 
 /**
- * 폴더 이름 변경
- * IndexedDB에서 즉시 이름 변경 후 백엔드와 동기화
+ * Rename folder
+ * Renames in IndexedDB immediately, syncs to backend in background
  */
 export async function renameFolder(
   folderId: string,
@@ -229,36 +260,26 @@ export async function renameFolder(
     log.error("Failed to rename in IndexedDB:", error);
   }
 
-  // 2. Sync to backend in parallel
+  // 2. Sync to backend in background
   const syncToBackend = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}`, {
+      const url = await getFolderUrl(folderId);
+      await halFetchUrl<FolderResource>(url, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        credentials: "include",
         body: JSON.stringify({ name: newName }),
       });
-
-      if (!res.ok) throw new Error("Failed to rename folder on backend");
       log.info(`Folder rename synced to backend:`, newName);
     } catch (error) {
       log.error("Failed to sync rename to backend:", error);
-      // 재시도 큐에 추가
-      // TODO: Implement retry queue using useSyncStore
-      // getSyncQueue().addTask('folder-update', { id: folderId, updates: { name: newName } });
     }
   };
 
-  // Start background sync
   syncToBackend();
 }
 
 /**
- * 폴더 삭제
- * IndexedDB에서 즉시 삭제 후 백엔드와 동기화
+ * Delete folder
+ * Deletes from IndexedDB immediately, syncs to backend in background
  */
 export async function deleteFolder(folderId: string): Promise<void> {
   // 1. Delete from IndexedDB immediately
@@ -269,44 +290,29 @@ export async function deleteFolder(folderId: string): Promise<void> {
     log.error("Failed to delete from IndexedDB:", error);
   }
 
-  // 2. Sync to backend in parallel
+  // 2. Sync to backend in background
   const syncToBackend = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          ...getAuthHeaders(),
-        },
-      });
-
-      // DEBUG: Log response status
-      log.debug(`Delete folder response status: ${res.status}`);
-      
-      // 404는 이미 삭제된 것으로 간주하고 에러로 처리하지 않음
-      if (!res.ok && res.status !== 404) {
-        throw new Error(`Failed to delete folder: ${res.statusText}`);
-      }
+      const url = await getFolderUrl(folderId);
+      await halFetchUrl<HalResource>(url, { method: "DELETE" });
 
       log.info(`Folder deletion synced to backend:`, folderId);
     } catch (error) {
-      log.error("Failed to sync deletion to backend:", error);
-      // 404 에러가 아닌 경우에만 재시도 큐에 추가
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (!errorMessage.includes('404')) {
-        // TODO: Implement retry queue using useSyncStore
-        // getSyncQueue().addTask('folder-delete', { id: folderId });
+      // 404 means already deleted, don't treat as error
+      if (error instanceof HalError && error.status === 404) {
+        log.debug(`Folder already deleted on backend:`, folderId);
+        return;
       }
+      log.error("Failed to sync deletion to backend:", error);
     }
   };
 
-  // Start background sync
   syncToBackend();
 }
 
 /**
- * 폴더 이동
- * IndexedDB에서 즉시 이동 후 백엔드와 동기화
+ * Move folder
+ * Moves in IndexedDB immediately, syncs to backend in background
  */
 export async function moveFolder(
   folderId: string,
@@ -320,50 +326,40 @@ export async function moveFolder(
     log.error("Failed to move in IndexedDB:", error);
   }
 
-  // 2. Sync to backend in parallel
+  // 2. Sync to backend in background
   const syncToBackend = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}/move`, {
+      const url = `${await getFolderUrl(folderId)}/move`;
+      await halFetchUrl<FolderResource>(url, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        credentials: "include",
         body: JSON.stringify({ parentId: newParentId }),
       });
-
-      if (!res.ok) throw new Error("Failed to move folder on backend");
       log.info(`Folder move synced to backend:`, folderId);
     } catch (error) {
       log.error("Failed to sync move to backend:", error);
-      // 재시도 큐에 추가
-      // TODO: Implement retry queue using useSyncStore
-      // getSyncQueue().addTask('folder-move', { id: folderId, newParentId });
     }
   };
 
-  // Start background sync
   syncToBackend();
 }
 
 /**
- * 폴더 경로 가져오기
- * @returns 도메인 폴더 배열 (루트에서 현재 폴더까지)
+ * Fetch folder path
+ * @returns Domain folder array (from root to current folder)
  */
 export async function fetchFolderPath(folderId: string): Promise<Folder[]> {
   if (USE_LOCAL) {
     const dbFolders = await getFolderPathFromDB(folderId);
     return dbToFolders(dbFolders);
   } else {
-    const res = await fetch(`${API_BASE_URL}/api/folders/${folderId}/path`, {
-      credentials: "include",
-      headers: {
-        ...getAuthHeaders(), // Add JWT token for authentication
-      },
+    const url = `${await getFolderUrl(folderId)}/path`;
+    const response = await halFetchUrl<FoldersListResource>(url, {
+      method: "GET",
     });
-    if (!res.ok) throw new Error("Failed to fetch folder path");
-    const apiFolders: ApiFolderResponse[] = await res.json();
-    return apiToFolders(apiFolders);
+
+    const apiFolders = Array.isArray(response)
+      ? response
+      : response.items || response;
+    return apiToFolders(apiFolders as ApiFolderResponse[]);
   }
 }

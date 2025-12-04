@@ -11,7 +11,8 @@
 
 import { useSyncStore } from "./sync-store";
 import type { SyncQueueItem } from "./sync-queue";
-import { apiClient, API_BASE_URL } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
+import { getRootUrl, getCachedHref } from "@/lib/api/hal";
 import { getFileById } from "@/lib/db/files";
 import { getAccessToken } from "@/lib/auth/token-manager";
 import { createLogger } from "@/lib/utils/logger";
@@ -78,7 +79,9 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
 
         const token = getAccessToken();
 
-        const response = await fetch(`${API_BASE_URL}/api/notes/${noteId}/files`, {
+        // HATEOAS: Get note files URL
+        const noteFilesUrl = getCachedHref("noteFiles", { noteId }) || `/notes/${noteId}/files`;
+        const response = await fetch(noteFilesUrl, {
           method: "POST",
           body: formData,
           headers: token ? { "Authorization": `Bearer ${token}` } : {},
@@ -106,7 +109,7 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
           log.debug(`File not synced to backend, skipping delete API call: ${entityId}`);
           return; // 백엔드에 없는 파일은 스킵
         }
-        endpoint = `/api/files/${backendId}`;
+        endpoint = `/files/${backendId}`;
       } else {
         throw new Error(`file does not support ${operation} operation`);
       }
@@ -290,10 +293,10 @@ export async function pullFromBackend(): Promise<void> {
 
     // 백엔드에서 모든 데이터 가져오기
     const [notes, folders, files, recordings] = await Promise.all([
-      apiClient<any[]>("/api/notes", { method: "GET" }).catch(() => []),
-      apiClient<any[]>("/api/folders", { method: "GET" }).catch(() => []),
-      apiClient<any[]>("/api/files", { method: "GET" }).catch(() => []),
-      apiClient<any[]>("/api/recordings", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/notes", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/folders", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/files", { method: "GET" }).catch(() => []),
+      apiClient<any[]>("/recordings", { method: "GET" }).catch(() => []),
     ]);
 
     log.info(`Fetched ${notes.length} notes, ${folders.length} folders, ${files.length} files, ${recordings.length} recordings`);

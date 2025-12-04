@@ -38,6 +38,7 @@
     "env:push:prod": "bun scripts/push-env-to-repo.mjs prod",
     "gemini:setup": "bash scripts/add-gemini-key.sh",
     "setup": "bun install --ignore-scripts && cd backend && bun install --ignore-scripts && cd ../frontend && bun install --ignore-scripts && cd .. && bun run --cwd backend prisma:generate && bun run env:sync && ENV_TARGET=dev bun scripts/sync-envs.mjs",
+    "setup:full": "bun run setup && bun run dev:all",
     "dev:all": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml up -d --build",
     "dev:down": "docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.minio.yml down",
     "dev:restart": "bun run dev:down && bun run dev:all",

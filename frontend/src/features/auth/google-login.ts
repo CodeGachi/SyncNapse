@@ -56,8 +56,8 @@ export function useGoogleLogin() {
           log.debug("리다이렉트 URL 저장:", currentPath);
         }
 
-        // 백엔드 Google OAuth URL로 리다이렉트
-        const loginUrl = getGoogleLoginUrl();
+        // 백엔드 Google OAuth URL로 리다이렉트 (HATEOAS)
+        const loginUrl = await getGoogleLoginUrl();
         window.location.href = loginUrl;
       }
     } catch (err: any) {

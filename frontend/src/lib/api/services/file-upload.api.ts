@@ -58,7 +58,7 @@ export async function uploadFileToServer(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_URL}/api/notes/${noteId}/files`, {
+    const response = await fetch(`${API_URL}/notes/${noteId}/files`, {
       method: "POST",
       body: formData,
       headers,
@@ -109,7 +109,7 @@ export async function uploadFileToServer(
  */
 export async function getFileDownloadUrl(fileId: string): Promise<string> {
   try {
-    const response = await fetch(`${API_URL}/api/files/${fileId}`);
+    const response = await fetch(`${API_URL}/files/${fileId}`);
 
     if (!response.ok) {
       throw new Error(`파일 URL 가져오기 실패: ${response.status}`);
