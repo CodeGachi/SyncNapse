@@ -211,8 +211,8 @@ jobs:
             --query 'taskDefinition' --output json > /tmp/td-fe.json
           
           jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_FRONTEND }}:$TAG" \
-             --slurpfile ENV env.json \
-            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
+             --slurpfile ENVVARS env.json \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENVVARS[0] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             /tmp/td-fe.json > /tmp/new-td-fe.json
           
@@ -225,8 +225,8 @@ jobs:
             --query 'taskDefinition' --output json > /tmp/td-be.json
           
           jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_BACKEND }}:$TAG" \
-             --slurpfile ENV env.json \
-            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
+             --slurpfile ENVVARS env.json \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENVVARS[0] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             /tmp/td-be.json > /tmp/new-td-be.json
           
