@@ -1,18 +1,11 @@
-import Image from "next/image";
+import { Logo } from "@/components/common/logo";
 
 export function Footer() {
   return (
     <footer className="py-12 px-6 border-t border-white/5 bg-[#1a1a1a]">
       <div className="max-w-5xl mx-auto flex justify-between items-center text-gray-500 text-sm">
         <div className="flex items-center gap-2">
-          <div className="relative w-5 h-5 opacity-50">
-            <Image
-              src="/logo.svg"
-              alt="SyncNapse"
-              fill
-              className="object-contain"
-            />
-          </div>
+          <Logo width={20} height={20} className="opacity-50" />
           <span>&copy; 2025 SyncNapse.</span>
         </div>
         <div className="flex gap-6">

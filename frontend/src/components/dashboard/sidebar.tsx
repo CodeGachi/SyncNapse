@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/common/logo";
 import { CreateFolderModal } from "@/components/dashboard/folder-management/create-folder-modal";
 import { RenameFolderModal } from "@/components/dashboard/folder-management/rename-folder-modal";
 import { DeleteConfirmModal } from "@/components/dashboard/delete-confirm-modal";
@@ -88,13 +88,7 @@ export function Sidebar({
             <div className="flex flex-col items-start py-3 gap-[18px] w-full border-b border-border-subtle">
               {/* Logo Container - gap: 8px */}
               <div className="flex items-center gap-2 h-[42px]">
-                <Image
-                  src="/logo.svg"
-                  alt="SyncNapse Logo"
-                  width={42}
-                  height={42}
-                  className="drop-shadow-[0_0_8px_rgba(0,0,0,0.25)] dark:drop-shadow-none"
-                />
+                <Logo className="drop-shadow-[0_0_8px_rgba(0,0,0,0.25)] dark:drop-shadow-none" />
                 <span className="text-foreground text-2xl font-bold leading-[29px] font-['Inter']">
                   SyncNapse
                 </span>

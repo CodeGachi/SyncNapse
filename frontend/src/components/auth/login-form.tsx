@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/use-auth";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { createLogger } from "@/lib/utils/logger";
 import { motion } from "framer-motion";
-import Image from "next/image";
+import { Logo } from "@/components/common/logo";
 
 const log = createLogger("Login");
 
@@ -78,14 +78,11 @@ export function LoginForm() {
                 transition={{ delay: 0.2, duration: 0.5 }}
                 className="flex items-center gap-4 mb-2"
               >
-                <div className="relative w-16 h-16">
-                  <Image
-                    src="/logo.svg"
-                    alt="SyncNapse Logo"
-                    fill
-                    className="object-contain drop-shadow-[0_0_15px_rgba(175,192,43,0.3)]"
-                  />
-                </div>
+                <Logo
+                  width={64}
+                  height={64}
+                  className="drop-shadow-[0_0_15px_rgba(175,192,43,0.3)]"
+                />
                 <h1 className="text-5xl font-bold text-foreground tracking-tight">
                   SyncNapse
                 </h1>
