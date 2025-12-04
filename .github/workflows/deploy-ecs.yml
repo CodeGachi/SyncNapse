@@ -16,7 +16,7 @@ env:
 
 jobs:
   # ============================================
-  # Prepare: Sync env & apply DB schema
+  # Prepare: Apply DB schema only
   # ============================================
   prepare:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' || github.event_name == 'workflow_dispatch' }}
@@ -41,30 +41,13 @@ jobs:
         id: vars
         run: echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      - name: Sync Environment & Apply DB Schema
+      - name: Apply DB Schema
         env:
-          GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
-          ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
           DATABASE_URL: postgresql://${{ secrets.PROD_DB_USER }}:${{ secrets.PROD_DB_PASSWORD }}@${{ secrets.PROD_DB_HOST }}:${{ secrets.PROD_DB_PORT }}/${{ secrets.PROD_DB_NAME }}?schema=public
         run: |
-          # Install and sync env
-          bun install --ignore-scripts
-          bun scripts/sync-env-from-repo.mjs prod
-          cp .env.prod .env && cp .env frontend/.env
-          
-          # Apply DB schema (uses backend's prisma)
           cd backend && bun install --frozen-lockfile
           bunx prisma db push --skip-generate --accept-data-loss
-          echo "✅ Prepare complete"
-
-      - name: Upload env artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: env-files
-          path: |
-            .env
-            frontend/.env
-          retention-days: 1
+          echo "✅ DB Schema applied"
 
   # ============================================
   # Build Frontend (parallel)
@@ -72,16 +55,21 @@ jobs:
   build-frontend:
     needs: prepare
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download env artifact
-        uses: actions/download-artifact@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          name: env-files
-          path: .
+          bun-version: latest
+
+      - name: Sync env for frontend build
+        env:
+          GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
+          ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
+        run: |
+          bun install --ignore-scripts
+          bun scripts/sync-env-from-repo.mjs prod
+          cp .env.prod frontend/.env
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -94,7 +82,6 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Build and push Frontend
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
@@ -111,17 +98,12 @@ jobs:
             type=registry,ref=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:cache,mode=max
           provenance: false
 
-      - run: echo "image=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:${{ needs.prepare.outputs.tag }}" >> $GITHUB_OUTPUT
-        id: output
-
   # ============================================
   # Build Backend (parallel)
   # ============================================
   build-backend:
     needs: prepare
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -136,7 +118,6 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Build and push Backend
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -153,9 +134,6 @@ jobs:
             type=registry,ref=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:cache,mode=max
           provenance: false
 
-      - run: echo "image=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:${{ needs.prepare.outputs.tag }}" >> $GITHUB_OUTPUT
-        id: output
-
   # ============================================
   # Deploy to ECS
   # ============================================
@@ -171,11 +149,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download env artifact
-        uses: actions/download-artifact@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          name: env-files
-          path: .
+          bun-version: latest
+
+      - name: Sync env for task definition
+        env:
+          GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
+          ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
+        run: |
+          bun install --ignore-scripts
+          bun scripts/sync-env-from-repo.mjs prod
+          cp .env.prod .env
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
