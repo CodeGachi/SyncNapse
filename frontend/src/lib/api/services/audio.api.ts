@@ -50,7 +50,7 @@ export interface CreateTimelineEventDto {
 export async function createRecording(
   dto: CreateAudioRecordingDto
 ): Promise<AudioRecording> {
-  return apiClient<AudioRecording>('/api/audio/recordings', {
+  return apiClient<AudioRecording>('/audio/recordings', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -62,7 +62,7 @@ export async function createRecording(
 export async function getRecording(
   recordingId: string
 ): Promise<AudioRecording> {
-  return apiClient<AudioRecording>(`/api/audio/recordings/${recordingId}`);
+  return apiClient<AudioRecording>(`/audio/recordings/${recordingId}`);
 }
 
 /**
@@ -72,7 +72,7 @@ export async function deleteRecording(
   recordingId: string
 ): Promise<{ message: string }> {
   return apiClient<{ message: string }>(
-    `/api/audio/recordings/${recordingId}`,
+    `/audio/recordings/${recordingId}`,
     {
       method: 'DELETE',
     }
@@ -87,7 +87,7 @@ export async function addTimelineEvent(
   dto: CreateTimelineEventDto
 ): Promise<AudioTimelineEvent> {
   return apiClient<AudioTimelineEvent>(
-    `/api/audio/recordings/${recordingId}/timeline`,
+    `/audio/recordings/${recordingId}/timeline`,
     {
       method: 'POST',
       body: JSON.stringify(dto),
@@ -102,7 +102,7 @@ export async function getTimelineEvents(
   recordingId: string
 ): Promise<AudioTimelineEvent[]> {
   return apiClient<AudioTimelineEvent[]>(
-    `/api/audio/recordings/${recordingId}/timeline`
+    `/audio/recordings/${recordingId}/timeline`
   );
 }
 

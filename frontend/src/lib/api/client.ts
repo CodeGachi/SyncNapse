@@ -11,7 +11,7 @@
  */
 
 import { createLogger } from "@/lib/utils/logger";
-import { getAccessToken, getValidAccessToken } from "@/lib/auth/token-manager";
+import { getAccessToken, getValidAccessToken, refreshAccessToken, clearTokens } from "@/lib/auth/token-manager";
 
 const log = createLogger("API");
 
@@ -95,8 +95,14 @@ function getBackoffDelay(attempt: number): number {
  */
 function isRetryable(status: number): boolean {
   // 429 (Too Many Requests), 500, 502, 503, 504 재시도
+  // Note: 401은 별도 처리 (토큰 갱신 후 재시도)
   return status === 429 || (status >= 500 && status < 600);
 }
+
+/**
+ * 401 응답 시 토큰 갱신 후 재시도 여부 추적
+ */
+let isRefreshing401 = false;
 
 /**
  * 캐시 키 생성
@@ -301,6 +307,65 @@ async function retryRequest<T>(
 
         lastError = error;
 
+        // 401 Unauthorized: 토큰 갱신 후 재시도
+        if (finalResponse.status === 401 && !isRefreshing401) {
+          isRefreshing401 = true;
+          log.warn("401 Unauthorized - attempting token refresh...");
+          
+          try {
+            const newToken = await refreshAccessToken();
+            
+            if (newToken) {
+              log.info("Token refreshed, retrying request...");
+              isRefreshing401 = false;
+              
+              // 새 토큰으로 헤더 업데이트 후 재시도 (attempt 증가 없이)
+              const newOptions = {
+                ...options,
+                headers: {
+                  ...options.headers,
+                  Authorization: `Bearer ${newToken}`,
+                },
+              };
+              
+              const retryResponse = await fetchWithTimeout(url, config.timeout, newOptions);
+              
+              if (retryResponse.ok) {
+                const data = await retryResponse.json();
+                if ((options.method || "GET") === "GET" && config.cache) {
+                  setCachedData(url, data, options);
+                }
+                log.debug(`Success after token refresh: ${options.method || "GET"} ${endpoint}`);
+                return data;
+              }
+              
+              // 갱신 후에도 실패하면 에러 throw
+              const retryError: ApiError = {
+                message: `HTTP ${retryResponse.status}: ${retryResponse.statusText}`,
+                status: retryResponse.status,
+                retryable: false,
+              };
+              throw retryError;
+            } else {
+              // 토큰 갱신 실패 - 로그아웃 처리
+              log.error("Token refresh failed, logging out...");
+              clearTokens();
+              if (typeof window !== "undefined") {
+                window.location.href = "/login";
+              }
+              throw error;
+            }
+          } catch (refreshError) {
+            isRefreshing401 = false;
+            log.error("Token refresh error:", refreshError);
+            clearTokens();
+            if (typeof window !== "undefined") {
+              window.location.href = "/login";
+            }
+            throw error;
+          }
+        }
+
         // 재시도 불가능한 에러면 즉시 throw
         if (!error.retryable) {
           throw error;
@@ -405,17 +470,12 @@ export async function setupAuthInterceptor(): Promise<void> {
     return config;
   });
 
-  // Error 인터셉터: 401 에러 시 토큰 갱신 및 로그아웃 처리
+  // Error 인터셉터: 401 에러 시 로깅 (토큰 갱신은 retryRequest에서 처리)
   addErrorInterceptor(async (error) => {
     if (error.status === 401) {
-      log.warn("Unauthorized - clearing tokens");
-      const { clearTokens } = await import("../auth/token-manager");
-      clearTokens();
-
-      // 로그인 페이지로 리다이렉트 (클라이언트에서만)
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      // 401은 retryRequest()에서 토큰 갱신 후 재시도 처리됨
+      // 여기까지 도달했다면 토큰 갱신도 실패한 경우
+      log.warn("Unauthorized after token refresh attempt - redirecting to login");
     }
   });
 

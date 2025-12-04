@@ -50,6 +50,22 @@ jobs:
           
           echo "✅ Environment synced successfully"
 
+      - name: Apply DB Schema
+        run: |
+          # Install PostgreSQL client
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          
+          # Apply schema from db/init/001_schema.sql
+          PGPASSWORD="${{ secrets.PROD_DB_PASSWORD }}" psql \
+            -h "${{ secrets.PROD_DB_HOST }}" \
+            -p "${{ secrets.PROD_DB_PORT }}" \
+            -U "${{ secrets.PROD_DB_USER }}" \
+            -d "${{ secrets.PROD_DB_NAME }}" \
+            -f db/init/001_schema.sql \
+            --set ON_ERROR_STOP=on
+          
+          echo "✅ DB Schema applied successfully"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:

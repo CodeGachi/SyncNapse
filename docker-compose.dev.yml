@@ -24,7 +24,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: sh -lc "bun install && bun run dev"
+    command: bun run dev
     depends_on:
       - backend
 
@@ -42,7 +42,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-    command: sh -lc "bun install && bun run prisma:generate && bunx prisma db push --accept-data-loss && bun run start:dev"
+    command: sh -lc "bunx prisma db push --accept-data-loss && bun run start:dev"
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,5 +1,6 @@
-import { apiClient } from '../client';
+import { apiClient, API_BASE_URL } from '../client';
 import { getAccessToken } from '@/lib/auth/token-manager';
+import { getRootUrl, getApiBaseUrl, halFetchUrl, HalResource } from '../hal';
 
 export interface TranscriptionSession {
   id: string;
@@ -122,7 +123,7 @@ export async function createSession(
   noteId?: string,
   audioRecordingId?: string,
 ): Promise<TranscriptionSession> {
-  return apiClient<TranscriptionSession>('/api/transcription/sessions', {
+  return apiClient<TranscriptionSession>('/transcription/sessions', {
     method: 'POST',
     body: JSON.stringify({ title, noteId, audioRecordingId }),
   });
@@ -132,7 +133,7 @@ export async function endSession(
   sessionId: string,
 ): Promise<TranscriptionSession> {
   return apiClient<TranscriptionSession>(
-    `/api/transcription/sessions/${sessionId}/end`,
+    `/transcription/sessions/${sessionId}/end`,
     {
       method: 'POST',
     },
@@ -140,7 +141,7 @@ export async function endSession(
 }
 
 export async function getSessions(): Promise<TranscriptionSession[]> {
-  return apiClient<TranscriptionSession[]>('/api/transcription/sessions');
+  return apiClient<TranscriptionSession[]>('/transcription/sessions');
 }
 
 export async function getSession(sessionId: string) {
@@ -149,13 +150,13 @@ export async function getSession(sessionId: string) {
       audioChunks: (AudioChunk & { signedUrl?: string })[];
       segments: TranscriptSegment[];
     }
-  >(`/api/transcription/sessions/${sessionId}`);
+  >(`/transcription/sessions/${sessionId}`);
 }
 
 export async function saveAudioChunk(
   dto: SaveAudioChunkDto,
 ): Promise<AudioChunk> {
-  return apiClient<AudioChunk>('/api/transcription/audio-chunks', {
+  return apiClient<AudioChunk>('/transcription/audio-chunks', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -164,7 +165,7 @@ export async function saveAudioChunk(
 export async function saveTranscript(
   dto: SaveTranscriptDto,
 ): Promise<TranscriptSegment> {
-  return apiClient<TranscriptSegment>('/api/transcription/segments', {
+  return apiClient<TranscriptSegment>('/transcription/segments', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -174,7 +175,7 @@ export async function getTranscripts(
   sessionId: string,
 ): Promise<TranscriptSegment[]> {
   return apiClient<TranscriptSegment[]>(
-    `/api/transcription/sessions/${sessionId}/transcripts`,
+    `/transcription/sessions/${sessionId}/transcripts`,
   );
 }
 
@@ -183,7 +184,7 @@ export async function getAudioChunkByTime(
   time: number,
 ): Promise<AudioChunk | null> {
   return apiClient<AudioChunk | null>(
-    `/api/transcription/sessions/${sessionId}/audio-chunk?time=${time}`,
+    `/transcription/sessions/${sessionId}/audio-chunk?time=${time}`,
   );
 }
 
@@ -193,7 +194,7 @@ export async function getTranscriptsByTimeRange(
   endTime: number,
 ): Promise<TranscriptSegment[]> {
   return apiClient<TranscriptSegment[]>(
-    `/api/transcription/sessions/${sessionId}/transcripts/range?startTime=${startTime}&endTime=${endTime}`,
+    `/transcription/sessions/${sessionId}/transcripts/range?startTime=${startTime}&endTime=${endTime}`,
   );
 }
 
@@ -202,7 +203,7 @@ export async function getTranscriptsByTimeRange(
 export async function saveFullAudio(
   dto: SaveFullAudioDto,
 ): Promise<TranscriptionSession> {
-  return apiClient<TranscriptionSession>('/api/transcription/full-audio', {
+  return apiClient<TranscriptionSession>('/transcription/full-audio', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -212,7 +213,7 @@ export async function saveFullAudio(
 // Removes from backend and local IndexedDB
 export async function deleteSession(sessionId: string): Promise<{ success: boolean }> {
   return apiClient<{ success: boolean }>(
-    `/api/transcription/sessions/${sessionId}`,
+    `/transcription/sessions/${sessionId}`,
     {
       method: 'DELETE',
     },
@@ -225,7 +226,7 @@ export async function saveRevision(
   content: RevisionContent,
 ): Promise<TranscriptRevision> {
   return apiClient<TranscriptRevision>(
-    `/api/transcription/sessions/${sessionId}/revisions`,
+    `/transcription/sessions/${sessionId}/revisions`,
     {
       method: 'POST',
       body: JSON.stringify({ content }),
@@ -238,7 +239,7 @@ export async function getRevisions(
   sessionId: string,
 ): Promise<TranscriptRevision[]> {
   return apiClient<TranscriptRevision[]>(
-    `/api/transcription/sessions/${sessionId}/revisions`,
+    `/transcription/sessions/${sessionId}/revisions`,
   );
 }
 
@@ -247,7 +248,7 @@ export async function getRevisions(
 export async function getAudioBlobUrl(sessionId: string): Promise<string> {
   const token = getAccessToken();
 
-  const response = await fetch(`/api/transcription/sessions/${sessionId}/audio`, {
+  const response = await fetch(`/transcription/sessions/${sessionId}/audio`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
