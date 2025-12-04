@@ -171,38 +171,48 @@ jobs:
       - name: Prepare Environment Variables JSON
         run: |
           # Debug: check .env file
-          echo "📋 .env file content (first 10 lines):"
-          head -10 .env || echo "❌ .env file not found"
+          echo "📋 Checking .env file..."
+          ls -la .env || echo "❌ .env file not found"
           
-          node -e '
-            const fs = require("fs");
-            const env = fs.readFileSync(".env", "utf8");
-            const json = env.split("\n")
-              .filter(line => line && !line.startsWith("#"))
-              .map(line => {
-                const [key, ...rest] = line.split("=");
-                if (!key || !rest.length) return null;
-                return { name: key.trim(), value: rest.join("=").trim() };
-              })
-              .filter(Boolean);
-            console.log(JSON.stringify(json));
-          ' > env.json
+          if [ ! -f .env ]; then
+            echo "❌ .env file missing! Creating empty env.json"
+            echo "[]" > env.json
+          else
+            echo "📋 .env file found, converting to JSON..."
+            node -e '
+              const fs = require("fs");
+              const env = fs.readFileSync(".env", "utf8");
+              const json = env.split("\n")
+                .filter(line => line && !line.startsWith("#") && line.includes("="))
+                .map(line => {
+                  const idx = line.indexOf("=");
+                  if (idx === -1) return null;
+                  const key = line.substring(0, idx).trim();
+                  const value = line.substring(idx + 1).trim();
+                  if (!key) return null;
+                  return { name: key, value: value };
+                })
+                .filter(Boolean);
+              fs.writeFileSync("env.json", JSON.stringify(json, null, 2));
+              console.log("✅ Created env.json with " + json.length + " entries");
+            '
+          fi
           
-          # Debug: check env.json
-          echo "📋 env.json entries count: $(jq length env.json)"
+          # Verify env.json
+          echo "📋 env.json content (first 5 entries):"
+          head -20 env.json
 
       - name: Update Task Definitions & Deploy
         run: |
           TAG="${{ needs.prepare.outputs.tag }}"
-          ENV_JSON=$(cat env.json)
           
           # Update Frontend Task Definition
           aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION_FRONTEND \
             --query 'taskDefinition' --output json > /tmp/td-fe.json
           
           jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_FRONTEND }}:$TAG" \
-             --argjson ENV "$ENV_JSON" \
-            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV |
+             --slurpfile ENV env.json \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             /tmp/td-fe.json > /tmp/new-td-fe.json
           
@@ -215,8 +225,8 @@ jobs:
             --query 'taskDefinition' --output json > /tmp/td-be.json
           
           jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_BACKEND }}:$TAG" \
-             --argjson ENV "$ENV_JSON" \
-            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV |
+             --slurpfile ENV env.json \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             /tmp/td-be.json > /tmp/new-td-be.json
           
