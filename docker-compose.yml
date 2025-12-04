@@ -2,46 +2,22 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        NODE_VERSION: ${NODE_VERSION}
     image: syncnapse/frontend:local
-    environment:
-      - NODE_ENV=${FRONTEND_NODE_ENV}
+    env_file:
+      - .env
     ports:
-      - "${FRONTEND_PORT_PUBLIC}:3000"
+      - "3000:3000"
     depends_on:
       - backend
 
   backend:
     build:
       context: ./backend
-      args:
-        NODE_VERSION: ${NODE_VERSION}
     image: syncnapse/backend:local
-    environment:
-      - NODE_ENV=${BACKEND_NODE_ENV}
-      - PORT=${BACKEND_PORT}
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ACCESS_EXPIRATION=${JWT_ACCESS_EXPIRATION}
-      - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      # Storage (MinIO/S3)
-      - STORAGE_PROVIDER=${STORAGE_PROVIDER}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
-      - STORAGE_BUCKET=${STORAGE_BUCKET}
-      - STORAGE_REGION=${STORAGE_REGION}
-      - STORAGE_ACCESS_KEY_ID=${STORAGE_ACCESS_KEY_ID}
-      - STORAGE_SECRET_ACCESS_KEY=${STORAGE_SECRET_ACCESS_KEY}
-      - STORAGE_ENCRYPTION_KEY=${STORAGE_ENCRYPTION_KEY}
-      # Gemini AI
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME}
+    env_file:
+      - .env
     ports:
-      - "${BACKEND_PORT_PUBLIC}:4000"
+      - "4000:4000"
 
 networks:
   default:
