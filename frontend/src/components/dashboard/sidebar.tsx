@@ -274,6 +274,23 @@ export function Sidebar({
                 />
               </div>
             </div>
+
+            {/* 로그아웃 버튼 */}
+            <div className="py-3 px-3 border-t border-border-subtle">
+              <button
+                onClick={() => router.push("/auth/logout")}
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-red-500/10 transition-all duration-200 group"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground/70 group-hover:text-red-500 transition-colors">
+                  <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M13.3333 14.1667L17.5 10L13.3333 5.83333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M17.5 10H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="text-foreground/70 group-hover:text-red-500 font-medium text-sm leading-[17px] font-['Inter'] transition-colors">
+                  로그아웃
+                </span>
+              </button>
+            </div>
           </div>
 
         </div>
