@@ -8,86 +8,41 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
-  loki:
-    image: grafana/loki:2.9.7
-    container_name: syncnapse-loki
-    command: -config.file=/etc/loki/config.yml
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./monitor/loki/config.yml:/etc/loki/config.yml:ro
-      - loki-data:/loki
-  promtail:
-    image: grafana/promtail:2.9.7
-    container_name: syncnapse-promtail
-    command: -config.file=/etc/promtail/config.yml
-    volumes:
-      - ./monitor/promtail/config.yml:/etc/promtail/config.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      - loki
-  grafana:
-    image: grafana/grafana:11.2.2
-    container_name: syncnapse-grafana
-    env_file:
-      - .env
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/syncnapse-logs.json
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./monitor/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./monitor/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-    depends_on:
-      - loki
+
   frontend:
     build:
       context: ./frontend
-      args:
-        NODE_VERSION: ${NODE_VERSION}
     env_file:
       - .env
     container_name: syncnapse-frontend
     environment:
-      - NODE_ENV=${FRONTEND_NODE_ENV}
-      - DEBUG_LEVEL=${DEBUG_LEVEL}
+      - NODE_ENV=development
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
     ports:
-      - "${FRONTEND_PORT_PUBLIC}:3000"
+      - "3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: sh -lc "npm install --no-audit --no-fund && npm run dev"
+    command: sh -lc "bun install && bun run dev"
     depends_on:
       - backend
 
   backend:
     build:
       context: ./backend
-      args:
-        NODE_VERSION: ${NODE_VERSION}
     env_file:
       - .env
     container_name: syncnapse-backend
     environment:
-      - NODE_ENV=${BACKEND_NODE_ENV}
-      - DEBUG_LEVEL=${DEBUG_LEVEL}
-      - DATABASE_URL=${DATABASE_URL}
-      - PORT=${BACKEND_PORT}
+      - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true
-      - NPM_CONFIG_LOGLEVEL=warn
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME}
     ports:
-      - "${BACKEND_PORT_PUBLIC}:4000"
+      - "4000:4000"
     volumes:
       - ./backend:/app
       - /app/node_modules
-    command: sh -lc "npm install --no-audit --no-fund && npm run prisma:generate && npx prisma db push --accept-data-loss && npm run start:dev"
+    command: sh -lc "bun install && bun run prisma:generate && bunx prisma db push --accept-data-loss && bun run start:dev"
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,7 +58,6 @@ services:
 networks:
   default:
     name: syncnapse_net
+
 volumes:
-  grafana-data:
-  loki-data:
   postgres-data:

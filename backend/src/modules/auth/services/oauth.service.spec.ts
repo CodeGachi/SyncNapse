@@ -31,7 +31,7 @@ describe('OAuthService (direct implementation)', () => {
     mockValidateState.mockResolvedValue({ redirectUrl: undefined });
     
     service = new OAuthService(usersService, oauthStateService);
-    global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+    global.fetch = jest.fn() as unknown as typeof fetch;
   });
 
   afterAll(() => {

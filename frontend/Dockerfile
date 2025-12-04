@@ -1,36 +1,27 @@
 # syntax=docker/dockerfile:1
 
-ARG NODE_VERSION=22.20.0
-FROM node:${NODE_VERSION}-alpine AS base
+# ==========================================
+# Bun Alpine Frontend Dockerfile
+# ==========================================
+
+FROM oven/bun:1-alpine AS deps
+WORKDIR /app
+COPY package.json bun.lockb* ./
+RUN rm -rf ~/.bun/install/cache && bun install --ignore-scripts
+
+FROM oven/bun:1-alpine AS build
 ENV NODE_ENV=production
 WORKDIR /app
-
-# Install all dependencies (including dev) for build
-FROM base AS deps
-ENV NODE_ENV=development
-# Add build dependencies for native modules (sharp, etc.)
-RUN apk add --no-cache python3 make g++ vips-dev
-COPY package.json package-lock.json* ./
-RUN npm install --no-audit --no-fund
-
-# Install only production deps for runtime image
-FROM base AS prod-deps
-ENV NODE_ENV=production
-# Add runtime dependencies for sharp
-RUN apk add --no-cache vips
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev --no-audit --no-fund
-
-FROM base AS build
-ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN bun run build
 
-FROM base AS runner
+FROM oven/bun:1-alpine AS runner
 ENV NODE_ENV=production
+WORKDIR /app
 COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
 COPY --from=build /app/package.json ./package.json
-COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/node_modules ./node_modules
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+CMD ["bun", "run", "start"]
