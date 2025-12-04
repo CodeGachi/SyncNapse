@@ -8,6 +8,9 @@ import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { NoteBlock, FileItem, Question } from "@/lib/types";
 import type { Block } from "@blocknote/core";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("NoteEditorStore");
 
 /**
  * PDF 페이지별 노트 데이터 구조
@@ -270,32 +273,16 @@ export const useNoteEditorStore = create<NoteEditorState>()(
           const blockType = mapBlockNoteTypeToNoteBlock(block.type);
           const content = getBlockContent(block);
           
-          // Debug: Log block structure for troubleshooting
-          if (index === 0) {
-            console.log('[updatePageBlocksFromBlockNote] First block structure:', {
-              blockType: block.type,
-              blockId: block.id,
-              rawBlock: block,
-              extractedContent: content,
-              contentLength: content.length,
-            });
-          }
-
           return {
             id: block.id || `${pageKey}-${index}`,
             type: blockType,
             content,
             checked: block.type === "checkListItem" ? (block.props as any)?.checked : undefined,
-            indent: 0, // BlockNote는 기본적으로 들여쓰기를 자체적으로 관리
+            indent: 0,
           };
         });
 
-        console.log('[updatePageBlocksFromBlockNote] Converted blocks:', {
-          pageKey,
-          blockCount: convertedBlocks.length,
-          firstBlockContent: convertedBlocks[0]?.content,
-          allContents: convertedBlocks.map(b => ({ id: b.id, content: b.content })),
-        });
+        log.debug('updatePageBlocksFromBlockNote:', { pageKey, blockCount: convertedBlocks.length });
 
         set({
           pageNotes: {
@@ -537,37 +524,26 @@ function mapBlockNoteTypeToNoteBlock(type: string): NoteBlock["type"] {
 function getBlockContent(block: Block): string {
   const content = (block as any).content;
 
-  console.log('[getBlockContent] Extracting content:', {
-    hasContent: !!content,
-    contentType: Array.isArray(content) ? 'array' : typeof content,
-    content: content,
-  });
-
   if (!content) return "";
 
   // content가 InlineContent[] 형태인 경우
   if (Array.isArray(content)) {
-    const extracted = content
+    return content
       .map((item: any) => {
         if (typeof item === "string") return item;
         if (item.type === "text" && item.text) return item.text;
         if (item.type === "link" && item.content) {
-          // Handle links - extract text from link content
-          return Array.isArray(item.content) 
+          return Array.isArray(item.content)
             ? item.content.map((c: any) => c.text || '').join('')
             : '';
         }
         return "";
       })
       .join("");
-    
-    console.log('[getBlockContent] Extracted from array:', extracted);
-    return extracted;
   }
 
   // content가 문자열인 경우
   if (typeof content === "string") {
-    console.log('[getBlockContent] Content is string:', content);
     return content;
   }
 

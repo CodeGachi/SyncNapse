@@ -5,6 +5,9 @@
 import { initDB } from "./index";
 import type { DBFile } from "./index";
 import { v4 as uuidv4 } from "uuid";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("DB:Files");
 
 export type { DBFile };
 
@@ -30,13 +33,7 @@ export async function saveFile(
     backendId, // 백엔드 파일 ID 저장
   };
 
-  console.log('[IndexedDB] 파일 저장 시도:', {
-    id: dbFile.id,
-    noteId: dbFile.noteId,
-    fileName: dbFile.fileName,
-    fileSize: dbFile.size,
-    fileType: dbFile.fileType,
-  });
+  log.debug('파일 저장 시도:', { id: dbFile.id, fileName: dbFile.fileName, size: dbFile.size });
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["files"], "readwrite");
@@ -44,21 +41,13 @@ export async function saveFile(
     const request = store.add(dbFile);
 
     request.onsuccess = () => {
-      console.log('[IndexedDB] 파일 저장 성공:', dbFile.id, dbFile.fileName);
+      log.debug('파일 저장 성공:', dbFile.id, dbFile.fileName);
       resolve(dbFile);
     };
 
     request.onerror = () => {
-      console.error('[IndexedDB] 파일 저장 실패:', request.error);
+      log.error('파일 저장 실패:', request.error);
       reject(new Error(`파일 저장 실패: ${request.error?.message || 'Unknown error'}`));
-    };
-
-    transaction.oncomplete = () => {
-      console.log('[IndexedDB] Transaction 완료:', dbFile.fileName);
-    };
-
-    transaction.onerror = () => {
-      console.error('[IndexedDB] Transaction 에러:', transaction.error);
     };
   });
 }
@@ -68,7 +57,7 @@ export async function saveFile(
  */
 export async function getFilesByNote(noteId: string): Promise<DBFile[]> {
   const db = await initDB();
-  console.log('[IndexedDB] 파일 로드 시도:', noteId);
+  log.debug('파일 로드 시도:', noteId);
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["files"], "readonly");
@@ -78,16 +67,12 @@ export async function getFilesByNote(noteId: string): Promise<DBFile[]> {
 
     request.onsuccess = () => {
       const files = request.result;
-      console.log('[IndexedDB] 파일 로드 성공:', {
-        noteId,
-        fileCount: files.length,
-        files: files.map(f => ({ id: f.id, name: f.fileName, size: f.size }))
-      });
+      log.debug('파일 로드 성공:', { noteId, fileCount: files.length });
       resolve(files);
     };
 
     request.onerror = () => {
-      console.error('[IndexedDB] 파일 로드 실패:', request.error);
+      log.error('파일 로드 실패:', request.error);
       reject(new Error("파일 목록을 가져올 수 없습니다."));
     };
   });
@@ -153,7 +138,7 @@ export async function updateFileBackendInfo(
       const putRequest = store.put(file);
 
       putRequest.onsuccess = () => {
-        console.log(`[IndexedDB] 파일 백엔드 정보 업데이트: ${fileId} -> url: ${backendUrl}, id: ${backendId}`);
+        log.debug(`파일 백엔드 정보 업데이트: ${fileId} -> url: ${backendUrl}, id: ${backendId}`);
         resolve();
       };
 
@@ -193,7 +178,7 @@ export async function updateFileBackendId(
       const putRequest = store.put(file);
 
       putRequest.onsuccess = () => {
-        console.log(`[IndexedDB] 파일 백엔드 ID 업데이트: ${file.fileName} -> ${backendId}`);
+        log.debug(`파일 백엔드 ID 업데이트: ${file.fileName} -> ${backendId}`);
         resolve();
       };
 
@@ -301,20 +286,12 @@ export async function debugGetAllFiles(): Promise<DBFile[]> {
 
     request.onsuccess = () => {
       const files = request.result;
-      console.log('[DEBUG] 전체 파일 목록:', files);
-      console.table(files.map(f => ({
-        id: f.id,
-        noteId: f.noteId,
-        fileName: f.fileName,
-        size: f.size,
-        type: f.fileType,
-        createdAt: new Date(f.createdAt).toLocaleString(),
-      })));
+      log.debug('전체 파일 목록:', files.length, '개');
       resolve(files);
     };
 
     request.onerror = () => {
-      console.error('[DEBUG] 파일 목록 조회 실패:', request.error);
+      log.error('파일 목록 조회 실패:', request.error);
       reject(request.error);
     };
   });
@@ -331,12 +308,12 @@ export async function debugClearAllFiles(): Promise<void> {
     const request = store.clear();
 
     request.onsuccess = () => {
-      console.log('[DEBUG] 모든 파일 삭제 완료');
+      log.debug('모든 파일 삭제 완료');
       resolve();
     };
 
     request.onerror = () => {
-      console.error('[DEBUG] 파일 삭제 실패:', request.error);
+      log.error('파일 삭제 실패:', request.error);
       reject(request.error);
     };
   });
@@ -348,7 +325,5 @@ if (typeof window !== 'undefined') {
     getAll: debugGetAllFiles,
     clearAll: debugClearAllFiles,
   };
-  console.log('[DEBUG] 파일 디버깅 도구 사용법:');
-  console.log('  - 모든 파일 보기: __debugFiles.getAll()');
-  console.log('  - 모든 파일 삭제: __debugFiles.clearAll()');
+  log.debug('파일 디버깅 도구: __debugFiles.getAll() / __debugFiles.clearAll()');
 }

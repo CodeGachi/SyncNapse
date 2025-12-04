@@ -15,6 +15,9 @@ import {
 } from "@/lib/db/recordings";
 import { getAccessToken } from "@/lib/auth/token-manager";
 import { API_BASE_URL } from "../client";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("RecordingsAPI");
 
 /**
  * Fetch all recordings for a note
@@ -70,8 +73,7 @@ export async function saveRecording(
     duration
   );
 
-  // 백엔드 ID와 URL 정보 업데이트 가능하도록 확장 필요 시 여기서 처리
-  console.log(`[Recording] ✅ Uploaded to backend: ${uploadResult.id}`);
+  log.info(`✅ Uploaded to backend: ${uploadResult.id}`);
 
   return dbRecording;
 }
@@ -93,10 +95,10 @@ export async function deleteRecording(recordingId: string): Promise<void> {
     });
 
     if (!response.ok && response.status !== 404) {
-      console.warn(`[Recording] Backend delete failed: ${response.status}`);
+      log.warn(`Backend delete failed: ${response.status}`);
     }
   } catch (error) {
-    console.warn("[Recording] Backend delete error:", error);
+    log.warn("Backend delete error:", error);
   }
 
   // 2. IndexedDB에서 삭제
@@ -127,10 +129,10 @@ export async function renameRecording(
     });
 
     if (!response.ok) {
-      console.warn(`[Recording] Backend rename failed: ${response.status}`);
+      log.warn(`Backend rename failed: ${response.status}`);
     }
   } catch (error) {
-    console.warn("[Recording] Backend rename error:", error);
+    log.warn("Backend rename error:", error);
   }
 
   // 2. IndexedDB에서 업데이트

@@ -7,6 +7,9 @@ import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { AudioTimelineEvent } from "@/lib/api/services/audio.api";
 import type { PageContext } from "@/lib/types";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("AudioPlayerStore");
 
 interface AudioPlayerState {
   // Timeline events (녹음-페이지 연동용)
@@ -36,20 +39,20 @@ export const useAudioPlayerStore = create<AudioPlayerState>()(
       pendingSeekTime: null,
 
       setTimelineEvents: (events) => {
-        console.log('[AudioPlayerStore] 📦 setTimelineEvents:', events.length, 'events');
+        log.debug('setTimelineEvents:', events.length, 'events');
         set({ timelineEvents: events });
       },
       setCurrentPageContext: (context) => set({ currentPageContext: context }),
       setCurrentSessionId: (sessionId) => {
-        console.log('[AudioPlayerStore] 🎙️ setCurrentSessionId:', sessionId);
+        log.debug('setCurrentSessionId:', sessionId);
         set({ currentSessionId: sessionId });
       },
       clearTimeline: () => {
-        console.log('[AudioPlayerStore] 🗑️ clearTimeline');
+        log.debug('clearTimeline');
         set({ timelineEvents: [], currentPageContext: null, currentSessionId: null, pendingSeekTime: null });
       },
       setPendingSeekTime: (time) => {
-        console.log('[AudioPlayerStore] ⏩ setPendingSeekTime:', time);
+        log.debug('setPendingSeekTime:', time);
         set({ pendingSeekTime: time });
       },
     }),

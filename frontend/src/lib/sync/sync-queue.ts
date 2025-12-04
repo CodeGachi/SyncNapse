@@ -5,6 +5,10 @@
  * 변경사항을 큐에 추가하고, 백그라운드에서 순차적으로 동기화
  */
 
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SyncQueue");
+
 export type SyncOperation =
   | "create"
   | "update"
@@ -84,7 +88,7 @@ export function saveSyncQueue(queue: SyncQueue): void {
   try {
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
   } catch (error) {
-    console.error("Failed to save sync queue:", error);
+    log.error("Failed to save sync queue:", error);
   }
 }
 

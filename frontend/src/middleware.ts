@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const isDev = process.env.NODE_ENV === "development";
+
+function log(message: string) {
+  if (isDev) {
+    // eslint-disable-next-line no-console
+    console.log(`[Middleware] ${message}`);
+  }
+}
+
 // Middleware disabled - authentication is handled client-side
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,7 +30,7 @@ export function middleware(request: NextRequest) {
   // 로그인 페이지 접근 시 이미 로그인되어 있으면 대시보드로 리다이렉트
   if (pathname === "/login") {
     if (authToken) {
-      console.log("[Middleware] Already authenticated, redirecting to dashboard");
+      log("Already authenticated, redirecting to dashboard");
       return NextResponse.redirect(new URL("/dashboard/main", request.url));
     }
     return NextResponse.next();
@@ -34,7 +43,7 @@ export function middleware(request: NextRequest) {
   );
 
   if (isProtectedRoute && !authToken) {
-    console.log("[Middleware] Protected route without auth, redirecting to login");
+    log("Protected route without auth, redirecting to login");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
