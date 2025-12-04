@@ -10,22 +10,19 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
 jobs:
-  deploy:
+  # ============================================
+  # Prepare: Sync env & apply DB schema
+  # ============================================
+  prepare:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    
-    env:
-      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-      ECR_REPO_FRONTEND: ${{ secrets.ECR_REPO_FRONTEND }}
-      ECR_REPO_BACKEND: ${{ secrets.ECR_REPO_BACKEND }}
-      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-      ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
-      ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
-      ECS_TASK_DEFINITION_FRONTEND: ${{ secrets.ECS_TASK_DEFINITION_FRONTEND }}
-      ECS_TASK_DEFINITION_BACKEND: ${{ secrets.ECS_TASK_DEFINITION_BACKEND }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-    
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       
@@ -33,34 +30,152 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Sync Environment Variables
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Set output variables
+        id: vars
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Sync Environment & Apply DB Schema
         env:
           GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
           ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
-        run: |
-          # Install deps for scripts only (root package.json)
-          bun install --ignore-scripts
-          # Run sync script for prod environment
-          bun scripts/sync-env-from-repo.mjs prod
-          # Copy .env.prod to .env for build context
-          cp .env.prod .env
-          
-          # Copy .env to frontend for build-time injection
-          cp .env frontend/.env
-          
-          echo "✅ Environment synced successfully"
-
-      - name: Apply DB Schema
-        env:
           DATABASE_URL: postgresql://${{ secrets.PROD_DB_USER }}:${{ secrets.PROD_DB_PASSWORD }}@${{ secrets.PROD_DB_HOST }}:${{ secrets.PROD_DB_PORT }}/${{ secrets.PROD_DB_NAME }}?schema=public
         run: |
-          # Use Prisma db push to apply schema changes (idempotent)
-          # This will skip existing tables/types and only apply new changes
-          cd backend
-          bun install --frozen-lockfile
-          bunx prisma db push --skip-generate --accept-data-loss
+          # Install and sync env
+          bun install --ignore-scripts
+          bun scripts/sync-env-from-repo.mjs prod
+          cp .env.prod .env && cp .env frontend/.env
           
-          echo "✅ DB Schema applied successfully (via Prisma)"
+          # Apply DB schema (uses backend's prisma)
+          cd backend && bun install --frozen-lockfile
+          bunx prisma db push --skip-generate --accept-data-loss
+          echo "✅ Prepare complete"
+
+      - name: Upload env artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-files
+          path: |
+            .env
+            frontend/.env
+          retention-days: 1
+
+  # ============================================
+  # Build Frontend (parallel)
+  # ============================================
+  build-frontend:
+    needs: prepare
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download env artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: env-files
+          path: .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Frontend
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:${{ needs.prepare.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:latest
+          cache-from: |
+            type=gha,scope=frontend
+            type=registry,ref=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:cache
+          cache-to: |
+            type=gha,scope=frontend,mode=max
+            type=registry,ref=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:cache,mode=max
+          provenance: false
+
+      - run: echo "image=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_FRONTEND }}:${{ needs.prepare.outputs.tag }}" >> $GITHUB_OUTPUT
+        id: output
+
+  # ============================================
+  # Build Backend (parallel)
+  # ============================================
+  build-backend:
+    needs: prepare
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Backend
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:${{ needs.prepare.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:latest
+          cache-from: |
+            type=gha,scope=backend
+            type=registry,ref=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:cache
+          cache-to: |
+            type=gha,scope=backend,mode=max
+            type=registry,ref=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:cache,mode=max
+          provenance: false
+
+      - run: echo "image=${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPO_BACKEND }}:${{ needs.prepare.outputs.tag }}" >> $GITHUB_OUTPUT
+        id: output
+
+  # ============================================
+  # Deploy to ECS
+  # ============================================
+  deploy:
+    needs: [prepare, build-frontend, build-backend]
+    runs-on: ubuntu-latest
+    env:
+      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+      ECS_SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
+      ECS_SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
+      ECS_TASK_DEFINITION_FRONTEND: ${{ secrets.ECS_TASK_DEFINITION_FRONTEND }}
+      ECS_TASK_DEFINITION_BACKEND: ${{ secrets.ECS_TASK_DEFINITION_BACKEND }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download env artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: env-files
+          path: .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -68,149 +183,60 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
       
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push images
-        id: build
-        run: |
-          TAG="sha-${GITHUB_SHA::7}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          
-          # Build images with BuildKit cache
-          docker buildx build \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            -t $ECR_REGISTRY/$ECR_REPO_FRONTEND:$TAG \
-            -t $ECR_REGISTRY/$ECR_REPO_FRONTEND:latest \
-            -f frontend/Dockerfile \
-            --push \
-            ./frontend
-          
-          docker buildx build \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            -t $ECR_REGISTRY/$ECR_REPO_BACKEND:$TAG \
-            -t $ECR_REGISTRY/$ECR_REPO_BACKEND:latest \
-            -f backend/Dockerfile \
-            --push \
-            ./backend
-          
-          echo "✅ Images pushed:"
-          echo "  Frontend: $ECR_REGISTRY/$ECR_REPO_FRONTEND:$TAG"
-          echo "  Backend:  $ECR_REGISTRY/$ECR_REPO_BACKEND:$TAG"
-      
       - name: Prepare Environment Variables JSON
-        id: env-json
         run: |
-          # Convert .env to JSON for Task Definition
           node -e '
             const fs = require("fs");
             const env = fs.readFileSync(".env", "utf8");
             const json = env.split("\n")
               .filter(line => line && !line.startsWith("#"))
               .map(line => {
-                const parts = line.split("=");
-                if (parts.length < 2) return null;
-                const key = parts[0].trim();
-                const value = parts.slice(1).join("=").trim();
-                return { name: key, value: value };
+                const [key, ...rest] = line.split("=");
+                if (!key || !rest.length) return null;
+                return { name: key.trim(), value: rest.join("=").trim() };
               })
-              .filter(item => item && item.name && item.value);
+              .filter(Boolean);
             console.log(JSON.stringify(json));
           ' > env.json
-          echo "✅ Converted .env to JSON"
 
-      - name: Update ECS Task Definition (Frontend)
-        id: task-def-frontend
+      - name: Update Task Definitions & Deploy
         run: |
-          # Get current task definition (redirect to file to avoid logging sensitive data)
-          aws ecs describe-task-definition \
-            --task-definition $ECS_TASK_DEFINITION_FRONTEND \
-            --query 'taskDefinition' \
-            --output json > /tmp/task-def-frontend.json 2>&1
+          TAG="${{ needs.prepare.outputs.tag }}"
           
-          # Update image URI and Environment variables
-          # Note: Frontend vars are mostly build-time, but some might be runtime
-          jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPO_FRONTEND:${{ steps.build.outputs.tag }}" \
-             --slurpfile ENV_VARS env.json \
-            '.containerDefinitions[0].image = $IMAGE | 
-             .containerDefinitions[0].environment = $ENV_VARS[0] |
+          # Update Frontend Task Definition
+          aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION_FRONTEND \
+            --query 'taskDefinition' --output json > /tmp/td-fe.json
+          
+          jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_FRONTEND }}:$TAG" \
+             --slurpfile ENV env.json \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            /tmp/task-def-frontend.json > /tmp/new-task-def-frontend.json
+            /tmp/td-fe.json > /tmp/new-td-fe.json
           
-          # Register new task definition (suppress detailed output)
-          NEW_TASK_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file:///tmp/new-task-def-frontend.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text 2>&1 | grep -v 'environment\|secret')
+          FE_ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/new-td-fe.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
           
-          # Clean up temp files
-          rm -f /tmp/task-def-frontend.json /tmp/new-task-def-frontend.json
+          # Update Backend Task Definition
+          aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION_BACKEND \
+            --query 'taskDefinition' --output json > /tmp/td-be.json
           
-          echo "task_arn=$NEW_TASK_ARN" >> $GITHUB_OUTPUT
-          echo "✅ Frontend Task Definition updated"
-      
-      - name: Update ECS Task Definition (Backend)
-        id: task-def-backend
-        run: |
-          # Get current task definition (redirect to file to avoid logging sensitive data)
-          aws ecs describe-task-definition \
-            --task-definition $ECS_TASK_DEFINITION_BACKEND \
-            --query 'taskDefinition' \
-            --output json > /tmp/task-def-backend.json 2>&1
-          
-          # Update image URI and Environment variables
-          jq --arg IMAGE "$ECR_REGISTRY/$ECR_REPO_BACKEND:${{ steps.build.outputs.tag }}" \
-             --slurpfile ENV_VARS env.json \
-            '.containerDefinitions[0].image = $IMAGE | 
-             .containerDefinitions[0].environment = $ENV_VARS[0] |
+          jq --arg IMG "$ECR_REGISTRY/${{ secrets.ECR_REPO_BACKEND }}:$TAG" \
+             --slurpfile ENV env.json \
+            '.containerDefinitions[0].image = $IMG | .containerDefinitions[0].environment = $ENV[0] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            /tmp/task-def-backend.json > /tmp/new-task-def-backend.json
+            /tmp/td-be.json > /tmp/new-td-be.json
           
-          # Register new task definition (suppress detailed output)
-          NEW_TASK_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file:///tmp/new-task-def-backend.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text 2>&1 | grep -v 'environment\|secret')
+          BE_ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/new-td-be.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
           
-          # Clean up temp files
-          rm -f /tmp/task-def-backend.json /tmp/new-task-def-backend.json
+          # Deploy both services in parallel
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_FRONTEND" \
+            --task-definition "$FE_ARN" --force-new-deployment --no-cli-pager > /dev/null &
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_BACKEND" \
+            --task-definition "$BE_ARN" --force-new-deployment --no-cli-pager > /dev/null &
+          wait
           
-          echo "task_arn=$NEW_TASK_ARN" >> $GITHUB_OUTPUT
-          echo "✅ Backend Task Definition updated"
-      
-      - name: Deploy to ECS
-        run: |
-          echo "🚀 Deploying to ECS..."
-          
-          # Update frontend service (suppress detailed output)
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE_FRONTEND" \
-            --task-definition "${{ steps.task-def-frontend.outputs.task_arn }}" \
-            --force-new-deployment \
-            --no-cli-pager \
-            --output text > /dev/null 2>&1
-          
-          echo "✅ Frontend service updated"
-          
-          # Update backend service (suppress detailed output)
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE_BACKEND" \
-            --task-definition "${{ steps.task-def-backend.outputs.task_arn }}" \
-            --force-new-deployment \
-            --no-cli-pager \
-            --output text > /dev/null 2>&1
-          
-          echo "✅ Backend service updated"
-          echo ""
-          echo "📦 Deployment Summary:"
-          echo "  Cluster: $ECS_CLUSTER"
+          echo "🚀 Deployment complete!"
+          echo "  Tag: $TAG"
           echo "  Frontend: $ECS_SERVICE_FRONTEND"
-          echo "  Backend:  $ECS_SERVICE_BACKEND"
-          echo "  Image Tag: ${{ steps.build.outputs.tag }}"
+          echo "  Backend: $ECS_SERVICE_BACKEND"
