@@ -147,7 +147,7 @@ export class StorageTestController {
 
   //  Download file from storage
   //  Test: curl http://localhost:4000/api/storage-test/download/uploads/1234567890-test.txt
-  @Get('download/:path(*)')
+  @Get('download/*path')
   @ApiOperation({ 
     summary: 'Download file from MinIO/S3',
     description: 'Test download functionality. Returns file as stream.'
@@ -191,7 +191,7 @@ export class StorageTestController {
 
   //  Delete file from storage
   //  Test: curl -X DELETE http://localhost:4000/api/storage-test/uploads/1234567890-test.txt
-  @Delete(':path(*)')
+  @Delete('*path')
   @ApiOperation({ 
     summary: 'Delete file from MinIO/S3',
     description: 'Test delete functionality'
@@ -220,7 +220,7 @@ export class StorageTestController {
 
   //  Get public URL for a storage key
   //  Test: curl http://localhost:4000/api/storage-test/url/uploads/1234567890-test.txt
-  @Get('url/:path(*)')
+  @Get('url/*path')
   @ApiOperation({ 
     summary: 'Get public URL for storage key',
     description: 'Returns the public URL without downloading'

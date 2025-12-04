@@ -7,14 +7,14 @@ on:
       - 'backend/**'
       - '.github/workflows/ci.yml'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lockb'
   push:
     paths:
       - 'frontend/**'
       - 'backend/**'
       - '.github/workflows/ci.yml'
       - 'package.json'
-      - 'package-lock.json'
+      - 'bun.lockb'
   workflow_dispatch:
 
 jobs:
@@ -23,29 +23,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22.20.0'
-          cache: 'npm'
+          bun-version: latest
       
       - name: Install root deps
-        run: npm i --ignore-scripts
+        run: bun install --ignore-scripts
       
       - name: Install workspaces deps
         run: |
-          npm -w frontend i --ignore-scripts
-          npm -w backend i --ignore-scripts
+          cd frontend && bun install --ignore-scripts && cd ..
+          cd backend && bun install --ignore-scripts && cd ..
       
       - name: Generate Prisma Client
-        run: npm -w backend run prisma:generate
+        run: bun run --cwd backend prisma:generate
       
       - name: Setup environment files
         env:
           GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
           ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
         run: |
-          # Fetch environment from private repo using HTTPS + PAT
-          npm run env:sync || {
+          bun run env:sync || {
             echo "❌ Environment sync failed"
             echo "📋 Check if ENV_REPO_PAT secret has correct permissions:"
             echo "   - repo (Full control of private repositories)"
@@ -53,18 +51,19 @@ jobs:
             exit 1
           }
           echo "✅ Environment files synced"
-          
-          # Also copy to .env for Docker Compose
           cp .env.dev .env
+
       - name: Test
         run: |
-          npm -w frontend run test:ci
-          npm -w backend run test:ci
+          bun run --cwd frontend test:ci
+          bun run --cwd backend test:ci
+
       - name: Lint
         run: |
-          npm -w frontend run lint
-          npm -w backend run lint
+          bun run --cwd frontend lint
+          bun run --cwd backend lint
+
       - name: Build
         run: |
-          NODE_ENV=production npm -w frontend run build
-          NODE_ENV=production npm -w backend run build
+          NODE_ENV=production bun run --cwd frontend build
+          NODE_ENV=production bun run --cwd backend build
