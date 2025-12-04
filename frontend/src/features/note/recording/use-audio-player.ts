@@ -233,21 +233,28 @@ export function useAudioPlayer() {
         setScriptSegments([]);
       }
 
-      // 오디오 재생 - Blob URL 방식 우선, 실패시 직접 URL로 fallback
+      // 오디오 재생 - 백엔드 프록시를 통해 복호화된 오디오 가져오기
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
 
         let audioUrl: string | null = null;
 
-        // fullAudioUrl 직접 사용 (MinIO signed URL)
-        if (sessionData.fullAudioUrl) {
-          // URL에서 중복된 버킷 이름 제거 (bucket/bucket -> bucket)
-          audioUrl = sessionData.fullAudioUrl.replace(
-            /(syncnapse-files(?:-prod)?)\/(syncnapse-files(?:-prod)?)/g,
-            "$1"
-          );
-          log.debug("오디오 URL 사용:", audioUrl);
+        // 1. 백엔드 프록시를 통해 복호화된 오디오 가져오기 (암호화된 파일 지원)
+        try {
+          audioUrl = await transcriptionApi.getAudioBlobUrl(sessionId);
+          log.debug("백엔드 프록시를 통해 Blob URL 생성됨:", audioUrl);
+        } catch (proxyError) {
+          log.warn("백엔드 프록시 오디오 로드 실패:", proxyError);
+          
+          // 2. 실패 시 fullAudioUrl 직접 사용 (비암호화 파일 fallback)
+          if (sessionData.fullAudioUrl) {
+            audioUrl = sessionData.fullAudioUrl.replace(
+              /(syncnapse-files(?:-prod)?)\/(syncnapse-files(?:-prod)?)/g,
+              "$1"
+            );
+            log.debug("MinIO 직접 URL로 fallback:", audioUrl);
+          }
         }
 
         if (audioUrl) {
