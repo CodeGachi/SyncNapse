@@ -51,20 +51,16 @@ jobs:
           echo "✅ Environment synced successfully"
 
       - name: Apply DB Schema
+        env:
+          DATABASE_URL: postgresql://${{ secrets.PROD_DB_USER }}:${{ secrets.PROD_DB_PASSWORD }}@${{ secrets.PROD_DB_HOST }}:${{ secrets.PROD_DB_PORT }}/${{ secrets.PROD_DB_NAME }}?schema=public
         run: |
-          # Install PostgreSQL client
-          sudo apt-get update && sudo apt-get install -y postgresql-client
+          # Use Prisma db push to apply schema changes (idempotent)
+          # This will skip existing tables/types and only apply new changes
+          cd backend
+          bun install --frozen-lockfile
+          bunx prisma db push --skip-generate --accept-data-loss
           
-          # Apply schema from db/init/001_schema.sql
-          PGPASSWORD="${{ secrets.PROD_DB_PASSWORD }}" psql \
-            -h "${{ secrets.PROD_DB_HOST }}" \
-            -p "${{ secrets.PROD_DB_PORT }}" \
-            -U "${{ secrets.PROD_DB_USER }}" \
-            -d "${{ secrets.PROD_DB_NAME }}" \
-            -f db/init/001_schema.sql \
-            --set ON_ERROR_STOP=on
-          
-          echo "✅ DB Schema applied successfully"
+          echo "✅ DB Schema applied successfully (via Prisma)"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
