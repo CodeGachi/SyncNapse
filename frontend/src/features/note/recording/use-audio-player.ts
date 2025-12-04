@@ -242,10 +242,10 @@ export function useAudioPlayer() {
 
         // fullAudioUrl 직접 사용 (MinIO signed URL)
         if (sessionData.fullAudioUrl) {
-          // URL에서 중복된 버킷 이름 제거 (syncnapse-files/syncnapse-files -> syncnapse-files)
+          // URL에서 중복된 버킷 이름 제거 (bucket/bucket -> bucket)
           audioUrl = sessionData.fullAudioUrl.replace(
-            /syncnapse-files\/syncnapse-files/g,
-            "syncnapse-files"
+            /(syncnapse-files(?:-prod)?)\/(syncnapse-files(?:-prod)?)/g,
+            "$1"
           );
           log.debug("오디오 URL 사용:", audioUrl);
         }

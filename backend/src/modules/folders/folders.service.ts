@@ -34,7 +34,10 @@ export class FoldersService {
    */
   async getFoldersByUser(userId: string) {
     this.logger.debug(`[getFoldersByUser] Fetching folders for userId=${userId}`);
-    
+
+    // Ensure Root folder exists for this user
+    await this.ensureRootFolder(userId);
+
     const folders = await this.prisma.folder.findMany({
       where: {
         userId,
@@ -46,7 +49,7 @@ export class FoldersService {
     });
 
     this.logger.debug(`[getFoldersByUser] Found ${folders.length} folders`);
-    
+
     // Convert to frontend format (snake_case to camelCase)
     return folders.map((folder) => ({
       id: folder.id,
@@ -56,6 +59,31 @@ export class FoldersService {
       created_at: folder.createdAt.toISOString(),
       updated_at: folder.updatedAt.toISOString(),
     }));
+  }
+
+  /**
+   * Ensure Root folder exists for a user (create if not exists)
+   */
+  private async ensureRootFolder(userId: string) {
+    const rootFolder = await this.prisma.folder.findFirst({
+      where: {
+        userId,
+        name: 'Root',
+        parentId: null,
+        deletedAt: null,
+      },
+    });
+
+    if (!rootFolder) {
+      this.logger.log(`[ensureRootFolder] Creating Root folder for userId=${userId}`);
+      await this.prisma.folder.create({
+        data: {
+          userId,
+          name: 'Root',
+          parentId: null,
+        },
+      });
+    }
   }
 
   /**
