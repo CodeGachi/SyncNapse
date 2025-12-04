@@ -8,6 +8,9 @@ import { v4 as uuidv4 } from "uuid";
 import { deleteFilesByNote } from "./files";
 import { deleteRecordingsByNote } from "./recordings";
 import { moveNoteToTrash } from "./trash";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("DB:Notes");
 
 export type { DBNote, DBNoteContent };
 
@@ -35,7 +38,7 @@ export async function getAllNotes(): Promise<DBNote[]> {
  * 특정 폴더의 노트들 가져오기
  */
 export async function getNotesByFolder(folderId: string): Promise<DBNote[]> {
-  console.log('[notes.ts] getNotesByFolder called with folderId:', folderId);
+  log.debug('getNotesByFolder called with folderId:', folderId);
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["notes"], "readonly");
@@ -44,25 +47,12 @@ export async function getNotesByFolder(folderId: string): Promise<DBNote[]> {
     const request = index.getAll(folderId);
 
     request.onsuccess = () => {
-      console.log('[notes.ts] getNotesByFolder found', request.result.length, 'notes for folderId:', folderId);
-      request.result.forEach(note => {
-        console.log('[notes.ts] - Note:', { id: note.id, title: note.title, folderId: note.folderId });
-      });
-      
-      // Debug: Print all notes to compare folder IDs
-      const allNotesRequest = store.getAll();
-      allNotesRequest.onsuccess = () => {
-        console.log('[notes.ts] All notes in DB (for comparison):');
-        allNotesRequest.result.forEach(note => {
-          console.log('[notes.ts] - Note:', { id: note.id, title: note.title, folderId: note.folderId });
-        });
-      };
-      
+      log.debug('getNotesByFolder found', request.result.length, 'notes for folderId:', folderId);
       resolve(request.result);
     };
 
     request.onerror = () => {
-      console.error('[notes.ts] getNotesByFolder error:', request.error);
+      log.error('getNotesByFolder error:', request.error);
       reject(new Error("폴더의 노트를 가져올 수 없습니다."));
     };
   });
@@ -87,14 +77,14 @@ export async function createNote(
   folderId: string = "root",
   type: "student" | "educator" = "student"
 ): Promise<DBNote> {
-  console.log(`[notes.ts] 📝 Creating note with type: ${type}`); // Debug log
+  log.debug(`Creating note with type: ${type}`);
   const db = await initDB();
 
   const note: DBNote = {
     id: uuidv4(),
     title,
     folderId,
-    type, // Use the provided type parameter
+    type,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -105,7 +95,7 @@ export async function createNote(
     const request = store.add(note);
 
     request.onsuccess = () => {
-      console.log(`[notes.ts] ✅ Created note with type: ${type}, id: ${note.id}`); // Debug log
+      log.debug(`✅ Created note with type: ${type}, id: ${note.id}`);
       resolve(note);
     };
 
@@ -124,10 +114,10 @@ export async function saveNote(note: DBNote): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["notes"], "readwrite");
     const store = transaction.objectStore("notes");
-    const request = store.put(note); // put은 추가/업데이트 모두 가능
+    const request = store.put(note);
 
     request.onsuccess = () => {
-      console.log(`[notes.ts] ✅ Saved note to IndexedDB: ${note.id}`);
+      log.debug(`✅ Saved note to IndexedDB: ${note.id}`);
       resolve();
     };
 
@@ -158,7 +148,7 @@ export async function updateNoteId(
       const addRequest = store.add(newNote);
 
       addRequest.onsuccess = () => {
-        console.log(`[notes.ts] ✅ Updated note ID: ${oldId} → ${newNote.id}`);
+        log.debug(`✅ Updated note ID: ${oldId} → ${newNote.id}`);
         resolve();
       };
 
@@ -181,9 +171,9 @@ export async function updateNotesFolderIdInDB(
   oldFolderId: string,
   newFolderId: string
 ): Promise<void> {
-  console.log(`[notes.ts] updateNotesFolderIdInDB: ${oldFolderId} → ${newFolderId}`);
+  log.debug(`updateNotesFolderIdInDB: ${oldFolderId} → ${newFolderId}`);
   const db = await initDB();
-  
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["notes"], "readwrite");
     const store = transaction.objectStore("notes");
@@ -192,8 +182,8 @@ export async function updateNotesFolderIdInDB(
 
     request.onsuccess = () => {
       const notes = request.result;
-      console.log(`[notes.ts] Found ${notes.length} notes with old folderId`);
-      
+      log.debug(`Found ${notes.length} notes with old folderId`);
+
       if (notes.length === 0) {
         resolve();
         return;
@@ -205,27 +195,26 @@ export async function updateNotesFolderIdInDB(
       for (const note of notes) {
         note.folderId = newFolderId;
         note.updatedAt = Date.now();
-        
+
         const updateRequest = store.put(note);
-        
+
         updateRequest.onsuccess = () => {
           updatedCount++;
-          console.log(`[notes.ts] Updated note ${note.id} with new folderId: ${newFolderId}`);
           if (updatedCount === total) {
-            console.log(`[notes.ts] ✅ All ${total} notes updated with new folderId`);
+            log.debug(`✅ All ${total} notes updated with new folderId`);
             resolve();
           }
         };
-        
+
         updateRequest.onerror = () => {
-          console.error(`[notes.ts] Failed to update note ${note.id}`);
+          log.error(`Failed to update note ${note.id}`);
           reject(new Error(`Failed to update note with new folderId`));
         };
       }
     };
 
     request.onerror = () => {
-      console.error(`[notes.ts] Failed to get notes with folderId: ${oldFolderId}`);
+      log.error(`Failed to get notes with folderId: ${oldFolderId}`);
       reject(new Error("Failed to get notes by folder ID"));
     };
   });
@@ -235,7 +224,7 @@ export async function updateNotesFolderIdInDB(
  * 노트 가져오기
  */
 export async function getNote(noteId: string): Promise<DBNote | undefined> {
-  console.log('[notes.ts] getNote called with noteId:', noteId);
+  log.debug('getNote called with noteId:', noteId);
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["notes"], "readonly");
@@ -243,19 +232,12 @@ export async function getNote(noteId: string): Promise<DBNote | undefined> {
     const request = store.get(noteId);
 
     request.onsuccess = () => {
-      console.log('[notes.ts] getNote result:', request.result ? 'Found' : 'Not found', request.result);
-      
-      // Debug: Print all notes in the database for comparison
-      const getAllRequest = store.getAll();
-      getAllRequest.onsuccess = () => {
-        console.log('[notes.ts] All notes in IndexedDB:', getAllRequest.result.map(n => ({ id: n.id, title: n.title })));
-      };
-      
+      log.debug('getNote result:', request.result ? 'Found' : 'Not found');
       resolve(request.result);
     };
 
     request.onerror = () => {
-      console.error('[notes.ts] getNote error:', request.error);
+      log.error('getNote error:', request.error);
       reject(new Error("노트를 가져올 수 없습니다."));
     };
   });
@@ -502,11 +484,11 @@ export async function cleanDuplicateNoteContent(noteId: string): Promise<number>
   );
 
   if (toDelete.length === 0) {
-    console.log(`[cleanDuplicateNoteContent] No duplicates found for note: ${noteId}`);
+    log.debug(`cleanDuplicateNoteContent: No duplicates found for note: ${noteId}`);
     return 0;
   }
 
-  console.log(`[cleanDuplicateNoteContent] Removing ${toDelete.length} duplicate entries for note: ${noteId}`);
+  log.debug(`cleanDuplicateNoteContent: Removing ${toDelete.length} duplicate entries for note: ${noteId}`);
 
   const db = await initDB();
   return new Promise((resolve, reject) => {
@@ -522,7 +504,7 @@ export async function cleanDuplicateNoteContent(noteId: string): Promise<number>
       request.onsuccess = () => {
         completed++;
         if (completed === total) {
-          console.log(`[cleanDuplicateNoteContent] Removed ${total} duplicates`);
+          log.debug(`cleanDuplicateNoteContent: Removed ${total} duplicates`);
           resolve(total);
         }
       };

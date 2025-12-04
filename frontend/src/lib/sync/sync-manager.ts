@@ -14,6 +14,9 @@ import type { SyncQueueItem } from "./sync-queue";
 import { apiClient, API_BASE_URL } from "@/lib/api/client";
 import { getFileById } from "@/lib/db/files";
 import { getAccessToken } from "@/lib/auth/token-manager";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SyncManager");
 
 /**
  * Backend에 단일 아이템 동기화 (HTTP Client V2 사용)
@@ -26,7 +29,7 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
 
   // 지원하지 않는 작업 타입은 스킵
   if (!["create", "update", "delete"].includes(operation)) {
-    console.log(`Skipping unsupported operation: ${operation}`);
+    log.debug(`Skipping unsupported operation: ${operation}`);
     return;
   }
 
@@ -64,7 +67,7 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
 
         // 이미 백엔드 URL이 있으면 스킵 (이미 동기화됨)
         if (dbFile.backendUrl) {
-          console.log(`[Sync] File already synced to backend: ${entityId}`);
+          log.debug(`File already synced to backend: ${entityId}`);
           return; // 성공으로 처리
         }
 
@@ -93,14 +96,14 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
         const { updateFileBackendInfo } = await import("@/lib/db/files");
         await updateFileBackendInfo(entityId, uploadResult.storageUrl, uploadResult.id);
 
-        console.log(`[Sync] ✅ File uploaded to backend: ${dbFile.fileName}, backendId: ${uploadResult.id}`);
+        log.info(`✅ File uploaded to backend: ${dbFile.fileName}, backendId: ${uploadResult.id}`);
         return; // 성공으로 처리 (apiClient 호출 건너뜀)
       } else if (operation === "delete") {
         // DELETE /api/files/:backendId - 백엔드 ID로 삭제
         // data.backend_id가 있으면 백엔드에서 삭제, 없으면 스킵 (로컬에서만 삭제됨)
         const backendId = data?.backend_id;
         if (!backendId) {
-          console.log(`[Sync] File not synced to backend, skipping delete API call: ${entityId}`);
+          log.debug(`File not synced to backend, skipping delete API call: ${entityId}`);
           return; // 백엔드에 없는 파일은 스킵
         }
         endpoint = `/api/files/${backendId}`;
@@ -204,7 +207,7 @@ export async function processSyncQueue(): Promise<{
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      console.error(`Failed to sync item ${item.id}:`, errorMessage);
+      log.error(`Failed to sync item ${item.id}:`, errorMessage);
 
       // 마지막 에러 저장
       lastError = errorMessage;
@@ -215,7 +218,7 @@ export async function processSyncQueue(): Promise<{
 
       // 재시도 횟수 초과 시 큐에서 제거
       if (item.retryCount >= 2) {
-        console.warn(`Item ${item.id} exceeded retry limit, removing from queue`);
+        log.warn(`Item ${item.id} exceeded retry limit, removing from queue`);
         syncStore.removeFromQueue(item.id);
       }
     }
@@ -241,7 +244,7 @@ export async function processSyncQueue(): Promise<{
  * 수동 동기화 (사용자가 명시적으로 요청)
  */
 export async function syncNow(): Promise<void> {
-  console.log("Manual sync initiated");
+  log.info("Manual sync initiated");
   await processSyncQueue();
 }
 
@@ -252,11 +255,11 @@ let syncIntervalId: NodeJS.Timeout | null = null;
 
 export function startAutoSync(interval: number = 5000): void {
   if (syncIntervalId) {
-    console.warn("Auto sync already running");
+    log.warn("Auto sync already running");
     return;
   }
 
-  console.log(`Auto sync started (interval: ${interval}ms)`);
+  log.info(`Auto sync started (interval: ${interval}ms)`);
 
   syncIntervalId = setInterval(async () => {
     const syncStore = useSyncStore.getState();
@@ -273,7 +276,7 @@ export function stopAutoSync(): void {
   if (syncIntervalId) {
     clearInterval(syncIntervalId);
     syncIntervalId = null;
-    console.log("Auto sync stopped");
+    log.info("Auto sync stopped");
   }
 }
 
@@ -283,7 +286,7 @@ export function stopAutoSync(): void {
  */
 export async function pullFromBackend(): Promise<void> {
   try {
-    console.log("[Sync] Starting full pull from backend...");
+    log.info("Starting full pull from backend...");
 
     // 백엔드에서 모든 데이터 가져오기
     const [notes, folders, files, recordings] = await Promise.all([
@@ -293,7 +296,7 @@ export async function pullFromBackend(): Promise<void> {
       apiClient<any[]>("/api/recordings", { method: "GET" }).catch(() => []),
     ]);
 
-    console.log(`[Sync] Fetched ${notes.length} notes, ${folders.length} folders, ${files.length} files, ${recordings.length} recordings`);
+    log.info(`Fetched ${notes.length} notes, ${folders.length} folders, ${files.length} files, ${recordings.length} recordings`);
 
     // IndexedDB에 저장 (conflict resolution 적용)
     const { initDB } = await import("@/lib/db/index");
@@ -380,9 +383,9 @@ export async function pullFromBackend(): Promise<void> {
       transaction.onerror = () => reject(transaction.error);
     });
 
-    console.log("[Sync] Pull from backend completed successfully");
+    log.info("Pull from backend completed successfully");
   } catch (error) {
-    console.error("[Sync] Failed to pull from backend:", error);
+    log.error("Failed to pull from backend:", error);
     throw error;
   }
 }

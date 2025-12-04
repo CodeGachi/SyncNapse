@@ -8,6 +8,9 @@
  */
 
 import { getCookie, setCookie, deleteCookie } from "@/lib/utils/cookie";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("TokenManager");
 
 const ACCESS_TOKEN_KEY = "authToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
@@ -67,7 +70,7 @@ export function decodeToken(token: string): any {
     );
     return JSON.parse(jsonPayload);
   } catch (error) {
-    console.error("Failed to decode token:", error);
+    log.error("Failed to decode token:", error);
     return null;
   }
 }
@@ -165,10 +168,10 @@ async function performRefresh(): Promise<string | null> {
       setRefreshToken(data.refreshToken);
     }
 
-    console.log("[TokenManager] Access token refreshed successfully");
+    log.info("Access token refreshed successfully");
     return newAccessToken;
   } catch (error) {
-    console.error("[TokenManager] Token refresh failed:", error);
+    log.error("Token refresh failed:", error);
     clearTokens();
     return null;
   }
@@ -188,14 +191,14 @@ export async function getValidAccessToken(): Promise<string | null> {
 
   // 이미 만료된 경우 갱신 필수
   if (isTokenExpired(accessToken)) {
-    console.log("[TokenManager] Access token expired, refreshing...");
+    log.debug("Access token expired, refreshing...");
     accessToken = await refreshAccessToken();
     return accessToken;
   }
 
   // 곧 만료될 예정이면 미리 갱신 (Proactive Refresh)
   if (isTokenExpiringSoon(accessToken, 60)) {
-    console.log("[TokenManager] Access token expiring soon, proactive refresh...");
+    log.debug("Access token expiring soon, proactive refresh...");
     // 갱신 실패해도 현재 토큰 반환 (아직 유효함)
     const newToken = await refreshAccessToken();
     return newToken || accessToken;

@@ -6,6 +6,9 @@ import { initDB } from "./index";
 import type { DBFolder } from "./index";
 import { v4 as uuidv4 } from "uuid";
 import { moveFolderToTrash } from "./trash";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("DB:Folders");
 
 export type { DBFolder };
 
@@ -127,7 +130,7 @@ export async function saveFolder(folder: DBFolder): Promise<void> {
     const request = store.put(folder); // put은 추가/업데이트 모두 가능
 
     request.onsuccess = () => {
-      console.log(`[folders.ts] ✅ Saved folder to IndexedDB: ${folder.id}`);
+      log.debug(`✅ Saved folder to IndexedDB: ${folder.id}`);
       resolve();
     };
 
@@ -158,7 +161,7 @@ export async function updateFolder(
       const addRequest = store.add(newFolder);
 
       addRequest.onsuccess = () => {
-        console.log(`[folders.ts] ✅ Updated folder ID: ${oldId} → ${newFolder.id}`);
+        log.debug(`✅ Updated folder ID: ${oldId} → ${newFolder.id}`);
         resolve();
       };
 

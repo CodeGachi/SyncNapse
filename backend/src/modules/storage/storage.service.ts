@@ -3,9 +3,11 @@ import { createReadStream, existsSync, mkdirSync, writeFileSync, readFileSync, u
 import { join, resolve } from 'node:path';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { Readable } from 'node:stream';
 import { StreamingBlobPayloadOutputTypes } from '@smithy/types';
+import https from 'https';
 import { PrismaService } from '../db/prisma.service';
 
 export interface StorageConfig {
@@ -97,6 +99,11 @@ export class StorageService {
         secretAccessKey: this.config.secretAccessKey,
       },
       forcePathStyle: !!this.config.endpoint,
+      requestHandler: new NodeHttpHandler({
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false,  // 자체 서명 인증서 허용
+        }),
+      }),
     });
 
     this.logger.log(`S3 client initialized: endpoint=${this.config.endpoint || 'AWS S3'}, region=${this.config.region}`);

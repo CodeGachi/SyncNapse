@@ -4,6 +4,9 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { SupportedLanguage, ScriptSegment } from "@/lib/types";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("TranslationStore");
 
 // 번역 에러 타입 (Chrome Translator API용)
 export type TranslationErrorType =
@@ -126,13 +129,7 @@ export const useScriptTranslationStore = create<ScriptTranslationState>()(
 
       updateSegmentTranslation: (id, translatedText) =>
         set((state) => {
-          const existingSegment = state.scriptSegments.find(s => s.id === id);
-          console.log('[Store] updateSegmentTranslation:', {
-            id,
-            translatedText: translatedText?.substring(0, 20),
-            found: !!existingSegment,
-            existingIds: state.scriptSegments.map(s => s.id),
-          });
+          log.debug('updateSegmentTranslation:', { id, found: state.scriptSegments.some(s => s.id === id) });
           return {
             scriptSegments: state.scriptSegments.map((segment) =>
               segment.id === id ? { ...segment, translatedText } : segment
