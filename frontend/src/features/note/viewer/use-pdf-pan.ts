@@ -1,6 +1,6 @@
 /**
- * PDF Panning Hook
- * Manages pan/drag functionality for PDF viewer
+ * PDF 패닝 훅
+ * PDF 뷰어의 팬/드래그 기능 관리
  */
 
 "use client";

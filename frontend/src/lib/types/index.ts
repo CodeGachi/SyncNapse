@@ -1,6 +1,8 @@
 /**
  * Type Definitions Barrel Export
-* all Type import Enabled * * @example * import { Folder, Note, UploadedFile } from "@/lib/types"; */
+ * @example
+ * import { Folder, Note, UploadedFile } from "@/lib/types";
+ */
 
 // Domain Types
 export * from "./domain";
@@ -8,17 +10,25 @@ export * from "./domain";
 // File Types
 export * from "./file";
 
-// Notification Types
-export * from "./notification";
-
 // Recording & Translation Types
 export * from "./recording";
 
 // Question Types
 export * from "./question";
 
-// Auto-save Types
-export * from "./auto-save";
-
 // Note Types
 export * from "./note";
+
+// Collaboration Types (Question/Answer excluded to avoid conflict with ./question)
+export type {
+  HandRaise,
+  PollOption,
+  Poll,
+  EmojiReaction,
+  AvailableEmoji,
+  CollaborationPanelState,
+} from "./collaboration";
+export { AVAILABLE_EMOJIS } from "./collaboration";
+
+// Drawing Types
+export * from "./drawing";

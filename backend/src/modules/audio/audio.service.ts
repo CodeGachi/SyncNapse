@@ -15,6 +15,48 @@ export class AudioService {
     private readonly loggingService: LoggingService,
   ) {}
 
+  /**
+   * Check if user has access to note (owner, collaborator, or public access)
+   */
+  private async checkNoteAccess(userId: string, noteId: string): Promise<boolean> {
+    // Check owner access
+    const ownerAccess = await this.prisma.folderLectureNote.findFirst({
+      where: {
+        noteId,
+        folder: { userId, deletedAt: null },
+        note: { deletedAt: null },
+      },
+    });
+
+    if (ownerAccess) return true;
+
+    // Check collaborator or public access
+    const note = await this.prisma.lectureNote.findFirst({
+      where: { id: noteId, deletedAt: null },
+    });
+
+    if (!note) return false;
+
+    // Check collaborator access
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user) {
+      const collaborator = await this.prisma.noteCollaborator.findFirst({
+        where: {
+          noteId,
+          OR: [{ userId }, { email: user.email }],
+        },
+      });
+      if (collaborator) return true;
+    }
+
+    // Check public access
+    if (note.publicAccess === 'PUBLIC_READ' || note.publicAccess === 'PUBLIC_EDIT') {
+      return true;
+    }
+
+    return false;
+  }
+
   async createRecording(
     userId: string,
     dto: CreateAudioRecordingDto,
@@ -146,18 +188,9 @@ export class AudioService {
       throw new NotFoundException('Recording not found');
     }
 
-    // Verify access via Note
-    const folderNote = await this.prisma.folderLectureNote.findFirst({
-      where: {
-        noteId: recording.noteId,
-        folder: {
-          userId,
-          deletedAt: null,
-        },
-      },
-    });
-
-    if (!folderNote) {
+    // Verify access via Note (owner, collaborator, or public access)
+    const hasAccess = await this.checkNoteAccess(userId, recording.noteId);
+    if (!hasAccess) {
       throw new NotFoundException('Recording not found (Access Denied)');
     }
 

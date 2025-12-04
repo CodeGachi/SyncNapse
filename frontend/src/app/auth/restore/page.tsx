@@ -7,6 +7,8 @@
 import { Suspense } from "react";
 import { RestoreForm } from "@/components/auth/restore-form";
 
+export const dynamic = "force-dynamic";
+
 export default function RestorePage() {
   return (
     <Suspense

@@ -93,7 +93,7 @@ describe('AuthController', () => {
       // Assert
       expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith('old-rt', expect.any(Object));
       expect(mockRes.cookie).toHaveBeenCalledWith('refreshToken', 'new-rt', expect.any(Object));
-      expect(result).toEqual({ accessToken: 'new-at', expiresIn: 3600 });
+      expect(result).toEqual({ accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 });
     });
   });
 

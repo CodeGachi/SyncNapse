@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState } from "react";
 import {
   Title,
@@ -25,7 +23,7 @@ import {
   IconActivity,
 } from "@tabler/icons-react";
 import { ServerStatusBadge } from "@/components/admin/common";
-import { mockServerStatus, mockDelay } from "@/lib/api/mock/admin.mock";
+import { mockServerStatus, mockDelay } from "@/lib/mock/admin.mock";
 import type { ServerStatus } from "@/lib/api/types/admin.types";
 
 const SERVER_ICONS: Record<string, React.ReactNode> = {

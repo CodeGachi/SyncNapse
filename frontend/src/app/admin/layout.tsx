@@ -2,6 +2,8 @@ import { MantineProvider, createTheme } from "@mantine/core";
 import "@mantine/core/styles.css";
 import { AdminLayout } from "@/components/admin";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Admin - SyncNapse",
   description: "SyncNapse 관리자 콘솔",

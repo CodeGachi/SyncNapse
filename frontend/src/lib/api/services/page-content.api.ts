@@ -1,9 +1,12 @@
 /**
- * Page Content API Client
- * Handles saving and loading page-specific note content
+ * 페이지 컨텐츠 API 클라이언트
+ * 페이지별 노트 컨텐츠 저장 및 로딩 처리
  */
 
+import { createLogger } from "@/lib/utils/logger";
 import { apiClient } from '../client';
+
+const log = createLogger("PageContentAPI");
 import type { NoteBlock as NoteBlockType } from '@/lib/types';
 
 // Extend NoteBlock with API-specific fields
@@ -56,14 +59,14 @@ export interface SavePageContentDto {
 }
 
 /**
- * Save or update page content
+ * 페이지 컨텐츠 저장 또는 업데이트
  */
 export async function savePageContent(
   noteId: string,
   pageNumber: number,
   blocks: NoteBlock[],
 ): Promise<PageContent> {
-  console.log('[PageContentAPI] Saving page content:', {
+  log.debug('Saving page content:', {
     noteId,
     pageNumber,
     blockCount: blocks.length,
@@ -81,18 +84,18 @@ export async function savePageContent(
     },
   );
 
-  console.log('[PageContentAPI] ✅ Page content saved');
+  log.info('✅ Page content saved');
   return response;
 }
 
 /**
- * Get page content
+ * 페이지 컨텐츠 가져오기
  */
 export async function getPageContent(
   noteId: string,
   pageNumber: number,
 ): Promise<PageContent> {
-  console.log('[PageContentAPI] Loading page content:', {
+  log.debug('Loading page content:', {
     noteId,
     pageNumber,
   });
@@ -104,20 +107,20 @@ export async function getPageContent(
     },
   );
 
-  console.log('[PageContentAPI] ✅ Page content loaded:', {
+  log.info('✅ Page content loaded:', {
     blockCount: response.blocks.length,
   });
   return response;
 }
 
 /**
- * Delete page content
+ * 페이지 컨텐츠 삭제
  */
 export async function deletePageContent(
   noteId: string,
   pageNumber: number,
 ): Promise<void> {
-  console.log('[PageContentAPI] Deleting page content:', {
+  log.debug('Deleting page content:', {
     noteId,
     pageNumber,
   });
@@ -129,17 +132,17 @@ export async function deletePageContent(
     },
   );
 
-  console.log('[PageContentAPI] ✅ Page content deleted');
+  log.info('✅ Page content deleted');
 }
 
 /**
- * Save entire note content (all pages)
+ * 전체 노트 컨텐츠 저장 (모든 페이지)
  */
 export async function saveNoteContent(
   noteId: string,
   pages: { [pageNumber: string]: PageBlocks },
 ): Promise<NoteContent> {
-  console.log('[PageContentAPI] Saving note content:', {
+  log.debug('Saving note content:', {
     noteId,
     pageCount: Object.keys(pages).length,
   });
@@ -148,7 +151,7 @@ export async function saveNoteContent(
   const firstPageKey = Object.keys(pages)[0];
   if (firstPageKey && pages[firstPageKey]) {
     const firstPage = pages[firstPageKey];
-    console.log(`[PageContentAPI] 📤 Sending to backend - First page (${firstPageKey}):`, {
+    log.debug(`📤 Sending to backend - First page (${firstPageKey}):`, {
       blockCount: firstPage.blocks?.length || 0,
       firstBlock: firstPage.blocks?.[0],
       firstBlockContent: firstPage.blocks?.[0]?.content,
@@ -156,13 +159,13 @@ export async function saveNoteContent(
       allBlocks: firstPage.blocks,
     });
   }
-  
+
   const bodyData = {
     noteId,
     pages,
   };
-  
-  console.log('[PageContentAPI] 📤 Full request body:', JSON.stringify(bodyData, null, 2));
+
+  log.debug('📤 Full request body:', JSON.stringify(bodyData, null, 2));
 
   const response = await apiClient<NoteContent>(
     `/api/notes/${noteId}/content`,
@@ -172,17 +175,17 @@ export async function saveNoteContent(
     },
   );
 
-  console.log('[PageContentAPI] ✅ Note content saved');
+  log.info('✅ Note content saved');
   return response;
 }
 
 /**
- * Get entire note content (all pages)
+ * 전체 노트 컨텐츠 가져오기 (모든 페이지)
  */
 export async function getNoteContent(
   noteId: string,
 ): Promise<NoteContent> {
-  console.log('[PageContentAPI] Loading note content:', { noteId });
+  log.debug('Loading note content:', { noteId });
 
   const response = await apiClient<NoteContent>(
     `/api/notes/${noteId}/content`,
@@ -191,15 +194,15 @@ export async function getNoteContent(
     },
   );
 
-  console.log('[PageContentAPI] ✅ Note content loaded:', {
+  log.info('✅ Note content loaded:', {
     pageCount: Object.keys(response.pages || {}).length,
   });
-  
+
   // Debug: Log the loaded data
   const firstPageKey = Object.keys(response.pages || {})[0];
   if (firstPageKey && response.pages[firstPageKey]) {
     const firstPage = response.pages[firstPageKey];
-    console.log(`[PageContentAPI] 📥 Received from backend - First page (${firstPageKey}):`, {
+    log.debug(`📥 Received from backend - First page (${firstPageKey}):`, {
       blockCount: firstPage.blocks?.length || 0,
       firstBlock: firstPage.blocks?.[0],
       firstBlockContent: firstPage.blocks?.[0]?.content,
@@ -207,17 +210,17 @@ export async function getNoteContent(
       allBlocks: firstPage.blocks,
     });
   }
-  
+
   return response;
 }
 
 /**
- * Delete entire note content
+ * 전체 노트 컨텐츠 삭제
  */
 export async function deleteNoteContent(
   noteId: string,
 ): Promise<void> {
-  console.log('[PageContentAPI] Deleting note content:', { noteId });
+  log.debug('Deleting note content:', { noteId });
 
   await apiClient<void>(
     `/api/notes/${noteId}/content`,
@@ -226,6 +229,6 @@ export async function deleteNoteContent(
     },
   );
 
-  console.log('[PageContentAPI] ✅ Note content deleted');
+  log.info('✅ Note content deleted');
 }
 

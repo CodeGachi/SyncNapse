@@ -1,5 +1,5 @@
 /**
- * useMutation hooks for file upload/delete operations
+ * 파일 업로드/삭제 작업을 위한 useMutation 훅
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,13 +12,19 @@ import {
 import type { DBFile } from "@/lib/db/files";
 
 // ============================================================================
-// Note-specific file operations (V2 - IndexedDB + Sync Queue)
+// 노트 파일 작업 (V2 - IndexedDB + 동기화 큐)
 // ============================================================================
 
 /**
- * Note File Save Muta tion * * @example  * const saveFile = useSaveNoteFile({
+ * 노트 파일 저장 뮤테이션
+ *
+ * @example
+ * const saveFile = useSaveNoteFile({
  *   onSuccess: () => {
- * notify.success("Save Complete", "File Savecompleted."); * }, * });  * saveFile.mutate({ noteId: "note-123", file });
+ *     notify.success("저장 완료", "파일이 저장되었습니다.");
+ *   },
+ * });
+ * saveFile.mutate({ noteId: "note-123", file });
  */
 export function useSaveNoteFile(
   options?: {
@@ -48,8 +54,15 @@ export function useSaveNoteFile(
 }
 
 /**
-* Note Multiple File Save Muta tion * * @example * const saveFiles = useSaveMultipleNoteFiles({ *   onSuccess: (files) => {
- * notify.success("Save Complete", `${files.length} File Savecompleted.`); * }, * });  * saveFiles.mutate({ noteId: "note-123", files: [file1, file2] });
+ * 노트 다중 파일 저장 뮤테이션
+ *
+ * @example
+ * const saveFiles = useSaveMultipleNoteFiles({
+ *   onSuccess: (files) => {
+ *     notify.success("저장 완료", `${files.length}개 파일이 저장되었습니다.`);
+ *   },
+ * });
+ * saveFiles.mutate({ noteId: "note-123", files: [file1, file2] });
  */
 export function useSaveMultipleNoteFiles(
   options?: {
@@ -79,9 +92,15 @@ export function useSaveMultipleNoteFiles(
 }
 
 /**
- * Note File Delete Muta tion * * @example  * const deleteFile = useDeleteNoteFile({
+ * 노트 파일 삭제 뮤테이션
+ *
+ * @example
+ * const deleteFile = useDeleteNoteFile({
  *   onSuccess: () => {
- * notify.success("Delete Complete", "File Deletecompleted."); * }, * });  * deleteFile.mutate({ fileId: "file-123", noteId: "note-123" });
+ *     notify.success("삭제 완료", "파일이 삭제되었습니다.");
+ *   },
+ * });
+ * deleteFile.mutate({ fileId: "file-123", noteId: "note-123" });
  */
 export function useDeleteNoteFile(
   options?: {

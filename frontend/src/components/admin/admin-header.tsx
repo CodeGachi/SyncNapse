@@ -19,6 +19,8 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { clearTokens } from "@/lib/auth/token-manager";
+import { deleteCookie } from "@/lib/utils/cookie";
 
 interface BreadcrumbItem {
   label: string;
@@ -41,12 +43,11 @@ export function AdminHeader() {
   const router = useRouter();
 
   // 브레드크럼 생성
-  const breadcrumbs = generateBreadcrumbs(pathname);
+  const breadcrumbs = generateBreadcrumbs(pathname ?? "");
 
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
+    clearTokens();
+    deleteCookie("user");
     router.push("/login");
   };
 

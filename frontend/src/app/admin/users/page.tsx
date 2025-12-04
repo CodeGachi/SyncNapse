@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState, useMemo } from "react";
 import {
   Title,
@@ -43,7 +41,7 @@ import {
   mockDelay,
   filterUsers,
   paginateData,
-} from "@/lib/api/mock/admin.mock";
+} from "@/lib/mock/admin.mock";
 import type { AdminUser, AdminUserDetail, UserRole, UserStatus } from "@/lib/api/types/admin.types";
 
 const PAGE_SIZE = 10;

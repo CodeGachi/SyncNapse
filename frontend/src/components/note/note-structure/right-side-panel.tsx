@@ -30,9 +30,10 @@ const log = createLogger("RightSidePanel");
 interface RightSidePanelProps {
   noteId: string | null;
   isEducator?: boolean; // 교육자 노트 여부
+  isSharedView?: boolean; // 공유 링크로 접속한 학생인지 여부
 }
 
-export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelProps) {
+export function RightSidePanel({ noteId, isEducator = false, isSharedView = false }: RightSidePanelProps) {
   // 백엔드 인증 사용자 정보 가져오기
   const { data: currentUser } = useCurrentUser();
 
@@ -162,7 +163,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
         initial={{ x: 20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
-        className={`flex flex-col bg-[#1e1e1e] overflow-hidden ${isExpanded ? "flex-shrink-0 w-[370px] gap-2 pt-6 px-3" : "w-0 p-0"
+        className={`flex flex-col bg-background-surface overflow-hidden ${isExpanded ? "flex-shrink-0 w-[280px] md:w-[320px] lg:w-[370px] gap-2 pt-6 px-2 md:px-3" : "w-0 p-0"
           }`}
       >
         {isExpanded && (
@@ -204,7 +205,7 @@ export function RightSidePanel({ noteId, isEducator = false }: RightSidePanelPro
                 userId={userId}
                 userName={userName}
                 noteId={noteId!}
-                isEducator={true}
+                isEducator={!isSharedView}
                 onClose={toggleCollaborationPanel}
               />
             )}

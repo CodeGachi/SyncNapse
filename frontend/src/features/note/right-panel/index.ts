@@ -1,5 +1,5 @@
 /**
- * Right Panel Feature Exports
+ * 우측 패널 기능 내보내기
  */
 
 export { useFileManagement } from "./use-file-management";

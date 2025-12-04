@@ -106,3 +106,4 @@ networks:
 volumes:
   grafana-data:
   loki-data:
+  postgres-data:

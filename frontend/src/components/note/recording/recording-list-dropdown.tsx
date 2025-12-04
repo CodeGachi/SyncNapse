@@ -63,17 +63,17 @@ export function RecordingListDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="absolute top-full right-0 mt-2 w-80 max-h-96 bg-[#2f2f2f] border border-[#393939] rounded-lg shadow-lg z-50 overflow-hidden"
+      className="absolute top-full right-0 mt-2 w-80 max-h-96 bg-background-elevated border border-border rounded-lg shadow-lg z-50 overflow-hidden"
     >
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-[#393939]">
-        <h3 className="text-white font-semibold">저장된 녹음 ({recordings.length})</h3>
+      <div className="px-4 py-3 border-b border-border">
+        <h3 className="text-foreground font-semibold">저장된 녹음 ({recordings.length})</h3>
       </div>
 
       {/* 녹음 리스트 */}
       <div className="max-h-80 overflow-y-auto">
         {recordings.length === 0 ? (
-          <div className="px-4 py-8 text-center text-gray-400">
+          <div className="px-4 py-8 text-center text-foreground-tertiary">
             저장된 녹음이 없습니다
           </div>
         ) : (
@@ -81,7 +81,7 @@ export function RecordingListDropdown({
             {recordings.map((recording) => (
               <div
                 key={recording.sessionId || recording.id}
-                className="px-4 py-3 hover:bg-[#3a3a3a] cursor-pointer transition-colors group"
+                className="px-4 py-3 hover:bg-background-overlay cursor-pointer transition-colors group"
               >
                 <div className="flex items-start justify-between">
                   <div
@@ -93,8 +93,8 @@ export function RecordingListDropdown({
                       }
                     }}
                   >
-                    <p className="text-white font-medium truncate">{recording.title}</p>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <p className="text-foreground font-medium truncate">{recording.title}</p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-foreground-tertiary">
                       <span>{recording.date}</span>
                       <span>•</span>
                       <span>{recording.time}</span>
@@ -111,7 +111,7 @@ export function RecordingListDropdown({
                         onDeleteRecording(recording.sessionId);
                       }
                     }}
-                    className="ml-2 p-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+                    className="ml-2 p-1 opacity-0 group-hover:opacity-100 text-foreground-tertiary hover:text-red-500 transition-all"
                     title="삭제"
                   >
                     <svg

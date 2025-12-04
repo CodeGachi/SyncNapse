@@ -1,9 +1,12 @@
 /**
- * Sync Event Listener Hook
+ * 동기화 이벤트 리스너 훅
  * 서버 동기화 이벤트를 감지하고 React Query 캐시를 무효화합니다
  */
 
 import { useEffect } from 'react';
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SyncListener");
 import { useQueryClient } from '@tanstack/react-query';
 
 /**
@@ -15,27 +18,27 @@ export function useSyncListener() {
   useEffect(() => {
     // Folders sync event
     const handleFoldersSync = () => {
-      console.log('[useSyncListener] Folders synced, invalidating queries');
+      log.debug('폴더 동기화됨, 쿼리 무효화');
       queryClient.invalidateQueries({ queryKey: ['folders'] });
     };
 
     // Notes sync event
     const handleNotesSync = () => {
-      console.log('[useSyncListener] Notes synced, invalidating queries');
+      log.debug('노트 동기화됨, 쿼리 무효화');
       queryClient.invalidateQueries({ queryKey: ['notes'] });
     };
 
     // Single note sync event
     const handleNoteSync = ((event: CustomEvent) => {
       const { noteId } = event.detail;
-      console.log('[useSyncListener] Note synced, invalidating query:', noteId);
+      log.debug('노트 동기화됨, 쿼리 무효화:', noteId);
       queryClient.invalidateQueries({ queryKey: ['notes', noteId] });
     }) as EventListener;
 
     // Files sync event
     const handleFilesSync = ((event: CustomEvent) => {
       const { noteId } = event.detail;
-      console.log('[useSyncListener] Files synced for note:', noteId);
+      log.debug('파일 동기화됨:', noteId);
       queryClient.invalidateQueries({ queryKey: ['files', 'note', noteId] });
     }) as EventListener;
 

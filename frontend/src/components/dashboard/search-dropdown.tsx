@@ -1,23 +1,24 @@
 /**
  * Search Dropdown Component
- * 검색 결과를 드롭다운으로 표시
+ * 검색 결과를 드롭다운으로 표시 (더보기 기능 포함)
  */
 
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { decodeFilename } from "@/lib/utils/decode-filename";
 import type {
-  ApiSearchResponse,
-  ApiSearchNoteResult,
-  ApiSearchFileResult,
-  ApiSearchSegmentResult,
-} from "@/lib/api/types/api.types";
+  LocalSearchResponse,
+  LocalSearchNoteResult,
+  LocalSearchFileResult,
+  LocalSearchSegmentResult,
+} from "@/features/search/use-search";
 
 interface SearchDropdownProps {
   /** 검색 결과 */
-  results: ApiSearchResponse;
+  results: LocalSearchResponse;
   /** 검색어 (하이라이트용) */
   query: string;
   /** 로딩 상태 */
@@ -27,6 +28,11 @@ interface SearchDropdownProps {
   /** 드롭다운 닫기 함수 */
   onClose: () => void;
 }
+
+// 초기 표시 개수
+const INITIAL_COUNT = 5;
+// 더보기 클릭 시 추가 개수
+const LOAD_MORE_COUNT = 5;
 
 /**
  * 시간(초)을 MM:SS 형식으로 변환
@@ -66,20 +72,20 @@ function CategoryBadge({
   const config = {
     note: {
       label: "노트",
-      bgColor: "bg-status-info/20",
-      textColor: "text-status-info",
-      borderColor: "border-status-info/30",
+      bgColor: "bg-blue-500/20",
+      textColor: "text-blue-600 dark:text-blue-400",
+      borderColor: "border-blue-500/30",
     },
     file: {
       label: "파일",
       bgColor: "bg-purple-500/20",
-      textColor: "text-purple-400",
+      textColor: "text-purple-600 dark:text-purple-400",
       borderColor: "border-purple-500/30",
     },
     segment: {
       label: "음성",
       bgColor: "bg-orange-500/20",
-      textColor: "text-orange-400",
+      textColor: "text-orange-600 dark:text-orange-400",
       borderColor: "border-orange-500/30",
     },
   };
@@ -103,7 +109,7 @@ function NoteResultItem({
   query,
   onClick,
 }: {
-  item: ApiSearchNoteResult;
+  item: LocalSearchNoteResult;
   query: string;
   onClick: () => void;
 }) {
@@ -130,7 +136,7 @@ function FileResultItem({
   query,
   onClick,
 }: {
-  item: ApiSearchFileResult;
+  item: LocalSearchFileResult;
   query: string;
   onClick: () => void;
 }) {
@@ -163,7 +169,7 @@ function SegmentResultItem({
   query,
   onClick,
 }: {
-  item: ApiSearchSegmentResult;
+  item: LocalSearchSegmentResult;
   query: string;
   onClick: () => void;
 }) {
@@ -186,20 +192,26 @@ function SegmentResultItem({
 }
 
 /**
- * 검색 결과 섹션
+ * 검색 결과 섹션 (더보기 버튼 포함)
  */
 function ResultSection({
   title,
   icon,
   count,
+  visibleCount,
+  onShowMore,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   count: number;
+  visibleCount: number;
+  onShowMore: () => void;
   children: React.ReactNode;
 }) {
   if (count === 0) return null;
+
+  const hasMore = count > visibleCount;
 
   return (
     <div className="py-2">
@@ -210,6 +222,14 @@ function ResultSection({
         </span>
       </div>
       <div className="space-y-0.5">{children}</div>
+      {hasMore && (
+        <button
+          onClick={onShowMore}
+          className="w-full px-3 py-2 text-xs text-brand hover:text-brand-hover hover:bg-foreground/5 rounded-lg transition-colors text-center"
+        >
+          더보기 (+{count - visibleCount}개)
+        </button>
+      )}
     </div>
   );
 }
@@ -223,23 +243,38 @@ export function SearchDropdown({
 }: SearchDropdownProps) {
   const router = useRouter();
 
+  // 각 카테고리별 표시 개수 상태
+  const [visibleCounts, setVisibleCounts] = useState({
+    notes: INITIAL_COUNT,
+    files: INITIAL_COUNT,
+    segments: INITIAL_COUNT,
+  });
+
   const totalResults =
     results.notes.length + results.files.length + results.segments.length;
 
+  // 더보기 핸들러
+  const showMore = (type: "notes" | "files" | "segments") => {
+    setVisibleCounts((prev) => ({
+      ...prev,
+      [type]: prev[type] + LOAD_MORE_COUNT,
+    }));
+  };
+
   // 노트 클릭 핸들러
-  const handleNoteClick = (note: ApiSearchNoteResult) => {
+  const handleNoteClick = (note: LocalSearchNoteResult) => {
     router.push(`/note/student/${note.id}`);
     onClose();
   };
 
   // 파일 클릭 핸들러 (파일이 속한 노트로 이동)
-  const handleFileClick = (file: ApiSearchFileResult) => {
+  const handleFileClick = (file: LocalSearchFileResult) => {
     router.push(`/note/student/${file.noteId}`);
     onClose();
   };
 
   // 음성 세그먼트 클릭 핸들러 (노트로 이동 + 시간 파라미터)
-  const handleSegmentClick = (segment: ApiSearchSegmentResult) => {
+  const handleSegmentClick = (segment: LocalSearchSegmentResult) => {
     router.push(`/note/student/${segment.noteId}?t=${segment.startTime}`);
     onClose();
   };
@@ -328,8 +363,10 @@ export function SearchDropdown({
                     </svg>
                   }
                   count={results.notes.length}
+                  visibleCount={visibleCounts.notes}
+                  onShowMore={() => showMore("notes")}
                 >
-                  {results.notes.map((note) => (
+                  {results.notes.slice(0, visibleCounts.notes).map((note) => (
                     <NoteResultItem
                       key={note.id}
                       item={note}
@@ -358,8 +395,10 @@ export function SearchDropdown({
                     </svg>
                   }
                   count={results.files.length}
+                  visibleCount={visibleCounts.files}
+                  onShowMore={() => showMore("files")}
                 >
-                  {results.files.map((file) => (
+                  {results.files.slice(0, visibleCounts.files).map((file) => (
                     <FileResultItem
                       key={file.id}
                       item={file}
@@ -388,8 +427,10 @@ export function SearchDropdown({
                     </svg>
                   }
                   count={results.segments.length}
+                  visibleCount={visibleCounts.segments}
+                  onShowMore={() => showMore("segments")}
                 >
-                  {results.segments.map((segment) => (
+                  {results.segments.slice(0, visibleCounts.segments).map((segment) => (
                     <SegmentResultItem
                       key={segment.id}
                       item={segment}

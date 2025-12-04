@@ -1,6 +1,6 @@
 /**
- * PDF Controls Hook
- * Manages zoom, rotation, and page navigation
+ * PDF 컨트롤 훅
+ * 확대/축소, 회전, 페이지 네비게이션 관리
  */
 
 "use client";

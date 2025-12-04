@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { restoreAccount, permanentDeleteAccount } from "@/lib/api/auth.api";
+import { restoreAccount, permanentDeleteAccount } from "@/lib/api/services/auth.api";
 import { createLogger } from "@/lib/utils/logger";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -18,7 +18,7 @@ const log = createLogger("Restore");
 export function RestoreForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
+  const token = searchParams?.get("token");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

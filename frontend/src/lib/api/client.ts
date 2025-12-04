@@ -10,7 +10,12 @@
  * - 요청/응답 로깅
  */
 
-const API_BASE_URL =
+import { createLogger } from "@/lib/utils/logger";
+import { getAccessToken, getValidAccessToken } from "@/lib/auth/token-manager";
+
+const log = createLogger("API");
+
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // 재시도 설정
@@ -169,7 +174,7 @@ export async function apiClient<T>(
   if (method === "GET" && useCache && cache) {
     const cachedData = getCachedData(url, options);
     if (cachedData) {
-      console.debug(`[API] Cache hit: ${method} ${endpoint}`);
+      log.debug(`Cache hit: ${method} ${endpoint}`);
       return cachedData;
     }
   }
@@ -177,7 +182,7 @@ export async function apiClient<T>(
   // 중복 요청 제거: 동일한 요청이 진행 중이면 그 Promise 재사용
   const cacheKey = getCacheKey(url, options);
   if (pendingRequests.has(cacheKey) && method === "GET") {
-    console.debug(`[API] Request deduplication: ${method} ${endpoint}`);
+    log.debug(`Request deduplication: ${method} ${endpoint}`);
     return pendingRequests.get(cacheKey)!;
   }
 
@@ -215,8 +220,8 @@ async function performRequest<T>(
   const timeout = config?.timeout ?? DEFAULT_TIMEOUT;
   const skipInterceptors = config?.skipInterceptors ?? false;
 
-  // Get auth token
-  const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+  // Get auth token (with auto-refresh if expired)
+  const token = await getValidAccessToken();
 
   let requestConfig: RequestInit & { url: string } = {
     ...options,
@@ -265,8 +270,8 @@ async function retryRequest<T>(
 
   for (let attempt = 0; attempt <= config.retries; attempt++) {
     try {
-      console.debug(
-        `[API] ${options.method || "GET"} ${endpoint} (attempt ${attempt + 1}/${config.retries + 1})`
+      log.debug(
+        `${options.method || "GET"} ${endpoint} (attempt ${attempt + 1}/${config.retries + 1})`
       );
 
       const response = await fetchWithTimeout(url, config.timeout, options);
@@ -304,8 +309,8 @@ async function retryRequest<T>(
         // 마지막 시도가 아니면 재시도
         if (attempt < config.retries) {
           const delay = getBackoffDelay(attempt);
-          console.warn(
-            `[API] Retrying after ${delay}ms: ${options.method || "GET"} ${endpoint}`
+          log.warn(
+            `Retrying after ${delay}ms: ${options.method || "GET"} ${endpoint}`
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
@@ -321,7 +326,7 @@ async function retryRequest<T>(
         setCachedData(url, data, options);
       }
 
-      console.debug(`[API] Success: ${options.method || "GET"} ${endpoint}`);
+      log.debug(`Success: ${options.method || "GET"} ${endpoint}`);
       return data;
     } catch (error) {
       const apiError: ApiError =
@@ -346,8 +351,8 @@ async function retryRequest<T>(
         attempt < config.retries
       ) {
         const delay = getBackoffDelay(attempt);
-        console.warn(
-          `[API] Retrying after ${delay}ms: ${options.method || "GET"} ${endpoint}`,
+        log.warn(
+          `Retrying after ${delay}ms: ${options.method || "GET"} ${endpoint}`,
           apiError
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -360,7 +365,7 @@ async function retryRequest<T>(
           try {
             await errorInterceptor(apiError);
           } catch (e) {
-            console.error("[API] Error interceptor failed:", e);
+            log.error("Error interceptor failed:", e);
           }
         }
       }
@@ -403,7 +408,7 @@ export async function setupAuthInterceptor(): Promise<void> {
   // Error 인터셉터: 401 에러 시 토큰 갱신 및 로그아웃 처리
   addErrorInterceptor(async (error) => {
     if (error.status === 401) {
-      console.warn("[API] Unauthorized - clearing tokens");
+      log.warn("Unauthorized - clearing tokens");
       const { clearTokens } = await import("../auth/token-manager");
       clearTokens();
 
@@ -414,7 +419,7 @@ export async function setupAuthInterceptor(): Promise<void> {
     }
   });
 
-  console.debug("[API] Auth interceptors initialized");
+  log.debug("Auth interceptors initialized");
 }
 
 /**
@@ -422,7 +427,7 @@ export async function setupAuthInterceptor(): Promise<void> {
  */
 export function clearCache(): void {
   requestCache.clear();
-  console.debug("[API] Cache cleared");
+  log.debug("Cache cleared");
 }
 
 /**
@@ -438,7 +443,7 @@ export function clearCacheByPattern(pattern: RegExp | string): void {
     }
   }
 
-  console.debug(`[API] Cache cleared for pattern: ${pattern}`);
+  log.debug(`Cache cleared for pattern: ${pattern}`);
 }
 
 /**
@@ -446,6 +451,6 @@ export function clearCacheByPattern(pattern: RegExp | string): void {
  * Returns Bearer token header if token exists
  */
 export function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem("authToken");
+  const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

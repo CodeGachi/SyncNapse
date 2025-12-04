@@ -1,6 +1,8 @@
 import { DashboardProvider } from "@/providers/dashboard-context";
 import { DashboardLayoutContent } from "@/components/dashboard/dashboard-layout-content";
 
+export const dynamic = "force-dynamic";
+
 export default function DashboardLayout({
   children,
 }: {

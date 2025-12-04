@@ -58,6 +58,7 @@ export function FolderSelector({
                         >
                             {/* 확장/축소 아이콘 */}
                             <button
+                                type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     toggleFolder(node.folder.id);

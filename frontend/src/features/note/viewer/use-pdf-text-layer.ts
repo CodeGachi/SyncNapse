@@ -1,5 +1,5 @@
 /**
- * PDF Text Layer Hook
+ * PDF 텍스트 레이어 훅
  * PDF.js 텍스트 레이어 렌더링 - 텍스트 선택 기능 지원
  * PDF.js 3.x 버전 호환
  */
@@ -7,6 +7,9 @@
 "use client";
 
 import { useEffect, useRef, RefObject, useCallback } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("PdfTextLayer");
 
 interface UsePdfTextLayerProps {
   pdfDoc: any;
@@ -73,7 +76,7 @@ export function usePdfTextLayer({
       const pdfjsLib = (window as any).pdfjsLib;
 
       if (!pdfjsLib) {
-        console.warn("PDF.js library not loaded");
+        log.warn("PDF.js 라이브러리 로드 안됨");
         return;
       }
 
@@ -113,7 +116,7 @@ export function usePdfTextLayer({
     } catch (err: any) {
       // 렌더링 취소 시 에러 무시
       if (err?.name !== "RenderingCancelledException" && err?.message !== "TextLayer task cancelled.") {
-        console.warn("텍스트 레이어 렌더링 실패:", err);
+        log.warn("텍스트 레이어 렌더링 실패:", err);
       }
     }
   }, [pdfDoc, currentPage, scale, rotation, textLayerRef, canvasRef]);

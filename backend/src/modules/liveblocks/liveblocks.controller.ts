@@ -1,31 +1,45 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LiveblocksService } from './liveblocks.service';
+import { PrismaService } from '../db/prisma.service';
 
 @ApiTags('liveblocks')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('liveblocks')
 export class LiveblocksController {
-  constructor(private readonly liveblocksService: LiveblocksService) {}
+  private readonly logger = new Logger(LiveblocksController.name);
+
+  constructor(
+    private readonly liveblocksService: LiveblocksService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Post('auth')
   @ApiOperation({ summary: 'Authorize Liveblocks session' })
   async auth(@Req() req: any, @Body('room') room: string) {
-    // req.user is populated by JwtAuthGuard
-    const user = req.user; 
-    // Expecting: { id: string, email: string, displayName: string, ... }
-    // Ensure user object has required fields. If not, fetch from DB or ensure JWT strategy provides them.
-    
+    // req.user is populated by JwtAuthGuard (only contains { id: string })
+    const userId = req.user?.id;
+
+    // Fetch full user info from DB since JWT only contains userId
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, displayName: true },
+    });
+
+    if (!user) {
+      this.logger.warn(`[auth] User not found: ${userId}`);
+      throw new Error('User not found');
+    }
+
+    this.logger.debug(`[auth] user=${user.email} room=${room}`);
+
     const result = await this.liveblocksService.authorize(
-      { id: user.id, email: user.email, displayName: user.displayName || 'User' }, 
+      { id: user.id, email: user.email, displayName: user.displayName || 'User' },
       room
     );
-    
-    // Return the raw body string directly as NestJS handles JSON serialization automatically,
-    // but Liveblocks expects a specific string format.
-    // Actually session.authorize() returns a JSON object { token: ... } or similar structure in body.
-    return JSON.parse(result.body); 
+
+    return JSON.parse(result.body);
   }
 }

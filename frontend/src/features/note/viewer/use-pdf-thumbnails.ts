@@ -1,11 +1,14 @@
 /**
- * PDF Thumbnails Hook
- * Generates and manages thumbnail canvases for PDF pages
+ * PDF 썸네일 훅
+ * PDF 페이지의 썸네일 캔버스 생성 및 관리
  */
 
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("PdfThumbnails");
 
 interface UsePdfThumbnailsProps {
   pdfDoc: any;
@@ -76,7 +79,7 @@ export function usePdfThumbnails({ pdfDoc, numPages, currentPage }: UsePdfThumbn
       loadingPagesRef.current.delete(pageNum);
       return canvas;
     } catch (err) {
-      console.error(`썸네일 생성 실패 (페이지 ${pageNum}):`, err);
+      log.error(`썸네일 생성 실패 (페이지 ${pageNum}):`, err);
       loadingPagesRef.current.delete(pageNum);
       return null;
     }

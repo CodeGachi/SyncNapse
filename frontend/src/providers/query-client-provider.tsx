@@ -1,3 +1,8 @@
+/**
+ * React Query 클라이언트 프로바이더
+ * QueryClient 설정 및 인증 인터셉터 초기화
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";

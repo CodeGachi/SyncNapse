@@ -1,7 +1,7 @@
 /**
- * Recording Related TanStack Query Mutations
+ * 녹음 관련 TanStack Query 뮤테이션
  *
- * Recording save/delete/rename operations using useMutation hooks
+ * useMutation 훅을 사용한 녹음 저장/삭제/이름변경 작업
  */
 import {
   useMutation,
@@ -16,7 +16,7 @@ import {
 import type { DBRecording } from "@/lib/db/recordings";
 
 /**
- * Recording save mutation
+ * 녹음 저장 뮤테이션
  *
  * @example
  * const saveRecording = useSaveRecording({
@@ -64,7 +64,7 @@ export function useSaveRecording(
 }
 
 /**
- * Recording delete mutation
+ * 녹음 삭제 뮤테이션
  *
  * @example
  * const deleteRecording = useDeleteRecording({
@@ -132,7 +132,7 @@ export function useDeleteRecording(
 }
 
 /**
- * Recording rename mutation
+ * 녹음 이름 변경 뮤테이션
  *
  * @example
  * const renameRecording = useRenameRecording({

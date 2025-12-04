@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logout } from "@/lib/api/services/auth.api";
+import { clearTokens } from "@/lib/auth/token-manager";
 import { deleteCookie } from "@/lib/utils/cookie";
 import { LoadingScreen } from "@/components/common/loading-screen";
 
@@ -16,14 +17,9 @@ export function LogoutHandler() {
 
   useEffect(() => {
     const performLogout = async () => {
-      // 1. localStorage 토큰 제거
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-
-      // 2. 쿠키 삭제 (미들웨어 호환)
-      deleteCookie("authToken");
-      deleteCookie("refreshToken");
+      // 1. 토큰 제거 (쿠키)
+      clearTokens();
+      deleteCookie("user");
 
       // 3. React Query 캐시 초기화
       queryClient.clear();

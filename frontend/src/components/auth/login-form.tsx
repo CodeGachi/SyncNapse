@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/use-auth";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { createLogger } from "@/lib/utils/logger";
 import { motion } from "framer-motion";
-import Image from "next/image";
+import { Logo } from "@/components/common/logo";
 
 const log = createLogger("Login");
 
@@ -18,10 +18,11 @@ export function LoginForm() {
 
   // 쿼리 파라미터에서 리다이렉트 URL 저장
   useEffect(() => {
-    const callbackUrl = searchParams.get("callbackUrl");
-    if (callbackUrl && callbackUrl !== "/" && !callbackUrl.startsWith("/auth")) {
-      localStorage.setItem("redirectAfterLogin", callbackUrl);
-      log.debug("리다이렉트 URL 저장:", callbackUrl);
+    // returnUrl 또는 callbackUrl 파라미터 지원
+    const returnUrl = searchParams?.get("returnUrl") || searchParams?.get("callbackUrl");
+    if (returnUrl && returnUrl !== "/" && !returnUrl.startsWith("/auth")) {
+      localStorage.setItem("redirectAfterLogin", returnUrl);
+      log.debug("리다이렉트 URL 저장:", returnUrl);
     }
   }, [searchParams]);
 
@@ -77,14 +78,11 @@ export function LoginForm() {
                 transition={{ delay: 0.2, duration: 0.5 }}
                 className="flex items-center gap-4 mb-2"
               >
-                <div className="relative w-16 h-16">
-                  <Image
-                    src="/대시보드/Logo.svg"
-                    alt="SyncNapse Logo"
-                    fill
-                    className="object-contain drop-shadow-[0_0_15px_rgba(175,192,43,0.3)]"
-                  />
-                </div>
+                <Logo
+                  width={64}
+                  height={64}
+                  className="drop-shadow-[0_0_15px_rgba(175,192,43,0.3)]"
+                />
                 <h1 className="text-5xl font-bold text-foreground tracking-tight">
                   SyncNapse
                 </h1>

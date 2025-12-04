@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Logo } from "@/components/common/logo";
 import { CreateFolderModal } from "@/components/dashboard/folder-management/create-folder-modal";
 import { RenameFolderModal } from "@/components/dashboard/folder-management/rename-folder-modal";
 import { DeleteConfirmModal } from "@/components/dashboard/delete-confirm-modal";
@@ -17,22 +18,22 @@ import { useAuth } from "@/features/auth/use-auth";
 import { useFolders } from "@/features/dashboard";
 import { useDashboardSidebar } from "@/features/dashboard";
 import { useDashboard } from "@/features/dashboard";
-import { useIsAdmin } from "@/components/admin/admin-guard";
 
 interface SidebarProps {
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null) => void;
+  onCloseMobile?: () => void;
 }
 
 export function Sidebar({
   selectedFolderId,
   onSelectFolder,
+  onCloseMobile,
 }: SidebarProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { buildFolderTree } = useFolders();
   const { handleCreateNote } = useDashboard();
-  const { isAdmin, isOperator } = useIsAdmin();
 
   // UI 상태
   const [isNoteDropdownOpen, setIsNoteDropdownOpen] = useState(false);
@@ -66,7 +67,20 @@ export function Sidebar({
   return (
     <>
       {/* Sidebar - width: 307px, bg: #121212 (Deep Premium Dark) */}
-      <aside className="w-[307px] h-screen bg-background-sidebar flex flex-col py-0 px-0 border-r border-border-subtle">
+      <aside className="w-[280px] md:w-[307px] h-screen bg-background-sidebar flex flex-col py-0 px-0 border-r border-border-subtle relative">
+        {/* 모바일/태블릿 닫기 버튼 */}
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="xl:hidden absolute top-4 right-4 p-2 text-foreground-tertiary hover:text-foreground hover:bg-foreground/10 rounded-lg transition-colors z-10"
+            aria-label="사이드바 닫기"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
         {/* Card - padding: 0px 8px */}
         <div className="flex flex-col justify-between items-start px-2 py-0 w-full h-full">
           {/* Inner Card - padding: 4px 12px, gap: 8px */}
@@ -75,12 +89,7 @@ export function Sidebar({
             <div className="flex flex-col items-start py-3 gap-[18px] w-full border-b border-border-subtle">
               {/* Logo Container - gap: 8px */}
               <div className="flex items-center gap-2 h-[42px]">
-                <Image
-                  src="/대시보드/Logo.svg"
-                  alt="SyncNapse Logo"
-                  width={42}
-                  height={42}
-                />
+                <Logo className="drop-shadow-[0_0_8px_rgba(0,0,0,0.25)] dark:drop-shadow-none" />
                 <span className="text-foreground text-2xl font-bold leading-[29px] font-['Inter']">
                   SyncNapse
                 </span>
@@ -132,15 +141,14 @@ export function Sidebar({
                   {/* 새 노트 Button */}
                   <button
                     onClick={() => setIsNoteDropdownOpen(!isNoteDropdownOpen)}
-                    className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] z-50 relative bg-gradient-to-br from-brand to-brand-secondary shadow-[0_0_20px_rgba(175,192,43,0.3)] hover:shadow-[0_0_30px_rgba(175,192,43,0.5)] hover:scale-105 transition-all duration-300 border border-brand/50"
+                    className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] z-50 relative bg-gradient-to-br from-brand to-brand-secondary shadow-[0_0_20px_rgba(175,192,43,0.3)] hover:shadow-[0_0_30px_rgba(175,192,43,0.5)] hover:scale-105 transition-all duration-300 border border-[#6B7A20] dark:border-brand"
                   >
                     <div className="flex items-center gap-1">
-                      <Image
-                        src="/대시보드/Text input.svg"
-                        alt="새 노트"
-                        width={20}
-                        height={20}
-                      />
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 2.5C16 2.5 17.5 4 17.5 10C17.5 16 16 17.5 10 17.5C4 17.5 2.5 16 2.5 10C2.5 4 4 2.5 10 2.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12.5 10H7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 7.5V12.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
                       <span className="text-white font-bold text-sm leading-[17px] text-center font-['Inter']">
                         새 노트
                       </span>
@@ -193,16 +201,15 @@ export function Sidebar({
 
                 {/* 새 폴더 Button */}
                 <button
-                  onClick={() => setIsCreateFolderModalOpen(true)}
+                  onClick={() => {
+                    setIsCreateFolderModalOpen(true);
+                  }}
                   className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] bg-foreground/5 border border-border hover:bg-foreground/10 hover:scale-105 transition-all duration-300"
                 >
-                  <div className="flex items-center gap-1">
-                    <Image
-                      src="/대시보드/Text input-1.svg"
-                      alt="새 폴더"
-                      width={20}
-                      height={20}
-                    />
+                  <div className="flex items-center gap-1 text-foreground">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path fillRule="evenodd" clipRule="evenodd" d="M5.7164 1.04102C5.74119 1.04102 5.76632 1.04103 5.79179 1.04103L5.82262 1.04102C6.11547 1.04101 6.30393 1.041 6.48817 1.05822C7.28091 1.13236 8.03287 1.44382 8.64582 1.95196C8.78832 2.07006 8.92157 2.20332 9.12866 2.41042L9.60891 2.89076C10.3137 3.59551 10.5847 3.8586 10.8977 4.03272C11.0793 4.1338 11.272 4.21362 11.472 4.27061C11.8164 4.36879 12.194 4.37436 13.1907 4.37436H13.5445C14.6053 4.37435 15.4604 4.37433 16.137 4.4594C16.8382 4.54755 17.434 4.73566 17.9234 5.17589C18.0054 5.24961 18.0834 5.32763 18.1572 5.40961C18.5974 5.89906 18.7855 6.49484 18.8737 7.19602C18.9587 7.8726 18.9587 8.72776 18.9587 9.78851V11.713C18.9587 13.2445 18.9587 14.4575 18.8311 15.4068C18.6997 16.3839 18.4229 17.1747 17.7993 17.7983C17.1757 18.4219 16.3849 18.6988 15.4078 18.8301C14.4585 18.9577 13.2455 18.9577 11.714 18.9577H8.28667C6.75519 18.9577 5.54217 18.9577 4.59282 18.8301C3.6158 18.6988 2.82501 18.4219 2.20137 17.7983C1.57774 17.1747 1.30097 16.3839 1.16962 15.4068C1.04198 14.4575 1.04199 13.2445 1.04201 11.713V5.79081C1.04201 5.76534 1.042 5.74021 1.042 5.71542C1.04191 5.05216 1.04184 4.63006 1.11063 4.26547C1.41274 2.66425 2.66522 1.41176 4.26645 1.10966C4.63103 1.04086 5.05314 1.04093 5.7164 1.04102ZM5.79179 2.29103C5.02792 2.29103 4.7326 2.29376 4.49821 2.33798C3.40263 2.54469 2.54567 3.40166 2.33896 4.49723C2.29473 4.73162 2.29201 5.02695 2.29201 5.79081V11.666C2.29201 13.255 2.29333 14.3839 2.40847 15.2403C2.52119 16.0788 2.73258 16.5618 3.08526 16.9144C3.43793 17.2671 3.92097 17.4785 4.75938 17.5913C5.61577 17.7063 6.74466 17.7077 8.33366 17.7077H11.667C13.256 17.7077 14.3849 17.7063 15.2413 17.5913C16.0797 17.4785 16.5627 17.2671 16.9154 16.9144C17.2681 16.5618 17.4795 16.0788 17.5922 15.2403C17.7073 14.3839 17.7087 13.255 17.7087 11.666V9.83093C17.7087 8.71776 17.7075 7.94143 17.6334 7.35195C17.5612 6.77808 17.4287 6.46898 17.2277 6.24551C17.1835 6.19632 17.1367 6.14951 17.0875 6.10528C16.8641 5.90428 16.555 5.77178 15.9811 5.69963C15.3916 5.62552 14.6153 5.62436 13.5021 5.62436H13.1907C13.1597 5.62436 13.1291 5.62436 13.0988 5.62437C12.2255 5.62456 11.6623 5.62466 11.1293 5.47273C10.8371 5.38944 10.5554 5.27277 10.2899 5.12504C9.80557 4.85557 9.40741 4.45726 8.78999 3.83962C8.76866 3.81822 8.74699 3.79656 8.72507 3.77464L8.26652 3.31609C8.03046 3.08003 7.94014 2.99061 7.84808 2.91429C7.42868 2.56662 6.91419 2.35351 6.37179 2.30279C6.25273 2.29166 6.12564 2.29103 5.79179 2.29103ZM10.0003 9.37435C10.3455 9.37435 10.6253 9.65418 10.6253 9.99935V11.041H11.667C12.0122 11.041 12.292 11.3208 12.292 11.666C12.292 12.0112 12.0122 12.291 11.667 12.291H10.6253V13.3327C10.6253 13.6778 10.3455 13.9577 10.0003 13.9577C9.65516 13.9577 9.37532 13.6778 9.37532 13.3327V12.291H8.33366C7.98849 12.291 7.70867 12.0112 7.70867 11.666C7.70867 11.3208 7.98849 11.041 8.33366 11.041H9.37532V9.99935C9.37532 9.65418 9.65516 9.37435 10.0003 9.37435Z" fill="currentColor"/>
+                    </svg>
                     <span className="text-foreground font-bold text-sm leading-[17px] text-center font-['Inter']">
                       새 폴더
                     </span>
@@ -243,37 +250,6 @@ export function Sidebar({
                   홈
                 </span>
               </button>
-
-              {/* 즐겨찾기 */}
-              <button
-                onClick={() => router.push("/dashboard/favorites")}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 hover:backdrop-blur-sm transition-all duration-200 group"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground opacity-70 group-hover:opacity-100 transition-opacity">
-                  <path d="M10 1.66667L12.575 6.88334L18.3333 7.725L14.1667 11.7833L15.15 17.5167L10 14.8083L4.85 17.5167L5.83333 11.7833L1.66667 7.725L7.425 6.88334L10 1.66667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className="text-foreground/70 group-hover:text-foreground font-medium text-sm leading-[17px] font-['Inter'] transition-colors">
-                  즐겨찾기
-                </span>
-              </button>
-
-              {/* 관리자 콘솔 - admin 또는 operator만 표시 */}
-              {(isAdmin || isOperator) && (
-                <button
-                  onClick={() => router.push("/admin")}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 hover:backdrop-blur-sm transition-all duration-200 group"
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground opacity-70 group-hover:opacity-100 transition-opacity">
-                    <path d="M8.33333 2.5H2.5V8.33333H8.33333V2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M17.5 2.5H11.6667V8.33333H17.5V2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M17.5 11.6667H11.6667V17.5H17.5V11.6667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M8.33333 11.6667H2.5V17.5H8.33333V11.6667Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span className="text-foreground/70 group-hover:text-foreground font-medium text-sm leading-[17px] font-['Inter'] transition-colors">
-                    관리자 콘솔
-                  </span>
-                </button>
-              )}
             </div>
 
             {/* Folder Section - padding: 12px 0px, gap: 8px */}

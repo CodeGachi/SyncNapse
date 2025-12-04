@@ -230,10 +230,10 @@ export function NoteContentArea({
           {isNotePanelOpen && (
             <div
               onMouseDown={() => setIsDragging(true)}
-              className="h-1 bg-[#444444] hover:bg-[#666666] cursor-ns-resize transition-colors relative group"
+              className="h-1 bg-border hover:bg-border-strong cursor-ns-resize transition-colors relative group"
             >
               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 flex items-center justify-center">
-                <div className="w-12 h-1 bg-[#666666] rounded-full group-hover:bg-white transition-colors" />
+                <div className="w-12 h-1 bg-border-strong rounded-full group-hover:bg-foreground transition-colors" />
               </div>
             </div>
           )}
@@ -241,7 +241,7 @@ export function NoteContentArea({
           {/* 노트 패널 - 하단 */}
           {isNotePanelOpen && (
             <div
-              className="overflow-y-auto bg-[#1e1e1e]"
+              className="overflow-y-auto bg-background-surface"
               style={{
                 height: `${100 - viewerHeight}%`,
                 marginRight:

@@ -1,5 +1,5 @@
 /**
- * PDF Viewer Feature Exports
+ * PDF 뷰어 기능 내보내기
  */
 
 export { usePdfLoader } from "./use-pdf-loader";

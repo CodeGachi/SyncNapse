@@ -4,6 +4,9 @@
  */
 
 import * as fabric from 'fabric';
+import { createLogger } from "./logger";
+
+const log = createLogger("Shapes");
 
 export interface DrawInfo {
   lineColor: string;
@@ -180,13 +183,13 @@ export const createShapeByClick = (
   try {
     const creator = CLICK_SHAPE_CREATORS[type];
     if (!creator) {
-      console.warn(`Shape type ${type} does not support click creation`);
+      log.warn(`Shape type ${type} does not support click creation`);
       return null;
     }
 
     return creator(info);
   } catch (error) {
-    console.error(`Error creating shape ${type}:`, error);
+    log.error(`Error creating shape ${type}:`, error);
     return null;
   }
 };
@@ -342,7 +345,7 @@ export const createShapeByDrag = (
 
     return creator(info);
   } catch (error) {
-    console.error(`Error creating shape ${type}:`, error);
+    log.error(`Error creating shape ${type}:`, error);
     return null;
   }
 };

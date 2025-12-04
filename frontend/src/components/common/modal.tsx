@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -23,13 +24,20 @@ export function Modal({
   onClose,
   children,
   title,
-  overlayClassName = "fixed inset-0 bg-black/40 backdrop-blur-sm z-40",
-  containerClassName = "fixed inset-0 z-50 flex items-center justify-center p-4",
+  overlayClassName = "fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]",
+  containerClassName = "fixed inset-0 z-[100] flex items-center justify-center p-4",
   contentClassName = "bg-background-modal/90 border border-border-subtle shadow-2xl shadow-black/50 backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto",
   closeButton = true,
   overlayStyle,
   contentStyle,
 }: ModalProps) {
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  // Portal mount check - get document.body after mount
+  useEffect(() => {
+    setPortalContainer(document.body);
+  }, []);
+
   // Close on ESC key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -48,7 +56,10 @@ export function Modal({
     };
   }, [isOpen, onClose]);
 
-  return (
+  // Don't render until portal container is ready (for SSR)
+  if (!portalContainer) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -107,6 +118,7 @@ export function Modal({
           </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    portalContainer
   );
 }

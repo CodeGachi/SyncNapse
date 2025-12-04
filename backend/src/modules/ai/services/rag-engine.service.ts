@@ -6,12 +6,44 @@ import {
   Settings,
   TextNode,
   MetadataMode,
+  BaseEmbedding,
 } from 'llamaindex';
 import { PrismaService } from '../../db/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { ChatMode, Citation } from '../dto/chat.dto';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
+
+/**
+ * Gemini Embedding 구현체
+ * @google/generative-ai를 사용하여 text-embedding-004 모델로 임베딩 생성
+ */
+class GeminiEmbedding extends BaseEmbedding {
+  private genAI: GoogleGenerativeAI;
+  private model: string;
+
+  constructor(apiKey: string, model = 'text-embedding-004') {
+    super();
+    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.model = model;
+  }
+
+  async getTextEmbedding(text: string): Promise<number[]> {
+    const embeddingModel = this.genAI.getGenerativeModel({ model: this.model });
+    const result = await embeddingModel.embedContent(text);
+    return result.embedding.values;
+  }
+
+  getTextEmbeddings = async (texts: string[]): Promise<number[][]> => {
+    const embeddingModel = this.genAI.getGenerativeModel({ model: this.model });
+    const results = await Promise.all(
+      texts.map(async (text) => {
+        const result = await embeddingModel.embedContent(text);
+        return result.embedding.values;
+      }),
+    );
+    return results;
+  };
+}
 
 // RAG 설정 상수
 const CHUNK_SIZE = 512;
@@ -35,7 +67,7 @@ export class RagEngineService {
     }
 
     this.genAI = new GoogleGenerativeAI(this.apiKey);
-    const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash-lite';
     this.geminiModel = this.genAI.getGenerativeModel({ model: modelName });
 
     // LlamaIndex 글로벌 설정
@@ -44,11 +76,14 @@ export class RagEngineService {
 
   private initializeLlamaIndex() {
     try {
+      // Gemini Embedding 모델 설정
+      Settings.embedModel = new GeminiEmbedding(this.apiKey, 'text-embedding-004');
+
       // LlamaIndex 기본 설정
       Settings.chunkSize = CHUNK_SIZE;
       Settings.chunkOverlap = CHUNK_OVERLAP;
 
-      this.logger.log('LlamaIndex initialized');
+      this.logger.log('LlamaIndex initialized with Gemini embedding');
     } catch (error) {
       this.logger.error('Failed to initialize LlamaIndex', error);
     }
@@ -90,39 +125,34 @@ export class RagEngineService {
           ? fileStream.body 
           : Buffer.from(await fileStream.body.transformToByteArray());
         
-        // PDF 텍스트 추출
-        const pdfData = await pdfParse(pdfBuffer);
-        const pdfText = pdfData.text;
+        // PDF 텍스트 추출 (pdf-parse v2 API)
+        const pdfParser = new PDFParse({ data: pdfBuffer });
+        const textResult = await pdfParser.getText();
+        const totalPages = textResult.total;
 
-        if (pdfText && pdfText.trim().length > 0) {
-          // 페이지별로 분리 (pdfData.numpages 사용)
-          const totalPages = pdfData.numpages;
-          const avgCharsPerPage = Math.ceil(pdfText.length / totalPages);
-          
-          // 간단한 페이지 분할 (정확하지 않을 수 있지만 근사치)
-          for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            const startIdx = (pageNum - 1) * avgCharsPerPage;
-            const endIdx = Math.min(pageNum * avgCharsPerPage, pdfText.length);
-            const pageText = pdfText.substring(startIdx, endIdx).trim();
-            
-            if (pageText.length > 0) {
-              const doc = new Document({
-                text: pageText,
-                metadata: {
-                  noteId: lectureNoteId,
-                  type: 'pdf_content',
-                  fileId: file.id,
-                  fileName: file.fileName,
-                  pageNumber: pageNum,
-                  totalPages: totalPages,
-                },
-              });
-              documents.push(doc);
-            }
+        for (const pageResult of textResult.pages) {
+          const pageText = pageResult.text?.trim() || '';
+
+          if (pageText.length > 0) {
+            const doc = new Document({
+              text: pageText,
+              metadata: {
+                noteId: lectureNoteId,
+                type: 'pdf_content',
+                fileId: file.id,
+                fileName: file.fileName,
+                pageNumber: pageResult.num,
+                totalPages: totalPages,
+              },
+            });
+            documents.push(doc);
           }
-          
-          this.logger.debug(`Extracted ${totalPages} pages from ${file.fileName}`);
         }
+
+        // 리소스 해제
+        await pdfParser.destroy();
+
+        this.logger.debug(`Extracted ${totalPages} pages from ${file.fileName}`);
       } catch (error) {
         this.logger.warn(`Failed to extract text from PDF ${file.fileName}:`, error);
         // PDF 추출 실패해도 계속 진행
@@ -322,22 +352,22 @@ export class RagEngineService {
     } catch (error) {
       this.logger.error('RAG query failed', error);
       
-      // LlamaIndex embedding 에러 발생시 fallback: Gemini 직접 사용
+      // LlamaIndex 설정 에러 발생시 fallback: Gemini 직접 사용
       const errorMessage = (error as Error).message || '';
-      if (errorMessage.includes('Cannot find Embedding')) {
-        this.logger.warn('Embedding model not available, using direct Gemini fallback');
-        
+      if (errorMessage.includes('Cannot find Embedding') || errorMessage.includes('Cannot find LLM')) {
+        this.logger.warn('LlamaIndex model not available, using direct Gemini fallback');
+
         // 문서들을 하나의 컨텍스트로 합치기
         const documents = await this.fetchNoteDocuments(lectureNoteId);
         const context = documents.map(doc => doc.getText()).join('\n\n');
-        
+
         const answer = await this.queryWithoutRag(question, context, mode);
         return {
           answer,
           citations: [],
         };
       }
-      
+
       throw new Error('Failed to generate answer: ' + (error as Error).message);
     }
   }
@@ -351,7 +381,26 @@ export class RagEngineService {
         return `다음 강의 노트의 내용을 상세하게 요약해주세요. 주요 개념, 핵심 포인트, 그리고 중요한 세부사항을 포함해주세요.\n\n${question || '전체 내용을 요약해주세요.'}`;
 
       case ChatMode.QUIZ:
-        return `다음 강의 노트의 내용을 바탕으로 학습을 점검할 수 있는 퀴즈 문제들을 만들어주세요. 각 문제는 4지선다형으로 작성하고, 정답과 간단한 해설을 포함해주세요.\n\n${question || '5개의 퀴즈 문제를 만들어주세요.'}`;
+        return `다음 강의 노트의 내용을 바탕으로 학습을 점검할 수 있는 퀴즈 문제 5개를 만들어주세요.
+
+반드시 아래 JSON 형식으로만 응답해주세요. 다른 텍스트 없이 JSON만 출력하세요:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "문제 내용",
+      "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
+      "correctIndex": 0,
+      "explanation": "정답 해설"
+    }
+  ]
+}
+
+규칙:
+- correctIndex는 0부터 시작하는 정답 인덱스입니다 (0=첫번째, 1=두번째, 2=세번째, 3=네번째)
+- 각 문제는 4개의 선택지를 가져야 합니다
+- 해설은 왜 그 답이 정답인지 간단히 설명해주세요
+- ${question || '5개의 퀴즈 문제를 만들어주세요.'}`;
 
       case ChatMode.QUESTION:
       default:

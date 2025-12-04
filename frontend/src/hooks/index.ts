@@ -1,5 +1,5 @@
 /**
- * Hooks Barrel Export
+ * 훅 배럴 내보내기
  */
 
 export { useFileUpload } from "./use-file-upload";
