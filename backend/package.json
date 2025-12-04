@@ -9,9 +9,9 @@
     "build": "bunx nest build -c tsconfig.build.json",
     "prisma:generate": "bunx prisma generate",
     "prisma:migrate:dev": "bunx prisma migrate dev --name init",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:ci": "bun test --bail",
+    "test": "bunx jest",
+    "test:watch": "bunx jest --watch",
+    "test:ci": "bunx jest --ci --bail",
     "lint": "bunx eslint . --ext .ts",
     "format": "bunx prettier --write ."
   },

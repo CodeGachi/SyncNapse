@@ -8,8 +8,8 @@
     "start": "bunx next start -p 3000",
     "lint": "bunx next lint",
     "format": "bunx prettier --write .",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
+    "test": "bunx vitest run -c vitest.config.mts",
+    "test:watch": "bunx vitest -c vitest.config.mts",
     "test:ci": "bunx vitest run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
@@ -57,7 +57,7 @@
     "@vitejs/plugin-react-swc": "^4.1.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^16.0.7",
+    "eslint-config-next": "^14.2.33",
     "fake-indexeddb": "^6.2.4",
     "jsdom": "^25.0.0",
     "postcss": "^8.5.6",
