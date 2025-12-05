@@ -5,269 +5,65 @@
 
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useNotes } from "@/lib/api/queries/notes.queries";
-import { useFolders } from "@/features/dashboard";
-import { useDashboardContext } from "@/providers/dashboard-context";
-import { updateNote, deleteNote } from "@/lib/api/services/notes.api";
-import { renameFolder, deleteFolder, moveFolder } from "@/lib/api/services/folders.api";
-import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/common/modal";
 import { Button } from "@/components/common/button";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { DeleteConfirmModal } from "@/components/dashboard/delete-confirm-modal";
 import { FolderSelector } from "@/components/dashboard/folder-management/folder-selector";
 import { SearchDropdown } from "@/components/dashboard/search-dropdown";
-import { useSearch } from "@/features/search/use-search";
-import { createLogger } from "@/lib/utils/logger";
+import { useMainContent } from "@/features/dashboard/views/use-main-content";
 import { motion } from "framer-motion";
-import type { Note, Folder } from "@/lib/types";
-
-const log = createLogger("MainContent");
-
-// 옵션 메뉴 타입
-interface OptionMenu {
-  type: 'note' | 'folder';
-  id: string;
-  position: { top: number; left: number };
-}
-
-// 이름 변경 모달 타입
-interface RenameModal {
-  type: 'note' | 'folder';
-  id: string;
-  currentName: string;
-}
-
-// 위치 이동 모달 타입
-interface MoveModal {
-  type: 'note' | 'folder';
-  id: string;
-  name: string;
-}
-
-// 삭제 모달 타입
-interface DeleteModal {
-  type: 'note' | 'folder';
-  id: string;
-  name: string;
-}
 
 export function MainContent() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { selectedFolderId, setSelectedFolderId } = useDashboardContext();
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-  const { folders, isLoading: isFoldersLoading, buildFolderTree } = useFolders();
-
-  // 첫 방문 시 Root 폴더 자동 선택
-  useEffect(() => {
-    if (!isFoldersLoading && selectedFolderId === null && folders.length > 0) {
-      const rootFolder = folders.find(f => f.name === "Root" && f.parentId === null);
-      if (rootFolder) {
-        log.debug("Root 폴더 자동 선택:", rootFolder.id);
-        setSelectedFolderId(rootFolder.id);
-      }
-    }
-  }, [isFoldersLoading, selectedFolderId, folders, setSelectedFolderId]);
-
-  // 통합 검색 훅
   const {
-    query: searchQuery,
-    setQuery: setSearchQuery,
-    isOpen: isSearchOpen,
-    setIsOpen: setIsSearchOpen,
-    results: searchResults,
-    isLoading: isSearchLoading,
-  } = useSearch({ debounceDelay: 300, limit: 5 });
+    // Refs
+    searchContainerRef,
 
-  // 검색창 외부 클릭 시 드롭다운 닫기
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        searchContainerRef.current &&
-        !searchContainerRef.current.contains(event.target as Node)
-      ) {
-        setIsSearchOpen(false);
-      }
-    }
+    // 로딩 상태
+    isLoading,
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setIsSearchOpen]);
+    // 검색 관련
+    searchQuery,
+    setSearchQuery,
+    isSearchOpen,
+    setIsSearchOpen,
+    searchResults,
+    isSearchLoading,
 
-  // ESC 키로 검색 드롭다운 닫기
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && isSearchOpen) {
-        setIsSearchOpen(false);
-      }
-    }
+    // 데이터
+    childFolders,
+    recentNotes,
+    folderNotes,
+    buildFolderTree,
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isSearchOpen, setIsSearchOpen]);
+    // 모달 상태
+    optionMenu,
+    renameModal,
+    moveModal,
+    deleteModal,
+    newName,
+    setNewName,
+    selectedMoveFolder,
+    setSelectedMoveFolder,
 
-  // 옵션 메뉴 상태
-  const [optionMenu, setOptionMenu] = useState<OptionMenu | null>(null);
-  const [renameModal, setRenameModal] = useState<RenameModal | null>(null);
-  const [moveModal, setMoveModal] = useState<MoveModal | null>(null);
-  const [deleteModal, setDeleteModal] = useState<DeleteModal | null>(null);
-  const [newName, setNewName] = useState("");
-  const [selectedMoveFolder, setSelectedMoveFolder] = useState<string | null>(null);
+    // 핸들러
+    handleFolderClick,
+    handleNoteClick,
+    handleOptionClick,
+    closeOptionMenu,
+    openRenameModal,
+    handleRename,
+    closeRenameModal,
+    openMoveModal,
+    handleMove,
+    closeMoveModal,
+    handleDelete,
+    confirmDelete,
+    closeDeleteModal,
 
-  // 모든 노트 조회
-  const { data: allNotes = [], isLoading } = useNotes();
-
-  // 현재 폴더의 하위 폴더들
-  const childFolders = useMemo(() => {
-    if (!selectedFolderId) return [];
-    return folders.filter((f) => f.parentId === selectedFolderId);
-  }, [folders, selectedFolderId]);
-
-  // 폴더 클릭 핸들러
-  const handleFolderClick = (folderId: string) => {
-    setSelectedFolderId(folderId);
-  };
-
-  // 최근 접근한 노트 (updated_at 기준 정렬, 최대 5개)
-  const recentNotes = useMemo(() => {
-    return [...allNotes]
-      .sort((a, b) => {
-        const dateA = a.updatedAt || a.createdAt;
-        const dateB = b.updatedAt || b.createdAt;
-        return dateB - dateA;
-      })
-      .slice(0, 5);
-  }, [allNotes]);
-
-  // 선택된 폴더의 노트
-  const folderNotes = useMemo(() => {
-    if (!selectedFolderId) return [];
-    return allNotes.filter((note) => note.folderId === selectedFolderId);
-  }, [allNotes, selectedFolderId]);
-
-  // 날짜 포맷팅 - 2025/11/18 형식
-  const formatDate = (dateString: string | number) => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}/${month}/${day}`;
-  };
-
-  // 노트 클릭 핸들러
-  const handleNoteClick = (note: Note) => {
-    const noteType = note.type || "student";
-    router.push(`/note/${noteType}/${note.id}`);
-  };
-
-  // 옵션 메뉴 열기
-  const handleOptionClick = (e: React.MouseEvent, type: 'note' | 'folder', id: string) => {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    setOptionMenu({
-      type,
-      id,
-      position: {
-        top: rect.bottom + 4,
-        left: rect.right - 160,
-      },
-    });
-  };
-
-  // 옵션 메뉴 닫기
-  const closeOptionMenu = () => {
-    setOptionMenu(null);
-  };
-
-  // 이름 변경 핸들러
-  const handleRename = async () => {
-    if (!renameModal || !newName.trim()) return;
-
-    try {
-      if (renameModal.type === 'note') {
-        await updateNote(renameModal.id, { title: newName.trim() });
-      } else {
-        await renameFolder(renameModal.id, newName.trim());
-      }
-
-      // 캐시 무효화
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      queryClient.invalidateQueries({ queryKey: ['folders'] });
-      window.dispatchEvent(new CustomEvent('folders-updated'));
-
-      setRenameModal(null);
-      setNewName("");
-    } catch (error) {
-      log.error('이름 변경 실패:', error);
-      alert('이름 변경에 실패했습니다.');
-    }
-  };
-
-  // 삭제 핸들러 (모달 열기)
-  const handleDelete = (type: 'note' | 'folder', id: string) => {
-    const item = type === 'note'
-      ? allNotes.find(n => n.id === id)
-      : folders.find(f => f.id === id);
-
-    if (item) {
-      setDeleteModal({
-        type,
-        id,
-        name: 'title' in item ? item.title : item.name,
-      });
-      closeOptionMenu();
-    }
-  };
-
-  // 삭제 확인 핸들러
-  const confirmDelete = async () => {
-    if (!deleteModal) return;
-
-    try {
-      if (deleteModal.type === 'note') {
-        await deleteNote(deleteModal.id);
-      } else {
-        await deleteFolder(deleteModal.id);
-      }
-
-      // 캐시 무효화
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      queryClient.invalidateQueries({ queryKey: ['folders'] });
-      window.dispatchEvent(new CustomEvent('folders-updated'));
-
-      setDeleteModal(null);
-    } catch (error) {
-      log.error('삭제 실패:', error);
-      alert('삭제에 실패했습니다.');
-    }
-  };
-
-  // 위치 이동 핸들러
-  const handleMove = async () => {
-    if (!moveModal) return;
-
-    try {
-      if (moveModal.type === 'note') {
-        await updateNote(moveModal.id, { folderId: selectedMoveFolder || undefined });
-      } else {
-        await moveFolder(moveModal.id, selectedMoveFolder);
-      }
-
-      // 캐시 무효화
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      queryClient.invalidateQueries({ queryKey: ['folders'] });
-      window.dispatchEvent(new CustomEvent('folders-updated'));
-
-      setMoveModal(null);
-      setSelectedMoveFolder(null);
-    } catch (error) {
-      log.error('이동 실패:', error);
-      alert('이동에 실패했습니다.');
-    }
-  };
+    // 유틸리티
+    formatDate,
+  } = useMainContent();
 
   return (
     <div className="flex flex-col w-full h-screen">
@@ -527,20 +323,7 @@ export function MainContent() {
           >
             {/* 이름 변경 */}
             <button
-              onClick={() => {
-                const item = optionMenu.type === 'note'
-                  ? allNotes.find(n => n.id === optionMenu.id)
-                  : folders.find(f => f.id === optionMenu.id);
-                if (item) {
-                  setRenameModal({
-                    type: optionMenu.type,
-                    id: optionMenu.id,
-                    currentName: 'title' in item ? item.title : item.name,
-                  });
-                  setNewName('title' in item ? item.title : item.name);
-                }
-                closeOptionMenu();
-              }}
+              onClick={openRenameModal}
               className="w-full px-4 py-2.5 text-left text-sm text-foreground-secondary hover:bg-foreground/5 hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -551,24 +334,7 @@ export function MainContent() {
 
             {/* 위치 이동 */}
             <button
-              onClick={() => {
-                const item = optionMenu.type === 'note'
-                  ? allNotes.find(n => n.id === optionMenu.id)
-                  : folders.find(f => f.id === optionMenu.id);
-                if (item) {
-                  setMoveModal({
-                    type: optionMenu.type,
-                    id: optionMenu.id,
-                    name: 'title' in item ? item.title : item.name,
-                  });
-                  setSelectedMoveFolder(
-                    optionMenu.type === 'note'
-                      ? (item as Note).folderId || null
-                      : (item as Folder).parentId || null
-                  );
-                }
-                closeOptionMenu();
-              }}
+              onClick={openMoveModal}
               className="w-full px-4 py-2.5 text-left text-sm text-foreground-secondary hover:bg-foreground/5 hover:text-foreground transition-colors flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -599,10 +365,7 @@ export function MainContent() {
       {/* 이름 변경 모달 */}
       <Modal
         isOpen={!!renameModal}
-        onClose={() => {
-          setRenameModal(null);
-          setNewName("");
-        }}
+        onClose={closeRenameModal}
         title={`${renameModal?.type === 'note' ? '노트' : '폴더'} 이름 변경`}
         contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[400px] max-w-[400px]"
       >
@@ -616,19 +379,13 @@ export function MainContent() {
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleRename();
-              if (e.key === 'Escape') {
-                setRenameModal(null);
-                setNewName("");
-              }
+              if (e.key === 'Escape') closeRenameModal();
             }}
           />
           <div className="flex justify-end gap-3">
             <Button
               variant="secondary"
-              onClick={() => {
-                setRenameModal(null);
-                setNewName("");
-              }}
+              onClick={closeRenameModal}
             >
               취소
             </Button>
@@ -646,10 +403,7 @@ export function MainContent() {
       {/* 위치 이동 모달 */}
       <Modal
         isOpen={!!moveModal}
-        onClose={() => {
-          setMoveModal(null);
-          setSelectedMoveFolder(null);
-        }}
+        onClose={closeMoveModal}
         title={`"${moveModal?.name}" 이동`}
         contentClassName="bg-background-modal/90 border border-[#9ca3af] dark:border-border-subtle shadow-2xl shadow-black/20 dark:shadow-black/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 flex flex-col gap-6 w-[90vw] md:w-[400px] max-w-[400px] max-h-[80vh]"
       >
@@ -681,10 +435,7 @@ export function MainContent() {
           <div className="flex justify-end gap-3">
             <Button
               variant="secondary"
-              onClick={() => {
-                setMoveModal(null);
-                setSelectedMoveFolder(null);
-              }}
+              onClick={closeMoveModal}
             >
               취소
             </Button>
@@ -702,7 +453,7 @@ export function MainContent() {
       {deleteModal && (
         <DeleteConfirmModal
           isOpen={true}
-          onClose={() => setDeleteModal(null)}
+          onClose={closeDeleteModal}
           onDelete={confirmDelete}
           type={deleteModal.type}
           name={deleteModal.name}

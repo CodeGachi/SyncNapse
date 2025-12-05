@@ -14,7 +14,6 @@ interface NoteSettingsState {
   uploadedFiles: UploadedFile[];
   isDragActive: boolean;
   validationErrors: string[];
-  autoExtractZip: boolean;
   noteType: "student" | "educator"; // 새로 추가: 노트 타입
 
   // Actions
@@ -26,7 +25,6 @@ interface NoteSettingsState {
   updateUploadedFile: (file: File, updates: Partial<UploadedFile>) => void;
   setIsDragActive: (active: boolean) => void;
   setValidationErrors: (errors: string[]) => void;
-  setAutoExtractZip: (enabled: boolean) => void;
   setNoteType: (type: "student" | "educator") => void; // 새로 추가
   reset: () => void;
 }
@@ -37,7 +35,6 @@ const initialState = {
   uploadedFiles: [],
   isDragActive: false,
   validationErrors: [],
-  autoExtractZip: false,
   noteType: "student" as const, // 기본값: student
 };
 
@@ -74,8 +71,6 @@ export const useNoteSettingsStore = create<NoteSettingsState>()(
       setIsDragActive: (active) => set({ isDragActive: active }),
 
       setValidationErrors: (errors) => set({ validationErrors: errors }),
-
-      setAutoExtractZip: (enabled) => set({ autoExtractZip: enabled }),
 
       setNoteType: (type) => set({ noteType: type }),
 

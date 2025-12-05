@@ -13,7 +13,6 @@ import Image from "next/image";
 import {
   usePdfLoader,
   usePdfControls,
-  usePdfPan,
   usePdfThumbnails,
   usePdfTextLayer,
   usePdfSearch,
@@ -108,13 +107,37 @@ export function CustomPdfViewer({
     handleRotateRight,
   } = usePdfControls(numPages);
 
-  const {
-    isPanning,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    handleMouseLeave,
-  } = usePdfPan(containerRef);
+  // PDF Pan (UI 상태만 관리)
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+    setScrollStart({
+      x: containerRef.current.scrollLeft,
+      y: containerRef.current.scrollTop,
+    });
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !containerRef.current) return;
+    const dx = e.clientX - panStart.x;
+    const dy = e.clientY - panStart.y;
+    containerRef.current.scrollLeft = scrollStart.x - dx;
+    containerRef.current.scrollTop = scrollStart.y - dy;
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPanning(false);
+  };
 
   // 썸네일 생성
   const { thumbnails } = usePdfThumbnails({

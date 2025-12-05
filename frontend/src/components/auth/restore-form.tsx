@@ -2,30 +2,29 @@
  * 계정 복구 폼 컴포넌트
  *
  * 삭제 요청된 계정의 복구 또는 영구 삭제 처리
+ * UI 컴포넌트 - 비즈니스 로직은 useRestoreForm 훅에서 처리
  */
 
 "use client";
 
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { restoreAccount, permanentDeleteAccount } from "@/lib/api/services/auth.api";
-import { createLogger } from "@/lib/utils/logger";
 import Link from "next/link";
 import { motion } from "framer-motion";
-
-const log = createLogger("Restore");
+import { useRestoreForm } from "@/features/auth/use-restore-form";
 
 export function RestoreForm() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const token = searchParams?.get("token");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const {
+    hasToken,
+    status,
+    errorMessage,
+    showDeleteConfirm,
+    handleRestore,
+    handleDelete,
+    openDeleteConfirm,
+    closeDeleteConfirm,
+  } = useRestoreForm();
 
   // 토큰이 없는 경우
-  if (!token) {
-    log.warn("복구 토큰 없음");
+  if (!hasToken) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background-deep p-4 text-center">
         <motion.div
@@ -50,40 +49,6 @@ export function RestoreForm() {
       </div>
     );
   }
-
-  // 계정 복구 처리
-  const handleRestore = async () => {
-    try {
-      setStatus("loading");
-      log.info("계정 복구 시도");
-      await restoreAccount(token);
-      setStatus("success");
-      log.info("계정 복구 성공");
-      setTimeout(() => {
-        router.push("/login?restored=true");
-      }, 2000);
-    } catch {
-      setStatus("error");
-      setErrorMessage("계정 복구에 실패했습니다. 토큰이 만료되었거나 유효하지 않습니다.");
-      log.error("계정 복구 실패");
-    }
-  };
-
-  // 계정 영구 삭제 처리
-  const handleDelete = async () => {
-    try {
-      setStatus("loading");
-      log.info("계정 영구 삭제 시도");
-      await permanentDeleteAccount(token);
-      log.info("계정 영구 삭제 성공");
-      router.push("/login");
-    } catch {
-      setStatus("error");
-      setErrorMessage("계정 삭제에 실패했습니다.");
-      setShowDeleteConfirm(false);
-      log.error("계정 영구 삭제 실패");
-    }
-  };
 
   // 복구 성공 화면
   if (status === "success") {
@@ -161,7 +126,7 @@ export function RestoreForm() {
             </button>
 
             <button
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={openDeleteConfirm}
               disabled={status === "loading"}
               className="w-full py-3 px-4 bg-transparent border border-status-error/30 text-status-error hover:bg-status-error/10 rounded-xl font-medium transition-all disabled:opacity-50"
             >
@@ -185,7 +150,7 @@ export function RestoreForm() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={closeDeleteConfirm}
                 disabled={status === "loading"}
                 className="flex-1 py-3 px-4 bg-foreground/10 hover:bg-foreground/20 text-foreground rounded-xl font-medium transition-all disabled:opacity-50"
               >

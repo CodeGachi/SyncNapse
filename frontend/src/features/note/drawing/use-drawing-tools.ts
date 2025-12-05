@@ -8,7 +8,7 @@
 import { useEffect } from "react";
 import * as fabric from "fabric";
 import { useDrawStore } from "@/stores/draw-store";
-import { createShapeByDrag, type DragShapeInfo, type ShapeType } from "@/lib/utils/shapes";
+import { createShapeByDrag, type DragShapeInfo, type ShapeType } from "./shapes";
 
 export interface UseDrawingToolsProps {
   fabricCanvas: fabric.Canvas | null;

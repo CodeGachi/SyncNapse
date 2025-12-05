@@ -10,6 +10,9 @@
 import { createClient, LiveList, LiveObject } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 import { getAccessToken } from "@/lib/auth/token-manager";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("Liveblocks");
 
 // Liveblocks 클라이언트 생성
 // Note: Public key가 설정되지 않은 경우 에러 방지를 위해 기본값 사용
@@ -17,8 +20,8 @@ const publicKey = process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY;
 
 // DEBUG: Check if Liveblocks key is configured
 if (!publicKey || publicKey === "") {
-  console.warn(
-    "[Liveblocks] ⚠️ NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY is not configured. " +
+  log.warn(
+    "NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY is not configured. " +
     "Real-time collaboration features will not work. " +
     "Please add your Liveblocks public key to .env file. " +
     "Get your key from https://liveblocks.io/dashboard"

@@ -16,8 +16,6 @@ import {
   validateFiles,
   generateSafeFileName,
   calculateStorageUsage,
-  isZipFile,
-  processZipFile,
 } from "@/lib/utils";
 import type { NoteData } from "@/lib/types";
 
@@ -32,12 +30,10 @@ export function useCreateNoteModal(
     uploadedFiles,
     isDragActive,
     validationErrors,
-    autoExtractZip,
     noteType,
     setTitle,
     setSelectedLocation,
     setValidationErrors,
-    setAutoExtractZip,
     setIsDragActive,
     addUploadedFiles,
     removeUploadedFile,
@@ -108,25 +104,10 @@ export function useCreateNoteModal(
   const handleFilesAdded = async (files: File[]) => {
     setValidationErrors([]);
 
-    // ZIP 파일 처리
-    const processedFiles: File[] = [];
-    for (const file of files) {
-      if (isZipFile(file)) {
-        const extracted = await processZipFile(file, {
-          autoExtract: autoExtractZip,
-          allowedExtensions: FILE_CONSTRAINTS.ALLOWED_EXTENSIONS as unknown as string[],
-          maxFileSize: FILE_CONSTRAINTS.MAX_FILE_SIZE,
-        });
-        processedFiles.push(...extracted);
-      } else {
-        processedFiles.push(file);
-      }
-    }
-
     // 파일 유효성 검사
     const existingFiles = uploadedFiles.map((uf) => uf.file);
     const { validFiles, invalidFiles, duplicates } = validateFiles(
-      processedFiles,
+      files,
       existingFiles
     );
 
@@ -248,7 +229,6 @@ export function useCreateNoteModal(
     uploadedFiles,
     isDragActive,
     validationErrors,
-    autoExtractZip,
     noteType,
     isFolderSelectorOpen,
     isCreating,
@@ -259,7 +239,6 @@ export function useCreateNoteModal(
     setTitle,
     setSelectedLocation,
     setValidationErrors,
-    setAutoExtractZip,
     setIsDragActive,
     setNoteType,
     setIsFolderSelectorOpen,

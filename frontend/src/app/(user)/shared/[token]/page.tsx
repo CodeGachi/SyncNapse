@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 import { getAccessToken } from "@/lib/auth/token-manager";
-import { saveSharedReturnUrl } from "@/lib/utils/shared-return-url";
+import { saveSharedReturnUrl } from "@/lib/auth/shared-return-url";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("SharedNote");
