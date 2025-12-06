@@ -23,6 +23,8 @@ import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
 import type { DrawingData } from "@/lib/types/drawing";
 import { LoadingScreen } from "@/components/common/loading-screen";
+import { CursorOverlay } from "@/components/note/collaboration/cursor-overlay";
+import { useCursorBroadcast } from "@/features/note/collaboration";
 
 interface CustomPdfViewerProps {
   fileUrl?: string | null;
@@ -68,6 +70,7 @@ export function CustomPdfViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const pdfWrapperRef = useRef<HTMLDivElement>(null);
 
   // 썸네일 사이드바 토글 상태
   const [isThumbnailOpen, setIsThumbnailOpen] = useState(true);
@@ -236,6 +239,13 @@ export function CustomPdfViewer({
     onUndo: drawingOverlayRef?.current?.handleUndo,
     onRedo: drawingOverlayRef?.current?.handleRedo,
   });
+
+  // 협업 모드일 때 커서 위치 브로드캐스트
+  useCursorBroadcast(
+    pdfWrapperRef,
+    drawingMode,
+    isCollaborative && isPdf
+  );
 
   // 썸네일 클릭 핸들러
   const handleThumbnailClick = (pageNum: number) => {
@@ -525,7 +535,11 @@ export function CustomPdfViewer({
                   </div>
                 )}
 
-                <div className="inline-block relative" style={{ overflow: "hidden", contain: "paint" }}>
+                <div
+                  ref={pdfWrapperRef}
+                  className="inline-block relative"
+                  style={{ overflow: "hidden", contain: "paint" }}
+                >
                   {/* PDF Canvas */}
                   <canvas
                     ref={canvasRef}
@@ -568,6 +582,15 @@ export function CustomPdfViewer({
                       renderedHeight={pdfRenderState.renderedHeight}
                       isPdf={isPdf}
                       onSave={onDrawingSave}
+                    />
+                  )}
+
+                  {/* Cursor Overlay - 협업 모드에서 다른 사용자 커서 표시 */}
+                  {isCollaborative && pdfRenderState && (
+                    <CursorOverlay
+                      width={pdfRenderState.renderedWidth}
+                      height={pdfRenderState.renderedHeight}
+                      educatorOnly={isSharedView}
                     />
                   )}
                 </div>

@@ -72,6 +72,9 @@ type Presence = {
 
   // 현재 선택된 파일 ID
   currentFileId: string | null;
+
+  // 드로잉 모드 여부 (커서 아이콘 변경용)
+  isDrawingMode?: boolean;
 };
 
 // Storage 타입: 영구 저장 상태
