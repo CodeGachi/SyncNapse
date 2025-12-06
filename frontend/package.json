@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "bunx next dev -p 3000",
-    "build": "bunx next build",
-    "start": "bunx next start -p 3000",
-    "lint": "bunx next lint",
-    "format": "bunx prettier --write .",
-    "test": "bunx vitest run -c vitest.config.mts",
-    "test:watch": "bunx vitest -c vitest.config.mts",
-    "test:ci": "bunx vitest run --reporter=dot -c vitest.config.mts"
+    "dev": "npx next dev -p 3000",
+    "build": "npx next build",
+    "start": "npx next start -p 3000",
+    "lint": "npx next lint",
+    "format": "npx prettier --write .",
+    "test": "npx vitest run -c vitest.config.mts",
+    "test:watch": "npx vitest -c vitest.config.mts",
+    "test:ci": "npx vitest run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
     "@blocknote/core": "^0.41.1",

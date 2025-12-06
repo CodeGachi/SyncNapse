@@ -223,6 +223,8 @@ function getFallbackLinks(): ApiRootResponse["_links"] {
   return {
     self: { href: baseUrl },
     login: { href: `${baseUrl}/auth/google`, method: "GET" },
+    refresh: { href: `${baseUrl}/auth/refresh`, method: "POST" },
+    logout: { href: `${baseUrl}/auth/logout`, method: "POST" },
     profile: { href: `${baseUrl}/users/me` },
     notes: { href: `${baseUrl}/notes` },
     trashedNotes: { href: `${baseUrl}/notes/trash/list` },
