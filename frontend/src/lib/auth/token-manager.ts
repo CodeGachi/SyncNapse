@@ -192,14 +192,11 @@ export async function getValidAccessToken(): Promise<string | null> {
   let accessToken = getAccessToken();
 
   // Access Token이 없으면 refresh 시도
+  // Note: httpOnly 쿠키는 JS에서 읽을 수 없으므로 무조건 시도
   if (!accessToken) {
-    const refreshToken = getRefreshToken();
-    if (refreshToken) {
-      log.debug("No access token, attempting refresh...");
-      accessToken = await refreshAccessToken();
-      return accessToken;
-    }
-    return null;
+    log.debug("No access token, attempting refresh...");
+    accessToken = await refreshAccessToken();
+    return accessToken;
   }
 
   // 이미 만료된 경우 갱신 필수

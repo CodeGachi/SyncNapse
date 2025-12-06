@@ -46,13 +46,11 @@ export class AuthController {
       userAgent: req.headers['user-agent'],
     });
 
-    // Refresh Token cookie
-    // - Production (same-origin via nginx): httpOnly for security
-    // - Development (cross-origin): non-httpOnly so frontend can read and send via header
-    const isDev = process.env.NODE_ENV !== 'production';
+    // Refresh Token cookie (httpOnly for security)
+    // Use nginx reverse proxy for same-origin in both dev and prod
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: !isDev, // httpOnly only in production (same-origin)
-      secure: !isDev,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -91,11 +89,10 @@ export class AuthController {
 
       this.logger.debug(`[refresh] Token refreshed successfully`);
 
-      // Rotate refresh token cookie
-      const isDev = process.env.NODE_ENV !== 'production';
+      // Rotate refresh token cookie (httpOnly for security)
       res.cookie('refreshToken', tokens.refreshToken, {
-        httpOnly: !isDev,
-        secure: !isDev,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
