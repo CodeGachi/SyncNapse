@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createLogger } from "@/lib/utils/logger";
+import { API_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("Liveblocks Auth");
 
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     log.debug("Auth header:", authHeader?.substring(0, 30) + "...");
 
     // Backend API URL (server-side, ends with /api)
-    const apiUrl = process.env.INTERNAL_API_URL || "http://backend:4000/api";
+    const apiUrl = API_CONFIG.INTERNAL_URL || "http://backend:4000/api";
 
     // Endpoint matches root.controller.ts liveblocksAuth link: /liveblocks/auth
     const response = await fetch(`${apiUrl}/liveblocks/auth`, {

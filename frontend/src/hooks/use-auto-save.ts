@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { createLogger } from "@/lib/utils/logger";
+import { SYNC_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("AutoSave");
 import { useNoteEditorStore } from "@/stores";
@@ -20,7 +21,7 @@ interface UseAutoSaveOptions {
 
 export function useAutoSave({
   noteId,
-  debounceMs = 30000, // 30초로 변경
+  debounceMs = SYNC_CONFIG.AUTOSAVE_DEBOUNCE_MS,
   onSave,
   enabled = true,
 }: UseAutoSaveOptions) {

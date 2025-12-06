@@ -24,13 +24,14 @@ import {
   extractData,
 } from "./types";
 import { getApiBaseUrl, discoverApi, buildUrl } from "./api-discovery";
+import { API_CONFIG, CACHE_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("HALClient");
 
 // Request configuration
-const DEFAULT_TIMEOUT = 30000;
-const DEFAULT_RETRY_ATTEMPTS = 3;
-const DEFAULT_RETRY_DELAY = 1000;
+const DEFAULT_TIMEOUT = API_CONFIG.TIMEOUT_MS;
+const DEFAULT_RETRY_ATTEMPTS = API_CONFIG.RETRY_ATTEMPTS;
+const DEFAULT_RETRY_DELAY = API_CONFIG.RETRY_DELAY_MS;
 
 export interface HalRequestConfig {
   timeout?: number;
@@ -41,7 +42,7 @@ export interface HalRequestConfig {
 
 // Cache for resources
 const resourceCache = new Map<string, { data: HalResource; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = CACHE_CONFIG.HAL_CACHE_TTL_MS;
 
 /**
  * HAL-aware fetch wrapper

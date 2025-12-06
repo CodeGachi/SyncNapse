@@ -11,6 +11,7 @@ import { LoadingScreen } from "@/components/common/loading-screen";
 import { DeleteConfirmModal } from "@/components/dashboard/delete-confirm-modal";
 import { FolderSelector } from "@/components/dashboard/folder-management/folder-selector";
 import { SearchDropdown } from "@/components/dashboard/search-dropdown";
+import { Breadcrumb } from "@/components/dashboard/breadcrumb";
 import { useMainContent } from "@/features/dashboard/views/use-main-content";
 import { motion } from "framer-motion";
 
@@ -34,6 +35,8 @@ export function MainContent() {
     childFolders,
     recentNotes,
     folderNotes,
+    folderPath,
+    isPathLoading,
     buildFolderTree,
 
     // 모달 상태
@@ -201,6 +204,15 @@ export function MainContent() {
           transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
           className="flex flex-col items-start py-4 px-0 gap-4 w-full bg-background-surface/40 backdrop-blur-sm border border-border-subtle rounded-[10px]"
         >
+          {/* 브레드크럼 (폴더 경로) */}
+          <div className="px-5 w-full">
+            <Breadcrumb
+              path={folderPath}
+              onFolderClick={handleFolderClick}
+              isLoading={isPathLoading}
+            />
+          </div>
+
           {/* 테이블 헤더 */}
           <div className="flex flex-row items-center px-5 gap-6 w-full h-[19px]">
             <div className="flex-1 text-foreground font-medium text-base leading-[19px]">

@@ -17,13 +17,14 @@ import {
   X,
 } from "lucide-react";
 import { Spinner } from "@/components/common/spinner";
+import { UI_CONFIG, ENV } from "@/lib/constants/config";
 
 export function SyncStatusBar() {
   const { queue, isSyncing, lastSyncTime, syncError } = useSyncStore();
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = ENV.isProduction;
 
   // 동기화 중이거나, 큐에 항목이 있거나, 에러가 있으면 표시
   useEffect(() => {
@@ -34,13 +35,13 @@ export function SyncStatusBar() {
     setIsVisible(shouldShow);
   }, [isSyncing, queue.items.length, syncError, isDismissed, isProduction]);
 
-  // 성공 후 3초 뒤 자동 숨김
+  // 성공 후 자동 숨김
   useEffect(() => {
     if (isProduction) return;
     if (!isSyncing && queue.items.length === 0 && !syncError && isVisible) {
       const timer = setTimeout(() => {
         setIsVisible(false);
-      }, 3000);
+      }, UI_CONFIG.SYNC_STATUS_AUTO_HIDE_MS);
       return () => clearTimeout(timer);
     }
   }, [isSyncing, queue.items.length, syncError, isVisible, isProduction]);

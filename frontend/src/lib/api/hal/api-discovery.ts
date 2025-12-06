@@ -8,6 +8,7 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { HalResource, HalLink, getLink, expandTemplate } from "./types";
+import { API_CONFIG, CACHE_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("APIDiscovery");
 
@@ -34,13 +35,13 @@ export interface ApiRootResponse extends HalResource {
 let rootLinks: ApiRootResponse["_links"] | null = null;
 let discoveryPromise: Promise<ApiRootResponse["_links"]> | null = null;
 let lastFetchTime = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = CACHE_CONFIG.DISCOVERY_CACHE_TTL_MS;
 
 /**
  * Get the API base URL
  */
 export function getApiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+  return API_CONFIG.BASE_URL;
 }
 
 /**

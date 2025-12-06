@@ -10,7 +10,7 @@ import { useNotes } from "@/lib/api/queries/notes.queries";
 import { useFolders } from "@/features/dashboard";
 import { useDashboardContext } from "@/providers/dashboard-context";
 import { updateNote, deleteNote } from "@/lib/api/services/notes.api";
-import { renameFolder, deleteFolder, moveFolder } from "@/lib/api/services/folders.api";
+import { renameFolder, deleteFolder, moveFolder, fetchFolderPath } from "@/lib/api/services/folders.api";
 import { useSearch } from "@/features/search/use-search";
 import { createLogger } from "@/lib/utils/logger";
 import type { Note, Folder } from "@/lib/types";
@@ -110,6 +110,33 @@ export function useMainContent() {
 
   // 모든 노트 조회
   const { data: allNotes = [], isLoading } = useNotes();
+
+  // 현재 폴더 경로 (브레드크럼용)
+  const [folderPath, setFolderPath] = useState<Folder[]>([]);
+  const [isPathLoading, setIsPathLoading] = useState(false);
+
+  // 선택된 폴더가 변경될 때 경로 조회
+  useEffect(() => {
+    if (!selectedFolderId) {
+      setFolderPath([]);
+      return;
+    }
+
+    const loadPath = async () => {
+      setIsPathLoading(true);
+      try {
+        const path = await fetchFolderPath(selectedFolderId);
+        setFolderPath(path);
+      } catch (error) {
+        log.error("폴더 경로 조회 실패:", error);
+        setFolderPath([]);
+      } finally {
+        setIsPathLoading(false);
+      }
+    };
+
+    loadPath();
+  }, [selectedFolderId]);
 
   // 현재 폴더의 하위 폴더들
   const childFolders = useMemo(() => {
@@ -341,6 +368,8 @@ export function useMainContent() {
     childFolders,
     recentNotes,
     folderNotes,
+    folderPath,
+    isPathLoading,
     buildFolderTree,
 
     // 모달 상태

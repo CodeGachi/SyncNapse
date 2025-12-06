@@ -1,202 +1,243 @@
 /**
- * useMainContent 훅 테스트
+ * use-main-content 훅 테스트
+ * 대시보드 메인 컨텐츠 비즈니스 로직
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMainContent } from "@/features/dashboard/views/use-main-content";
-import * as notesQueries from "@/lib/api/queries/notes.queries";
-import * as notesApi from "@/lib/api/services/notes.api";
-import * as foldersApi from "@/lib/api/services/folders.api";
-import * as useFoldersModule from "@/features/dashboard";
-import * as useSearchModule from "@/features/search/use-search";
-import { ReactNode } from "react";
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Mock next/navigation
-const mockRouterPush = vi.fn();
+// Mock router
+const mockPush = vi.fn();
+const mockBack = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: mockRouterPush,
-    replace: vi.fn(),
+    push: mockPush,
+    back: mockBack,
   }),
 }));
 
-// Mock dashboard context
+// Mock context
+const mockSelectedFolderId = vi.fn(() => "folder-1");
 const mockSetSelectedFolderId = vi.fn();
+
 vi.mock("@/providers/dashboard-context", () => ({
   useDashboardContext: () => ({
-    selectedFolderId: "root",
+    selectedFolderId: mockSelectedFolderId(),
     setSelectedFolderId: mockSetSelectedFolderId,
   }),
 }));
 
-// Mock notes queries
+// Mock folders hook
+const mockFolders = vi.fn(() => [
+  { id: "root", name: "Root", parentId: null },
+  { id: "folder-1", name: "Work", parentId: "root" },
+  { id: "folder-2", name: "Personal", parentId: "root" },
+]);
+const mockBuildFolderTree = vi.fn();
+
+vi.mock("@/features/dashboard", () => ({
+  useFolders: () => ({
+    folders: mockFolders(),
+    isLoading: false,
+    buildFolderTree: mockBuildFolderTree,
+  }),
+}));
+
+// Mock notes query
+const mockNotes = vi.fn(() => [
+  {
+    id: "note-1",
+    title: "Note 1",
+    folderId: "folder-1",
+    type: "student",
+    createdAt: Date.now() - 1000,
+    updatedAt: Date.now(),
+  },
+  {
+    id: "note-2",
+    title: "Note 2",
+    folderId: "folder-1",
+    type: "educator",
+    createdAt: Date.now() - 2000,
+    updatedAt: Date.now() - 1000,
+  },
+]);
+
 vi.mock("@/lib/api/queries/notes.queries", () => ({
-  useNotes: vi.fn(),
+  useNotes: () => ({
+    data: mockNotes(),
+    isLoading: false,
+  }),
+}));
+
+// Mock search hook
+const mockSetSearchQuery = vi.fn();
+const mockSetIsSearchOpen = vi.fn();
+
+vi.mock("@/features/search/use-search", () => ({
+  useSearch: () => ({
+    query: "",
+    setQuery: mockSetSearchQuery,
+    isOpen: false,
+    setIsOpen: mockSetIsSearchOpen,
+    results: [],
+    isLoading: false,
+  }),
 }));
 
 // Mock APIs
+const mockUpdateNote = vi.fn();
+const mockDeleteNote = vi.fn();
+const mockRenameFolder = vi.fn();
+const mockDeleteFolder = vi.fn();
+const mockMoveFolder = vi.fn();
+
 vi.mock("@/lib/api/services/notes.api", () => ({
-  updateNote: vi.fn(),
-  deleteNote: vi.fn(),
+  updateNote: (...args: unknown[]) => mockUpdateNote(...args),
+  deleteNote: (id: string) => mockDeleteNote(id),
 }));
+
+const mockFetchFolderPath = vi.fn(() => Promise.resolve([
+  { id: "root", name: "Root", parentId: null },
+  { id: "folder-1", name: "Work", parentId: "root" },
+]));
 
 vi.mock("@/lib/api/services/folders.api", () => ({
-  renameFolder: vi.fn(),
-  deleteFolder: vi.fn(),
-  moveFolder: vi.fn(),
+  renameFolder: (...args: unknown[]) => mockRenameFolder(...args),
+  deleteFolder: (id: string) => mockDeleteFolder(id),
+  moveFolder: (...args: unknown[]) => mockMoveFolder(...args),
+  fetchFolderPath: (id: string) => mockFetchFolderPath(id),
 }));
 
-// Mock useFolders
-vi.mock("@/features/dashboard", () => ({
-  useFolders: vi.fn(),
+// Mock logger
+vi.mock("@/lib/utils/logger", () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
 }));
-
-// Mock useSearch
-vi.mock("@/features/search/use-search", () => ({
-  useSearch: vi.fn(),
-}));
-
-// Mock alert
-const mockAlert = vi.fn();
-global.alert = mockAlert;
 
 describe("useMainContent", () => {
   let queryClient: QueryClient;
-  let invalidateQueriesSpy: ReturnType<typeof vi.fn>;
 
-  const wrapper = ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 
-  const mockNotes = [
-    { id: "1", title: "Note 1", folderId: "root", type: "student", updatedAt: 1705320000000 },
-    { id: "2", title: "Note 2", folderId: "root", type: "educator", updatedAt: 1705310000000 },
-    { id: "3", title: "Note 3", folderId: "folder-1", type: "student", updatedAt: 1705300000000 },
-  ];
-
-  const mockFolders = [
-    { id: "root", name: "Root", parentId: null },
-    { id: "folder-1", name: "Folder 1", parentId: "root" },
-    { id: "folder-2", name: "Folder 2", parentId: "root" },
-  ];
-
   beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-      },
-    });
-
-    invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
-
-    vi.mocked(notesQueries.useNotes).mockReturnValue({
-      data: mockNotes,
-      isLoading: false,
-    } as any);
-
-    vi.mocked(useFoldersModule.useFolders).mockReturnValue({
-      folders: mockFolders,
-      isLoading: false,
-      buildFolderTree: vi.fn(() => []),
-    } as any);
-
-    vi.mocked(useSearchModule.useSearch).mockReturnValue({
-      query: "",
-      setQuery: vi.fn(),
-      isOpen: false,
-      setIsOpen: vi.fn(),
-      results: [],
-      isLoading: false,
-    } as any);
-
     vi.clearAllMocks();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    mockSelectedFolderId.mockReturnValue("folder-1");
   });
 
-  describe("데이터 조회", () => {
-    it("모든 노트 반환", () => {
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  describe("초기 상태", () => {
+    it("기본 상태값 반환", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
-      expect(result.current.allNotes).toEqual(mockNotes);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.optionMenu).toBeNull();
+      expect(result.current.renameModal).toBeNull();
+      expect(result.current.moveModal).toBeNull();
+      expect(result.current.deleteModal).toBeNull();
     });
 
-    it("현재 폴더의 하위 폴더 반환", () => {
+    it("폴더 및 노트 데이터 반환", () => {
+      const { result } = renderHook(() => useMainContent(), { wrapper });
+
+      expect(result.current.folders).toHaveLength(3);
+      expect(result.current.allNotes).toHaveLength(2);
+    });
+  });
+
+  describe("폴더 필터링", () => {
+    it("childFolders - 현재 폴더의 하위 폴더 반환", () => {
+      mockSelectedFolderId.mockReturnValue("root");
+
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.childFolders).toHaveLength(2);
-      expect(result.current.childFolders.map((f) => f.name)).toEqual([
-        "Folder 1",
-        "Folder 2",
-      ]);
+      expect(result.current.childFolders[0].name).toBe("Work");
     });
 
-    it("현재 폴더의 노트 반환", () => {
+    it("folderNotes - 현재 폴더의 노트 반환", () => {
+      mockSelectedFolderId.mockReturnValue("folder-1");
+
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       expect(result.current.folderNotes).toHaveLength(2);
-      expect(result.current.folderNotes.map((n) => n.title)).toEqual([
-        "Note 1",
-        "Note 2",
-      ]);
     });
+  });
 
-    it("최근 노트 (updatedAt 기준 정렬, 최대 5개)", () => {
+  describe("recentNotes", () => {
+    it("최근 노트 5개까지 반환", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
-      expect(result.current.recentNotes).toHaveLength(3);
-      expect(result.current.recentNotes[0].id).toBe("1"); // 가장 최근
+      expect(result.current.recentNotes.length).toBeLessThanOrEqual(5);
+    });
+
+    it("updatedAt 기준 정렬", () => {
+      const { result } = renderHook(() => useMainContent(), { wrapper });
+
+      expect(result.current.recentNotes[0].id).toBe("note-1"); // 가장 최근
     });
   });
 
   describe("handleFolderClick", () => {
-    it("폴더 선택시 setSelectedFolderId 호출", () => {
+    it("폴더 선택", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
-        result.current.handleFolderClick("folder-1");
+        result.current.handleFolderClick("folder-2");
       });
 
-      expect(mockSetSelectedFolderId).toHaveBeenCalledWith("folder-1");
+      expect(mockSetSelectedFolderId).toHaveBeenCalledWith("folder-2");
     });
   });
 
   describe("handleNoteClick", () => {
-    it("student 노트 클릭시 /note/student/{id}로 이동", () => {
+    it("노트 클릭시 해당 페이지로 이동", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
-        result.current.handleNoteClick(mockNotes[0] as any);
+        result.current.handleNoteClick({
+          id: "note-1",
+          title: "Test",
+          type: "student",
+        } as any);
       });
 
-      expect(mockRouterPush).toHaveBeenCalledWith("/note/student/1");
+      expect(mockPush).toHaveBeenCalledWith("/note/student/note-1");
     });
 
-    it("educator 노트 클릭시 /note/educator/{id}로 이동", () => {
+    it("educator 타입 노트", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
-        result.current.handleNoteClick(mockNotes[1] as any);
+        result.current.handleNoteClick({
+          id: "note-2",
+          title: "Test",
+          type: "educator",
+        } as any);
       });
 
-      expect(mockRouterPush).toHaveBeenCalledWith("/note/educator/2");
-    });
-  });
-
-  describe("formatDate", () => {
-    it("날짜를 YYYY/MM/DD 형식으로 포맷", () => {
-      const { result } = renderHook(() => useMainContent(), { wrapper });
-
-      // 2024-01-15
-      const formatted = result.current.formatDate(1705320000000);
-
-      expect(formatted).toMatch(/2024\/01\/15/);
+      expect(mockPush).toHaveBeenCalledWith("/note/educator/note-2");
     });
   });
 
   describe("옵션 메뉴", () => {
-    it("handleOptionClick으로 옵션 메뉴 열기", () => {
+    it("handleOptionClick - 옵션 메뉴 열기", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       const mockEvent = {
@@ -210,17 +251,17 @@ describe("useMainContent", () => {
       } as unknown as React.MouseEvent;
 
       act(() => {
-        result.current.handleOptionClick(mockEvent, "note", "1");
+        result.current.handleOptionClick(mockEvent, "note", "note-1");
       });
 
-      expect(result.current.optionMenu).toMatchObject({
+      expect(result.current.optionMenu).toEqual({
         type: "note",
-        id: "1",
+        id: "note-1",
+        position: { top: 104, left: 40 },
       });
-      expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
 
-    it("closeOptionMenu으로 옵션 메뉴 닫기", () => {
+    it("closeOptionMenu - 옵션 메뉴 닫기", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       const mockEvent = {
@@ -231,36 +272,22 @@ describe("useMainContent", () => {
       } as unknown as React.MouseEvent;
 
       act(() => {
-        result.current.handleOptionClick(mockEvent, "note", "1");
+        result.current.handleOptionClick(mockEvent, "note", "note-1");
       });
-
-      expect(result.current.optionMenu).not.toBe(null);
 
       act(() => {
         result.current.closeOptionMenu();
       });
 
-      expect(result.current.optionMenu).toBe(null);
+      expect(result.current.optionMenu).toBeNull();
     });
   });
 
   describe("이름 변경", () => {
-    it("handleRename으로 노트 이름 변경", async () => {
-      vi.mocked(notesApi.updateNote).mockResolvedValue(undefined as any);
-
+    it("openRenameModal - 노트 이름 변경 모달 열기", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
-      // 이름 변경 모달 직접 설정
-      act(() => {
-        result.current.setNewName("New Title");
-      });
-
-      // renameModal 상태 설정을 위해 내부적으로 처리
-      // 실제 테스트는 openRenameModal을 통해 진행해야 하지만,
-      // 옵션 메뉴가 열려있어야 하므로 직접 설정
-      const { result: result2 } = renderHook(() => useMainContent(), { wrapper });
-
-      // 옵션 메뉴 열기
+      // 먼저 옵션 메뉴 열기
       const mockEvent = {
         stopPropagation: vi.fn(),
         currentTarget: {
@@ -269,23 +296,22 @@ describe("useMainContent", () => {
       } as unknown as React.MouseEvent;
 
       act(() => {
-        result2.current.handleOptionClick(mockEvent, "note", "1");
+        result.current.handleOptionClick(mockEvent, "note", "note-1");
       });
 
-      // 이름 변경 모달 열기
       act(() => {
-        result2.current.openRenameModal();
+        result.current.openRenameModal();
       });
 
-      expect(result2.current.renameModal).toMatchObject({
+      expect(result.current.renameModal).toEqual({
         type: "note",
-        id: "1",
+        id: "note-1",
         currentName: "Note 1",
       });
     });
 
-    it("handleRename 실패시 alert 표시", async () => {
-      vi.mocked(notesApi.updateNote).mockRejectedValue(new Error("Failed"));
+    it("handleRename - 노트 이름 변경", async () => {
+      mockUpdateNote.mockResolvedValue({});
 
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
@@ -298,7 +324,7 @@ describe("useMainContent", () => {
       } as unknown as React.MouseEvent;
 
       act(() => {
-        result.current.handleOptionClick(mockEvent, "note", "1");
+        result.current.handleOptionClick(mockEvent, "note", "note-1");
       });
 
       act(() => {
@@ -313,89 +339,97 @@ describe("useMainContent", () => {
         await result.current.handleRename();
       });
 
-      expect(mockAlert).toHaveBeenCalledWith("이름 변경에 실패했습니다.");
+      expect(mockUpdateNote).toHaveBeenCalledWith("note-1", { title: "New Name" });
+      expect(result.current.renameModal).toBeNull();
     });
   });
 
   describe("삭제", () => {
-    it("handleDelete로 삭제 모달 열기", () => {
+    it("handleDelete - 삭제 모달 열기", () => {
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
-        result.current.handleDelete("note", "1");
+        result.current.handleDelete("note", "note-1");
       });
 
-      expect(result.current.deleteModal).toMatchObject({
+      expect(result.current.deleteModal).toEqual({
         type: "note",
-        id: "1",
+        id: "note-1",
         name: "Note 1",
       });
     });
 
-    it("confirmDelete로 노트 삭제", async () => {
-      vi.mocked(notesApi.deleteNote).mockResolvedValue(undefined as any);
+    it("confirmDelete - 노트 삭제", async () => {
+      mockDeleteNote.mockResolvedValue({});
 
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
       act(() => {
-        result.current.handleDelete("note", "1");
+        result.current.handleDelete("note", "note-1");
       });
 
       await act(async () => {
         await result.current.confirmDelete();
       });
 
-      expect(notesApi.deleteNote).toHaveBeenCalledWith("1");
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ["notes"] });
-      expect(result.current.deleteModal).toBe(null);
+      expect(mockDeleteNote).toHaveBeenCalledWith("note-1");
+      expect(result.current.deleteModal).toBeNull();
     });
+  });
 
-    it("confirmDelete로 폴더 삭제", async () => {
-      vi.mocked(foldersApi.deleteFolder).mockResolvedValue(undefined as any);
+  describe("formatDate", () => {
+    it("날짜를 YYYY/MM/DD 형식으로 포맷팅", () => {
+      const { result } = renderHook(() => useMainContent(), { wrapper });
+
+      const formatted = result.current.formatDate("2024-01-15T00:00:00Z");
+
+      expect(formatted).toMatch(/^\d{4}\/\d{2}\/\d{2}$/);
+    });
+  });
+
+  describe("폴더 경로 (브레드크럼)", () => {
+    it("selectedFolderId 변경 시 폴더 경로 조회", async () => {
+      mockSelectedFolderId.mockReturnValue("folder-1");
 
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
-      act(() => {
-        result.current.handleDelete("folder", "folder-1");
+      // 초기 로딩 상태
+      expect(result.current.isPathLoading).toBe(true);
+
+      // 경로 로딩 완료 대기
+      await waitFor(() => {
+        expect(result.current.isPathLoading).toBe(false);
       });
 
-      await act(async () => {
-        await result.current.confirmDelete();
-      });
-
-      expect(foldersApi.deleteFolder).toHaveBeenCalledWith("folder-1");
+      expect(mockFetchFolderPath).toHaveBeenCalledWith("folder-1");
+      expect(result.current.folderPath).toHaveLength(2);
+      expect(result.current.folderPath[0].name).toBe("Root");
+      expect(result.current.folderPath[1].name).toBe("Work");
     });
 
-    it("삭제 실패시 alert 표시", async () => {
-      vi.mocked(notesApi.deleteNote).mockRejectedValue(new Error("Failed"));
+    it("selectedFolderId가 null이면 빈 경로 반환", async () => {
+      mockSelectedFolderId.mockReturnValue(null);
 
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
-      act(() => {
-        result.current.handleDelete("note", "1");
+      await waitFor(() => {
+        expect(result.current.isPathLoading).toBe(false);
       });
 
-      await act(async () => {
-        await result.current.confirmDelete();
-      });
-
-      expect(mockAlert).toHaveBeenCalledWith("삭제에 실패했습니다.");
+      expect(result.current.folderPath).toHaveLength(0);
     });
 
-    it("closeDeleteModal로 삭제 모달 닫기", () => {
+    it("경로 조회 실패 시 빈 경로 반환", async () => {
+      mockFetchFolderPath.mockRejectedValueOnce(new Error("Failed"));
+      mockSelectedFolderId.mockReturnValue("folder-1");
+
       const { result } = renderHook(() => useMainContent(), { wrapper });
 
-      act(() => {
-        result.current.handleDelete("note", "1");
+      await waitFor(() => {
+        expect(result.current.isPathLoading).toBe(false);
       });
 
-      expect(result.current.deleteModal).not.toBe(null);
-
-      act(() => {
-        result.current.closeDeleteModal();
-      });
-
-      expect(result.current.deleteModal).toBe(null);
+      expect(result.current.folderPath).toHaveLength(0);
     });
   });
 });

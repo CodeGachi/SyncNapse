@@ -12,15 +12,16 @@
 import { getCookie, setCookie, deleteCookie } from "@/lib/utils/cookie";
 import { createLogger } from "@/lib/utils/logger";
 import { getCachedHref } from "@/lib/api/hal/api-discovery";
+import { AUTH_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("TokenManager");
 
 const ACCESS_TOKEN_KEY = "authToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
 
-// 토큰 만료 시간 (초)
-const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7일
-const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30일
+// 토큰 만료 시간 (초) - 7일, 30일
+const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
 
 /**
  * Access Token 저장
@@ -94,9 +95,9 @@ export function isTokenExpired(token: string): boolean {
 /**
  * 토큰이 곧 만료되는지 확인 (Proactive Refresh용)
  * @param token JWT 토큰
- * @param bufferSeconds 만료 전 여유 시간 (기본 60초)
+ * @param bufferSeconds 만료 전 여유 시간 (기본값: AUTH_CONFIG.TOKEN_REFRESH_BUFFER_SECONDS)
  */
-export function isTokenExpiringSoon(token: string, bufferSeconds: number = 60): boolean {
+export function isTokenExpiringSoon(token: string, bufferSeconds: number = AUTH_CONFIG.TOKEN_REFRESH_BUFFER_SECONDS): boolean {
   const decoded = decodeToken(token);
   if (!decoded || !decoded.exp) return true;
 
@@ -200,7 +201,7 @@ export async function getValidAccessToken(): Promise<string | null> {
   }
 
   // 곧 만료될 예정이면 미리 갱신 (Proactive Refresh)
-  if (isTokenExpiringSoon(accessToken, 60)) {
+  if (isTokenExpiringSoon(accessToken, AUTH_CONFIG.TOKEN_REFRESH_BUFFER_SECONDS)) {
     log.debug("Access token expiring soon, proactive refresh...");
     // 갱신 실패해도 현재 토큰 반환 (아직 유효함)
     const newToken = await refreshAccessToken();
