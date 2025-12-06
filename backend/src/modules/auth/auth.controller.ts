@@ -46,20 +46,15 @@ export class AuthController {
       userAgent: req.headers['user-agent'],
     });
 
-    // Set Refresh Token Cookie (Matching frontend cookie name: 'refreshToken')
+    // Refresh Token cookie
+    // - Production (same-origin via nginx): httpOnly for security
+    // - Development (cross-origin): non-httpOnly so frontend can read and send via header
+    const isDev = process.env.NODE_ENV !== 'production';
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      httpOnly: !isDev, // httpOnly only in production (same-origin)
+      secure: !isDev,
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    });
-
-    // Set Access Token Cookie (Matching frontend cookie name: 'authToken')
-    res.cookie('authToken', accessToken, {
-      httpOnly: false, // Frontend reads this in AuthInitializer
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 5 * 60 * 1000, // 5 minutes expiry
     });
 
     // Redirect to frontend with tokens
@@ -75,35 +70,47 @@ export class AuthController {
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token' })
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    // Check X-Refresh-Token header first (for cross-origin), then cookies
-    const refreshToken =
-      req.headers['x-refresh-token'] ||
-      req.cookies['refreshToken'] ||
-      req.cookies['refresh_token'];
+    try {
+      // Check X-Refresh-Token header first (for cross-origin), then cookies
+      const refreshToken =
+        req.headers['x-refresh-token'] ||
+        req.cookies?.['refreshToken'] ||
+        req.cookies?.['refresh_token'];
 
-    if (!refreshToken) {
-      throw new UnauthorizedException('No refresh token found');
+      this.logger.debug(`[refresh] Token source: header=${!!req.headers['x-refresh-token']}, cookie=${!!req.cookies?.['refreshToken']}`);
+
+      if (!refreshToken) {
+        this.logger.warn('[refresh] No refresh token found in request');
+        throw new UnauthorizedException('No refresh token found');
+      }
+
+      const tokens = await this.authService.refreshAccessToken(refreshToken, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+
+      this.logger.debug(`[refresh] Token refreshed successfully`);
+
+      // Rotate refresh token cookie
+      const isDev = process.env.NODE_ENV !== 'production';
+      res.cookie('refreshToken', tokens.refreshToken, {
+        httpOnly: !isDev,
+        secure: !isDev,
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
+      // Return new refreshToken in response body (for cross-origin clients)
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      };
+    } catch (error) {
+      this.logger.error(`[refresh] Error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`[refresh] Stack: ${error instanceof Error ? error.stack : 'no stack'}`);
+      throw error;
     }
-
-    const tokens = await this.authService.refreshAccessToken(refreshToken, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-
-    // Rotate refresh token cookie (using 'refreshToken' name)
-    res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
-
-    // Return new refreshToken in response body (for cross-origin clients)
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-    };
   }
 
   @Post('logout')

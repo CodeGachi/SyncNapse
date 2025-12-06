@@ -138,14 +138,24 @@ async function performRefresh(): Promise<string | null> {
     // HATEOAS: Get refresh URL from cached links (sync to avoid circular dependency)
     const refreshUrl = getCachedHref("refresh");
 
-    // HttpOnly 쿠키는 credentials: 'include'로 자동 전송됨
-    // JavaScript에서 직접 읽을 수 없으므로 헤더로 보내지 않음
+    log.debug("Attempting token refresh");
+
+    // Try httpOnly cookie first (same-origin via nginx)
+    // Fallback to X-Refresh-Token header for cross-origin (dev without nginx)
+    const refreshToken = getRefreshToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    // If we have refresh token in JS-accessible cookie, send via header (cross-origin fallback)
+    if (refreshToken) {
+      headers["X-Refresh-Token"] = refreshToken;
+    }
+
     const response = await fetch(refreshUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // HttpOnly 쿠키 자동 전송
+      headers,
+      credentials: "include", // httpOnly cookie auto-sent when same-origin
     });
 
     if (!response.ok) {
@@ -181,8 +191,14 @@ async function performRefresh(): Promise<string | null> {
 export async function getValidAccessToken(): Promise<string | null> {
   let accessToken = getAccessToken();
 
-  // Access Token이 없으면 null 반환
+  // Access Token이 없으면 refresh 시도
   if (!accessToken) {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      log.debug("No access token, attempting refresh...");
+      accessToken = await refreshAccessToken();
+      return accessToken;
+    }
     return null;
   }
 
