@@ -35,6 +35,7 @@ import { Button } from "@/components/common/button";
 import {
   useCollaborators,
   useUpdatePublicAccess,
+  useUpdateAllowedDomains,
   useInviteCollaborator,
   useUpdateCollaboratorPermission,
   useRemoveCollaborator,
@@ -71,16 +72,22 @@ export function SharingSettingsModal() {
   const [isCopiedCollab, setIsCopiedCollab] = useState(false);
   const [isCopiedPublic, setIsCopiedPublic] = useState(false);
 
+  // 도메인 기반 공유 상태
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
+  const [newDomain, setNewDomain] = useState("");
+  const [domainError, setDomainError] = useState<string | null>(null);
+
   // API Queries & Mutations
   const { data: note } = useNote(sharingModalNoteId);
   const { data: collaborators, isLoading: isLoadingCollaborators } =
     useCollaborators(sharingModalNoteId);
   const updatePublicAccessMutation = useUpdatePublicAccess();
+  const updateAllowedDomainsMutation = useUpdateAllowedDomains();
   const inviteCollaboratorMutation = useInviteCollaborator();
   const updatePermissionMutation = useUpdateCollaboratorPermission();
   const removeCollaboratorMutation = useRemoveCollaborator();
 
-  // 모달 열릴 때 공유 링크 생성 및 현재 publicAccess 값 로드
+  // 모달 열릴 때 공유 링크 생성 및 현재 설정 값 로드
   useEffect(() => {
     if (sharingModalNoteId && isSharingModalOpen) {
       setShareLink(generateShareLink(sharingModalNoteId));
@@ -91,8 +98,15 @@ export function SharingSettingsModal() {
       } else {
         setPublicAccess("PRIVATE");
       }
+
+      // 노트의 현재 allowedDomains 값 로드
+      if (note?.allowedDomains) {
+        setAllowedDomains(note.allowedDomains);
+      } else {
+        setAllowedDomains([]);
+      }
     }
-  }, [sharingModalNoteId, isSharingModalOpen, note?.publicAccess]);
+  }, [sharingModalNoteId, isSharingModalOpen, note?.publicAccess, note?.allowedDomains]);
 
   // 공개 설정 변경 핸들러
   const handlePublicAccessChange = (access: PublicAccess) => {
@@ -106,6 +120,58 @@ export function SharingSettingsModal() {
           log.error("공개 설정 변경 실패:", error);
           // 롤백
           setPublicAccess(publicAccess);
+        },
+      }
+    );
+  };
+
+  // 도메인 추가 핸들러
+  const handleAddDomain = () => {
+    if (!sharingModalNoteId || !newDomain.trim()) return;
+
+    // 도메인 형식 검증 (간단히)
+    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}$/;
+    const domain = newDomain.trim().toLowerCase();
+    
+    if (!domainRegex.test(domain)) {
+      setDomainError("올바른 도메인 형식을 입력해주세요 (예: ajou.ac.kr)");
+      return;
+    }
+
+    if (allowedDomains.includes(domain)) {
+      setDomainError("이미 추가된 도메인입니다");
+      return;
+    }
+
+    setDomainError(null);
+    const updatedDomains = [...allowedDomains, domain];
+    setAllowedDomains(updatedDomains);
+    setNewDomain("");
+
+    updateAllowedDomainsMutation.mutate(
+      { noteId: sharingModalNoteId, domains: updatedDomains },
+      {
+        onError: (error) => {
+          log.error("도메인 추가 실패:", error);
+          setAllowedDomains(allowedDomains); // 롤백
+        },
+      }
+    );
+  };
+
+  // 도메인 제거 핸들러
+  const handleRemoveDomain = (domain: string) => {
+    if (!sharingModalNoteId) return;
+
+    const updatedDomains = allowedDomains.filter(d => d !== domain);
+    setAllowedDomains(updatedDomains);
+
+    updateAllowedDomainsMutation.mutate(
+      { noteId: sharingModalNoteId, domains: updatedDomains },
+      {
+        onError: (error) => {
+          log.error("도메인 제거 실패:", error);
+          setAllowedDomains(allowedDomains); // 롤백
         },
       }
     );
@@ -373,7 +439,94 @@ export function SharingSettingsModal() {
           </AnimatePresence>
         </div>
 
-        {/* 2. 협업자 초대 카드 */}
+        {/* 2. 도메인 기반 공유 카드 */}
+        <div className="bg-background-surface rounded-2xl p-5 border border-border flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-background-elevated flex items-center justify-center text-foreground-secondary">
+              <Globe size={20} />
+            </div>
+            <div>
+              <h3 className="text-foreground font-semibold text-[15px]">
+                도메인 기반 공유
+              </h3>
+              <p className="text-foreground-secondary text-xs mt-0.5">
+                같은 이메일 도메인 사용자에게 자동 접근 허용
+              </p>
+            </div>
+          </div>
+
+          {/* 도메인 입력 */}
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-tertiary text-sm">
+                  @
+                </span>
+                <input
+                  type="text"
+                  value={newDomain}
+                  onChange={(e) => {
+                    setNewDomain(e.target.value);
+                    setDomainError(null);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddDomain()}
+                  placeholder="ajou.ac.kr"
+                  className="w-full bg-background-elevated border border-border rounded-xl pl-8 pr-3 py-2.5 text-sm text-foreground placeholder:text-foreground-tertiary focus:outline-none focus:border-brand"
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAddDomain}
+                disabled={!newDomain.trim() || updateAllowedDomainsMutation.isPending}
+                className="shrink-0 px-4"
+              >
+                {updateAllowedDomainsMutation.isPending ? (
+                  <RefreshCw size={16} className="animate-spin" />
+                ) : (
+                  "추가"
+                )}
+              </Button>
+            </div>
+
+            {/* 에러 메시지 */}
+            {domainError && (
+              <p className="text-status-error text-xs">{domainError}</p>
+            )}
+          </div>
+
+          {/* 허용된 도메인 목록 */}
+          {allowedDomains.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {allowedDomains.map((domain) => (
+                <div
+                  key={domain}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-brand/10 text-brand rounded-full text-xs font-medium"
+                >
+                  <span>@{domain}</span>
+                  <button
+                    onClick={() => handleRemoveDomain(domain)}
+                    className="hover:bg-brand/20 rounded-full p-0.5 transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-foreground-tertiary text-xs text-center py-2">
+              아직 추가된 도메인이 없습니다
+            </p>
+          )}
+
+          <p className="text-foreground-tertiary text-[11px] leading-relaxed">
+            💡 예: <span className="font-medium">ajou.ac.kr</span>을 추가하면 
+            <span className="font-medium"> user@ajou.ac.kr</span> 계정으로 로그인한 
+            모든 사용자가 이 노트를 볼 수 있습니다.
+          </p>
+        </div>
+
+        {/* 3. 협업자 초대 카드 */}
         <div className="bg-background-surface rounded-2xl p-5 border border-border flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-background-elevated flex items-center justify-center text-foreground-secondary">
@@ -508,7 +661,7 @@ export function SharingSettingsModal() {
           )}
         </div>
 
-        {/* 3. 실시간 협업 링크 카드 */}
+        {/* 4. 실시간 협업 링크 카드 */}
         <div className="bg-background-surface rounded-2xl p-5 border border-border flex flex-col gap-4 relative overflow-hidden">
           {collaborativeLink && (
             <div className="absolute top-0 right-0 w-32 h-32 bg-brand/5 blur-[60px] rounded-full pointer-events-none" />

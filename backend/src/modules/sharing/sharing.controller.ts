@@ -6,6 +6,7 @@ import { SharingService } from './sharing.service';
 import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
 import { UpdatePublicAccessDto } from './dto/update-public-access.dto';
+import { UpdateAllowedDomainsDto } from './dto/update-allowed-domains.dto';
 
 @ApiTags('sharing')
 @ApiBearerAuth()
@@ -24,6 +25,16 @@ export class SharingController {
     @Body() dto: UpdatePublicAccessDto,
   ) {
     return this.sharingService.updatePublicAccess(userId, noteId, dto);
+  }
+
+  @Patch('allowed-domains')
+  @ApiOperation({ summary: 'Update allowed email domains (e.g., ajou.ac.kr)' })
+  updateAllowedDomains(
+    @CurrentUser('id') userId: string,
+    @Param('noteId') noteId: string,
+    @Body() dto: UpdateAllowedDomainsDto,
+  ) {
+    return this.sharingService.updateAllowedDomains(userId, noteId, dto);
   }
 
   // --- Collaborators ---

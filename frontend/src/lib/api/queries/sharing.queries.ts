@@ -17,6 +17,7 @@ import {
   updateCollaboratorPermission,
   removeCollaborator,
   updatePublicAccess,
+  updateAllowedDomains,
   type Collaborator,
   type PublicAccess,
   type NotePermission,
@@ -61,6 +62,34 @@ export function useUpdatePublicAccess(
   return useMutation({
     mutationFn: ({ noteId, publicAccess }) =>
       updatePublicAccess(noteId, publicAccess),
+    onSuccess: (data, { noteId }) => {
+      // 노트 캐시 업데이트
+      queryClient.invalidateQueries({ queryKey: ["notes", noteId] });
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+    ...options,
+  });
+}
+
+/**
+ * 허용 도메인 설정 변경 Mutation
+ *
+ * @example
+ * const mutation = useUpdateAllowedDomains();
+ * mutation.mutate({ noteId: "note-123", domains: ["ajou.ac.kr", "samsung.com"] });
+ */
+export function useUpdateAllowedDomains(
+  options?: UseMutationOptions<
+    { id: string; allowedDomains: string[] },
+    Error,
+    { noteId: string; domains: string[] }
+  >
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ noteId, domains }) =>
+      updateAllowedDomains(noteId, domains),
     onSuccess: (data, { noteId }) => {
       // 노트 캐시 업데이트
       queryClient.invalidateQueries({ queryKey: ["notes", noteId] });
