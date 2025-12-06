@@ -133,6 +133,35 @@ export async function updatePublicAccess(
 }
 
 /**
+ * Update allowed domains for domain-based sharing
+ */
+export async function updateAllowedDomains(
+  noteId: string,
+  domains: string[]
+): Promise<{ id: string; allowedDomains: string[] }> {
+  log.debug(`Updating allowed domains for note ${noteId}:`, domains);
+
+  try {
+    const notesUrl = await getRootUrl("notes");
+    const url = notesUrl ? `${notesUrl}/${noteId}/allowed-domains` : `/notes/${noteId}/allowed-domains`;
+    
+    const response = await halFetchUrl<HalResource & { id: string; allowedDomains: string[] }>(url, {
+      method: "PATCH",
+      body: JSON.stringify({ domains }),
+    });
+
+    log.info(`Allowed domains updated for note ${noteId}:`, response.allowedDomains);
+    return { id: response.id, allowedDomains: response.allowedDomains };
+  } catch (error) {
+    log.error("Failed to update allowed domains:", error);
+    if (error instanceof HalError) {
+      throw new Error(error.message || "도메인 설정 변경에 실패했습니다");
+    }
+    throw error;
+  }
+}
+
+/**
  * Get collaborators list
  */
 export async function getCollaborators(noteId: string): Promise<Collaborator[]> {

@@ -71,6 +71,9 @@ export interface Note {
   // 새로 추가: 공개 설정 (백엔드와 동기화)
   publicAccess?: PublicAccess;
 
+  // 새로 추가: 허용된 도메인 (도메인 기반 공유)
+  allowedDomains?: string[];
+
   // 새로 추가: 생성자 정보
   createdBy?: string;
 

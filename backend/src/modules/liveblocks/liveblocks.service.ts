@@ -68,6 +68,10 @@ export class LiveblocksService {
     }
 
     this.logger.debug(`[checkNoteAccess] Note found: publicAccess=${note.publicAccess}`);
+    this.logger.debug(`[checkNoteAccess] foldersLink count=${note.foldersLink.length}`);
+    note.foldersLink.forEach((link, i) => {
+      this.logger.debug(`[checkNoteAccess] foldersLink[${i}]: folder.userId=${link.folder.userId}, match=${link.folder.userId === userId}`);
+    });
 
     // Owner check
     const isOwner = note.foldersLink.some(link => link.folder.userId === userId);
@@ -75,6 +79,7 @@ export class LiveblocksService {
       this.logger.debug(`[checkNoteAccess] User is owner`);
       return 'EDITOR';
     }
+    this.logger.debug(`[checkNoteAccess] User is NOT owner`);
 
     // 2. Check Collaborator List
     // Check by userId first (most reliable)
@@ -95,7 +100,19 @@ export class LiveblocksService {
       return collabByEmail.permission;
     }
 
-    // 3. Check Public Access
+    // 3. Check Domain-based Access
+    if (note.allowedDomains && note.allowedDomains.length > 0) {
+      const userDomain = userEmail.split('@')[1]?.toLowerCase();
+      const isDomainAllowed = note.allowedDomains.some(
+        domain => domain.toLowerCase() === userDomain
+      );
+      if (isDomainAllowed) {
+        this.logger.debug(`[checkNoteAccess] Domain access granted: ${userDomain}`);
+        return 'VIEWER'; // Domain users get viewer access by default
+      }
+    }
+
+    // 4. Check Public Access
     if (note.publicAccess === 'PUBLIC_EDIT') {
       this.logger.debug(`[checkNoteAccess] Public edit access granted`);
       return 'EDITOR';
