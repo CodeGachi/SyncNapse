@@ -130,15 +130,23 @@ export class NotesService {
 
     this.logger.debug(`[getNotesByUser] Found ${folderNoteLinks.length} notes`);
 
+    // HATEOAS: Each note includes its own _links for related resources
     return folderNoteLinks.map((link) => ({
       id: link.note.id,
       title: link.note.title,
-      type: link.note.type || 'student', // Include note type in response
+      type: link.note.type || 'student',
       folder_id: link.folderId,
       source_file_url: link.note.sourceFileUrl,
       audio_file_url: link.note.audioFileUrl,
       created_at: link.note.createdAt.toISOString(),
       updated_at: link.note.updatedAt.toISOString(),
+      _links: {
+        self: { href: `/notes/${link.note.id}` },
+        content: { href: `/notes/${link.note.id}/content` },
+        files: { href: `/notes/${link.note.id}/files` },
+        collaborators: { href: `/notes/${link.note.id}/collaborators` },
+        publicAccess: { href: `/notes/${link.note.id}/public-access` },
+      },
     }));
   }
 

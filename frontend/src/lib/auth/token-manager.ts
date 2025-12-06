@@ -138,20 +138,14 @@ async function performRefresh(): Promise<string | null> {
     // HATEOAS: Get refresh URL from cached links (sync to avoid circular dependency)
     const refreshUrl = getCachedHref("refresh");
 
-    // 쿠키에서 refreshToken 가져오기
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) {
-      throw new Error("No refresh token available");
-    }
-
-    // refreshToken을 Authorization 헤더로 전송 (cross-origin에서 쿠키가 전송되지 않으므로)
+    // HttpOnly 쿠키는 credentials: 'include'로 자동 전송됨
+    // JavaScript에서 직접 읽을 수 없으므로 헤더로 보내지 않음
     const response = await fetch(refreshUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Refresh-Token": refreshToken, // 커스텀 헤더로 전송
       },
-      credentials: "include",
+      credentials: "include", // HttpOnly 쿠키 자동 전송
     });
 
     if (!response.ok) {
