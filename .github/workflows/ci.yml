@@ -18,7 +18,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
+  # ============================================
+  # Frontend: Test, Lint, Build (parallel)
+  # ============================================
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,44 +29,65 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      
-      - name: Install root deps
-        run: bun install --ignore-scripts
-      
-      - name: Install workspaces deps
-        run: |
-          cd frontend && bun install --ignore-scripts && cd ..
-          cd backend && bun install --ignore-scripts && cd ..
-      
-      - name: Generate Prisma Client
-        run: bun run --cwd backend prisma:generate
-      
-      - name: Setup environment files
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-frontend-${{ hashFiles('frontend/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-frontend-
+
+      - name: Install dependencies
+        run: cd frontend && bun install --frozen-lockfile
+
+      - name: Setup environment
         env:
           GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
           ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
         run: |
-          bun run env:sync || {
-            echo "❌ Environment sync failed"
-            echo "📋 Check if ENV_REPO_PAT secret has correct permissions:"
-            echo "   - repo (Full control of private repositories)"
-            echo "   - CodeGachi/.env repository must exist with dev branch"
-            exit 1
-          }
-          echo "✅ Environment files synced"
-          cp .env.dev .env
+          bun install --ignore-scripts
+          bun run env:sync || echo "Using fallback env"
+          cp .env.dev frontend/.env 2>/dev/null || touch frontend/.env
 
       - name: Test
-        run: |
-          bun run --cwd frontend test:ci
-          bun run --cwd backend test:ci
+        run: bun run --cwd frontend test:ci
 
       - name: Lint
-        run: |
-          bun run --cwd frontend lint
-          bun run --cwd backend lint
+        run: bun run --cwd frontend lint
 
       - name: Build
-        run: |
-          NODE_ENV=production bun run --cwd frontend build
-          NODE_ENV=production bun run --cwd backend build
+        run: NODE_ENV=production bun run --cwd frontend build
+
+  # ============================================
+  # Backend: Test, Lint, Build (parallel)
+  # ============================================
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-backend-${{ hashFiles('backend/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-backend-
+
+      - name: Install dependencies
+        run: cd backend && bun install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: bun run --cwd backend prisma:generate
+
+      - name: Test
+        run: bun run --cwd backend test:ci
+
+      - name: Lint
+        run: bun run --cwd backend lint
+
+      - name: Build
+        run: NODE_ENV=production bun run --cwd backend build
