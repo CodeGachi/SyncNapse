@@ -214,6 +214,7 @@ export function getCachedHref(
 /**
  * Get fallback links when discovery fails
  * This ensures the app can still function with hardcoded defaults
+ * Note: Pure HATEOAS - only collection links, no templated resource links
  */
 function getFallbackLinks(): ApiRootResponse["_links"] {
   const baseUrl = getApiBaseUrl();
@@ -224,10 +225,13 @@ function getFallbackLinks(): ApiRootResponse["_links"] {
     login: { href: `${baseUrl}/auth/google`, method: "GET" },
     profile: { href: `${baseUrl}/users/me` },
     notes: { href: `${baseUrl}/notes` },
+    trashedNotes: { href: `${baseUrl}/notes/trash/list` },
     folders: { href: `${baseUrl}/folders` },
     files: { href: `${baseUrl}/files` },
     recordings: { href: `${baseUrl}/recordings` },
+    audioRecordings: { href: `${baseUrl}/audio/recordings` },
     transcription: { href: `${baseUrl}/transcription` },
+    transcriptionSessions: { href: `${baseUrl}/transcription/sessions` },
     search: { href: `${baseUrl}/search` },
     ai: { href: `${baseUrl}/ai` },
     liveblocks: { href: `${baseUrl}/liveblocks` },
