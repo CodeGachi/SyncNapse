@@ -11,6 +11,9 @@ import {
   RecentActivityDto,
   UpdateUserRoleDto,
   UpdateUserRoleResponseDto,
+  SuspendUserDto,
+  BanUserDto,
+  UserStatusResponseDto,
 } from './dto';
 
 @Injectable()
@@ -392,6 +395,154 @@ export class UsersService {
       }
       this.logger.error('Failed to update user role', error);
       throw new InternalServerErrorException('사용자 역할 변경에 실패했습니다.');
+    }
+  }
+
+  /**
+   * 사용자 일시 정지
+   * POST /api/admin/users/:userId/suspend
+   * 
+   * Note: User 테이블에 suspendedUntil 필드가 없으므로
+   * AuditLog에 기록하는 방식으로 구현
+   */
+  async suspendUser(userId: string, dto: SuspendUserDto): Promise<UserStatusResponseDto> {
+    this.logger.debug(`suspendUser userId=${userId} until=${dto.suspendUntil}`);
+
+    try {
+      // 사용자 존재 확인
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, deletedAt: true },
+      });
+
+      if (!user || user.deletedAt) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      // AuditLog에 정지 기록 추가
+      await this.prisma.auditLog.create({
+        data: {
+          userId,
+          method: 'SUSPEND',
+          path: '/admin/suspend',
+          body: JSON.stringify({
+            reason: dto.reason,
+            suspendUntil: dto.suspendUntil,
+          }),
+        },
+      });
+
+      this.logger.log(`User suspended: ${userId} until ${dto.suspendUntil}`);
+
+      return new UserStatusResponseDto({
+        id: userId,
+        status: 'suspended',
+        suspendedUntil: dto.suspendUntil,
+        banReason: null,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Failed to suspend user', error);
+      throw new InternalServerErrorException('사용자 정지에 실패했습니다.');
+    }
+  }
+
+  /**
+   * 사용자 영구 차단
+   * POST /api/admin/users/:userId/ban
+   * 
+   * Note: User 테이블에 banReason 필드가 없으므로
+   * AuditLog에 기록하는 방식으로 구현
+   */
+  async banUser(userId: string, dto: BanUserDto): Promise<UserStatusResponseDto> {
+    this.logger.debug(`banUser userId=${userId} reason=${dto.reason}`);
+
+    try {
+      // 사용자 존재 확인
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, deletedAt: true },
+      });
+
+      if (!user || user.deletedAt) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      // AuditLog에 차단 기록 추가
+      await this.prisma.auditLog.create({
+        data: {
+          userId,
+          method: 'BAN',
+          path: '/admin/ban',
+          body: JSON.stringify({
+            reason: dto.reason,
+          }),
+        },
+      });
+
+      this.logger.log(`User banned: ${userId} reason=${dto.reason}`);
+
+      return new UserStatusResponseDto({
+        id: userId,
+        status: 'banned',
+        suspendedUntil: null,
+        banReason: dto.reason,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Failed to ban user', error);
+      throw new InternalServerErrorException('사용자 차단에 실패했습니다.');
+    }
+  }
+
+  /**
+   * 사용자 활성화 (정지/차단 해제)
+   * POST /api/admin/users/:userId/activate
+   */
+  async activateUser(userId: string): Promise<UserStatusResponseDto> {
+    this.logger.debug(`activateUser userId=${userId}`);
+
+    try {
+      // 사용자 존재 확인
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, deletedAt: true },
+      });
+
+      if (!user || user.deletedAt) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      // AuditLog에 활성화 기록 추가
+      await this.prisma.auditLog.create({
+        data: {
+          userId,
+          method: 'ACTIVATE',
+          path: '/admin/activate',
+          body: JSON.stringify({
+            action: 'activate',
+          }),
+        },
+      });
+
+      this.logger.log(`User activated: ${userId}`);
+
+      return new UserStatusResponseDto({
+        id: userId,
+        status: 'active',
+        suspendedUntil: null,
+        banReason: null,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error('Failed to activate user', error);
+      throw new InternalServerErrorException('사용자 활성화에 실패했습니다.');
     }
   }
 }

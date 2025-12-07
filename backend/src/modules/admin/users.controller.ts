@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Query, Param, Body, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Query, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminRoleGuard } from './guards';
@@ -10,6 +10,9 @@ import {
   UserDetailResponseDto,
   UpdateUserRoleDto,
   UpdateUserRoleResponseDto,
+  SuspendUserDto,
+  BanUserDto,
+  UserStatusResponseDto,
 } from './dto';
 
 /**
@@ -132,6 +135,83 @@ export class UsersController {
   ): Promise<{ data: UpdateUserRoleResponseDto }> {
     this.logger.debug(`PATCH /api/admin/users/${userId}/role role=${dto.role}`);
     const result = await this.usersService.updateUserRole(userId, dto);
+    return { data: result };
+  }
+
+  /**
+   * 사용자 일시 정지
+   * POST /api/admin/users/:userId/suspend
+   */
+  @Post(':userId/suspend')
+  @UseGuards(JwtAuthGuard, AdminOnlyGuard)
+  @ApiOperation({
+    summary: '사용자 일시 정지',
+    description: '사용자를 일시 정지합니다. (admin 권한 필요)',
+  })
+  @ApiParam({ name: 'userId', description: '사용자 ID', example: 'user-001' })
+  @ApiResponse({
+    status: 200,
+    description: '일시 정지 성공',
+    type: UserStatusResponseDto,
+  })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async suspendUser(
+    @Param('userId') userId: string,
+    @Body() dto: SuspendUserDto,
+  ): Promise<{ data: UserStatusResponseDto }> {
+    this.logger.debug(`POST /api/admin/users/${userId}/suspend`);
+    const result = await this.usersService.suspendUser(userId, dto);
+    return { data: result };
+  }
+
+  /**
+   * 사용자 영구 차단
+   * POST /api/admin/users/:userId/ban
+   */
+  @Post(':userId/ban')
+  @UseGuards(JwtAuthGuard, AdminOnlyGuard)
+  @ApiOperation({
+    summary: '사용자 영구 차단',
+    description: '사용자를 영구 차단합니다. (admin 권한 필요)',
+  })
+  @ApiParam({ name: 'userId', description: '사용자 ID', example: 'user-001' })
+  @ApiResponse({
+    status: 200,
+    description: '영구 차단 성공',
+    type: UserStatusResponseDto,
+  })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async banUser(
+    @Param('userId') userId: string,
+    @Body() dto: BanUserDto,
+  ): Promise<{ data: UserStatusResponseDto }> {
+    this.logger.debug(`POST /api/admin/users/${userId}/ban`);
+    const result = await this.usersService.banUser(userId, dto);
+    return { data: result };
+  }
+
+  /**
+   * 사용자 활성화 (정지/차단 해제)
+   * POST /api/admin/users/:userId/activate
+   */
+  @Post(':userId/activate')
+  @UseGuards(JwtAuthGuard, AdminOnlyGuard)
+  @ApiOperation({
+    summary: '사용자 활성화',
+    description: '정지 또는 차단된 사용자를 활성화합니다. (admin 권한 필요)',
+  })
+  @ApiParam({ name: 'userId', description: '사용자 ID', example: 'user-001' })
+  @ApiResponse({
+    status: 200,
+    description: '활성화 성공',
+    type: UserStatusResponseDto,
+  })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async activateUser(
+    @Param('userId') userId: string,
+  ): Promise<{ data: UserStatusResponseDto }> {
+    this.logger.debug(`POST /api/admin/users/${userId}/activate`);
+    const result = await this.usersService.activateUser(userId);
     return { data: result };
   }
 }
