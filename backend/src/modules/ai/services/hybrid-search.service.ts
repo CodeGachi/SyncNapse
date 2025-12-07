@@ -87,9 +87,11 @@ export class HybridSearchService {
 
     // 정규화
     for (const result of vectorResults) {
-      const text = result.node.node?.text || result.node.text || '';
+      // NodeWithScore 구조: { node: BaseNode, score: number }
+      // BaseNode.getText() 또는 getContent() 사용
+      const nodeText = result.node.getText ? result.node.getText() : result.node.text || '';
       const normalizedScore = result.score / maxScore;
-      scoreMap.set(text, normalizedScore);
+      scoreMap.set(nodeText, normalizedScore);
     }
 
     return scoreMap;

@@ -359,10 +359,15 @@ export class RagEngineService {
       const vectorResults = await retriever.retrieve({ query: question });
 
       // 3. 하이브리드 검색으로 최종 결과 선택
+      const vectorResultsWithScore = vectorResults.map(r => ({
+        node: r.node,
+        score: r.score ?? 0, // undefined 방지
+      }));
+
       const hybridResults = this.hybridSearchService.combineResults(
         question,
         documents,
-        vectorResults.map(r => ({ node: r, score: r.score ?? 0 })), // score가 undefined면 0
+        vectorResultsWithScore,
         TOP_K, // 최종 5개만
       );
 
