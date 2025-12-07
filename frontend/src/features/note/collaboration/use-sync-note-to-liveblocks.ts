@@ -14,7 +14,6 @@ import { createLogger } from "@/lib/utils/logger";
 const log = createLogger("Liveblocks");
 import type { Note, FileItem } from "@/lib/types";
 import { useNoteEditorStore } from "@/stores";
-import { useSyncStore } from "@/lib/sync/sync-store";
 
 interface UseSyncNoteToLiveblocksProps {
   isCollaborating: boolean;
@@ -78,23 +77,10 @@ export function useSyncNoteToLiveblocks({
         currentFiles.pop();
       }
 
-      // 동기화 큐에서 backend_url 가져오기 (있으면)
-      const syncQueueItems = useSyncStore.getState().queue.items;
-      const backendUrlMap = new Map<string, string>();
-
-      // 각 파일의 backend_url을 동기화 큐에서 찾기
+      // 새 파일 추가 (FileItem.backendUrl 직접 사용)
       fileList.forEach((file) => {
-        const queueItem = syncQueueItems.find(
-          (item) => item.entityId === file.id && item.data?.backend_url
-        );
-        if (queueItem?.data?.backend_url) {
-          backendUrlMap.set(file.id, queueItem.data.backend_url);
-        }
-      });
-
-      // 새 파일 추가
-      fileList.forEach((file) => {
-        const backendUrl = backendUrlMap.get(file.id);
+        // FileItem에서 직접 backendUrl 가져오기
+        const backendUrl = file.backendUrl;
 
         // Backend URL이 있는 경우에만 Storage에 저장
         // (없으면 Student가 백엔드로부터 받아와야 함)
