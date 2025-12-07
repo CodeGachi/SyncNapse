@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsIn, IsArray, ValidateNested, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsIn, IsArray, ValidateNested, IsBoolean, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -84,10 +84,12 @@ export class CreatePlanDto {
 
   @ApiProperty({ description: '월간 가격 (원)', example: 50000 })
   @IsNumber()
+  @Min(0, { message: '가격은 0 이상이어야 합니다' })
   monthlyPrice!: number;
 
   @ApiProperty({ description: '연간 가격 (원)', example: 500000 })
   @IsNumber()
+  @Min(0, { message: '가격은 0 이상이어야 합니다' })
   yearlyPrice!: number;
 
   @ApiProperty({ description: '상태', enum: ['active', 'inactive'], example: 'active' })
@@ -119,11 +121,13 @@ export class UpdatePlanDto {
   @ApiProperty({ description: '월간 가격 (원)', required: false })
   @IsOptional()
   @IsNumber()
+  @Min(0)
   monthlyPrice?: number;
 
   @ApiProperty({ description: '연간 가격 (원)', required: false })
   @IsOptional()
   @IsNumber()
+  @Min(0)
   yearlyPrice?: number;
 
   @ApiProperty({ description: '상태', required: false })
