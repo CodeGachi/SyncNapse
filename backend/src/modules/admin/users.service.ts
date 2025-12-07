@@ -31,35 +31,50 @@ export class UsersService {
         sortOrder = 'desc',
       } = query;
 
-      // Where 조건 구성
+      // 안전성 체크
+      if (page < 1 || limit < 1) {
+        throw new InternalServerErrorException('잘못된 페이지 파라미터입니다.');
+      }
+
+      // Where 조건 구성 (AND로 안전하게 결합)
       const where: any = {
-        deletedAt: null, // 삭제되지 않은 사용자만
+        deletedAt: null,
       };
+
+      const andConditions: any[] = [];
 
       // 역할 필터
       if (role) {
-        where.role = role;
+        andConditions.push({ role });
       }
 
-      // 상태 필터 (현재는 간단하게 구현, 추후 확장 가능)
+      // 상태 필터
       if (status === 'inactive') {
-        // 30일 이상 로그인하지 않은 사용자
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        where.refreshTokens = {
-          none: {
-            createdAt: { gte: thirtyDaysAgo },
+        andConditions.push({
+          refreshTokens: {
+            none: {
+              createdAt: { gte: thirtyDaysAgo },
+            },
           },
-        };
+        });
       }
       // TODO: suspended, banned 상태는 해당 필드 추가 시 구현
 
-      // 검색 (이름 또는 이메일)
+      // 검색 (이름 또는 이메일) - OR 조건은 별도로
       if (search) {
-        where.OR = [
-          { displayName: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-        ];
+        andConditions.push({
+          OR: [
+            { displayName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        });
+      }
+
+      // AND 조건 적용
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
       }
 
       // 정렬 설정
@@ -67,7 +82,6 @@ export class UsersService {
       if (sortBy === 'name') {
         orderBy.displayName = sortOrder;
       } else {
-        // lastLoginAt은 필드가 없으므로 createdAt 사용
         orderBy.createdAt = sortOrder;
       }
 
@@ -118,7 +132,7 @@ export class UsersService {
       });
 
       // 페이지네이션 정보
-      const totalPages = Math.ceil(total / limit);
+      const totalPages = Math.max(Math.ceil(total / limit), 1);
       const pagination = new PaginationDto({
         page,
         pageSize: limit,
