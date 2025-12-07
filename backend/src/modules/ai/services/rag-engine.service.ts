@@ -57,6 +57,13 @@ export class RagEngineService {
   private readonly geminiModel: GenerativeModel;
   private readonly apiKey: string;
 
+  // 인덱스 캐시 추가
+  private indexCache = new Map<string, {
+    index: VectorStoreIndex;
+    createdAt: number;
+  }>();
+  private readonly CACHE_TTL = 1000 * 60 * 60; // 1시간
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
@@ -274,6 +281,36 @@ export class RagEngineService {
   }
 
   /**
+   * 캐시에서 인덱스 가져오기 또는 새로 생성
+   */
+  private async getOrCreateIndex(lectureNoteId: string): Promise<VectorStoreIndex> {
+    // 1. 캐시 확인
+    const cached = this.indexCache.get(lectureNoteId);
+    const now = Date.now();
+
+    if (cached && now - cached.createdAt < this.CACHE_TTL) {
+      this.logger.debug(`[Cache HIT] Using cached index for note ${lectureNoteId}`);
+      return cached.index;
+    }
+
+    // 2. 캐시 미스 - 새로 생성
+    this.logger.debug(`[Cache MISS] Creating new index for note ${lectureNoteId}`);
+    
+    const documents = await this.fetchNoteDocuments(lectureNoteId);
+    const index = await VectorStoreIndex.fromDocuments(documents);
+
+    // 3. 캐시에 저장
+    this.indexCache.set(lectureNoteId, {
+      index,
+      createdAt: now,
+    });
+
+    this.logger.log(`Index created and cached for note ${lectureNoteId} (${documents.length} documents)`);
+
+    return index;
+  }
+
+  /**
    * BlockNote blocks에서 텍스트 추출
    */
   private extractTextFromBlocks(blocks: any[]): string {
@@ -309,13 +346,10 @@ export class RagEngineService {
     );
 
     try {
-      // 1. 노트의 documents 가져오기
-      const documents = await this.fetchNoteDocuments(lectureNoteId);
+      // 1. 캐시에서 인덱스 가져오기 또는 생성
+      const index = await this.getOrCreateIndex(lectureNoteId);
 
-      // 2. VectorStoreIndex 생성
-      const index = await VectorStoreIndex.fromDocuments(documents);
-
-      // 3. QueryEngine 생성
+      // 2. QueryEngine 생성
       const queryEngine = index.asQueryEngine({
         similarityTopK: TOP_K,
       });
