@@ -12,18 +12,21 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'happy-dom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: false,
-    // Memory optimization for large test suites
     pool: 'forks',
     poolOptions: {
       forks: {
+        minForks: 1,
+        maxForks: 1,
         singleFork: true,
       },
     },
     testTimeout: 30000,
-    teardownTimeout: 10000,
+    teardownTimeout: 5000,
+    fileParallelism: false,
+    maxConcurrency: 1,
   },
 });

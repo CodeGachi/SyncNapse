@@ -1,6 +1,5 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
-import 'fake-indexeddb/auto';
 
 // Mock URL.createObjectURL and URL.revokeObjectURL
 global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
@@ -78,3 +77,7 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
+
+// 테스트 중 console 출력 비활성화 (속도 최적화)
+vi.spyOn(console, 'log').mockImplementation(() => {});
+vi.spyOn(console, 'info').mockImplementation(() => {});
