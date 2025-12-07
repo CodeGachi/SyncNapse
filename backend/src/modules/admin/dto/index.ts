@@ -9,4 +9,5 @@ export * from './plans.dto';
 export * from './subscriptions.dto';
 export * from './plan-distribution.dto';
 export * from './monitoring.dto';
+export * from './settings.dto';
 
