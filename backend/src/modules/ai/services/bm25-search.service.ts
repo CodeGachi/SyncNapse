@@ -125,10 +125,11 @@ export class BM25SearchService {
       const df = docTokens.filter(tokens => tokens.includes(token)).length;
 
       if (df > 0) {
-        // IDF 공식: log((N - df + 0.5) / (df + 0.5))
-        const idfValue = Math.log((N - df + 0.5) / (df + 0.5) + 1.0);
+        // 표준 BM25 IDF 공식: log((N - df + 0.5) / (df + 0.5))
+        const idfValue = Math.log((N - df + 0.5) / (df + 0.5));
         idf.set(token, idfValue);
       } else {
+        // 문서에 없는 토큰은 0
         idf.set(token, 0);
       }
     }
