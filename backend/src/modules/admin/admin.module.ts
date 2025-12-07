@@ -13,8 +13,12 @@ import { PlansService } from './plans.service';
 import { SubscriptionsService } from './subscriptions.service';
 import { MonitoringService } from './monitoring.service';
 import { SettingsService } from './settings.service';
+import { DbModule } from '../db/db.module';
+import { AdminRoleGuard } from './guards/admin-role.guard';
+import { AdminOnlyGuard } from './guards/admin-only.guard';
 
 @Module({
+  imports: [DbModule],
   controllers: [
     AdminController,
     DashboardController,
@@ -32,6 +36,8 @@ import { SettingsService } from './settings.service';
     SubscriptionsService,
     MonitoringService,
     SettingsService,
+    AdminRoleGuard,
+    AdminOnlyGuard,
   ],
   exports: [
     AdminService,

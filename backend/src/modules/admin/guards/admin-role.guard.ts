@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { isInAdminRoles, RequestUser, AdminErrors } from '../constants';
+import { PrismaService } from '../../db/prisma.service';
 
 /**
  * Admin Role Guard
@@ -22,13 +23,31 @@ import { isInAdminRoles, RequestUser, AdminErrors } from '../constants';
 export class AdminRoleGuard implements CanActivate {
   private readonly logger = new Logger(AdminRoleGuard.name);
 
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user as RequestUser | undefined;
 
     if (!user) {
       this.logger.warn('AdminRoleGuard: No user found in request');
       throw new ForbiddenException(AdminErrors.AUTHENTICATION_REQUIRED.message);
+    }
+
+    // If role is not already loaded, fetch it from database
+    if (!user.role) {
+      const dbUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { role: true },
+      });
+
+      if (!dbUser) {
+        this.logger.warn(`AdminRoleGuard: User not found in database - user=${user.id}`);
+        throw new ForbiddenException(AdminErrors.AUTHENTICATION_REQUIRED.message);
+      }
+
+      // Enrich request user with role
+      user.role = dbUser.role || 'user';
     }
 
     const hasAccess = user.role && isInAdminRoles(user.role);
