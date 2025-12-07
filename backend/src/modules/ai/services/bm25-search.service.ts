@@ -96,7 +96,11 @@ export class BM25SearchService {
     const tokens = cleaned.split(/\s+/).filter(t => t.length > 0);
 
     // 4. 불용어 제거 (간단한 버전)
-    const stopwords = new Set(['이', '그', '저', '것', '등', '및', 'the', 'a', 'an', 'is', 'are']);
+    const stopwords = new Set([
+      '이', '그', '저', '것', '등', '및', '에', '의', '를', '을', '가', '이',
+      'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+      'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    ]);
     const filtered = tokens.filter(t => !stopwords.has(t) && t.length > 1);
 
     return filtered;

@@ -82,17 +82,31 @@ export class HybridSearchService {
 
     if (vectorResults.length === 0) return scoreMap;
 
-    // 최대값 찾기
+    // 최대값 찾기 (최소값 1로 제로 디비전 방지)
     const maxScore = Math.max(...vectorResults.map(r => r.score), 1);
 
     // 정규화
     for (const result of vectorResults) {
       // NodeWithScore 구조: { node: BaseNode, score: number }
-      // BaseNode.getText() 또는 getContent() 사용
-      const nodeText = result.node.getText ? result.node.getText() : result.node.text || '';
+      // BaseNode에서 텍스트 추출 (여러 방법 시도)
+      let nodeText = '';
+      
+      if (result.node.getText && typeof result.node.getText === 'function') {
+        nodeText = result.node.getText();
+      } else if (result.node.getContent && typeof result.node.getContent === 'function') {
+        nodeText = result.node.getContent();
+      } else if (result.node.text) {
+        nodeText = result.node.text;
+      } else {
+        this.logger.warn('Unable to extract text from node:', result.node);
+        continue;
+      }
+
       const normalizedScore = result.score / maxScore;
       scoreMap.set(nodeText, normalizedScore);
     }
+
+    this.logger.debug(`Normalized ${scoreMap.size} vector scores (max: ${maxScore.toFixed(3)})`);
 
     return scoreMap;
   }
@@ -105,7 +119,7 @@ export class HybridSearchService {
 
     if (keywordResults.length === 0) return scoreMap;
 
-    // 최대값 찾기
+    // 최대값 찾기 (최소값 1로 제로 디비전 방지)
     const maxScore = Math.max(...keywordResults.map(r => r.score), 1);
 
     // 정규화
@@ -114,6 +128,8 @@ export class HybridSearchService {
       const normalizedScore = result.score / maxScore;
       scoreMap.set(text, normalizedScore);
     }
+
+    this.logger.debug(`Normalized ${scoreMap.size} keyword scores (max: ${maxScore.toFixed(3)})`);
 
     return scoreMap;
   }
@@ -155,6 +171,10 @@ export class HybridSearchService {
         metadata: doc.metadata,
       });
     }
+
+    this.logger.debug(
+      `Calculated ${results.length} hybrid scores (weights: v=${vectorWeight}, k=${keywordWeight})`,
+    );
 
     return results;
   }
