@@ -28,12 +28,10 @@ import {
   Eye,
   Edit3,
   Trash2,
-  QrCode,
 } from "lucide-react";
 import { useEducatorUIStore } from "@/stores";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/common/button";
-import { QRCode } from "@/components/common/qr-code";
 import {
   useCollaborators,
   useUpdatePublicAccess,
@@ -48,7 +46,6 @@ import {
   type NotePermission,
   generateShareLink,
 } from "@/lib/api/services/sharing.api";
-import { createShortCode } from "@/lib/utils/url-shortener";
 
 export function SharingSettingsModal() {
   const {
@@ -60,6 +57,7 @@ export function SharingSettingsModal() {
 
   // 공개 설정 상태
   const [publicAccess, setPublicAccess] = useState<PublicAccess>("PRIVATE");
+  const [shareLink, setShareLink] = useState<string>("");
 
   // 협업자 초대 상태
   const [inviteEmail, setInviteEmail] = useState("");
@@ -68,9 +66,11 @@ export function SharingSettingsModal() {
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   // 실시간 협업 링크 상태
-  const [collaborativeLink, setCollaborativeLink] = useState<string | null>(null);
+  const [collaborativeLink, setCollaborativeLink] = useState<string | null>(
+    null
+  );
   const [isCopiedCollab, setIsCopiedCollab] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
+  const [isCopiedPublic, setIsCopiedPublic] = useState(false);
 
   // 도메인 기반 공유 상태
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
@@ -87,49 +87,39 @@ export function SharingSettingsModal() {
   const updatePermissionMutation = useUpdateCollaboratorPermission();
   const removeCollaboratorMutation = useRemoveCollaborator();
 
-  // Track if modal was just opened (to initialize only once)
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // 모달 열릴 때 현재 설정 값 로드 (한 번만, note가 로드된 후에만)
+  // 모달 열릴 때 공유 링크 생성 및 현재 설정 값 로드
   useEffect(() => {
-    // note가 로드되지 않았으면 대기
-    if (!note) return;
-    
-    if (sharingModalNoteId && isSharingModalOpen && !isInitialized) {
-      // 노트의 현재 publicAccess 값 로드 (최초 1회만)
-      setPublicAccess(note.publicAccess || "PRIVATE");
+    if (sharingModalNoteId && isSharingModalOpen) {
+      setShareLink(generateShareLink(sharingModalNoteId));
 
-      // 노트의 현재 allowedDomains 값 로드 (최초 1회만)
-      setAllowedDomains(note.allowedDomains || []);
+      // 노트의 현재 publicAccess 값 로드
+      if (note?.publicAccess) {
+        setPublicAccess(note.publicAccess);
+      } else {
+        setPublicAccess("PRIVATE");
+      }
 
-      setIsInitialized(true);
+      // 노트의 현재 allowedDomains 값 로드
+      if (note?.allowedDomains) {
+        setAllowedDomains(note.allowedDomains);
+      } else {
+        setAllowedDomains([]);
+      }
     }
-  }, [sharingModalNoteId, isSharingModalOpen, note, isInitialized]);
-
-  // 모달이 닫히면 초기화 상태 리셋
-  useEffect(() => {
-    if (!isSharingModalOpen) {
-      setIsInitialized(false);
-      // Note: 협업 링크는 리셋하지 않음 - 모달을 다시 열어도 유지됨
-    }
-  }, [isSharingModalOpen]);
+  }, [sharingModalNoteId, isSharingModalOpen, note?.publicAccess, note?.allowedDomains]);
 
   // 공개 설정 변경 핸들러
   const handlePublicAccessChange = (access: PublicAccess) => {
     if (!sharingModalNoteId) return;
 
-    const previousAccess = publicAccess; // Capture previous value before change
     setPublicAccess(access);
     updatePublicAccessMutation.mutate(
       { noteId: sharingModalNoteId, publicAccess: access },
       {
-        onSuccess: () => {
-          log.info(`공개 설정 변경 성공: ${access}`);
-        },
         onError: (error) => {
           log.error("공개 설정 변경 실패:", error);
-          // Rollback to previous value
-          setPublicAccess(previousAccess);
+          // 롤백
+          setPublicAccess(publicAccess);
         },
       }
     );
@@ -243,21 +233,31 @@ export function SharingSettingsModal() {
     });
   };
 
-  // 실시간 협업 링크 생성 (Short URL 사용)
+  // 공유 링크 복사
+  const handleCopyShareLink = async () => {
+    if (!shareLink) return;
+
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setIsCopiedPublic(true);
+      setTimeout(() => setIsCopiedPublic(false), 2000);
+    } catch (error) {
+      log.error("링크 복사 실패:", error);
+    }
+  };
+
+  // 실시간 협업 링크 생성
   const handleGenerateCollaborativeLink = () => {
     if (!sharingModalNoteId) return;
 
-    // 비공개 상태에서는 협업 링크를 생성할 수 없음
-    if (publicAccess === "PRIVATE") {
-      log.warn("비공개 상태에서는 협업 링크를 생성할 수 없습니다. 먼저 공개 범위를 설정해주세요.");
-      return;
-    }
-
-    // Short URL 형식으로 협업 링크 생성
-    const shortCode = createShortCode(sharingModalNoteId);
-    const link = `${window.location.origin}/s/${shortCode}`;
+    const token = `${sharingModalNoteId}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    const link = `${window.location.origin}/shared/${token}`;
     setCollaborativeLink(link);
-    log.info(`협업 링크 생성 완료 (Short URL: ${shortCode}, 공개 범위: ${publicAccess})`);
+
+    // 공개 설정을 PUBLIC_EDIT으로 변경
+    if (publicAccess === "PRIVATE") {
+      handlePublicAccessChange("PUBLIC_EDIT");
+    }
   };
 
   // 협업 링크 복사
@@ -408,6 +408,35 @@ export function SharingSettingsModal() {
             </button>
           </div>
 
+          {/* 공유 링크 (비공개가 아닐 때만 표시) */}
+          <AnimatePresence>
+            {publicAccess !== "PRIVATE" && shareLink && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-3 border-t border-border">
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-background-modal border border-border rounded-xl px-3 py-2.5 flex items-center overflow-hidden">
+                      <span className="text-foreground-secondary text-xs truncate select-all">
+                        {shareLink}
+                      </span>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleCopyShareLink}
+                      className="shrink-0 w-10 h-10 p-0 flex items-center justify-center"
+                    >
+                      {isCopiedPublic ? <Check size={18} /> : <Copy size={18} />}
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* 2. 도메인 기반 공유 카드 */}
@@ -514,12 +543,12 @@ export function SharingSettingsModal() {
           </div>
 
           {/* 이메일 입력 */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <div className="flex-1 relative">
                 <Mail
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-brand"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-tertiary"
                 />
                 <input
                   type="email"
@@ -529,8 +558,8 @@ export function SharingSettingsModal() {
                     setInviteError(null);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handleInviteCollaborator()}
-                  placeholder="예: user@example.com"
-                  className="w-full bg-background-elevated border-2 border-border rounded-xl pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-foreground-tertiary focus:outline-none focus:border-brand focus:bg-brand/5 transition-colors"
+                  placeholder="이메일 주소 입력"
+                  className="w-full bg-background-elevated border border-border rounded-xl pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-foreground-tertiary focus:outline-none focus:border-brand"
                 />
               </div>
 
@@ -540,14 +569,10 @@ export function SharingSettingsModal() {
                 onChange={(e) =>
                   setInvitePermission(e.target.value as NotePermission)
                 }
-                className={`rounded-xl px-3 py-2.5 text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors ${
-                  invitePermission === "EDITOR"
-                    ? "bg-status-success/15 text-status-success border-2 border-status-success/30"
-                    : "bg-blue-500/15 text-blue-600 border-2 border-blue-500/30"
-                }`}
+                className="bg-background-elevated border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-brand"
               >
-                <option value="VIEWER">👁️ 뷰어</option>
-                <option value="EDITOR">✏️ 편집자</option>
+                <option value="VIEWER">뷰어</option>
+                <option value="EDITOR">편집자</option>
               </select>
 
               <Button
@@ -557,21 +582,19 @@ export function SharingSettingsModal() {
                 disabled={
                   !inviteEmail.trim() || inviteCollaboratorMutation.isPending
                 }
-                className="shrink-0 px-5 font-medium"
+                className="shrink-0 px-4"
               >
                 {inviteCollaboratorMutation.isPending ? (
                   <RefreshCw size={16} className="animate-spin" />
                 ) : (
-                  "✉️ 초대"
+                  "초대"
                 )}
               </Button>
             </div>
 
             {/* 에러 메시지 */}
             {inviteError && (
-              <div className="bg-status-error/10 border border-status-error/20 rounded-lg px-3 py-2">
-                <p className="text-status-error text-xs font-medium">{inviteError}</p>
-              </div>
+              <p className="text-status-error text-xs">{inviteError}</p>
             )}
           </div>
 
@@ -588,29 +611,25 @@ export function SharingSettingsModal() {
               {collaborators.map((collab) => (
                 <div
                   key={collab.id}
-                  className="flex items-center gap-3 p-3 bg-gradient-to-r from-brand/5 to-transparent border border-brand/10 rounded-xl hover:border-brand/20 transition-colors"
+                  className="flex items-center gap-3 p-3 bg-background-elevated rounded-xl"
                 >
-                  {/* Avatar with gradient */}
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-brand/60 flex items-center justify-center text-white text-sm font-bold shadow-sm">
-                    {(collab.user?.displayName || collab.user?.email || collab.email || "?")
+                  <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand text-xs font-bold">
+                    {(collab.user?.displayName || collab.email)
                       .charAt(0)
                       .toUpperCase()}
                   </div>
-                  
-                  {/* User info */}
                   <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">
+                      {collab.user?.displayName || collab.email}
+                    </p>
                     {collab.user?.displayName && (
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {collab.user.displayName}
+                      <p className="text-xs text-foreground-tertiary truncate">
+                        {collab.email}
                       </p>
                     )}
-                    <p className="text-xs truncate">
-                      <span className="text-foreground-tertiary">ID: </span>
-                      <span className="text-brand font-medium">{collab.user?.email || collab.email}</span>
-                    </p>
                   </div>
 
-                  {/* 권한 배지 */}
+                  {/* 권한 변경 */}
                   <select
                     value={collab.permission}
                     onChange={(e) =>
@@ -619,21 +638,16 @@ export function SharingSettingsModal() {
                         e.target.value as NotePermission
                       )
                     }
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/30 ${
-                      collab.permission === "EDITOR"
-                        ? "bg-status-success/15 text-status-success border border-status-success/30"
-                        : "bg-blue-500/15 text-blue-600 border border-blue-500/30"
-                    }`}
+                    className="bg-background-surface border border-border rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none"
                   >
-                    <option value="VIEWER">👁️ 뷰어</option>
-                    <option value="EDITOR">✏️ 편집자</option>
+                    <option value="VIEWER">뷰어</option>
+                    <option value="EDITOR">편집자</option>
                   </select>
 
                   {/* 제거 버튼 */}
                   <button
                     onClick={() => handleRemoveCollaborator(collab.id)}
-                    className="p-2 rounded-full hover:bg-status-error/15 text-foreground-tertiary hover:text-status-error transition-all hover:scale-110"
-                    title="협업자 제거"
+                    className="p-1.5 rounded-lg hover:bg-status-error/10 text-foreground-tertiary hover:text-status-error transition-colors"
                   >
                     <X size={16} />
                   </button>
@@ -669,36 +683,18 @@ export function SharingSettingsModal() {
 
           {!collaborativeLink ? (
             <div className="flex flex-col items-center justify-center py-4 gap-3">
-              {publicAccess === "PRIVATE" ? (
-                <>
-                  <div className="w-12 h-12 rounded-full bg-status-warning/10 flex items-center justify-center mb-1">
-                    <Lock size={24} className="text-status-warning" />
-                  </div>
-                  <p className="text-foreground-tertiary text-xs text-center">
-                    협업 링크를 생성하려면 먼저
-                    <br />
-                    <span className="text-foreground-secondary font-medium">공개 범위를 설정</span>해주세요.
-                  </p>
-                  <p className="text-foreground-tertiary text-[10px] text-center opacity-70">
-                    위의 &quot;링크가 있는 사람 - 보기&quot; 또는 &quot;편집&quot;을 선택하세요.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-foreground-tertiary text-xs text-center">
-                    링크를 생성하여 학생들을 초대하세요.
-                    <br />
-                    실시간 Q&A 및 반응 기능을 사용할 수 있습니다.
-                  </p>
-                  <Button
-                    variant="primary"
-                    onClick={handleGenerateCollaborativeLink}
-                    className="w-full"
-                  >
-                    협업 링크 생성하기 ({publicAccess === "PUBLIC_READ" ? "보기 전용" : "편집 가능"})
-                  </Button>
-                </>
-              )}
+              <p className="text-foreground-tertiary text-xs text-center">
+                링크를 생성하여 학생들을 초대하세요.
+                <br />
+                실시간 Q&A 및 반응 기능을 사용할 수 있습니다.
+              </p>
+              <Button
+                variant="primary"
+                onClick={handleGenerateCollaborativeLink}
+                className="w-full"
+              >
+                협업 링크 생성하기
+              </Button>
             </div>
           ) : (
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -722,7 +718,6 @@ export function SharingSettingsModal() {
                 </div>
               </div>
 
-              {/* Short URL and Copy */}
               <div className="flex gap-2">
                 <div className="flex-1 bg-background-modal border border-border rounded-xl px-3 py-2.5 flex items-center overflow-hidden">
                   <span className="text-foreground-secondary text-xs truncate select-all">
@@ -734,54 +729,10 @@ export function SharingSettingsModal() {
                   size="sm"
                   onClick={handleCopyCollaborativeLink}
                   className="shrink-0 w-10 h-10 p-0 flex items-center justify-center"
-                  title="링크 복사"
                 >
                   {isCopiedCollab ? <Check size={18} /> : <Copy size={18} />}
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowQRCode(!showQRCode)}
-                  className={`shrink-0 w-10 h-10 p-0 flex items-center justify-center ${showQRCode ? 'bg-brand/20 text-brand' : ''}`}
-                  title="QR 코드 보기"
-                >
-                  <QrCode size={18} />
-                </Button>
               </div>
-
-              {/* QR Code Display */}
-              <AnimatePresence>
-                {showQRCode && collaborativeLink && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="bg-white rounded-xl p-4 flex flex-col items-center gap-3 border border-border">
-                      <QRCode 
-                        value={collaborativeLink}
-                        size={160}
-                      />
-                      <p className="text-foreground-secondary text-xs text-center">
-                        QR 코드를 스캔하여 공유 링크에 접속하세요
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Full URL (collapsible) */}
-              <details className="text-xs">
-                <summary className="text-foreground-tertiary cursor-pointer hover:text-foreground-secondary">
-                  전체 URL 보기
-                </summary>
-                <div className="mt-2 bg-background-modal border border-border rounded-xl px-3 py-2 break-all">
-                  <span className="text-foreground-secondary text-xs select-all">
-                    {collaborativeLink}
-                  </span>
-                </div>
-              </details>
 
               <div className="flex gap-2 mt-1">
                 <Button
@@ -795,11 +746,7 @@ export function SharingSettingsModal() {
                 <Button
                   variant="danger"
                   className="flex-1 text-xs h-9 bg-status-error/10 text-status-error hover:bg-status-error/20 border-transparent"
-                  onClick={() => {
-                    // 협업 종료 시 노트를 비공개로 전환
-                    handlePublicAccessChange("PRIVATE");
-                    setCollaborativeLink(null);
-                  }}
+                  onClick={() => setCollaborativeLink(null)}
                 >
                   협업 종료
                 </Button>

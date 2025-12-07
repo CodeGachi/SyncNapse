@@ -237,7 +237,7 @@ function getFallbackLinks(): ApiRootResponse["_links"] {
     search: { href: `${baseUrl}/search` },
     ai: { href: `${baseUrl}/ai` },
     liveblocks: { href: `${baseUrl}/liveblocks` },
-    liveblocksAuth: { href: `/api/liveblocks-auth`, method: "POST" },
+    liveblocksAuth: { href: `${baseUrl}/liveblocks/auth`, method: "POST" },
     auth: { href: `${baseUrl}/auth` },
   };
 }

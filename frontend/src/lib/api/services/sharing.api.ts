@@ -296,15 +296,10 @@ export function generateCollaborationLink(noteId: string): string {
 
 /**
  * Copy shared note to my folder
- * @param noteId - ID of the note to copy
- * @param options - Copy options
- * @param options.folderId - Target folder ID
- * @param options.title - Custom title for the copy
- * @param options.copyFiles - If true, physically copy all files. If false, only reference original files.
  */
 export async function copyNoteToMyFolder(
   noteId: string,
-  options?: { folderId?: string; title?: string; copyFiles?: boolean }
+  options?: { folderId?: string; title?: string }
 ): Promise<CopiedNote> {
   log.debug(`Copying note ${noteId} to my folder`, options);
 
@@ -315,7 +310,6 @@ export async function copyNoteToMyFolder(
       body: JSON.stringify({
         folderId: options?.folderId,
         title: options?.title,
-        copyFiles: options?.copyFiles ?? false, // Default to reference mode
       }),
     });
 
@@ -324,8 +318,7 @@ export async function copyNoteToMyFolder(
       storeResourceLinks("note", response.id, response);
     }
 
-    const copyMode = options?.copyFiles ? 'COPY' : 'REFERENCE';
-    log.info(`Note copied successfully (${copyMode}):`, response.id);
+    log.info(`Note copied successfully:`, response.id);
     return response;
   } catch (error) {
     log.error("Failed to copy note:", error);

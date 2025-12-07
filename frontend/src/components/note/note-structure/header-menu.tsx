@@ -165,14 +165,13 @@ interface CopyNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   sourceTitle: string;
-  onSubmit: (title: string, folderId: string, copyFiles: boolean) => void;
+  onSubmit: (title: string, folderId: string) => void;
   isSubmitting: boolean;
 }
 
 function CopyNoteModal({ isOpen, onClose, sourceTitle, onSubmit, isSubmitting }: CopyNoteModalProps) {
   const [title, setTitle] = useState("");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [copyFiles, setCopyFiles] = useState(false); // false = reference, true = copy
   const { buildFolderTree } = useFolders();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -181,7 +180,6 @@ function CopyNoteModal({ isOpen, onClose, sourceTitle, onSubmit, isSubmitting }:
   useEffect(() => {
     if (isOpen) {
       setTitle(`${sourceTitle} (복사본)`);
-      setCopyFiles(false); // Reset to reference mode
       // 폴더 트리의 첫 번째 폴더(Root)를 기본 선택
       if (folderTree.length > 0) {
         setSelectedFolderId(folderTree[0].folder.id);
@@ -198,7 +196,7 @@ function CopyNoteModal({ isOpen, onClose, sourceTitle, onSubmit, isSubmitting }:
 
   const handleSubmit = () => {
     if (title.trim() && selectedFolderId) {
-      onSubmit(title.trim(), selectedFolderId, copyFiles);
+      onSubmit(title.trim(), selectedFolderId);
     }
   };
 
@@ -247,55 +245,6 @@ function CopyNoteModal({ isOpen, onClose, sourceTitle, onSubmit, isSubmitting }:
                 폴더가 없습니다
               </div>
             )}
-          </div>
-        </div>
-
-        {/* 파일 복사 옵션 */}
-        <div className="flex flex-col gap-2 w-full">
-          <label className="text-sm text-foreground-secondary font-medium">파일 저장 방식</label>
-          <div className="flex flex-col gap-2">
-            <label 
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                !copyFiles 
-                  ? 'border-brand bg-brand/5' 
-                  : 'border-border hover:border-brand/50 hover:bg-background-elevated'
-              }`}
-            >
-              <input
-                type="radio"
-                name="copyMode"
-                checked={!copyFiles}
-                onChange={() => setCopyFiles(false)}
-                className="mt-0.5 accent-brand"
-              />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium text-foreground">참조 (빠름)</span>
-                <span className="text-xs text-foreground-tertiary">
-                  원본 파일을 참조합니다. 원본이 삭제되면 접근할 수 없습니다.
-                </span>
-              </div>
-            </label>
-            <label 
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                copyFiles 
-                  ? 'border-brand bg-brand/5' 
-                  : 'border-border hover:border-brand/50 hover:bg-background-elevated'
-              }`}
-            >
-              <input
-                type="radio"
-                name="copyMode"
-                checked={copyFiles}
-                onChange={() => setCopyFiles(true)}
-                className="mt-0.5 accent-brand"
-              />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium text-foreground">복사 (독립적)</span>
-                <span className="text-xs text-foreground-tertiary">
-                  모든 파일을 복사합니다. 원본과 독립적으로 보관됩니다.
-                </span>
-              </div>
-            </label>
           </div>
         </div>
 
@@ -513,7 +462,7 @@ export function HeaderMenu({ isOpen, onClose, noteId, isSharedView = false, sour
   };
 
   // 복사 모달에서 제출 시 실행
-  const handleCopySubmit = async (title: string, folderId: string, copyFiles: boolean) => {
+  const handleCopySubmit = async (title: string, folderId: string) => {
     if (!noteId || isCopying) return;
 
     setIsCopying(true);
@@ -522,7 +471,6 @@ export function HeaderMenu({ isOpen, onClose, noteId, isSharedView = false, sour
       const copiedNote = await copyNoteToMyFolder(noteId, {
         title,
         folderId: folderId === "root" ? undefined : folderId,
-        copyFiles,
       });
       setIsCopyModalOpen(false);
       // 복사된 노트로 이동

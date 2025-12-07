@@ -2280,9 +2280,8 @@ export class NotesService {
     sourceNoteId: string,
     targetFolderId?: string,
     customTitle?: string,
-    copyFiles: boolean = false, // true = copy files to new location, false = reference original files
   ) {
-    this.logger.log(`[copyNoteToMyFolder] userId=${userId} sourceNoteId=${sourceNoteId} targetFolderId=${targetFolderId || 'default'} customTitle=${customTitle || 'auto'} copyFiles=${copyFiles}`);
+    this.logger.log(`[copyNoteToMyFolder] userId=${userId} sourceNoteId=${sourceNoteId} targetFolderId=${targetFolderId || 'default'} customTitle=${customTitle || 'auto'}`);
 
     // Verify user has access to source note (shared or public)
     const hasAccess = await this.checkNoteAccess(userId, sourceNoteId);
@@ -2373,37 +2372,6 @@ export class NotesService {
       },
     });
 
-    // Build storage path for the new note (only needed when copyFiles is true)
-    let newNoteBasePath = '';
-    if (copyFiles) {
-      const newFolderStoragePath = await this.foldersService.buildFolderStoragePath(userId, folderId);
-      const sanitizedTitle = encodeURIComponent(noteTitle)
-        .replace(/%20/g, ' ')
-        .replace(/%2F/g, '_')
-        .replace(/%5C/g, '_');
-      newNoteBasePath = `${newFolderStoragePath}/${sanitizedTitle}`;
-
-      this.logger.debug(`[copyNoteToMyFolder] New note storage path: ${newNoteBasePath}`);
-
-      // Create storage subdirectories for the new note (only in copy mode)
-      try {
-        const subdirs = ['files', 'audio', 'transcription', 'typing'];
-        for (const subdir of subdirs) {
-          const placeholderKey = `${newNoteBasePath}/${subdir}/.gitkeep`;
-          await this.storageService.uploadBuffer(
-            Buffer.from(''),
-            placeholderKey,
-            'text/plain',
-          );
-        }
-        this.logger.debug(`[copyNoteToMyFolder] Created storage subdirectories`);
-      } catch (error) {
-        this.logger.warn(`[copyNoteToMyFolder] Failed to create subdirectories:`, error);
-      }
-    } else {
-      this.logger.debug(`[copyNoteToMyFolder] Reference mode - skipping storage directory creation`);
-    }
-
     // Copy note content if exists
     const sourceContent = await this.prisma.noteContent.findUnique({
       where: { noteId: sourceNoteId },
@@ -2431,58 +2399,15 @@ export class NotesService {
     const fileIdMap = new Map<string, string>();
 
     for (const sourceFile of sourceFiles) {
-      let newStorageKey = sourceFile.storageKey;
-      let newStorageUrl = sourceFile.storageUrl;
-
-      // Only copy files if copyFiles is true, otherwise reference original
-      if (copyFiles && sourceFile.storageKey) {
-        try {
-          this.logger.debug(`[copyNoteToMyFolder] Copying file: ${sourceFile.storageKey}`);
-          
-          // Get original file
-          const { body, contentType } = await this.storageService.getFileStream(sourceFile.storageKey);
-          
-          // Convert body to buffer
-          let buffer: Buffer;
-          if (Buffer.isBuffer(body)) {
-            buffer = body;
-          } else if (body && typeof (body as any).transformToByteArray === 'function') {
-            const byteArray = await (body as any).transformToByteArray();
-            buffer = Buffer.from(byteArray);
-          } else {
-            throw new Error('Unable to read file body');
-          }
-
-          // Generate new storage key
-          const originalFilename = sourceFile.storageKey.split('/').pop() || sourceFile.fileName;
-          newStorageKey = `${newNoteBasePath}/files/${Date.now()}_${originalFilename}`;
-
-          // Upload to new location
-          const result = await this.storageService.uploadBuffer(
-            buffer,
-            newStorageKey,
-            contentType || sourceFile.fileType,
-          );
-
-          newStorageUrl = result.publicUrl || this.storageService.getPublicUrl(newStorageKey);
-          this.logger.log(`[copyNoteToMyFolder] ✅ File copied: ${newStorageKey}`);
-        } catch (error) {
-          this.logger.warn(`[copyNoteToMyFolder] Failed to copy file, using shared reference:`, error);
-          // Fall back to sharing storage key if copy fails
-        }
-      } else {
-        this.logger.debug(`[copyNoteToMyFolder] Referencing original file: ${sourceFile.storageKey}`);
-      }
-
-      // Create file record with copied or referenced file info
+      // Copy file metadata (storage is shared, files are read-only)
       const newFile = await this.prisma.file.create({
         data: {
           noteId: newNote.id,
           fileName: sourceFile.fileName,
           fileType: sourceFile.fileType,
           fileSize: sourceFile.fileSize,
-          storageKey: newStorageKey,
-          storageUrl: newStorageUrl,
+          storageKey: sourceFile.storageKey, // Share storage key
+          storageUrl: sourceFile.storageUrl,
         },
       });
       fileIdMap.set(sourceFile.id, newFile.id);
@@ -2508,71 +2433,26 @@ export class NotesService {
       }
     }
 
-    // Copy audio recordings and timeline events (include all, not just active)
+    // Copy audio recordings and timeline events
     const sourceRecordings = await this.prisma.audioRecording.findMany({
       where: {
         noteId: sourceNoteId,
+        isActive: true,
       },
       include: {
         timelineEvents: true,
       },
     });
-    this.logger.debug(`[copyNoteToMyFolder] Source recordings to copy: ${sourceRecordings.length} (titles: ${sourceRecordings.map(r => r.title).join(', ') || 'none'})`);
 
     for (const sourceRecording of sourceRecordings) {
-      this.logger.debug(`[copyNoteToMyFolder] Copying recording: ${sourceRecording.id} - ${sourceRecording.title}`);
-      let newStorageKey = sourceRecording.storageKey;
-      let newFileUrl = sourceRecording.fileUrl;
-
-      // Only copy files if copyFiles is true, otherwise reference original
-      if (copyFiles && sourceRecording.storageKey) {
-        try {
-          this.logger.debug(`[copyNoteToMyFolder] Copying audio file: ${sourceRecording.storageKey}`);
-          
-          // Get original file
-          const { body, contentType } = await this.storageService.getFileStream(sourceRecording.storageKey);
-          
-          // Convert body to buffer
-          let buffer: Buffer;
-          if (Buffer.isBuffer(body)) {
-            buffer = body;
-          } else if (body && typeof (body as any).transformToByteArray === 'function') {
-            const byteArray = await (body as any).transformToByteArray();
-            buffer = Buffer.from(byteArray);
-          } else {
-            throw new Error('Unable to read audio file body');
-          }
-
-          // Generate new storage key
-          const originalFilename = sourceRecording.storageKey.split('/').pop() || 'audio.webm';
-          newStorageKey = `${newNoteBasePath}/audio/${Date.now()}_${originalFilename}`;
-
-          // Upload to new location
-          const result = await this.storageService.uploadBuffer(
-            buffer,
-            newStorageKey,
-            contentType || 'audio/webm',
-          );
-
-          newFileUrl = result.publicUrl || this.storageService.getPublicUrl(newStorageKey);
-          this.logger.log(`[copyNoteToMyFolder] ✅ Audio file copied: ${newStorageKey}`);
-        } catch (error) {
-          this.logger.warn(`[copyNoteToMyFolder] Failed to copy audio file, using shared reference:`, error);
-          // Fall back to sharing storage key if copy fails
-        }
-      } else {
-        this.logger.debug(`[copyNoteToMyFolder] Referencing original audio file: ${sourceRecording.storageKey}`);
-      }
-
-      // Create new recording with copied or referenced file info
+      // Create new recording (share storage)
       const newRecording = await this.prisma.audioRecording.create({
         data: {
           noteId: newNote.id,
           title: sourceRecording.title,
-          fileUrl: newFileUrl,
-          storageKey: newStorageKey,
+          fileUrl: sourceRecording.fileUrl,
+          storageKey: sourceRecording.storageKey, // Share storage key
           durationSec: sourceRecording.durationSec,
-          isActive: true,
         },
       });
 
@@ -2589,213 +2469,9 @@ export class NotesService {
           },
         });
       }
-
-      // Copy TranscriptionSessions linked to this recording
-      const sourceSessions = await this.prisma.transcriptionSession.findMany({
-        where: {
-          audioRecordingId: sourceRecording.id,
-          deletedAt: null,
-        },
-      });
-
-      for (const sourceSession of sourceSessions) {
-        let newFullAudioUrl = sourceSession.fullAudioUrl;
-        let newFullAudioKey = sourceSession.fullAudioKey;
-
-        // Copy audio file if copyFiles is true
-        if (copyFiles && sourceSession.fullAudioKey) {
-          try {
-            const { body, contentType } = await this.storageService.getFileStream(sourceSession.fullAudioKey);
-            let buffer: Buffer;
-            if (Buffer.isBuffer(body)) {
-              buffer = body;
-            } else if (body && typeof (body as any).transformToByteArray === 'function') {
-              const byteArray = await (body as any).transformToByteArray();
-              buffer = Buffer.from(byteArray);
-            } else {
-              throw new Error('Unable to read session audio body');
-            }
-
-            const originalFilename = sourceSession.fullAudioKey.split('/').pop() || 'session_audio.webm';
-            newFullAudioKey = `${newNoteBasePath}/audio/${Date.now()}_${originalFilename}`;
-            const result = await this.storageService.uploadBuffer(buffer, newFullAudioKey, contentType || 'audio/webm');
-            newFullAudioUrl = result.publicUrl || this.storageService.getPublicUrl(newFullAudioKey);
-            this.logger.debug(`[copyNoteToMyFolder] Session audio copied: ${newFullAudioKey}`);
-          } catch (error) {
-            this.logger.warn(`[copyNoteToMyFolder] Failed to copy session audio, using reference:`, error);
-          }
-        }
-
-        const newSession = await this.prisma.transcriptionSession.create({
-          data: {
-            userId: userId, // New owner
-            title: sourceSession.title,
-            noteId: newNote.id,
-            audioRecordingId: newRecording.id,
-            startTime: sourceSession.startTime,
-            endTime: sourceSession.endTime,
-            duration: sourceSession.duration,
-            status: sourceSession.status,
-            language: sourceSession.language,
-            fullAudioUrl: newFullAudioUrl,
-            fullAudioKey: newFullAudioKey,
-            fullAudioSize: sourceSession.fullAudioSize,
-          },
-        });
-        this.logger.debug(`[copyNoteToMyFolder] TranscriptionSession copied: ${sourceSession.title}`);
-
-        // Copy TranscriptRevisions
-        const sourceRevisions = await this.prisma.transcriptRevision.findMany({
-          where: { sessionId: sourceSession.id },
-        });
-        for (const rev of sourceRevisions) {
-          await this.prisma.transcriptRevision.create({
-            data: {
-              sessionId: newSession.id,
-              version: rev.version,
-              content: rev.content as any,
-            },
-          });
-        }
-        this.logger.debug(`[copyNoteToMyFolder] Copied ${sourceRevisions.length} revisions`);
-
-        // Copy TranscriptionSegments and Words
-        const sourceSegments = await this.prisma.transcriptionSegment.findMany({
-          where: { sessionId: sourceSession.id },
-          include: { words: true },
-        });
-        for (const seg of sourceSegments) {
-          const newSegment = await this.prisma.transcriptionSegment.create({
-            data: {
-              sessionId: newSession.id,
-              text: seg.text,
-              startTime: seg.startTime,
-              endTime: seg.endTime,
-              confidence: seg.confidence,
-              isPartial: seg.isPartial,
-              language: seg.language,
-            },
-          });
-          // Copy words for this segment
-          for (const word of seg.words) {
-            await this.prisma.transcriptionWord.create({
-              data: {
-                segmentId: newSegment.id,
-                wordIndex: word.wordIndex,
-                word: word.word,
-                startTime: word.startTime,
-                confidence: word.confidence,
-              },
-            });
-          }
-        }
-        this.logger.debug(`[copyNoteToMyFolder] Copied ${sourceSegments.length} segments with words`);
-      }
     }
 
-    // Also copy TranscriptionSessions directly linked to note (without audioRecordingId)
-    const noteLinkedSessions = await this.prisma.transcriptionSession.findMany({
-      where: {
-        noteId: sourceNoteId,
-        audioRecordingId: null,
-        deletedAt: null,
-      },
-    });
-
-    for (const sourceSession of noteLinkedSessions) {
-      let newFullAudioUrl = sourceSession.fullAudioUrl;
-      let newFullAudioKey = sourceSession.fullAudioKey;
-
-      if (copyFiles && sourceSession.fullAudioKey) {
-        try {
-          const { body, contentType } = await this.storageService.getFileStream(sourceSession.fullAudioKey);
-          let buffer: Buffer;
-          if (Buffer.isBuffer(body)) {
-            buffer = body;
-          } else if (body && typeof (body as any).transformToByteArray === 'function') {
-            const byteArray = await (body as any).transformToByteArray();
-            buffer = Buffer.from(byteArray);
-          } else {
-            throw new Error('Unable to read session audio body');
-          }
-
-          const originalFilename = sourceSession.fullAudioKey.split('/').pop() || 'session_audio.webm';
-          newFullAudioKey = `${newNoteBasePath}/audio/${Date.now()}_${originalFilename}`;
-          const result = await this.storageService.uploadBuffer(buffer, newFullAudioKey, contentType || 'audio/webm');
-          newFullAudioUrl = result.publicUrl || this.storageService.getPublicUrl(newFullAudioKey);
-        } catch (error) {
-          this.logger.warn(`[copyNoteToMyFolder] Failed to copy note session audio:`, error);
-        }
-      }
-
-      const newSession = await this.prisma.transcriptionSession.create({
-        data: {
-          userId: userId,
-          title: sourceSession.title,
-          noteId: newNote.id,
-          audioRecordingId: null,
-          startTime: sourceSession.startTime,
-          endTime: sourceSession.endTime,
-          duration: sourceSession.duration,
-          status: sourceSession.status,
-          language: sourceSession.language,
-          fullAudioUrl: newFullAudioUrl,
-          fullAudioKey: newFullAudioKey,
-          fullAudioSize: sourceSession.fullAudioSize,
-        },
-      });
-      this.logger.debug(`[copyNoteToMyFolder] Note-linked TranscriptionSession copied: ${sourceSession.title}`);
-
-      // Copy TranscriptRevisions
-      const sourceRevisions = await this.prisma.transcriptRevision.findMany({
-        where: { sessionId: sourceSession.id },
-      });
-      for (const rev of sourceRevisions) {
-        await this.prisma.transcriptRevision.create({
-          data: {
-            sessionId: newSession.id,
-            version: rev.version,
-            content: rev.content as any,
-          },
-        });
-      }
-      this.logger.debug(`[copyNoteToMyFolder] Copied ${sourceRevisions.length} note-linked revisions`);
-
-      // Copy TranscriptionSegments and Words
-      const sourceSegments = await this.prisma.transcriptionSegment.findMany({
-        where: { sessionId: sourceSession.id },
-        include: { words: true },
-      });
-      for (const seg of sourceSegments) {
-        const newSegment = await this.prisma.transcriptionSegment.create({
-          data: {
-            sessionId: newSession.id,
-            text: seg.text,
-            startTime: seg.startTime,
-            endTime: seg.endTime,
-            confidence: seg.confidence,
-            isPartial: seg.isPartial,
-            language: seg.language,
-          },
-        });
-        // Copy words for this segment
-        for (const word of seg.words) {
-          await this.prisma.transcriptionWord.create({
-            data: {
-              segmentId: newSegment.id,
-              wordIndex: word.wordIndex,
-              word: word.word,
-              startTime: word.startTime,
-              confidence: word.confidence,
-            },
-          });
-        }
-      }
-      this.logger.debug(`[copyNoteToMyFolder] Copied ${sourceSegments.length} note-linked segments with words`);
-    }
-
-    const copyMode = copyFiles ? 'COPY' : 'REFERENCE';
-    this.logger.log(`[copyNoteToMyFolder] ✅ Created copy (${copyMode}): ${newNote.id} (files: ${sourceFiles.length}, pageContents: ${sourcePageContents.length}, recordings: ${sourceRecordings.length})`);
+    this.logger.log(`[copyNoteToMyFolder] ✅ Created copy: ${newNote.id} (files: ${sourceFiles.length}, pageContents: ${sourcePageContents.length}, recordings: ${sourceRecordings.length})`);
 
     return {
       id: newNote.id,

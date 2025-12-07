@@ -265,13 +265,9 @@ export class NotesController {
   async copyNoteToMyFolder(
     @CurrentUser('id') userId: string,
     @Param('noteId') noteId: string,
-    @Body() body: { 
-      folderId?: string; 
-      title?: string;
-      copyFiles?: boolean; // true = copy files, false = reference only (default: false)
-    },
+    @Body() body: { folderId?: string; title?: string },
   ) {
-    this.logger.debug(`[copyNoteToMyFolder] userId=${userId} noteId=${noteId} folderId=${body.folderId || 'default'} title=${body.title || 'auto'} copyFiles=${body.copyFiles ?? false}`);
-    return this.notesService.copyNoteToMyFolder(userId, noteId, body.folderId, body.title, body.copyFiles ?? false);
+    this.logger.debug(`[copyNoteToMyFolder] userId=${userId} noteId=${noteId} folderId=${body.folderId || 'default'} title=${body.title || 'auto'}`);
+    return this.notesService.copyNoteToMyFolder(userId, noteId, body.folderId, body.title);
   }
 }

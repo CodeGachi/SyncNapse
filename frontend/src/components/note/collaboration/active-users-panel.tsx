@@ -19,7 +19,6 @@ export function ActiveUsersPanel() {
         {
           connectionId: self.connectionId,
           ...self.presence,
-          email: self.info?.email || null,
           isSelf: true,
         },
       ]
@@ -27,7 +26,6 @@ export function ActiveUsersPanel() {
     ...others.map((user) => ({
       connectionId: user.connectionId,
       ...user.presence,
-      email: user.info?.email || null,
       isSelf: false,
     })),
   ];
@@ -84,9 +82,8 @@ export function ActiveUsersPanel() {
                     <span className="text-[10px] text-foreground-secondary font-medium">Online</span>
                   </div>
                 </div>
-                <p className="text-foreground-tertiary text-[10px] mt-0.5">
-                  <span>ID: </span>
-                  <span className="text-foreground-secondary font-medium">{user.email || `#${user.connectionId}`}</span>
+                <p className="text-foreground-tertiary text-[10px] mt-0.5 font-mono">
+                  ID: {String(user.connectionId).slice(0, 8)}
                 </p>
               </div>
             </div>

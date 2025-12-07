@@ -1,6 +1,6 @@
 import { apiClient, API_BASE_URL } from '../client';
 import { getAccessToken } from '@/lib/auth/token-manager';
-import { getRootUrl, getApiBaseUrl, halFetchUrl, HalResource, getCachedHref, buildUrl } from '../hal';
+import { getRootUrl, getApiBaseUrl, halFetchUrl, HalResource } from '../hal';
 
 export interface TranscriptionSession {
   id: string;
@@ -248,11 +248,7 @@ export async function getRevisions(
 export async function getAudioBlobUrl(sessionId: string): Promise<string> {
   const token = getAccessToken();
 
-  // HATEOAS: Build URL from transcriptionSessions link
-  const sessionsHref = getCachedHref('transcriptionSessions');
-  const audioUrl = buildUrl(sessionsHref, sessionId, 'audio');
-
-  const response = await fetch(audioUrl, {
+  const response = await fetch(`/transcription/sessions/${sessionId}/audio`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
