@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminRoleGuard } from './guards';
 import { DashboardService } from './dashboard.service';
-import { DashboardStatsResponseDto } from './dto/dashboard-stats-response.dto';
+import { DashboardStatsResponseDto, ServerStatusDto } from './dto';
 
 /**
  * Dashboard Controller
@@ -46,6 +46,34 @@ export class DashboardController {
     this.logger.debug('GET /api/admin/dashboard/stats');
     const stats = await this.dashboardService.getDashboardStats();
     return { data: stats };
+  }
+
+  /**
+   * 서버 상태 목록 조회
+   * GET /api/admin/dashboard/servers
+   */
+  @Get('servers')
+  @ApiOperation({
+    summary: '서버 상태 목록 조회',
+    description: 'API 서버, 데이터베이스, 캐시 등 각 서버의 상태를 조회합니다.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '서버 상태 조회 성공',
+    type: [ServerStatusDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: '인증 실패',
+  })
+  @ApiResponse({
+    status: 403,
+    description: '권한 부족 (admin 또는 operator 역할 필요)',
+  })
+  async getServers(): Promise<{ data: ServerStatusDto[] }> {
+    this.logger.debug('GET /api/admin/dashboard/servers');
+    const servers = await this.dashboardService.getServers();
+    return { data: servers };
   }
 }
 
