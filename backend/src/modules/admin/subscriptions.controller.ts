@@ -108,26 +108,6 @@ export class SubscriptionsController {
   }
 
   /**
-   * 5.5 구독 목록 조회
-   * GET /api/admin/subscriptions
-   */
-  @Get()
-  @ApiOperation({
-    summary: '구독 목록 조회',
-    description: '전체 구독 목록을 조회합니다.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: '구독 목록 조회 성공',
-  })
-  async getSubscriptions(
-    @Query() query: SubscriptionListQueryDto,
-  ): Promise<{ data: SubscriptionItemDto[]; pagination: PaginationDto }> {
-    this.logger.debug('GET /api/admin/subscriptions');
-    return await this.subscriptionsService.getSubscriptions(query);
-  }
-
-  /**
    * 5.6 요금제 분포
    * GET /api/admin/subscriptions/distribution
    */
@@ -144,6 +124,28 @@ export class SubscriptionsController {
   async getDistribution(): Promise<{ data: PlanDistributionDto[] }> {
     this.logger.debug('GET /api/admin/subscriptions/distribution');
     return await this.subscriptionsService.getDistribution();
+  }
+
+  /**
+   * 5.5 구독 목록 조회
+   * GET /api/admin/subscriptions
+   * 
+   * ⚠️ 주의: @Get()은 항상 맨 마지막에 위치해야 함!
+   */
+  @Get()
+  @ApiOperation({
+    summary: '구독 목록 조회',
+    description: '전체 구독 목록을 조회합니다.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '구독 목록 조회 성공',
+  })
+  async getSubscriptions(
+    @Query() query: SubscriptionListQueryDto,
+  ): Promise<{ data: SubscriptionItemDto[]; pagination: PaginationDto }> {
+    this.logger.debug('GET /api/admin/subscriptions');
+    return await this.subscriptionsService.getSubscriptions(query);
   }
 }
 
