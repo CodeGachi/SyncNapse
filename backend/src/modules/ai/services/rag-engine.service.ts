@@ -12,6 +12,7 @@ import { PrismaService } from '../../db/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { ChatMode, Citation } from '../dto/chat.dto';
 import { PDFParse } from 'pdf-parse';
+import { HybridSearchService } from './hybrid-search.service';
 
 /**
  * Gemini Embedding 구현체
@@ -67,6 +68,7 @@ export class RagEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly hybridSearchService: HybridSearchService,
   ) {
     this.apiKey = process.env.GEMINI_API_KEY || '';
     if (!this.apiKey) {
@@ -348,39 +350,62 @@ export class RagEngineService {
     try {
       // 1. 캐시에서 인덱스 가져오기 또는 생성
       const index = await this.getOrCreateIndex(lectureNoteId);
+      const documents = await this.fetchNoteDocuments(lectureNoteId);
 
-      // 2. QueryEngine 생성
-      const queryEngine = index.asQueryEngine({
-        similarityTopK: TOP_K,
+      // 2. 벡터 검색 수행 (더 많이 가져옴)
+      const retriever = index.asRetriever({
+        similarityTopK: TOP_K * 2, // 하이브리드를 위해 10개 가져옴
+      });
+      const vectorResults = await retriever.retrieve({ query: question });
+
+      // 3. 하이브리드 검색으로 최종 결과 선택
+      const hybridResults = this.hybridSearchService.combineResults(
+        question,
+        documents,
+        vectorResults.map(r => ({ node: r, score: r.score ?? 0 })), // score가 undefined면 0
+        TOP_K, // 최종 5개만
+      );
+
+      // 4. 하이브리드 결과로 컨텍스트 생성
+      const contextText = hybridResults
+        .map((result, idx) => {
+          const meta = result.metadata;
+          const source = meta.type === 'pdf_content'
+            ? `PDF ${meta.fileName}, Page ${meta.pageNumber}`
+            : meta.type === 'transcription'
+            ? `음성 전사 (${meta.startTime}초-${meta.endTime}초)`
+            : `노트 내용`;
+          return `[${idx + 1}] (출처: ${source})\n${result.document.getText()}`;
+        })
+        .join('\n\n---\n\n');
+
+      // 5. 모드에 따른 프롬프트 생성
+      const prompt = this.buildPrompt(question, mode);
+      const fullPrompt = `${prompt}\n\n검색된 관련 내용:\n\n${contextText}`;
+
+      // 6. Gemini로 답변 생성
+      const result = await this.geminiModel.generateContent(fullPrompt);
+      const response = await result.response;
+      const answer = response.text();
+
+      // 7. Citations 생성 (하이브리드 점수 포함)
+      const citations: Citation[] = hybridResults.map((result) => {
+        const meta = result.metadata;
+        return {
+          score: result.score, // 하이브리드 점수
+          pageNumber: meta.pageNumber,
+          startSec: meta.startTime,
+          endSec: meta.endTime,
+          text: result.document.getText().substring(0, 200),
+        };
       });
 
-      // 4. 모드에 따른 프롬프트 생성
-      const prompt = this.buildPrompt(question, mode);
-
-      // 5. 질의 수행
-      const response = await queryEngine.query({ query: prompt });
-
-      // 6. Citations 추출
-      const citations: Citation[] = [];
-      if (response.sourceNodes) {
-        for (const node of response.sourceNodes) {
-          const metadata = node.node.metadata;
-          citations.push({
-            score: node.score,
-            pageNumber: metadata.pageNumber,
-            startSec: metadata.startTime,
-            endSec: metadata.endTime,
-            text: node.node.getContent(MetadataMode.NONE).substring(0, 200), // 처음 200자만
-          });
-        }
-      }
-
       this.logger.debug(
-        `RAG query completed, found ${citations.length} citations`
+        `RAG query completed, found ${citations.length} citations (hybrid)`
       );
 
       return {
-        answer: response.response || '답변을 생성할 수 없습니다.',
+        answer: answer || '답변을 생성할 수 없습니다.',
         citations,
       };
     } catch (error) {
