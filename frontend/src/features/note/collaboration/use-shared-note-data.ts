@@ -277,6 +277,7 @@ export function useSharedNoteData({
     // Liveblocks 연결 대기: noteInfo가 undefined면 아직 로딩 중
     // noteInfo가 null이면 연결은 됐지만 데이터가 없는 상태 (빈 노트)
     // 공유 모드에서는 임시 노트 생성 완료 여부도 확인
-    isLoading: isSharedView && (!noteCreated || noteInfo === undefined),
+    // files가 undefined면 Storage 초기화 대기 중 (빈 배열과 구분)
+    isLoading: isSharedView && (!noteCreated || noteInfo === undefined || files === undefined),
   };
 }
