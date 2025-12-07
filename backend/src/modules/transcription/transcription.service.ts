@@ -620,8 +620,8 @@ export class TranscriptionService {
   }> {
     this.logger.debug(`[getAudioStream] userId=${userId} sessionId=${sessionId}`);
 
-    // Get session and verify ownership
-    const session = await this.prisma.transcriptionSession.findFirst({
+    // Get session - first try with userId, then without (for copied/shared sessions)
+    let session = await this.prisma.transcriptionSession.findFirst({
       where: {
         id: sessionId,
         userId,
@@ -629,10 +629,51 @@ export class TranscriptionService {
       },
     });
 
+    // If not found with userId, check if session exists at all (might be copied/shared)
     if (!session) {
-      this.logger.error(`[getAudioStream] ❌ Session not found: ${sessionId}`);
+      this.logger.debug(`[getAudioStream] Session not found for userId=${userId}, checking if session exists...`);
+      
+      const anySession = await this.prisma.transcriptionSession.findFirst({
+        where: {
+          id: sessionId,
+          deletedAt: null,
+        },
+        include: {
+          note: true,
+        },
+      });
+
+      if (anySession) {
+        // Check if user has access to the note (only if noteId exists)
+        if (anySession.noteId) {
+          const hasAccess = await this.prisma.folderLectureNote.findFirst({
+            where: {
+              noteId: anySession.noteId,
+              folder: {
+                userId,
+                deletedAt: null,
+              },
+            },
+          });
+
+          if (hasAccess) {
+            this.logger.debug(`[getAudioStream] User has access to note, allowing session access`);
+            session = anySession;
+          } else {
+            this.logger.warn(`[getAudioStream] Session exists but user has no access: sessionUserId=${anySession.userId}, requestUserId=${userId}`);
+          }
+        } else {
+          this.logger.warn(`[getAudioStream] Session has no noteId, denying access`);
+        }
+      }
+    }
+
+    if (!session) {
+      this.logger.error(`[getAudioStream] ❌ Session not found or access denied: ${sessionId}`);
       throw new NotFoundException('Session not found');
     }
+    
+    this.logger.debug(`[getAudioStream] Session found: title=${session.title}, fullAudioKey=${session.fullAudioKey}`);
 
     // Prefer fullAudioKey, fallback to first audio chunk
     let storageKey: string | null = null;

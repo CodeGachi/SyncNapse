@@ -44,6 +44,7 @@ export function useFileManagement(options?: UseFileManagementOptions) {
         url,
         file,
         backendId: dbFile.backendId, // 백엔드 File ID (타임라인 이벤트용)
+        backendUrl: dbFile.backendUrl, // Backend storage URL for Liveblocks sharing
       };
       addFile(fileItem);
       log.debug('Store에 파일 추가 완료:', fileItem.id);
