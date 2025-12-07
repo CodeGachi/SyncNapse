@@ -62,10 +62,24 @@ export function useUpdatePublicAccess(
   return useMutation({
     mutationFn: ({ noteId, publicAccess }) =>
       updatePublicAccess(noteId, publicAccess),
-    onSuccess: (data, { noteId }) => {
-      // 노트 캐시 업데이트
-      queryClient.invalidateQueries({ queryKey: ["notes", noteId] });
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    onSuccess: (data, { noteId, publicAccess }) => {
+      // Immediately update the note cache with new publicAccess value
+      // Do NOT invalidate queries - IndexedDB returns stale data before server sync completes
+      queryClient.setQueryData(["notes", noteId], (oldData: unknown) => {
+        if (oldData && typeof oldData === 'object') {
+          return { ...oldData, publicAccess };
+        }
+        return oldData;
+      });
+      // Update the notes list cache as well
+      queryClient.setQueryData(["notes"], (oldData: unknown) => {
+        if (Array.isArray(oldData)) {
+          return oldData.map((note: { id: string }) => 
+            note.id === noteId ? { ...note, publicAccess } : note
+          );
+        }
+        return oldData;
+      });
     },
     ...options,
   });
@@ -90,10 +104,23 @@ export function useUpdateAllowedDomains(
   return useMutation({
     mutationFn: ({ noteId, domains }) =>
       updateAllowedDomains(noteId, domains),
-    onSuccess: (data, { noteId }) => {
-      // 노트 캐시 업데이트
-      queryClient.invalidateQueries({ queryKey: ["notes", noteId] });
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    onSuccess: (data, { noteId, domains }) => {
+      // Immediately update the note cache with new allowedDomains value
+      queryClient.setQueryData(["notes", noteId], (oldData: unknown) => {
+        if (oldData && typeof oldData === 'object') {
+          return { ...oldData, allowedDomains: domains };
+        }
+        return oldData;
+      });
+      // Update the notes list cache as well
+      queryClient.setQueryData(["notes"], (oldData: unknown) => {
+        if (Array.isArray(oldData)) {
+          return oldData.map((note: { id: string }) => 
+            note.id === noteId ? { ...note, allowedDomains: domains } : note
+          );
+        }
+        return oldData;
+      });
     },
     ...options,
   });
