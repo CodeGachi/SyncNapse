@@ -36,7 +36,7 @@ export class MonitoringService {
         // Database와 Redis는 storage 있음
         const storage = ['Database Server', 'Redis Cache'].includes(config.name)
           ? this.getRandomInt(30, 70)
-          : null;
+          : undefined;
 
         return new ServerStatusDto({
           name: config.name,
