@@ -1,4 +1,4 @@
-import { Injectable, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import {
   UserListQueryDto,
@@ -9,6 +9,8 @@ import {
   UserDetailDto,
   UserStatsDto,
   RecentActivityDto,
+  UpdateUserRoleDto,
+  UpdateUserRoleResponseDto,
 } from './dto';
 
 @Injectable()
@@ -335,6 +337,61 @@ export class UsersService {
         return '세션 참여';
       default:
         return `${method} ${path}`;
+    }
+  }
+
+  /**
+   * 사용자 역할 변경
+   * PATCH /api/admin/users/:userId/role
+   */
+  async updateUserRole(
+    userId: string,
+    dto: UpdateUserRoleDto,
+  ): Promise<UpdateUserRoleResponseDto> {
+    this.logger.debug(`updateUserRole userId=${userId} role=${dto.role}`);
+
+    try {
+      // 사용자 존재 확인
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          role: true,
+          deletedAt: true,
+        },
+      });
+
+      if (!user || user.deletedAt) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      // 동일한 역할로 변경 시도 체크
+      if (user.role === dto.role) {
+        throw new BadRequestException('이미 동일한 역할입니다.');
+      }
+
+      // 역할 업데이트
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: { role: dto.role },
+        select: {
+          id: true,
+          role: true,
+        },
+      });
+
+      this.logger.log(`User role updated: ${userId} -> ${dto.role}`);
+
+      return new UpdateUserRoleResponseDto({
+        id: updated.id,
+        role: updated.role,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Failed to update user role', error);
+      throw new InternalServerErrorException('사용자 역할 변경에 실패했습니다.');
     }
   }
 }

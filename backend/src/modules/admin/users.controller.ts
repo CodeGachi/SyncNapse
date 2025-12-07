@@ -1,9 +1,16 @@
-import { Controller, Get, Query, Param, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminRoleGuard } from './guards';
+import { AdminOnlyGuard } from './guards/admin-only.guard';
 import { UsersService } from './users.service';
-import { UserListQueryDto, UserListResponseDto, UserDetailResponseDto } from './dto';
+import {
+  UserListQueryDto,
+  UserListResponseDto,
+  UserDetailResponseDto,
+  UpdateUserRoleDto,
+  UpdateUserRoleResponseDto,
+} from './dto';
 
 /**
  * Users Controller (Admin)
@@ -81,6 +88,51 @@ export class UsersController {
   async getUserDetail(@Param('userId') userId: string): Promise<UserDetailResponseDto> {
     this.logger.debug(`GET /api/admin/users/${userId}`);
     return await this.usersService.getUserDetail(userId);
+  }
+
+  /**
+   * 사용자 역할 변경
+   * PATCH /api/admin/users/:userId/role
+   */
+  @Patch(':userId/role')
+  @UseGuards(JwtAuthGuard, AdminOnlyGuard) // admin만 가능
+  @ApiOperation({
+    summary: '사용자 역할 변경',
+    description: '사용자의 역할을 변경합니다. (admin 권한 필요)',
+  })
+  @ApiParam({
+    name: 'userId',
+    description: '사용자 ID',
+    example: 'user-001',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '역할 변경 성공',
+    type: UpdateUserRoleResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: '잘못된 요청 (이미 동일한 역할)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: '인증 실패',
+  })
+  @ApiResponse({
+    status: 403,
+    description: '권한 부족 (admin 권한 필요)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: '사용자를 찾을 수 없음',
+  })
+  async updateUserRole(
+    @Param('userId') userId: string,
+    @Body() dto: UpdateUserRoleDto,
+  ): Promise<{ data: UpdateUserRoleResponseDto }> {
+    this.logger.debug(`PATCH /api/admin/users/${userId}/role role=${dto.role}`);
+    const result = await this.usersService.updateUserRole(userId, dto);
+    return { data: result };
   }
 }
 
