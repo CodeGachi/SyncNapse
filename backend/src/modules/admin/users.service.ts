@@ -428,10 +428,12 @@ export class UsersService {
           userId,
           method: 'SUSPEND',
           path: '/admin/suspend',
-          body: JSON.stringify({
+          action: 'USER_SUSPEND',
+          resourceId: userId,
+          payload: {
             reason: dto.reason,
             suspendUntil: dto.suspendUntil,
-          }),
+          },
         },
       });
 
@@ -479,9 +481,11 @@ export class UsersService {
           userId,
           method: 'BAN',
           path: '/admin/ban',
-          body: JSON.stringify({
+          action: 'USER_BAN',
+          resourceId: userId,
+          payload: {
             reason: dto.reason,
-          }),
+          },
         },
       });
 
@@ -526,9 +530,11 @@ export class UsersService {
           userId,
           method: 'ACTIVATE',
           path: '/admin/activate',
-          body: JSON.stringify({
+          action: 'USER_ACTIVATE',
+          resourceId: userId,
+          payload: {
             action: 'activate',
-          }),
+          },
         },
       });
 
