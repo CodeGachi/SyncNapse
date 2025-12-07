@@ -6,6 +6,14 @@ import { ServerStatusDto, ServerMetricsQueryDto, ServerMetricsDto, MetricPointDt
 export class MonitoringService {
   private readonly logger = new Logger(MonitoringService.name);
 
+  // 서버 목록 상수 (단일 진실 공급원)
+  private readonly SERVER_CONFIGS = [
+    { name: 'Main API Server', baseCpu: 30, baseMemory: 60, baseResponseTime: 45 },
+    { name: 'Database Server', baseCpu: 25, baseMemory: 55, baseResponseTime: 12 },
+    { name: 'Redis Cache', baseCpu: 15, baseMemory: 42, baseResponseTime: 8 },
+    { name: 'AI Service', baseCpu: 75, baseMemory: 85, baseResponseTime: 150 },
+  ];
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -20,49 +28,27 @@ export class MonitoringService {
     try {
       const now = new Date();
 
-      // Mock 데이터
-      const servers: ServerStatusDto[] = [
-        new ServerStatusDto({
-          name: 'Main API Server',
-          status: 'healthy',
-          responseTime: 45,
-          cpu: 35,
-          memory: 62,
-          connections: 1247,
-          storage: null,
+      // Mock 데이터 (SERVER_CONFIGS 기반)
+      const servers: ServerStatusDto[] = this.SERVER_CONFIGS.map((config) => {
+        // AI Service는 warning, 나머지는 healthy
+        const status = config.name === 'AI Service' ? 'warning' : 'healthy';
+        
+        // Database와 Redis는 storage 있음
+        const storage = ['Database Server', 'Redis Cache'].includes(config.name)
+          ? this.getRandomInt(30, 70)
+          : null;
+
+        return new ServerStatusDto({
+          name: config.name,
+          status,
+          responseTime: config.baseResponseTime + this.getRandomVariance(5),
+          cpu: config.baseCpu + this.getRandomVariance(5),
+          memory: config.baseMemory + this.getRandomVariance(5),
+          connections: this.getRandomInt(300, 1500),
+          storage,
           lastCheck: now.toISOString(),
-        }),
-        new ServerStatusDto({
-          name: 'Database Server',
-          status: 'healthy',
-          responseTime: 12,
-          cpu: 28,
-          memory: 55,
-          connections: 842,
-          storage: 68,
-          lastCheck: now.toISOString(),
-        }),
-        new ServerStatusDto({
-          name: 'Redis Cache',
-          status: 'healthy',
-          responseTime: 8,
-          cpu: 15,
-          memory: 42,
-          connections: 523,
-          storage: 32,
-          lastCheck: now.toISOString(),
-        }),
-        new ServerStatusDto({
-          name: 'AI Service',
-          status: 'warning',
-          responseTime: 156,
-          cpu: 78,
-          memory: 85,
-          connections: 324,
-          storage: null,
-          lastCheck: now.toISOString(),
-        }),
-      ];
+        });
+      });
 
       return { data: servers };
     } catch (error) {
@@ -81,14 +67,14 @@ export class MonitoringService {
     try {
       const period = query.period || '1h';
 
-      // 유효한 서버 이름 체크
-      const validServers = ['Main API Server', 'Database Server', 'Redis Cache', 'AI Service'];
-      if (!validServers.includes(serverName)) {
+      // 유효한 서버 이름 체크 (SERVER_CONFIGS 기반)
+      const serverConfig = this.SERVER_CONFIGS.find((s) => s.name === serverName);
+      if (!serverConfig) {
         throw new NotFoundException('서버를 찾을 수 없습니다.');
       }
 
       // Mock 데이터 생성 (시간에 따라)
-      const metrics = this.generateMockMetrics(serverName, period);
+      const metrics = this.generateMockMetrics(serverConfig, period);
 
       const result = new ServerMetricsDto({
         server: serverName,
@@ -108,7 +94,10 @@ export class MonitoringService {
   /**
    * Mock 메트릭 데이터 생성 헬퍼
    */
-  private generateMockMetrics(serverName: string, period: string): MetricPointDto[] {
+  private generateMockMetrics(
+    serverConfig: { name: string; baseCpu: number; baseMemory: number; baseResponseTime: number },
+    period: string,
+  ): MetricPointDto[] {
     const now = new Date();
     const metrics: MetricPointDto[] = [];
 
@@ -124,34 +113,15 @@ export class MonitoringService {
       intervalMinutes = 60;
     }
 
-    // 서버별 기본값
-    let baseCpu = 30;
-    let baseMemory = 60;
-    let baseResponseTime = 45;
-
-    if (serverName === 'Database Server') {
-      baseCpu = 25;
-      baseMemory = 55;
-      baseResponseTime = 12;
-    } else if (serverName === 'Redis Cache') {
-      baseCpu = 15;
-      baseMemory = 42;
-      baseResponseTime = 8;
-    } else if (serverName === 'AI Service') {
-      baseCpu = 75;
-      baseMemory = 85;
-      baseResponseTime = 150;
-    }
-
     // 데이터 생성
     for (let i = dataPoints - 1; i >= 0; i--) {
       const timestamp = new Date(now.getTime() - i * intervalMinutes * 60 * 1000);
 
       metrics.push({
         timestamp: timestamp.toISOString(),
-        cpu: Math.max(0, Math.min(100, baseCpu + this.getRandomVariance(10))),
-        memory: Math.max(0, Math.min(100, baseMemory + this.getRandomVariance(8))),
-        responseTime: Math.max(1, baseResponseTime + this.getRandomVariance(15)),
+        cpu: Math.max(0, Math.min(100, serverConfig.baseCpu + this.getRandomVariance(10))),
+        memory: Math.max(0, Math.min(100, serverConfig.baseMemory + this.getRandomVariance(8))),
+        responseTime: Math.max(1, serverConfig.baseResponseTime + this.getRandomVariance(15)),
       });
     }
 
@@ -163,6 +133,13 @@ export class MonitoringService {
    */
   private getRandomVariance(range: number): number {
     return Math.floor(Math.random() * range * 2) - range;
+  }
+
+  /**
+   * 랜덤 정수 생성
+   */
+  private getRandomInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 }
 
