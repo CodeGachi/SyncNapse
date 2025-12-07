@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ==========================================
 # Node.js Alpine Backend Dockerfile
 # Build with Bun, Run with Node.js for AWS SDK compatibility
