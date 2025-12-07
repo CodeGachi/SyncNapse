@@ -75,6 +75,7 @@ export interface FileWithId {
   file: File;
   createdAt: number;
   backendId?: string; // Backend File ID (for timeline events)
+  backendUrl?: string; // Backend storage URL for Liveblocks sharing
 }
 
 /**
@@ -101,12 +102,13 @@ export async function fetchFilesWithIdByNote(noteId: string): Promise<FileWithId
   // 2. 백그라운드에서 백엔드 동기화
   syncFilesInBackground(noteId);
   
-  // 3. 로컬 파일 즉시 반환 (backendId 포함)
+  // 3. 로컬 파일 즉시 반환 (backendId, backendUrl 포함)
   return dbFiles.map((dbFile) => ({
     id: dbFile.id,
     file: dbFileToFile(dbFile),
     createdAt: dbFile.createdAt,
     backendId: dbFile.backendId, // Backend File ID (for timeline events)
+    backendUrl: dbFile.backendUrl, // Backend storage URL for Liveblocks sharing
   }));
 }
 
