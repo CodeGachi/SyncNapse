@@ -42,6 +42,9 @@ const mockRevokeObjectURL = vi.fn();
 global.URL.createObjectURL = mockCreateObjectURL;
 global.URL.revokeObjectURL = mockRevokeObjectURL;
 
+// Mock scrollIntoView
+Element.prototype.scrollIntoView = vi.fn();
+
 describe("useChatbotPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,6 +54,7 @@ describe("useChatbotPanel", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe("초기 상태", () => {
@@ -385,9 +389,9 @@ describe("useChatbotPanel", () => {
       const mockRemoveChild = vi.fn();
       const mockClick = vi.fn();
 
-      vi.spyOn(document.body, "appendChild").mockImplementation(mockAppendChild);
-      vi.spyOn(document.body, "removeChild").mockImplementation(mockRemoveChild);
-      vi.spyOn(document, "createElement").mockReturnValue({
+      const appendChildSpy = vi.spyOn(document.body, "appendChild").mockImplementation(mockAppendChild);
+      const removeChildSpy = vi.spyOn(document.body, "removeChild").mockImplementation(mockRemoveChild);
+      const createElementSpy = vi.spyOn(document, "createElement").mockReturnValue({
         href: "",
         download: "",
         click: mockClick,
@@ -400,6 +404,11 @@ describe("useChatbotPanel", () => {
       expect(mockCreateObjectURL).toHaveBeenCalled();
       expect(mockClick).toHaveBeenCalled();
       expect(mockRevokeObjectURL).toHaveBeenCalled();
+
+      // Restore mocks to prevent affecting other tests
+      appendChildSpy.mockRestore();
+      removeChildSpy.mockRestore();
+      createElementSpy.mockRestore();
     });
   });
 

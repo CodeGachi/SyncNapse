@@ -32,10 +32,17 @@ export async function POST(request: NextRequest) {
     log.debug("Auth header:", authHeader?.substring(0, 30) + "...");
 
     // Backend API URL (server-side, ends with /api)
-    const apiUrl = API_CONFIG.INTERNAL_URL || "http://backend:4000/api";
+    // 직접 환경변수 읽기 (런타임에서 최신값 사용)
+    // 로컬 개발: http://localhost:4000/api, Docker: http://backend:4000/api
+    const apiUrl = process.env.INTERNAL_API_URL || API_CONFIG.INTERNAL_URL || "http://localhost:4000/api";
+    const targetUrl = `${apiUrl}/liveblocks/auth`;
+
+    log.debug("INTERNAL_API_URL env:", process.env.INTERNAL_API_URL);
+    log.debug("API_CONFIG.INTERNAL_URL:", API_CONFIG.INTERNAL_URL);
+    log.debug("Target URL:", targetUrl);
 
     // Endpoint matches root.controller.ts liveblocksAuth link: /liveblocks/auth
-    const response = await fetch(`${apiUrl}/liveblocks/auth`, {
+    const response = await fetch(targetUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
