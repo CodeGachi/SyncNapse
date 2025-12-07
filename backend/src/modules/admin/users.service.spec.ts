@@ -5,7 +5,7 @@ import { PrismaService } from '../db/prisma.service';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prismaService: jest.Mocked<PrismaService>;
+  let prismaService: any;
 
   beforeEach(async () => {
     const mockPrismaService = {
@@ -154,7 +154,7 @@ describe('UsersService', () => {
 
       expect(result.data.id).toBe('user-001');
       expect(result.data.stats.notesCount).toBe(10);
-      expect(result.data.stats.uploadsCount).toBe(5);
+      expect(result.data.stats.storageUsedMb).toBe(1000);
     });
 
     it('should throw NotFoundException when user does not exist', async () => {
@@ -193,7 +193,8 @@ describe('UsersService', () => {
 
       const result = await service.updateUserRole('user-001', { role: 'admin' });
 
-      expect(result.data.role).toBe('admin');
+      expect(result.id).toBe('user-001');
+      expect(result.role).toBe('admin');
       expect(prismaService.user.update).toHaveBeenCalledWith({
         where: { id: 'user-001' },
         data: { role: 'admin' },

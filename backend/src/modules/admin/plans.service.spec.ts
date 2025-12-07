@@ -5,7 +5,7 @@ import { PrismaService } from '../db/prisma.service';
 
 describe('PlansService', () => {
   let service: PlansService;
-  let prismaService: jest.Mocked<PrismaService>;
+  let prismaService: any;
 
   beforeEach(async () => {
     const mockPrismaService = {};

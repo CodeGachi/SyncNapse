@@ -4,7 +4,7 @@ import { PrismaService } from '../db/prisma.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
-  let prismaService: jest.Mocked<PrismaService>;
+  let prismaService: any;
 
   beforeEach(async () => {
     const mockPrismaService = {
@@ -13,6 +13,7 @@ describe('DashboardService', () => {
       },
       refreshToken: {
         count: jest.fn(),
+        findMany: jest.fn(),
       },
     };
 
@@ -43,9 +44,13 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce(156) // todaySignups
         .mockResolvedValueOnce(160); // todaySignups 어제
 
-      prismaService.refreshToken.count
-        .mockResolvedValueOnce(1247) // activeSessions
-        .mockResolvedValueOnce(1152); // activeSessions 30일 전
+      prismaService.refreshToken.findMany
+        .mockResolvedValueOnce(
+          Array.from({ length: 1247 }, (_, i) => ({ userId: `user-${i}` })),
+        ) // activeSessions
+        .mockResolvedValueOnce(
+          Array.from({ length: 1152 }, (_, i) => ({ userId: `user-${i}` })),
+        ); // activeSessions yesterday
 
       const result = await service.getDashboardStats();
 
@@ -58,7 +63,7 @@ describe('DashboardService', () => {
 
     it('should use cache when called within cache TTL', async () => {
       prismaService.user.count.mockResolvedValue(17948);
-      prismaService.refreshToken.count.mockResolvedValue(1247);
+      prismaService.refreshToken.findMany.mockResolvedValue([]);
 
       // First call
       await service.getDashboardStats();
