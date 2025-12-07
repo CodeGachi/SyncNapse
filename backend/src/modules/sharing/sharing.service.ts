@@ -4,6 +4,7 @@ import { NotePermission, PublicAccess } from '@prisma/client';
 import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
 import { UpdatePublicAccessDto } from './dto/update-public-access.dto';
+import { UpdateAllowedDomainsDto } from './dto/update-allowed-domains.dto';
 
 @Injectable()
 export class SharingService {
@@ -18,6 +19,21 @@ export class SharingService {
     return this.prisma.lectureNote.update({
       where: { id: noteId },
       data: { publicAccess: dto.publicAccess },
+    });
+  }
+
+  // --- Domain-based Access ---
+
+  async updateAllowedDomains(userId: string, noteId: string, dto: UpdateAllowedDomainsDto) {
+    // Check ownership
+    await this.checkOwner(userId, noteId);
+
+    // Normalize domains (lowercase, trim)
+    const normalizedDomains = dto.domains.map(d => d.toLowerCase().trim()).filter(d => d.length > 0);
+
+    return this.prisma.lectureNote.update({
+      where: { id: noteId },
+      data: { allowedDomains: normalizedDomains },
     });
   }
 

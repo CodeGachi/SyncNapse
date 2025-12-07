@@ -24,7 +24,7 @@ services:
       - .env
     volumes:
       - ./backend:/app
-    command: sh -lc "npm ci --no-audit --no-fund && npm run lint"
+    command: sh -lc "npm ci --no-audit --no-fund --legacy-peer-deps && npm run lint"
 
   backend-test:
     image: node:${NODE_VERSION}-alpine
@@ -33,7 +33,7 @@ services:
       - .env
     volumes:
       - ./backend:/app
-    command: sh -lc "npm ci --no-audit --no-fund && npm run test:ci"
+    command: sh -lc "npm ci --no-audit --no-fund --legacy-peer-deps && npm run test:ci"
 
 networks:
   default:

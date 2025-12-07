@@ -12,16 +12,15 @@
 import { getCookie, setCookie, deleteCookie } from "@/lib/utils/cookie";
 import { createLogger } from "@/lib/utils/logger";
 import { getCachedHref } from "@/lib/api/hal/api-discovery";
-import { AUTH_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("TokenManager");
 
 const ACCESS_TOKEN_KEY = "authToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
 
-// 토큰 만료 시간 (초) - 7일, 30일
-const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
-const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30;
+// 토큰 만료 시간 (초)
+const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7일
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30일
 
 /**
  * Access Token 저장
@@ -95,9 +94,9 @@ export function isTokenExpired(token: string): boolean {
 /**
  * 토큰이 곧 만료되는지 확인 (Proactive Refresh용)
  * @param token JWT 토큰
- * @param bufferSeconds 만료 전 여유 시간 (기본값: AUTH_CONFIG.TOKEN_REFRESH_BUFFER_SECONDS)
+ * @param bufferSeconds 만료 전 여유 시간 (기본 60초)
  */
-export function isTokenExpiringSoon(token: string, bufferSeconds: number = AUTH_CONFIG.TOKEN_REFRESH_BUFFER_SECONDS): boolean {
+export function isTokenExpiringSoon(token: string, bufferSeconds: number = 60): boolean {
   const decoded = decodeToken(token);
   if (!decoded || !decoded.exp) return true;
 
@@ -139,20 +138,24 @@ async function performRefresh(): Promise<string | null> {
     // HATEOAS: Get refresh URL from cached links (sync to avoid circular dependency)
     const refreshUrl = getCachedHref("refresh");
 
-    // 쿠키에서 refreshToken 가져오기
+    log.debug("Attempting token refresh");
+
+    // Try httpOnly cookie first (same-origin via nginx)
+    // Fallback to X-Refresh-Token header for cross-origin (dev without nginx)
     const refreshToken = getRefreshToken();
-    if (!refreshToken) {
-      throw new Error("No refresh token available");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    // If we have refresh token in JS-accessible cookie, send via header (cross-origin fallback)
+    if (refreshToken) {
+      headers["X-Refresh-Token"] = refreshToken;
     }
 
-    // refreshToken을 Authorization 헤더로 전송 (cross-origin에서 쿠키가 전송되지 않으므로)
     const response = await fetch(refreshUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Refresh-Token": refreshToken, // 커스텀 헤더로 전송
-      },
-      credentials: "include",
+      headers,
+      credentials: "include", // httpOnly cookie auto-sent when same-origin
     });
 
     if (!response.ok) {
@@ -188,9 +191,12 @@ async function performRefresh(): Promise<string | null> {
 export async function getValidAccessToken(): Promise<string | null> {
   let accessToken = getAccessToken();
 
-  // Access Token이 없으면 null 반환
+  // Access Token이 없으면 refresh 시도
+  // Note: httpOnly 쿠키는 JS에서 읽을 수 없으므로 무조건 시도
   if (!accessToken) {
-    return null;
+    log.debug("No access token, attempting refresh...");
+    accessToken = await refreshAccessToken();
+    return accessToken;
   }
 
   // 이미 만료된 경우 갱신 필수
@@ -201,7 +207,7 @@ export async function getValidAccessToken(): Promise<string | null> {
   }
 
   // 곧 만료될 예정이면 미리 갱신 (Proactive Refresh)
-  if (isTokenExpiringSoon(accessToken, AUTH_CONFIG.TOKEN_REFRESH_BUFFER_SECONDS)) {
+  if (isTokenExpiringSoon(accessToken, 60)) {
     log.debug("Access token expiring soon, proactive refresh...");
     // 갱신 실패해도 현재 토큰 반환 (아직 유효함)
     const newToken = await refreshAccessToken();

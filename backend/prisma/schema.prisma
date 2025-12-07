@@ -85,8 +85,9 @@ model LectureNote {
   transcriptionSessions TranscriptionSession[]
 
   // Sharing settings
-  publicAccess PublicAccess @default(PRIVATE)
-  collaborators NoteCollaborator[]
+  publicAccess    PublicAccess @default(PRIVATE)
+  allowedDomains  String[]     @default([])  // e.g. ["ajou.ac.kr", "samsung.com"]
+  collaborators   NoteCollaborator[]
 }
 
 // Permission Levels

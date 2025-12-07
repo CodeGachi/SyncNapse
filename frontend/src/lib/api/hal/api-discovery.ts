@@ -8,7 +8,6 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { HalResource, HalLink, getLink, expandTemplate } from "./types";
-import { API_CONFIG, CACHE_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("APIDiscovery");
 
@@ -35,13 +34,13 @@ export interface ApiRootResponse extends HalResource {
 let rootLinks: ApiRootResponse["_links"] | null = null;
 let discoveryPromise: Promise<ApiRootResponse["_links"]> | null = null;
 let lastFetchTime = 0;
-const CACHE_TTL = CACHE_CONFIG.DISCOVERY_CACHE_TTL_MS;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Get the API base URL
  */
 export function getApiBaseUrl(): string {
-  return API_CONFIG.BASE_URL;
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 }
 
 /**
@@ -215,6 +214,7 @@ export function getCachedHref(
 /**
  * Get fallback links when discovery fails
  * This ensures the app can still function with hardcoded defaults
+ * Note: Pure HATEOAS - only collection links, no templated resource links
  */
 function getFallbackLinks(): ApiRootResponse["_links"] {
   const baseUrl = getApiBaseUrl();
@@ -223,15 +223,21 @@ function getFallbackLinks(): ApiRootResponse["_links"] {
   return {
     self: { href: baseUrl },
     login: { href: `${baseUrl}/auth/google`, method: "GET" },
+    refresh: { href: `${baseUrl}/auth/refresh`, method: "POST" },
+    logout: { href: `${baseUrl}/auth/logout`, method: "POST" },
     profile: { href: `${baseUrl}/users/me` },
     notes: { href: `${baseUrl}/notes` },
+    trashedNotes: { href: `${baseUrl}/notes/trash/list` },
     folders: { href: `${baseUrl}/folders` },
     files: { href: `${baseUrl}/files` },
     recordings: { href: `${baseUrl}/recordings` },
+    audioRecordings: { href: `${baseUrl}/audio/recordings` },
     transcription: { href: `${baseUrl}/transcription` },
+    transcriptionSessions: { href: `${baseUrl}/transcription/sessions` },
     search: { href: `${baseUrl}/search` },
     ai: { href: `${baseUrl}/ai` },
     liveblocks: { href: `${baseUrl}/liveblocks` },
+    liveblocksAuth: { href: `${baseUrl}/liveblocks/auth`, method: "POST" },
     auth: { href: `${baseUrl}/auth` },
   };
 }

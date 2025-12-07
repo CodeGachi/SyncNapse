@@ -26,6 +26,23 @@ import { LoadingScreen } from "@/components/common/loading-screen";
 import { CursorOverlay } from "@/components/note/collaboration/cursor-overlay";
 import { useCursorBroadcast } from "@/features/note/collaboration";
 
+/**
+ * 협업 모드에서만 커서 브로드캐스트를 활성화하는 래퍼 컴포넌트
+ * RoomProvider 내부에서만 렌더링되어야 함
+ */
+function CursorBroadcaster({
+  containerRef,
+  isDrawingMode,
+  enabled,
+}: {
+  containerRef: React.RefObject<HTMLElement>;
+  isDrawingMode: boolean;
+  enabled: boolean;
+}) {
+  useCursorBroadcast(containerRef, isDrawingMode, enabled);
+  return null;
+}
+
 interface CustomPdfViewerProps {
   fileUrl?: string | null;
   fileName?: string | null;
@@ -240,12 +257,7 @@ export function CustomPdfViewer({
     onRedo: drawingOverlayRef?.current?.handleRedo,
   });
 
-  // 협업 모드일 때 커서 위치 브로드캐스트
-  useCursorBroadcast(
-    pdfWrapperRef,
-    drawingMode,
-    isCollaborative && isPdf
-  );
+  // 협업 모드일 때 커서 위치 브로드캐스트는 아래 JSX에서 CursorBroadcaster 컴포넌트로 처리
 
   // 썸네일 클릭 핸들러
   const handleThumbnailClick = (pageNum: number) => {
@@ -585,13 +597,24 @@ export function CustomPdfViewer({
                     />
                   )}
 
-                  {/* Cursor Overlay - 협업 모드에서 다른 사용자 커서 표시 */}
+                  {/* Cursor Overlay - 협업 모드에서만 렌더링 */}
                   {isCollaborative && pdfRenderState && (
-                    <CursorOverlay
-                      width={pdfRenderState.renderedWidth}
-                      height={pdfRenderState.renderedHeight}
-                      educatorOnly={isSharedView}
-                    />
+                    <>
+                      {/* 커서 브로드캐스트: 공유 뷰(학생)는 자신의 커서를 브로드캐스트하지 않음 */}
+                      {!isSharedView && (
+                        <CursorBroadcaster
+                          containerRef={pdfWrapperRef}
+                          isDrawingMode={drawingMode}
+                          enabled={isPdf}
+                        />
+                      )}
+                      {/* 커서 오버레이: 공유 뷰(학생)는 교육자 커서만 표시 */}
+                      <CursorOverlay
+                        width={pdfRenderState.renderedWidth}
+                        height={pdfRenderState.renderedHeight}
+                        educatorOnly={isSharedView}
+                      />
+                    </>
                   )}
                 </div>
               </>

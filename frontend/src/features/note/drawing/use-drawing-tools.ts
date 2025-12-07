@@ -9,9 +9,13 @@ import { useEffect } from "react";
 import * as fabric from "fabric";
 import { useDrawStore } from "@/stores/draw-store";
 import { createShapeByDrag, type DragShapeInfo, type ShapeType } from "./shapes";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("useDrawingTools");
 
 export interface UseDrawingToolsProps {
-  fabricCanvas: fabric.Canvas | null;
+  /** Fabric.js Canvas 참조 (ref로 전달하여 항상 최신 값 사용) */
+  fabricCanvasRef: React.MutableRefObject<fabric.Canvas | null>;
   isDrawingMode: boolean;
   isEnabled: boolean;
   pdfScale: number;
@@ -25,7 +29,7 @@ export interface UseDrawingToolsProps {
  * 드로잉 도구 이벤트 핸들링 훅
  */
 export function useDrawingTools({
-  fabricCanvas,
+  fabricCanvasRef,
   isDrawingMode,
   isEnabled,
   pdfScale,
@@ -36,6 +40,7 @@ export function useDrawingTools({
 
   // 펜 모드 설정 (펜/형광펜 자유 그리기)
   useEffect(() => {
+    const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas) return;
 
     const isFreeDrawingMode = drawStore.type === "pen" || drawStore.type === "highlighter";
@@ -74,10 +79,11 @@ export function useDrawingTools({
         obj.evented = false;
       }
     });
-  }, [fabricCanvas, drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode, pdfScale]);
+  }, [fabricCanvasRef, drawStore.type, drawStore.lineColor, drawStore.lineWidth, isDrawingMode, pdfScale]);
 
   // 지우개 + 도형 드래그 이벤트 핸들러
   useEffect(() => {
+    const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas || !isDrawingMode) return;
 
     const isFreeDrawingMode = drawStore.type === "pen" || drawStore.type === "highlighter";
@@ -226,7 +232,7 @@ export function useDrawingTools({
       fabricCanvas.off("mouse:up", onShapeUp);
     };
   }, [
-    fabricCanvas,
+    fabricCanvasRef,
     drawStore.type,
     drawStore.lineColor,
     drawStore.lineWidth,
@@ -239,13 +245,21 @@ export function useDrawingTools({
 
   // 펜/형광펜 path:created 이벤트
   useEffect(() => {
-    if (!fabricCanvas || !isDrawingMode) return;
+    const fabricCanvas = fabricCanvasRef.current;
+    if (!fabricCanvas || !isDrawingMode) {
+      log.debug("path:created 이벤트 리스너 스킵:", { hasCanvas: !!fabricCanvas, isDrawingMode });
+      return;
+    }
+
+    log.debug("path:created 이벤트 리스너 등록");
 
     const handlePathCreated = (e: { path: fabric.FabricObject }) => {
+      log.debug("path:created 이벤트 발생!");
       const path = e.path;
       if (path) {
         (path as any).createdAt = Date.now();
         undoStackRef.current = [];
+        log.debug("path 객체에 createdAt 설정 완료");
       }
       onAutoSave();
     };
@@ -253,7 +267,8 @@ export function useDrawingTools({
     fabricCanvas.on("path:created", handlePathCreated);
 
     return () => {
+      log.debug("path:created 이벤트 리스너 해제");
       fabricCanvas.off("path:created", handlePathCreated);
     };
-  }, [fabricCanvas, isDrawingMode, onAutoSave, undoStackRef]);
+  }, [fabricCanvasRef, isDrawingMode, onAutoSave, undoStackRef]);
 }

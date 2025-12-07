@@ -17,8 +17,8 @@ function PointerCursor({ color }: { color: string }) {
   return (
     <svg
       data-testid="cursor-icon-pointer"
-      width="20"
-      height="28"
+      width="14"
+      height="20"
       viewBox="0 0 20 28"
       fill="none"
       style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))" }}
@@ -40,8 +40,8 @@ function PenCursor({ color }: { color: string }) {
   return (
     <svg
       data-testid="cursor-icon-pen"
-      width="24"
-      height="24"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))" }}
@@ -92,14 +92,14 @@ function Cursor({ cursor }: { cursor: CursorData }) {
       <span
         style={{
           position: "absolute",
-          left: isDrawingMode ? 20 : 16,
-          top: isDrawingMode ? 16 : 20,
+          left: isDrawingMode ? 14 : 12,
+          top: isDrawingMode ? 12 : 16,
           backgroundColor: color,
           color: "white",
-          fontSize: "11px",
+          fontSize: "10px",
           fontWeight: 500,
-          padding: "2px 6px",
-          borderRadius: "4px",
+          padding: "1px 4px",
+          borderRadius: "3px",
           whiteSpace: "nowrap",
           boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
         }}

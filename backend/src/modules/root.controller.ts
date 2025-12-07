@@ -13,7 +13,8 @@ export class RootController {
   @ApiOperation({ summary: 'API Root (HATEOAS)' })
   getApiRoot() {
     this.logger.debug(`[getApiRoot] ts=${Date.now()}`);
-    // Note: Links are relative to API base URL (no /api prefix needed)
+    // Pure HATEOAS: Only collection links at root level
+    // Individual resource links are provided in each collection response
     return {
       _links: {
         // Self reference
@@ -29,32 +30,26 @@ export class RootController {
         profile: this.links.self('/users/me'),
         users: this.links.self('/users'),
         
-        // Notes
+        // Notes (individual note links provided in /notes response)
         notes: this.links.self('/notes'),
-        noteById: { href: '/notes/{noteId}', templated: true },
-        noteContent: { href: '/notes/{noteId}/content', templated: true },
-        noteTrashedList: this.links.self('/notes/trash/list'),
+        trashedNotes: this.links.self('/notes/trash/list'),
         
-        // Folders
+        // Folders (individual folder links provided in /folders response)
         folders: this.links.self('/folders'),
-        folderById: { href: '/folders/{folderId}', templated: true },
         
         // Files
         files: this.links.self('/files'),
-        noteFiles: { href: '/notes/{noteId}/files', templated: true },
         
         // Recordings
         recordings: this.links.self('/recordings'),
         audioRecordings: this.links.self('/audio/recordings'),
         
-        // Transcription
+        // Transcription (individual session links provided in /transcription/sessions response)
         transcription: this.links.self('/transcription'),
         transcriptionSessions: this.links.self('/transcription/sessions'),
-        sessionById: { href: '/transcription/sessions/{sessionId}', templated: true },
         
         // Search
         search: this.links.self('/search'),
-        searchAll: { href: '/search/all{?q,limit}', templated: true },
         
         // AI
         ai: this.links.self('/ai'),
@@ -63,8 +58,6 @@ export class RootController {
         
         // Sharing
         sharing: this.links.self('/sharing'),
-        noteCollaborators: { href: '/notes/{noteId}/collaborators', templated: true },
-        notePublicAccess: { href: '/notes/{noteId}/public-access', templated: true },
         
         // Liveblocks
         liveblocks: this.links.self('/liveblocks'),

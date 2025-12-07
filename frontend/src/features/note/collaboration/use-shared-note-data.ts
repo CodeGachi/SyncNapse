@@ -34,7 +34,7 @@ export function useSharedNoteData({
   const currentFileId = useStorage((root) => root.currentFileId);
 
   const {
-    setFiles,
+    loadFiles,
     setSelectedFileId,
     setCurrentPage,
     setPageNotes,
@@ -140,41 +140,88 @@ export function useSharedNoteData({
     ensureNoteExists();
   }, [isSharedView, noteId, noteCreated]);
 
-  // 공유 모드일 때 Liveblocks Storage의 데이터를 로컬 store에 동기화
+  // 공유 모드일 때 백엔드에서 파일을 가져오고 Liveblocks 파일 ID를 사용
   useEffect(() => {
+    log.debug("⭐ useSharedNoteData useEffect 실행:", {
+      isSharedView,
+      hasNoteInfo: !!noteInfo,
+      noteInfo,
+      filesCount: files?.length || 0,
+      files: files?.map(f => ({ id: f.id, fileName: f.fileName, fileUrl: f.fileUrl?.substring(0, 50) })),
+    });
+
     if (!isSharedView || !noteInfo) {
       log.debug("대기 중:", { isSharedView, hasNoteInfo: !!noteInfo });
       return;
     }
 
-    log.debug("Liveblocks Storage에서 노트 데이터 로드 중...");
+    log.debug("공유 모드 - 백엔드에서 파일 로드 시작...");
     log.debug("noteInfo:", noteInfo);
-    log.debug("files 수:", files?.length || 0);
 
-    // 파일 목록 동기화
-    if (files && files.length > 0) {
-      // TODO: 백엔드 API 구현 후 실제 파일 다운로드
-      // Student는 Liveblocks Storage에서 파일 메타데이터를 받고,
-      // 백엔드 API를 통해 실제 파일을 다운로드하여 IndexedDB에 저장
+    // ⭐ 백엔드에서 파일 목록 가져오기
+    const fetchFilesFromBackend = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) {
+          log.warn("API URL이 설정되지 않음");
+          return;
+        }
 
-      log.debug(`파일 메타데이터 ${files.length}개 발견`);
-      log.debug("TODO: 백엔드 API로 파일 다운로드 필요");
+        log.debug(`백엔드에서 파일 fetch: ${apiUrl}/files/note/${noteId}`);
+        const response = await fetch(`${apiUrl}/files/note/${noteId}`, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-      const fileData = files.map((file) => ({
-        id: file.id,
-        name: file.fileName,
-        type: file.fileType,
-        size: file.fileSize,
-        url: file.fileUrl || "", // Backend URL (영구 URL)
-        uploadedAt: new Date(file.uploadedAt).toISOString(),
-      }));
+        if (!response.ok) {
+          log.warn(`파일 fetch 실패: ${response.status}`);
+          return;
+        }
 
-      setFiles(fileData);
-      log.debug(`파일 ${fileData.length}개 메타데이터 로드 완료`);
-    } else {
-      // 파일이 없으면 빈 배열로 설정 (임시 - 백엔드 구현 시 파일 다운로드)
-      log.debug("파일 없음 - 협업 기능만 사용 가능");
-    }
+        const backendFiles = await response.json();
+        log.debug(`백엔드에서 파일 ${backendFiles.length}개 받음:`, backendFiles);
+
+        if (backendFiles.length === 0) {
+          log.debug("백엔드에 파일 없음");
+          return;
+        }
+
+        // ⭐ 백엔드 파일을 Liveblocks 파일 ID와 매칭
+        // Liveblocks에 파일 정보가 있으면 해당 ID 사용 (드로잉 동기화용)
+        // 없으면 백엔드 파일 ID 사용
+        const fileData = backendFiles.map((backendFile: any) => {
+          // Liveblocks에서 같은 파일명을 가진 파일 찾기
+          const liveblocksFile = files?.find(
+            (f) => f.fileName === backendFile.file_name || f.id === backendFile.id
+          );
+
+          const fileId = liveblocksFile?.id || backendFile.id;
+
+          log.debug(`파일 매핑: ${backendFile.file_name}`, {
+            backendId: backendFile.id,
+            liveblocksId: liveblocksFile?.id,
+            usedId: fileId,
+          });
+
+          return {
+            id: fileId, // ⭐ Liveblocks ID 우선 사용 (드로잉 canvasKey와 일치해야 함)
+            name: backendFile.file_name,
+            type: backendFile.file_type,
+            size: backendFile.file_size,
+            url: backendFile.file_url || "", // Backend storage URL
+            uploadedAt: backendFile.uploaded_at || new Date().toISOString(),
+          };
+        });
+
+        loadFiles(fileData);
+        log.debug(`⭐ 파일 ${fileData.length}개 로드 완료 (Liveblocks ID 사용)`);
+      } catch (error) {
+        log.error("백엔드 파일 fetch 오류:", error);
+      }
+    };
+
+    fetchFilesFromBackend();
 
     // 현재 파일 및 페이지 동기화
     if (currentFileId) {
@@ -209,12 +256,13 @@ export function useSharedNoteData({
     log.debug("노트 데이터 로드 완료:", noteInfo.title);
   }, [
     isSharedView,
+    noteId,
     noteInfo,
     files,
     pageNotes,
     currentFileId,
     currentPage,
-    setFiles,
+    loadFiles,
     setSelectedFileId,
     setCurrentPage,
     setPageNotes,

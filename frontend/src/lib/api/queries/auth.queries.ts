@@ -6,7 +6,7 @@
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
 import { getCurrentUser, type User } from "../services/auth.api";
 import { mockGetCurrentUser } from "@/lib/mock/auth.mock";
-import { getAccessToken } from "@/lib/auth/token-manager";
+import { getValidAccessToken } from "@/lib/auth/token-manager";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
 
@@ -22,7 +22,8 @@ export function useCurrentUser(
   return useQuery({
     queryKey: ["auth", "currentUser"],
     queryFn: async () => {
-      const token = getAccessToken();
+      // Use getValidAccessToken to trigger refresh if needed
+      const token = await getValidAccessToken();
       if (!token) {
         return null;
       }

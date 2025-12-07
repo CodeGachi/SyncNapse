@@ -5,9 +5,10 @@
 
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { decodeFilename } from "@/lib/utils/decode-filename";
-import { useSearchDropdown, formatTime, highlightText } from "@/features/dashboard";
 import type {
   LocalSearchResponse,
   LocalSearchNoteResult,
@@ -26,6 +27,38 @@ interface SearchDropdownProps {
   isOpen: boolean;
   /** 드롭다운 닫기 함수 */
   onClose: () => void;
+}
+
+// 초기 표시 개수
+const INITIAL_COUNT = 5;
+// 더보기 클릭 시 추가 개수
+const LOAD_MORE_COUNT = 5;
+
+/**
+ * 시간(초)을 MM:SS 형식으로 변환
+ */
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+/**
+ * 텍스트에서 검색어를 하이라이트
+ */
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+
+  const parts = text.split(new RegExp(`(${query})`, "gi"));
+  return parts.map((part, index) =>
+    part.toLowerCase() === query.toLowerCase() ? (
+      <span key={index} className="text-brand font-semibold">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
 }
 
 /**
@@ -208,14 +241,43 @@ export function SearchDropdown({
   isOpen,
   onClose,
 }: SearchDropdownProps) {
-  const {
-    visibleCounts,
-    totalResults,
-    showMore,
-    handleNoteClick,
-    handleFileClick,
-    handleSegmentClick,
-  } = useSearchDropdown({ results, onClose });
+  const router = useRouter();
+
+  // 각 카테고리별 표시 개수 상태
+  const [visibleCounts, setVisibleCounts] = useState({
+    notes: INITIAL_COUNT,
+    files: INITIAL_COUNT,
+    segments: INITIAL_COUNT,
+  });
+
+  const totalResults =
+    results.notes.length + results.files.length + results.segments.length;
+
+  // 더보기 핸들러
+  const showMore = (type: "notes" | "files" | "segments") => {
+    setVisibleCounts((prev) => ({
+      ...prev,
+      [type]: prev[type] + LOAD_MORE_COUNT,
+    }));
+  };
+
+  // 노트 클릭 핸들러
+  const handleNoteClick = (note: LocalSearchNoteResult) => {
+    router.push(`/note/student/${note.id}`);
+    onClose();
+  };
+
+  // 파일 클릭 핸들러 (파일이 속한 노트로 이동)
+  const handleFileClick = (file: LocalSearchFileResult) => {
+    router.push(`/note/student/${file.noteId}`);
+    onClose();
+  };
+
+  // 음성 세그먼트 클릭 핸들러 (노트로 이동 + 시간 파라미터)
+  const handleSegmentClick = (segment: LocalSearchSegmentResult) => {
+    router.push(`/note/student/${segment.noteId}?t=${segment.startTime}`);
+    onClose();
+  };
 
   return (
     <AnimatePresence>

@@ -151,7 +151,13 @@ export class TranscriptionService {
       },
     });
 
-    return sessions;
+    // HATEOAS: Each session includes its own _links
+    return sessions.map((session) => ({
+      ...session,
+      _links: {
+        self: { href: `/transcription/sessions/${session.id}` },
+      },
+    }));
   }
 
   async getSessionById(userId: string, sessionId: string) {

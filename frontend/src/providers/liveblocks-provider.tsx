@@ -74,7 +74,11 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
 
   // 사용자 정보 로딩 중
   if (!isReady) {
-    return <LoadingScreen fullScreen message="사용자 정보 로딩 중..." />;
+    return (
+      <div className="h-screen w-full flex items-center justify-center pt-16 md:pt-20">
+        <LoadingScreen message="사용자 정보 로딩 중..." />
+      </div>
+    );
   }
 
   const roomId = getNoteRoomId(noteId);
@@ -109,7 +113,9 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
     >
       <ClientSideSuspense
         fallback={
-          <LoadingScreen fullScreen message="Liveblocks 서버 연결 중..." />
+          <div className="h-screen w-full flex items-center justify-center pt-16 md:pt-20">
+            <LoadingScreen message="Liveblocks 서버 연결 중..." />
+          </div>
         }
       >
         {() => {
@@ -238,8 +244,19 @@ function ConnectionMonitor() {
 
   // Storage 변경 감지
   useEffect(() => {
-    log.debug(`[Liveblocks Storage] 전체 상태: questions=${questions?.length ?? 'undefined'}, polls=${polls?.length ?? 'undefined'}, handRaises=${handRaises?.length ?? 'undefined'}, files=${files?.length ?? 'undefined'}, noteInfo=${noteInfo ? 'exists' : 'null'}, currentPage=${currentPage ?? 'undefined'}, currentFileId=${currentFileId ?? 'undefined'}`);
-  }, [questions, polls, handRaises, noteInfo, files, currentPage, currentFileId]);
+    log.debug(`[Liveblocks Storage] 전체 상태:`, {
+      questions: questions?.length ?? 'undefined',
+      polls: polls?.length ?? 'undefined',
+      handRaises: handRaises?.length ?? 'undefined',
+      files: files?.length ?? 'undefined',
+      filesData: files?.map(f => ({ id: f.id, fileName: f.fileName })),
+      noteInfo: noteInfo ? { id: noteInfo.id, title: noteInfo.title } : 'null',
+      pageNotes: pageNotes ? Object.keys(pageNotes).length : 'undefined',
+      canvasData: canvasData ? Object.keys(canvasData).length : 'undefined',
+      currentPage: currentPage ?? 'undefined',
+      currentFileId: currentFileId ?? 'undefined',
+    });
+  }, [questions, polls, handRaises, noteInfo, files, pageNotes, canvasData, currentPage, currentFileId]);
 
   return null;
 }

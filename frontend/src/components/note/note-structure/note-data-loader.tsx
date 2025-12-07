@@ -24,7 +24,8 @@ export function NoteDataLoader({ noteId, isSharedView = false, children }: NoteD
   const { data: note, isLoading, error } = useNote(noteId, { enabled: !isSharedView });
 
   // 파일 목록만 로드 (blocks는 BlockNote 에디터가 직접 관리)
-  useNoteDataLoader({ noteId });
+  // 공유 모드에서는 IndexedDB 파일 로드 건너뛰기 (Liveblocks Storage 사용)
+  useNoteDataLoader({ noteId, isSharedView });
 
   log.debug("현재 상태:", {
     noteId,

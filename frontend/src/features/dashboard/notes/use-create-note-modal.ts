@@ -5,7 +5,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FILE_CONSTRAINTS } from "@/lib/constants";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("CreateNoteModal");

@@ -20,4 +20,5 @@ export { useFilePanelUI } from "./file";
 export { useNoteKeyboard, NOTE_KEYBOARD_SHORTCUTS } from "./keyboard";
 
 // Panels Module
-export { useChatbotPanel, quizToMarkdown, type Message } from "./panels/use-chatbot-panel";
+export { useChatbotPanel, quizToMarkdown } from "./panels/use-chatbot-panel";
+export type { Message } from "./panels/use-chatbot-panel";

@@ -4,6 +4,9 @@
  * Liveblocks Presence를 활용한 실시간 커서 위치 공유 훅
  * - useCursorBroadcast: 내 커서 위치를 브로드캐스트
  * - useOthersCursors: 다른 사용자 커서 구독
+ *
+ * 주의: 이 훅들은 RoomProvider 내부에서만 사용해야 합니다.
+ * 협업 모드가 아닌 경우 컴포넌트에서 호출하지 마세요.
  */
 
 import { useCallback, useEffect } from "react";
@@ -11,9 +14,14 @@ import { useUpdateMyPresence, useOthers } from "@/lib/liveblocks";
 
 /**
  * 내 커서 위치를 Presence로 브로드캐스트하는 훅
+ *
+ * ⚠️ 주의: RoomProvider 내부에서만 호출해야 합니다.
+ * enabled=false여도 훅 자체는 호출되므로, 협업 모드가 아닌 경우
+ * 이 훅을 호출하는 컴포넌트 자체를 조건부로 렌더링해야 합니다.
+ *
  * @param containerRef - 커서 추적 영역의 ref
  * @param isDrawingMode - 드로잉 모드 여부 (커서 아이콘 변경용)
- * @param enabled - 훅 활성화 여부 (협업 모드일 때만 true)
+ * @param enabled - 이벤트 리스너 활성화 여부
  */
 export function useCursorBroadcast(
   containerRef: React.RefObject<HTMLElement>,
@@ -77,6 +85,8 @@ export interface CursorData {
 
 /**
  * 다른 사용자들의 커서를 구독하는 훅
+ *
+ * ⚠️ 주의: RoomProvider 내부에서만 호출해야 합니다.
  */
 export function useOthersCursors(options: {
   educatorOnly?: boolean;

@@ -10,9 +10,7 @@
 import { createClient, LiveList, LiveObject } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 import { getAccessToken } from "@/lib/auth/token-manager";
-import { createLogger } from "@/lib/utils/logger";
-
-const log = createLogger("Liveblocks");
+import { getCachedHref } from "@/lib/api/hal/api-discovery";
 
 // Liveblocks 클라이언트 생성
 // Note: Public key가 설정되지 않은 경우 에러 방지를 위해 기본값 사용
@@ -20,8 +18,8 @@ const publicKey = process.env.NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY;
 
 // DEBUG: Check if Liveblocks key is configured
 if (!publicKey || publicKey === "") {
-  log.warn(
-    "NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY is not configured. " +
+  console.warn(
+    "[Liveblocks] ⚠️ NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY is not configured. " +
     "Real-time collaboration features will not work. " +
     "Please add your Liveblocks public key to .env file. " +
     "Get your key from https://liveblocks.io/dashboard"
@@ -29,18 +27,22 @@ if (!publicKey || publicKey === "") {
 }
 
 const client = createClient({
-  // 백엔드 인증 엔드포인트 사용 (권한 검증)
+  // 백엔드 인증 엔드포인트 사용 (권한 검증) - HATEOAS
   authEndpoint: async (room) => {
     // 쿠키에서 JWT 토큰 가져오기 (token-manager 사용)
     const token = getAccessToken();
 
-    const response = await fetch("/api/liveblocks-auth", {
+    // HATEOAS: API discovery에서 liveblocksAuth 링크 가져오기
+    const authUrl = getCachedHref("liveblocksAuth");
+
+    const response = await fetch(authUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
       },
       body: JSON.stringify({ room }),
+      credentials: "include",
     });
 
     if (!response.ok) {

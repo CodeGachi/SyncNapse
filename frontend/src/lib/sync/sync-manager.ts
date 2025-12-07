@@ -16,7 +16,6 @@ import { getRootUrl, getCachedHref } from "@/lib/api/hal";
 import { getFileById } from "@/lib/db/files";
 import { getAccessToken } from "@/lib/auth/token-manager";
 import { createLogger } from "@/lib/utils/logger";
-import { API_CONFIG, SYNC_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("SyncManager");
 
@@ -170,8 +169,8 @@ async function syncItemToBackend(item: SyncQueueItem): Promise<void> {
       method,
       ...(operation !== "delete" && { body: JSON.stringify(data) }),
     }, {
-      retries: API_CONFIG.RETRY_ATTEMPTS,
-      timeout: SYNC_CONFIG.SYNC_TIMEOUT_MS,
+      retries: 3,
+      timeout: 30000,
       cache: false, // 동기화 요청은 캐싱 금지
       skipInterceptors: false, // Request interceptor로 Authorization 헤더 자동 주입
     });
@@ -257,7 +256,7 @@ export async function syncNow(): Promise<void> {
  */
 let syncIntervalId: NodeJS.Timeout | null = null;
 
-export function startAutoSync(interval: number = SYNC_CONFIG.SYNC_INTERVAL_MS): void {
+export function startAutoSync(interval: number = 5000): void {
   if (syncIntervalId) {
     log.warn("Auto sync already running");
     return;

@@ -56,8 +56,9 @@ describe('AuthController', () => {
       // Assert
       expect(mockAuthService.createTokenPair).toHaveBeenCalledWith(mockUser.id, expect.any(Object));
       expect(mockRes.cookie).toHaveBeenCalledWith('refreshToken', 'rt', expect.any(Object));
-      expect(mockRes.cookie).toHaveBeenCalledWith('authToken', 'at', expect.any(Object));
+      // authToken is passed via URL params, not cookie
       expect(mockRes.redirect).toHaveBeenCalledWith(expect.stringContaining('accessToken=at'));
+      expect(mockRes.redirect).toHaveBeenCalledWith(expect.stringContaining('refreshToken=rt'));
     });
 
     it('should redirect to restore page if user is soft deleted', async () => {

@@ -5,7 +5,7 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { getAccessToken } from "@/lib/auth/token-manager";
-import { getRootUrl, getCachedHref } from "@/lib/api/hal";
+import { getCachedHref, getApiBaseUrl } from "@/lib/api/hal";
 import {
   saveSearchNotes,
   saveSearchFiles,
@@ -32,6 +32,13 @@ interface ApiNote {
   type: "student" | "teacher";
   folder_id: string;
   updated_at: string;
+  _links?: {
+    self?: { href: string };
+    content?: { href: string };
+    files?: { href: string };
+    collaborators?: { href: string };
+    publicAccess?: { href: string };
+  };
 }
 
 interface ApiFile {
@@ -48,6 +55,9 @@ interface ApiSession {
   noteId: string | null;
   status: string;
   createdAt: string;
+  _links?: {
+    self?: { href: string };
+  };
 }
 
 interface ApiSessionDetail {
@@ -232,12 +242,17 @@ async function fetchAllFiles(
   notes: ApiNote[]
 ): Promise<DBSearchFile[]> {
   const allFiles: DBSearchFile[] = [];
+  const baseUrl = getApiBaseUrl();
 
   // 병렬로 각 노트의 파일 가져오기
   const filePromises = notes.map(async (note) => {
     try {
-      // HATEOAS: Get note files URL from links
-      const noteFilesUrl = getCachedHref("noteFiles", { noteId: note.id }) || `${getCachedHref("notes")}/${note.id}/files`;
+      // HATEOAS: Use _links from note resource
+      const filesHref = note._links?.files?.href;
+      const noteFilesUrl = filesHref 
+        ? `${baseUrl}${filesHref}` 
+        : `${baseUrl}/notes/${note.id}/files`;
+      
       const res = await fetch(noteFilesUrl, {
         credentials: "include",
         headers: {
@@ -273,6 +288,7 @@ async function fetchAllSegments(
   notes: ApiNote[]
 ): Promise<DBSearchSegment[]> {
   const allSegments: DBSearchSegment[] = [];
+  const baseUrl = getApiBaseUrl();
 
   // 노트 ID -> 제목 맵
   const noteTitleMap = new Map<string, string>();
@@ -281,17 +297,18 @@ async function fetchAllSegments(
   // 병렬로 각 세션의 세그먼트 가져오기
   const segmentPromises = sessions.map(async (session) => {
     try {
-      // HATEOAS: Get session URL from links
-      const sessionUrl = getCachedHref("sessionById", { sessionId: session.id }) || `${getCachedHref("transcription")}/sessions/${session.id}`;
-      const res = await fetch(
-        sessionUrl,
-        {
-          credentials: "include",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // HATEOAS: Use _links from session resource
+      const selfHref = session._links?.self?.href;
+      const sessionUrl = selfHref 
+        ? `${baseUrl}${selfHref}` 
+        : `${baseUrl}/transcription/sessions/${session.id}`;
+      
+      const res = await fetch(sessionUrl, {
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!res.ok) {
         log.warn(`Failed to fetch session ${session.id}: ${res.status}`);

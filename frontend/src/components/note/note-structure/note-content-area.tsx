@@ -91,6 +91,15 @@ export function NoteContentArea({
 
   const { isNotePanelOpen, isDrawingSidebarOpen } = panelsStore;
 
+  // 드로잉 사이드바 닫힐 때 드로잉 모드도 끄기 (뷰어 모드로 전환)
+  // 주의: 드로잉 데이터는 캔버스에 유지됨 (isDrawingMode는 상호작용 모드만 변경)
+  useEffect(() => {
+    if (!isDrawingSidebarOpen && isDrawingMode) {
+      log.debug("드로잉 사이드바 닫힘 - 뷰어 모드로 전환");
+      setIsDrawingMode(false);
+    }
+  }, [isDrawingSidebarOpen, isDrawingMode]);
+
   // 열린 파일들 가져오기
   const openedFiles = getOpenedFiles();
 

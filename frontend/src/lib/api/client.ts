@@ -12,20 +12,20 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { getAccessToken, getValidAccessToken, refreshAccessToken, clearTokens } from "@/lib/auth/token-manager";
-import { API_CONFIG, CACHE_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("API");
 
-export const API_BASE_URL = API_CONFIG.BASE_URL;
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // 재시도 설정
-const DEFAULT_RETRY_ATTEMPTS = API_CONFIG.RETRY_ATTEMPTS;
-const DEFAULT_RETRY_DELAY = API_CONFIG.RETRY_DELAY_MS;
-const DEFAULT_TIMEOUT = API_CONFIG.TIMEOUT_MS;
+const DEFAULT_RETRY_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY = 1000; // ms
+const DEFAULT_TIMEOUT = 30000; // ms (30초)
 
 // 요청 캐시 (GET 요청만)
 const requestCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = CACHE_CONFIG.API_CACHE_TTL_MS;
+const CACHE_TTL = 5 * 60 * 1000; // 5분
 
 // 진행 중인 요청 추적 (중복 제거)
 const pendingRequests = new Map<string, Promise<any>>();

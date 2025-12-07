@@ -3,18 +3,20 @@
  *
  * Educator가 협업을 시작할 때 로컬 노트 데이터를 Liveblocks Storage에 저장하여
  * 공유 링크로 접속한 학생들도 노트를 볼 수 있도록 합니다.
+ *
+ * ⭐ 드로잉 동기화: IndexedDB의 모든 드로잉 데이터를 Liveblocks canvasData로 전송
  */
 
 "use client";
 
-import { useEffect } from "react";
-import { useMutation } from "@/lib/liveblocks/liveblocks.config";
+import { useEffect, useRef } from "react";
+import { useMutation, useStorage, getCanvasKey } from "@/lib/liveblocks/liveblocks.config";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("Liveblocks");
 import type { Note, FileItem } from "@/lib/types";
 import { useNoteEditorStore } from "@/stores";
-import { useSyncStore } from "@/lib/sync/sync-store";
+import { getDrawingsByNote } from "@/lib/db/drawings";
 
 interface UseSyncNoteToLiveblocksProps {
   isCollaborating: boolean;
@@ -78,49 +80,31 @@ export function useSyncNoteToLiveblocks({
         currentFiles.pop();
       }
 
-      // 동기화 큐에서 backend_url 가져오기 (있으면)
-      const syncQueueItems = useSyncStore.getState().queue.items;
-      const backendUrlMap = new Map<string, string>();
-
-      // 각 파일의 backend_url을 동기화 큐에서 찾기
+      // 새 파일 추가 (FileItem.backendUrl 또는 url 사용)
       fileList.forEach((file) => {
-        const queueItem = syncQueueItems.find(
-          (item) => item.entityId === file.id && item.data?.backend_url
-        );
-        if (queueItem?.data?.backend_url) {
-          backendUrlMap.set(file.id, queueItem.data.backend_url);
-        }
-      });
+        // FileItem에서 backendUrl 또는 url 가져오기
+        const fileUrl = file.backendUrl || file.url || "";
 
-      // 새 파일 추가
-      fileList.forEach((file) => {
-        const backendUrl = backendUrlMap.get(file.id);
+        // 파일 메타데이터 저장 (URL이 없어도 메타데이터는 저장)
+        const fileData = {
+          id: file.id,
+          noteId: noteIdValue,
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          fileUrl: fileUrl,
+          totalPages: undefined,
+          uploadedAt: new Date(file.uploadedAt).getTime(),
+        };
+        currentFiles.push(fileData);
 
-        // Backend URL이 있는 경우에만 Storage에 저장
-        // (없으면 Student가 백엔드로부터 받아와야 함)
-        if (backendUrl) {
-          const fileData = {
-            id: file.id,
-            noteId: noteIdValue,
-            fileName: file.name,
-            fileType: file.type,
-            fileSize: file.size,
-            fileUrl: backendUrl,
-            totalPages: undefined,
-            uploadedAt: new Date(file.uploadedAt).getTime(),
-          };
-          currentFiles.push(fileData);
-
-          log.debug(`파일 저장 (Backend URL):`, {
-            name: file.name,
-            url: backendUrl.substring(0, 50) + '...',
-            hasBackendUrl: true,
-          });
-        } else {
-          log.warn(
-            `백엔드 URL 없음 (Blob URL은 Storage에 저장하지 않음): ${file.name}`
-          );
-        }
+        log.debug(`⭐ 파일 저장:`, {
+          id: file.id,
+          name: file.name,
+          hasBackendUrl: !!file.backendUrl,
+          hasUrl: !!file.url,
+          fileUrl: fileUrl.substring(0, 80),
+        });
       });
 
       log.debug(`파일 ${currentFiles.length}개 동기화 완료`);
@@ -169,6 +153,44 @@ export function useSyncNoteToLiveblocks({
     []
   );
 
+  // ⭐ 드로잉 데이터를 Storage에 저장 (canvasData)
+  const syncDrawings = useMutation(
+    ({ storage }, drawingsMap: Record<string, object>) => {
+      let canvasData = storage.get("canvasData");
+
+      // canvasData가 없으면 초기화
+      if (!canvasData) {
+        storage.set("canvasData", {});
+        canvasData = storage.get("canvasData");
+      }
+
+      // 드로잉이 비어있으면 스킵
+      const drawingKeys = Object.keys(drawingsMap);
+      if (drawingKeys.length === 0) {
+        log.debug("저장할 드로잉이 없습니다.");
+        return;
+      }
+
+      // 각 페이지의 드로잉 데이터 동기화
+      let totalObjects = 0;
+      drawingKeys.forEach((canvasKey) => {
+        const canvasJSON = drawingsMap[canvasKey] as any;
+        if (canvasJSON && typeof canvasData === "object") {
+          (canvasData as Record<string, object>)[canvasKey] = canvasJSON;
+          const objectCount = canvasJSON.objects?.length || 0;
+          totalObjects += objectCount;
+          log.debug(`⭐ 드로잉 Liveblocks 전송: ${canvasKey}, 객체 수: ${objectCount}`);
+        }
+      });
+
+      log.debug(`⭐ 드로잉 데이터 ${drawingKeys.length}개 페이지, 총 ${totalObjects}개 객체 동기화 완료`);
+    },
+    []
+  );
+
+  // ⭐ 드로잉 초기 동기화 완료 여부 (중복 방지)
+  const hasDrawingSyncedRef = useRef(false);
+
   // 협업 시작 시 자동 동기화
   useEffect(() => {
     if (!isCollaborating || !isEducator || !note) {
@@ -181,8 +203,19 @@ export function useSyncNoteToLiveblocks({
     syncNoteInfo(note);
 
     // 2. 파일 목록 동기화
+    log.debug("⭐ 파일 동기화 시작:", {
+      filesCount: files.length,
+      files: files.map(f => ({
+        id: f.id,
+        name: f.name,
+        hasBackendUrl: !!f.backendUrl,
+        backendUrl: f.backendUrl?.substring(0, 50),
+      })),
+    });
     if (files.length > 0) {
       syncFiles(files, note.id);
+    } else {
+      log.warn("⭐ 동기화할 파일이 없습니다!");
     }
 
     // 3. 필기 데이터 동기화
@@ -190,12 +223,49 @@ export function useSyncNoteToLiveblocks({
       syncPageNotes(pageNotes);
     }
 
+    // 4. ⭐ 드로잉 데이터 동기화 (IndexedDB → Liveblocks)
+    // 한 번만 실행 (중복 방지)
+    if (!hasDrawingSyncedRef.current) {
+      hasDrawingSyncedRef.current = true;
+
+      const syncAllDrawings = async () => {
+        try {
+          const drawings = await getDrawingsByNote(note.id);
+
+          if (drawings.length === 0) {
+            log.debug("동기화할 드로잉 데이터 없음");
+            return;
+          }
+
+          // canvasKey 형식으로 변환: fileId-pageNum -> canvasJSON
+          const drawingsMap: Record<string, object> = {};
+
+          drawings.forEach((drawing) => {
+            if (drawing.canvas && drawing.canvas.objects?.length > 0) {
+              const canvasKey = getCanvasKey(drawing.fileId, drawing.pageNum);
+              drawingsMap[canvasKey] = drawing.canvas;
+            }
+          });
+
+          if (Object.keys(drawingsMap).length > 0) {
+            syncDrawings(drawingsMap);
+            log.debug(`IndexedDB → Liveblocks 드로잉 동기화 완료: ${Object.keys(drawingsMap).length}개 페이지`);
+          }
+        } catch (error) {
+          log.error("드로잉 동기화 실패:", error);
+        }
+      };
+
+      syncAllDrawings();
+    }
+
     log.debug("노트 데이터 동기화 완료");
-  }, [isCollaborating, isEducator, note, files, pageNotes, syncNoteInfo, syncFiles, syncPageNotes]);
+  }, [isCollaborating, isEducator, note, files, pageNotes, syncNoteInfo, syncFiles, syncPageNotes, syncDrawings]);
 
   return {
     syncNoteInfo,
     syncFiles,
     syncPageNotes,
+    syncDrawings,
   };
 }
