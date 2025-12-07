@@ -363,11 +363,18 @@ export async function createNote(
     }
   };
 
-  // Start background sync
-  syncToBackend();
-
-  // Return local result immediately
+  // Wait for backend sync to complete before returning
+  // This ensures the note exists on the backend when the user navigates to it
+  const backendResult = await syncToBackend();
+  
+  // If backend sync succeeded, use the backend result
+  // If it failed but we have local result, use that
+  if (backendResult) {
+    return apiToNote(backendResult as unknown as ApiNoteResponse);
+  }
+  
   if (localResult) {
+    log.warn("Backend sync failed, returning local result. Note may not be available on server yet.");
     return localResult;
   }
 
