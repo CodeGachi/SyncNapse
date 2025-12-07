@@ -23,8 +23,61 @@ describe('PlansService', () => {
     service = module.get<PlansService>(PlansService);
     prismaService = module.get(PrismaService);
 
-    // Clear mock plans between tests
-    (service as any).mockPlans.clear();
+    // Reset to initial state with default plans
+    const mockPlans = (service as any).mockPlans;
+    mockPlans.clear();
+    
+    // Re-populate with initial default plans
+    mockPlans.set('plan-free', {
+      id: 'plan-free',
+      name: '무료 플랜',
+      description: '제한된 기능으로 서비스를 체험하세요.',
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      status: 'active',
+      features: [
+        { key: 'notes', name: '노트 생성', enabled: true, limit: 10, unit: '개' },
+        { key: 'storage', name: '저장 공간', enabled: true, limit: 500, unit: 'MB' },
+        { key: 'ai_summary', name: 'AI 요약', enabled: false, limit: null, unit: null },
+      ],
+      subscriberCount: 12847,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-11-15T10:00:00Z',
+    });
+    
+    mockPlans.set('plan-student-pro', {
+      id: 'plan-student-pro',
+      name: 'Student Pro',
+      description: '학생을 위한 프로 플랜',
+      monthlyPrice: 4500,
+      yearlyPrice: 45000,
+      status: 'active',
+      features: [
+        { key: 'notes', name: '노트 생성', enabled: true, limit: 100, unit: '개' },
+        { key: 'storage', name: '저장 공간', enabled: true, limit: 5000, unit: 'MB' },
+        { key: 'ai_summary', name: 'AI 요약', enabled: true, limit: 50, unit: '회/월' },
+      ],
+      subscriberCount: 3421,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-11-15T10:00:00Z',
+    });
+
+    mockPlans.set('plan-educator-pro', {
+      id: 'plan-educator-pro',
+      name: 'Educator Pro',
+      description: '교육자를 위한 프로 플랜',
+      monthlyPrice: 9000,
+      yearlyPrice: 90000,
+      status: 'active',
+      features: [
+        { key: 'notes', name: '노트 생성', enabled: true, limit: 500, unit: '개' },
+        { key: 'storage', name: '저장 공간', enabled: true, limit: 20000, unit: 'MB' },
+        { key: 'ai_summary', name: 'AI 요약', enabled: true, limit: 200, unit: '회/월' },
+      ],
+      subscriberCount: 1256,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-11-15T10:00:00Z',
+    });
   });
 
   it('should be defined', () => {

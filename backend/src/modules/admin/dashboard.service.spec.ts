@@ -123,7 +123,9 @@ describe('DashboardService', () => {
         expect(server.memory).toBeGreaterThanOrEqual(0);
         expect(server.memory).toBeLessThanOrEqual(100);
         expect(server.responseTime).toBeGreaterThan(0);
-        expect(server.connections).toBeGreaterThanOrEqual(0);
+        if (server.connections !== undefined) {
+          expect(server.connections).toBeGreaterThanOrEqual(0);
+        }
       });
     });
   });

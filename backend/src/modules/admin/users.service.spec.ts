@@ -15,6 +15,9 @@ describe('UsersService', () => {
         count: jest.fn(),
         update: jest.fn(),
       },
+      folder: {
+        count: jest.fn(),
+      },
       note: {
         count: jest.fn(),
       },
@@ -136,25 +139,23 @@ describe('UsersService', () => {
         role: 'user',
         createdAt: new Date(),
         deletedAt: null,
+        refreshTokens: [{ createdAt: new Date() }],
       };
 
       prismaService.user.findUnique.mockResolvedValue(mockUser as any);
-      prismaService.note.count.mockResolvedValue(10);
+      prismaService.folder.count.mockResolvedValue(10);
       prismaService.upload.count.mockResolvedValue(5);
       prismaService.upload.aggregate.mockResolvedValue({
-        _sum: { totalSizeBytes: 1024000 },
+        _sum: { totalSizeBytes: 1024000000 },
       } as any);
       prismaService.auditLog.count.mockResolvedValue(50);
       prismaService.auditLog.findMany.mockResolvedValue([]);
-      prismaService.refreshToken.findFirst.mockResolvedValue({
-        createdAt: new Date(),
-      } as any);
 
       const result = await service.getUserDetail('user-001');
 
       expect(result.data.id).toBe('user-001');
       expect(result.data.stats.notesCount).toBe(10);
-      expect(result.data.stats.storageUsedMb).toBe(1000);
+      expect(result.data.stats.storageUsedMb).toBe(977); // 1024000000 bytes = 977 MB
     });
 
     it('should throw NotFoundException when user does not exist', async () => {

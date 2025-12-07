@@ -71,13 +71,17 @@ export class PlansService {
     this.logger.debug(`createPlan name=${dto.name}`);
 
     try {
-      // ID 생성
-      const id = `plan-${dto.name.toLowerCase().replace(/\s+/g, '-')}`;
-
-      // 중복 체크
-      if (this.mockPlans.has(id)) {
+      // 이름 중복 체크
+      const existingPlan = Array.from(this.mockPlans.values()).find(
+        (p) => p.name === dto.name,
+      );
+      
+      if (existingPlan) {
         throw new BadRequestException('이미 존재하는 요금제 이름입니다.');
       }
+
+      // ID 생성 (unique ID 보장)
+      const id = `plan-${Date.now()}-${dto.name.toLowerCase().replace(/\s+/g, '-')}`;
 
       const now = new Date().toISOString();
       const newPlan = {
@@ -116,6 +120,17 @@ export class PlansService {
         throw new NotFoundException('요금제를 찾을 수 없습니다.');
       }
 
+      // 이름 변경 시 중복 체크
+      if (dto.name && dto.name !== plan.name) {
+        const existingPlan = Array.from(this.mockPlans.values()).find(
+          (p) => p.name === dto.name && p.id !== planId,
+        );
+        
+        if (existingPlan) {
+          throw new BadRequestException('이미 존재하는 요금제 이름입니다.');
+        }
+      }
+
       // 업데이트
       const updatedPlan = {
         ...plan,
@@ -129,7 +144,7 @@ export class PlansService {
 
       return { data: new PlanDto(updatedPlan) };
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
       this.logger.error('Failed to update plan', error);
