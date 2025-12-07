@@ -11,6 +11,8 @@ export class AdminService {
   /**
    * 현재 관리자/운영자 사용자 정보 조회
    * GET /api/admin/auth/me
+   * 
+   * Note: 권한 체크는 AdminRoleGuard에서 이미 수행됨
    */
   async getCurrentAdminUser(userId: string): Promise<AdminUserResponseDto> {
     this.logger.debug(`getCurrentAdminUser userId=${userId}`);
@@ -26,17 +28,8 @@ export class AdminService {
       },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-
-    if (user.deletedAt) {
-      throw new NotFoundException('삭제된 사용자입니다.');
-    }
-
-    // 권한 확인 (admin 또는 operator만 허용)
-    if (!['admin', 'operator'].includes(user.role)) {
-      throw new NotFoundException('관리자 권한이 없습니다.');
     }
 
     return new AdminUserResponseDto({

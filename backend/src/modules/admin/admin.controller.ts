@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards, Logger } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminRoleGuard } from './guards/admin-role.guard';
+import { AdminRoleGuard } from './guards';
 import { CurrentUser } from '../common/current-user.decorator';
 import { AdminService } from './admin.service';
 import { AdminUserResponseDto } from './dto';
