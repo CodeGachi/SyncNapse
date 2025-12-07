@@ -42,7 +42,7 @@ export class UsersService {
 
       // 안전성 체크
       if (page < 1 || limit < 1) {
-        throw new InternalServerErrorException('잘못된 페이지 파라미터입니다.');
+        throw new BadRequestException('잘못된 페이지 파라미터입니다.');
       }
 
       // Where 조건 구성 (AND로 안전하게 결합)
@@ -151,6 +151,9 @@ export class UsersService {
 
       return new UserListResponseDto({ data, pagination });
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error('Failed to get users', error);
       throw new InternalServerErrorException('사용자 목록 조회에 실패했습니다.');
     }

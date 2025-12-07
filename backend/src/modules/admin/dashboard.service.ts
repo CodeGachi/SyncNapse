@@ -152,6 +152,9 @@ export class DashboardService {
       return stats;
     } catch (error) {
       this.logger.error('Failed to get dashboard stats', error);
+      // 에러 시 캐시 무효화
+      this.cache = null;
+      this.cacheExpiry = null;
       throw new InternalServerErrorException('대시보드 통계 조회에 실패했습니다.');
     }
   }
@@ -265,18 +268,23 @@ export class DashboardService {
    * 활성 연결 수 (실제 RefreshToken 기반)
    */
   private async getActiveConnections(): Promise<number> {
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    try {
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-    const count = await this.prisma.refreshToken.count({
-      where: {
-        createdAt: { gte: oneDayAgo },
-        expiresAt: { gte: new Date() },
-        revokedAt: null,
-      },
-    });
+      const count = await this.prisma.refreshToken.count({
+        where: {
+          createdAt: { gte: oneDayAgo },
+          expiresAt: { gte: new Date() },
+          revokedAt: null,
+        },
+      });
 
-    return count;
+      return count;
+    } catch (error) {
+      this.logger.warn('Failed to get active connections, returning 0', error);
+      return 0;  // Fallback
+    }
   }
 
   /**
