@@ -5,7 +5,7 @@ import {
   Logger,
   ForbiddenException,
 } from '@nestjs/common';
-import { ADMIN_ONLY } from '../constants';
+import { isInAdminOnly, RequestUser, AdminErrors } from '../constants';
 
 /**
  * Admin Only Guard
@@ -23,23 +23,23 @@ export class AdminOnlyGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const user = request.user as { id: string; role?: string } | undefined;
+    const user = request.user as RequestUser | undefined;
 
     if (!user) {
       this.logger.warn('AdminOnlyGuard: No user found in request');
-      throw new ForbiddenException('인증이 필요합니다.');
+      throw new ForbiddenException(AdminErrors.AUTHENTICATION_REQUIRED.message);
     }
 
-    const hasAccess = user.role && ADMIN_ONLY.includes(user.role as any);
-
-    this.logger.debug(
-      `AdminOnlyGuard: user=${user.id} role=${user.role} hasAccess=${hasAccess}`,
-    );
+    const hasAccess = user.role && isInAdminOnly(user.role);
 
     if (!hasAccess) {
-      throw new ForbiddenException('최고 관리자 권한이 필요합니다.');
+      this.logger.warn(
+        `AdminOnlyGuard: Access denied - user=${user.id} role=${user.role}`,
+      );
+      throw new ForbiddenException(AdminErrors.ADMIN_ONLY_REQUIRED.message);
     }
 
+    this.logger.debug(`AdminOnlyGuard: Access granted - user=${user.id}`);
     return true;
   }
 }

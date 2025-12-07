@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { AdminUserResponseDto } from './dto';
+import { AdminErrors } from './constants';
 
 @Injectable()
 export class AdminService {
@@ -29,7 +30,7 @@ export class AdminService {
     });
 
     if (!user || user.deletedAt) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      throw new NotFoundException(AdminErrors.USER_NOT_FOUND.message);
     }
 
     return new AdminUserResponseDto({

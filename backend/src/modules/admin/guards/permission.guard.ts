@@ -7,7 +7,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Permission, hasPermission } from '../constants';
+import { Permission, hasPermission, RequestUser, AdminErrors } from '../constants';
 
 /**
  * Permission Metadata Key
@@ -50,11 +50,11 @@ export class PermissionGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as { id: string; role?: string } | undefined;
+    const user = request.user as RequestUser | undefined;
 
     if (!user || !user.role) {
       this.logger.warn('PermissionGuard: No user or role found in request');
-      throw new ForbiddenException('인증이 필요합니다.');
+      throw new ForbiddenException(AdminErrors.AUTHENTICATION_REQUIRED.message);
     }
 
     // 모든 필요한 권한을 가지고 있는지 확인
@@ -62,14 +62,16 @@ export class PermissionGuard implements CanActivate {
       hasPermission(user.role!, permission),
     );
 
-    this.logger.debug(
-      `PermissionGuard: user=${user.id} role=${user.role} required=${requiredPermissions.join(',')} hasAccess=${hasAllPermissions}`,
-    );
-
     if (!hasAllPermissions) {
-      throw new ForbiddenException('해당 작업을 수행할 권한이 없습니다.');
+      this.logger.warn(
+        `PermissionGuard: Access denied - user=${user.id} role=${user.role} required=${requiredPermissions.join(',')}`,
+      );
+      throw new ForbiddenException(AdminErrors.INSUFFICIENT_PERMISSIONS.message);
     }
 
+    this.logger.debug(
+      `PermissionGuard: Access granted - user=${user.id} permissions=${requiredPermissions.join(',')}`,
+    );
     return true;
   }
 }
