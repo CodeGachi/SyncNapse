@@ -18,7 +18,7 @@ COPY . .
 RUN bunx prisma generate && bun run build
 
 FROM oven/bun:1-alpine AS runner
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl ca-certificates
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app/dist ./dist
