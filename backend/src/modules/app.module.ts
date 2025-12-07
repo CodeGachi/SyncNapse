@@ -24,6 +24,7 @@ import { LiveblocksModule } from './liveblocks/liveblocks.module';
 import { SharingModule } from './sharing/sharing.module';
 import { EmailModule } from './email/email.module';
 import { AiModule } from './ai/ai.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AiModule } from './ai/ai.module';
     SharingModule,
     EmailModule,
     AiModule,
+    AdminModule,
   ],
   controllers: [RootController],
   providers: [
