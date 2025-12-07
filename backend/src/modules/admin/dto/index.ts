@@ -6,4 +6,6 @@ export * from './user-detail.dto';
 export * from './update-user-role.dto';
 export * from './user-status.dto';
 export * from './plans.dto';
+export * from './subscriptions.dto';
+export * from './plan-distribution.dto';
 
