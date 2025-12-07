@@ -1,10 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { DashboardStatsResponseDto, SystemStatus } from './dto/dashboard-stats-response.dto';
 
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
+
+  // 캐싱 (5분)
+  private cache: DashboardStatsResponseDto | null = null;
+  private cacheExpiry: Date | null = null;
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -15,103 +20,139 @@ export class DashboardService {
   async getDashboardStats(): Promise<DashboardStatsResponseDto> {
     this.logger.debug('getDashboardStats');
 
-    // 1. 전체 사용자 수 (deletedAt이 null인 사용자만)
-    const totalUsers = await this.prisma.user.count({
-      where: { deletedAt: null },
-    });
+    // 캐시 체크
+    const now = new Date();
+    if (this.cache && this.cacheExpiry && now < this.cacheExpiry) {
+      this.logger.debug('Returning cached dashboard stats');
+      return this.cache;
+    }
 
-    // 2. 이전 기간 사용자 수 (30일 전 기준)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    try {
+      // 날짜 계산 (UTC 기준)
+      const nowUtc = new Date();
+      const oneDayAgo = new Date(nowUtc.getTime() - 24 * 60 * 60 * 1000);
+      const twoDaysAgo = new Date(nowUtc.getTime() - 2 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(nowUtc.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const totalUsersThirtyDaysAgo = await this.prisma.user.count({
-      where: {
-        deletedAt: null,
-        createdAt: { lte: thirtyDaysAgo },
-      },
-    });
+      const startOfToday = new Date(nowUtc);
+      startOfToday.setUTCHours(0, 0, 0, 0);
 
-    // 3. 전체 사용자 변화율 계산
-    const totalUsersChange = this.calculateChangeRate(
-      totalUsersThirtyDaysAgo,
-      totalUsers,
-    );
+      const startOfYesterday = new Date(startOfToday);
+      startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
 
-    // 4. 활성 세션 수 (최근 24시간 이내 로그인한 사용자)
-    // RefreshToken 테이블을 사용하여 추정
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      // 모든 쿼리 병렬 실행
+      const [
+        totalUsers,
+        totalUsersThirtyDaysAgo,
+        activeUserIds,
+        activeUserIdsYesterday,
+        todaySignups,
+        yesterdaySignups,
+      ] = await Promise.all([
+        // 1. 현재 전체 사용자 수
+        this.prisma.user.count({
+          where: { deletedAt: null },
+        }),
 
-    const activeSessions = await this.prisma.refreshToken.count({
-      where: {
-        createdAt: { gte: oneDayAgo },
-      },
-    });
+        // 2. 30일 전까지 가입한 사용자 수 (30일간 증가분 계산용)
+        this.prisma.user.count({
+          where: {
+            deletedAt: null,
+            createdAt: { lte: thirtyDaysAgo },
+          },
+        }),
 
-    // 5. 이전 기간 활성 세션 수 (24-48시간 전)
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        // 3. 최근 24시간 활성 사용자 (고유 사용자, 만료되지 않은 토큰만)
+        this.prisma.refreshToken.findMany({
+          where: {
+            createdAt: { gte: oneDayAgo },
+            expiresAt: { gte: nowUtc },
+            revokedAt: null,
+          },
+          select: { userId: true },
+          distinct: ['userId'],
+        }),
 
-    const activeSessionsYesterday = await this.prisma.refreshToken.count({
-      where: {
-        createdAt: {
-          gte: twoDaysAgo,
-          lt: oneDayAgo,
-        },
-      },
-    });
+        // 4. 24-48시간 전 활성 사용자
+        this.prisma.refreshToken.findMany({
+          where: {
+            createdAt: {
+              gte: twoDaysAgo,
+              lt: oneDayAgo,
+            },
+            expiresAt: { gte: oneDayAgo },
+            revokedAt: null,
+          },
+          select: { userId: true },
+          distinct: ['userId'],
+        }),
 
-    const activeSessionsChange = this.calculateChangeRate(
-      activeSessionsYesterday,
-      activeSessions,
-    );
+        // 5. 오늘 가입자 수
+        this.prisma.user.count({
+          where: {
+            deletedAt: null,
+            createdAt: { gte: startOfToday },
+          },
+        }),
 
-    // 6. 오늘 가입자 수
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+        // 6. 어제 가입자 수
+        this.prisma.user.count({
+          where: {
+            deletedAt: null,
+            createdAt: {
+              gte: startOfYesterday,
+              lt: startOfToday,
+            },
+          },
+        }),
+      ]);
 
-    const todaySignups = await this.prisma.user.count({
-      where: {
-        deletedAt: null,
-        createdAt: { gte: startOfToday },
-      },
-    });
+      // 활성 세션 수 (고유 사용자 수)
+      const activeSessions = activeUserIds.length;
+      const activeSessionsYesterday = activeUserIdsYesterday.length;
 
-    // 7. 어제 가입자 수
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+      // 변화율 계산
+      const totalUsersChange = this.calculateChangeRate(
+        totalUsersThirtyDaysAgo,
+        totalUsers,
+      );
 
-    const yesterdaySignups = await this.prisma.user.count({
-      where: {
-        deletedAt: null,
-        createdAt: {
-          gte: startOfYesterday,
-          lt: startOfToday,
-        },
-      },
-    });
+      const activeSessionsChange = this.calculateChangeRate(
+        activeSessionsYesterday,
+        activeSessions,
+      );
 
-    const todaySignupsChange = this.calculateChangeRate(
-      yesterdaySignups,
-      todaySignups,
-    );
+      const todaySignupsChange = this.calculateChangeRate(
+        yesterdaySignups,
+        todaySignups,
+      );
 
-    // 8. 시스템 상태 판단
-    const systemStatus = this.determineSystemStatus({
-      totalUsers,
-      activeSessions,
-      todaySignups,
-    });
+      // 시스템 상태 판단
+      const systemStatus = this.determineSystemStatus({
+        totalUsers,
+        activeSessions,
+        todaySignups,
+      });
 
-    return new DashboardStatsResponseDto({
-      totalUsers,
-      totalUsersChange,
-      activeSessions,
-      activeSessionsChange,
-      todaySignups,
-      todaySignupsChange,
-      systemStatus,
-    });
+      const stats = new DashboardStatsResponseDto({
+        totalUsers,
+        totalUsersChange,
+        activeSessions,
+        activeSessionsChange,
+        todaySignups,
+        todaySignupsChange,
+        systemStatus,
+      });
+
+      // 캐시 저장
+      this.cache = stats;
+      this.cacheExpiry = new Date(nowUtc.getTime() + this.CACHE_TTL_MS);
+
+      return stats;
+    } catch (error) {
+      this.logger.error('Failed to get dashboard stats', error);
+      throw new InternalServerErrorException('대시보드 통계 조회에 실패했습니다.');
+    }
   }
 
   /**
