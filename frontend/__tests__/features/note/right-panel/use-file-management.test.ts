@@ -6,144 +6,68 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useFileManagement } from "@/features/note/right-panel/use-file-management";
 
-// Mock stores
 const mockAddFile = vi.fn();
 const mockRemoveFile = vi.fn();
+const mockMutateAsync = vi.fn();
+const mockDeleteFile = vi.fn();
 
 vi.mock("@/stores", () => ({
-  useNoteEditorStore: vi.fn(() => ({
-    addFile: mockAddFile,
-    removeFile: mockRemoveFile,
-  })),
+  useNoteEditorStore: vi.fn(() => ({ addFile: mockAddFile, removeFile: mockRemoveFile })),
 }));
 
-// Mock mutations
-const mockMutateAsync = vi.fn();
 vi.mock("@/lib/api/mutations/files.mutations", () => ({
-  useSaveNoteFile: vi.fn(() => ({
-    mutateAsync: mockMutateAsync,
-    isPending: false,
-  })),
+  useSaveNoteFile: vi.fn(() => ({ mutateAsync: mockMutateAsync, isPending: false })),
 }));
 
-// Mock API
-const mockDeleteFile = vi.fn();
 vi.mock("@/lib/api/services/files.api", () => ({
   deleteFile: (id: string) => mockDeleteFile(id),
 }));
 
 vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  }),
+  createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
 }));
 
 describe("useFileManagement", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  beforeEach(() => vi.clearAllMocks());
+
+  it("기본 반환값 확인", () => {
+    const { result } = renderHook(() => useFileManagement());
+    expect(result.current.handleAddFile).toBeDefined();
+    expect(result.current.handleRemoveFile).toBeDefined();
+    expect(result.current.isSaving).toBe(false);
   });
 
-  describe("초기화", () => {
-    it("기본 반환값 확인", () => {
-      const { result } = renderHook(() => useFileManagement());
+  it("handleAddFile - noteId 유무에 따른 동작", async () => {
+    const mockFile = new File(["test"], "test.pdf", { type: "application/pdf" });
 
-      expect(result.current.handleAddFile).toBeDefined();
-      expect(result.current.handleRemoveFile).toBeDefined();
-      expect(result.current.isSaving).toBe(false);
-    });
+    // noteId 없으면 Store만 업데이트
+    const { result: r1 } = renderHook(() => useFileManagement());
+    await act(async () => await r1.current.handleAddFile(mockFile));
+    expect(mockAddFile).toHaveBeenCalledWith(expect.objectContaining({ name: "test.pdf" }));
+    expect(mockMutateAsync).not.toHaveBeenCalled();
 
-    it("noteId 옵션 전달", () => {
-      const { result } = renderHook(() =>
-        useFileManagement({ noteId: "note-123" })
-      );
+    // noteId 있으면 뮤테이션 호출
+    mockAddFile.mockClear();
+    const { result: r2 } = renderHook(() => useFileManagement({ noteId: "note-123" }));
+    await act(async () => await r2.current.handleAddFile(mockFile));
+    expect(mockMutateAsync).toHaveBeenCalledWith({ noteId: "note-123", file: mockFile });
 
-      expect(result.current.handleAddFile).toBeDefined();
-    });
+    // 뮤테이션 실패 시 에러
+    mockMutateAsync.mockRejectedValueOnce(new Error("Save failed"));
+    await expect(act(async () => await r2.current.handleAddFile(mockFile))).rejects.toThrow("Save failed");
   });
 
-  describe("handleAddFile", () => {
-    it("noteId가 없으면 Store에만 추가", async () => {
-      const { result } = renderHook(() => useFileManagement());
-      const mockFile = new File(["test"], "test.pdf", {
-        type: "application/pdf",
-      });
+  it("handleRemoveFile - API 호출 및 Store 업데이트", async () => {
+    mockDeleteFile.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useFileManagement());
 
-      await act(async () => {
-        await result.current.handleAddFile(mockFile);
-      });
+    await act(async () => await result.current.handleRemoveFile("file-123"));
+    expect(mockDeleteFile).toHaveBeenCalledWith("file-123");
+    expect(mockRemoveFile).toHaveBeenCalledWith("file-123");
 
-      expect(mockAddFile).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "test.pdf",
-          type: "application/pdf",
-        })
-      );
-      expect(mockMutateAsync).not.toHaveBeenCalled();
-    });
-
-    it("noteId가 있으면 뮤테이션 호출", async () => {
-      const { result } = renderHook(() =>
-        useFileManagement({ noteId: "note-123" })
-      );
-      const mockFile = new File(["test"], "test.pdf", {
-        type: "application/pdf",
-      });
-
-      await act(async () => {
-        await result.current.handleAddFile(mockFile);
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledWith({
-        noteId: "note-123",
-        file: mockFile,
-      });
-    });
-
-    it("뮤테이션 실패 시 에러 throw", async () => {
-      mockMutateAsync.mockRejectedValueOnce(new Error("Save failed"));
-
-      const { result } = renderHook(() =>
-        useFileManagement({ noteId: "note-123" })
-      );
-      const mockFile = new File(["test"], "test.pdf", {
-        type: "application/pdf",
-      });
-
-      await expect(
-        act(async () => {
-          await result.current.handleAddFile(mockFile);
-        })
-      ).rejects.toThrow("Save failed");
-    });
-  });
-
-  describe("handleRemoveFile", () => {
-    it("파일 삭제 시 API 호출 및 Store 업데이트", async () => {
-      mockDeleteFile.mockResolvedValueOnce(undefined);
-
-      const { result } = renderHook(() => useFileManagement());
-
-      await act(async () => {
-        await result.current.handleRemoveFile("file-123");
-      });
-
-      expect(mockDeleteFile).toHaveBeenCalledWith("file-123");
-      expect(mockRemoveFile).toHaveBeenCalledWith("file-123");
-    });
-
-    it("삭제 실패해도 Store에서 제거", async () => {
-      mockDeleteFile.mockRejectedValueOnce(new Error("Delete failed"));
-
-      const { result } = renderHook(() => useFileManagement());
-
-      await act(async () => {
-        await result.current.handleRemoveFile("file-123");
-      });
-
-      expect(mockRemoveFile).toHaveBeenCalledWith("file-123");
-    });
+    // 삭제 실패해도 Store에서 제거
+    mockDeleteFile.mockRejectedValueOnce(new Error("Delete failed"));
+    await act(async () => await result.current.handleRemoveFile("file-456"));
+    expect(mockRemoveFile).toHaveBeenCalledWith("file-456");
   });
 });

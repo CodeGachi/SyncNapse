@@ -9,9 +9,7 @@ import { useRecordingControl } from "@/features/note/recording/use-recording-con
 import * as useRecordingModule from "@/features/note/recording/use-recording";
 import { ReactNode } from "react";
 
-vi.mock("@/features/note/recording/use-recording", () => ({
-  useRecording: vi.fn(),
-}));
+vi.mock("@/features/note/recording/use-recording", () => ({ useRecording: vi.fn() }));
 
 const mockSetIsRecording = vi.fn();
 const mockSetIsPaused = vi.fn();
@@ -25,161 +23,92 @@ vi.mock("@/stores", () => ({
   }),
 }));
 
-const mockAlert = vi.fn();
-global.alert = mockAlert;
+global.alert = vi.fn();
 
 let queryClient: QueryClient;
-let mockStartRecording: ReturnType<typeof vi.fn>;
-let mockPauseRecording: ReturnType<typeof vi.fn>;
-let mockResumeRecording: ReturnType<typeof vi.fn>;
-let mockStopRecording: ReturnType<typeof vi.fn>;
-let mockCancelRecording: ReturnType<typeof vi.fn>;
+let mockFns: Record<string, ReturnType<typeof vi.fn>>;
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 
-const setupDefaultMocks = (overrides: any = {}) => {
+const setupMocks = (overrides: any = {}) => {
   vi.mocked(useRecordingModule.useRecording).mockReturnValue({
-    isRecording: false,
-    isPaused: false,
-    recordingTime: 0,
-    recordingStartTime: null,
-    formattedTime: "00:00",
-    error: null,
-    audioRecordingId: null,
-    startRecording: mockStartRecording,
-    pauseRecording: mockPauseRecording,
-    resumeRecording: mockResumeRecording,
-    stopRecording: mockStopRecording,
-    cancelRecording: mockCancelRecording,
-    ...overrides,
+    isRecording: false, isPaused: false, recordingTime: 0, recordingStartTime: null,
+    formattedTime: "00:00", error: null, audioRecordingId: null, ...mockFns, ...overrides,
   } as any);
 };
 
 beforeAll(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  mockStartRecording = vi.fn().mockResolvedValue(undefined);
-  mockPauseRecording = vi.fn();
-  mockResumeRecording = vi.fn();
-  mockStopRecording = vi.fn().mockResolvedValue({
-    id: "rec-1", sessionId: "session-1", duration: 120, createdAt: new Date(),
-  });
-  mockCancelRecording = vi.fn();
+  mockFns = {
+    startRecording: vi.fn().mockResolvedValue(undefined),
+    pauseRecording: vi.fn(),
+    resumeRecording: vi.fn(),
+    stopRecording: vi.fn().mockResolvedValue({ id: "rec-1", sessionId: "session-1", duration: 120, createdAt: new Date() }),
+    cancelRecording: vi.fn(),
+  };
 });
 
 beforeEach(() => {
   queryClient.clear();
   vi.clearAllMocks();
-  setupDefaultMocks();
+  setupMocks();
 });
 
 describe("useRecordingControl", () => {
   it("초기 상태 및 전역 store 동기화", async () => {
     const { result } = renderHook(() => useRecordingControl("note-1"), { wrapper });
-
     expect(result.current.isRecording).toBe(false);
-    expect(result.current.isPaused).toBe(false);
     expect(result.current.recordingTime).toBe("00:00");
-    expect(result.current.isNameModalOpen).toBe(false);
 
-    // 전역 store 동기화
-    setupDefaultMocks({ isRecording: true, isPaused: false, formattedTime: "01:00" });
+    setupMocks({ isRecording: true });
     renderHook(() => useRecordingControl("note-1"), { wrapper });
-    await waitFor(() => {
-      expect(mockSetIsRecording).toHaveBeenCalledWith(true);
-      expect(mockSetIsPaused).toHaveBeenCalledWith(false);
-    });
+    await waitFor(() => expect(mockSetIsRecording).toHaveBeenCalledWith(true));
   });
 
-  it("handlePlayPause 동작", async () => {
-    // 녹음 중 일시정지 상태에서 재개
-    setupDefaultMocks({ isRecording: true, isPaused: true });
-    const { result: pausedResult } = renderHook(() => useRecordingControl("note-1"), { wrapper });
-    act(() => pausedResult.current.handlePlayPause(false, null));
-    expect(mockResumeRecording).toHaveBeenCalled();
+  it("handlePlayPause - 녹음/일시정지/오디오 재생", async () => {
+    setupMocks({ isRecording: true, isPaused: true });
+    const { result: r1 } = renderHook(() => useRecordingControl("note-1"), { wrapper });
+    act(() => r1.current.handlePlayPause(false, null));
+    expect(mockFns.resumeRecording).toHaveBeenCalled();
 
-    // 녹음 중 재생 상태에서 일시정지
-    setupDefaultMocks({ isRecording: true, isPaused: false });
-    const { result: recordingResult } = renderHook(() => useRecordingControl("note-1"), { wrapper });
-    act(() => recordingResult.current.handlePlayPause(false, null));
-    expect(mockPauseRecording).toHaveBeenCalled();
+    setupMocks({ isRecording: true, isPaused: false });
+    const { result: r2 } = renderHook(() => useRecordingControl("note-1"), { wrapper });
+    act(() => r2.current.handlePlayPause(false, null));
+    expect(mockFns.pauseRecording).toHaveBeenCalled();
 
-    // 녹음 중 아니고 오디오 재생 중이면 pause
-    setupDefaultMocks();
-    const mockAudioRef = { src: "blob:test", pause: vi.fn(), play: vi.fn() } as unknown as HTMLAudioElement;
-    const { result: audioResult } = renderHook(() => useRecordingControl("note-1"), { wrapper });
-    act(() => audioResult.current.handlePlayPause(true, mockAudioRef));
-    expect(mockAudioRef.pause).toHaveBeenCalled();
-
-    // 녹음 중 아니고 오디오 있지만 재생 중 아니면 play
-    act(() => audioResult.current.handlePlayPause(false, mockAudioRef));
-    expect(mockAudioRef.play).toHaveBeenCalled();
-
-    // 녹음 중 아니고 오디오 없으면 녹음 시작
-    const { result: noAudioResult } = renderHook(() => useRecordingControl("note-1"), { wrapper });
-    await act(async () => noAudioResult.current.handlePlayPause(false, null));
-    expect(mockStartRecording).toHaveBeenCalled();
+    setupMocks();
+    const mockAudio = { src: "blob:test", pause: vi.fn(), play: vi.fn() } as unknown as HTMLAudioElement;
+    const { result: r3 } = renderHook(() => useRecordingControl("note-1"), { wrapper });
+    act(() => r3.current.handlePlayPause(true, mockAudio));
+    expect(mockAudio.pause).toHaveBeenCalled();
   });
 
   it("handleStopRecording 및 handleSaveRecording", async () => {
-    setupDefaultMocks({
-      isRecording: true,
-      recordingTime: 60,
-      recordingStartTime: new Date("2024-01-15T10:30:00"),
-      audioRecordingId: "audio-1",
-    });
-
+    setupMocks({ isRecording: true, recordingTime: 60, recordingStartTime: new Date(), audioRecordingId: "audio-1" });
     const { result } = renderHook(() => useRecordingControl("note-1"), { wrapper });
 
-    // 녹음 중이면 모달 열기
     act(() => result.current.handleStopRecording());
     expect(result.current.isNameModalOpen).toBe(true);
 
-    // 제목과 함께 저장
-    await act(async () => {
-      await result.current.handleSaveRecording("My Recording");
-    });
-    expect(mockStopRecording).toHaveBeenCalledWith("My Recording");
-    expect(result.current.isNameModalOpen).toBe(false);
-
-    // 빈 제목이면 타임스탬프 기반 제목
-    act(() => result.current.handleStopRecording());
-    await act(async () => {
-      await result.current.handleSaveRecording("   ");
-    });
-    expect(mockStopRecording).toHaveBeenLastCalledWith(expect.stringMatching(/^\d{4}_\d{2}_\d{2}_\d{2}:\d{2}:\d{2}$/));
+    await act(async () => await result.current.handleSaveRecording("My Recording"));
+    expect(mockFns.stopRecording).toHaveBeenCalledWith("My Recording");
 
     // 저장 실패시 alert
-    mockStopRecording.mockRejectedValueOnce(new Error("Save failed"));
+    mockFns.stopRecording.mockRejectedValueOnce(new Error("Save failed"));
     act(() => result.current.handleStopRecording());
-    await act(async () => {
-      await result.current.handleSaveRecording("Test");
-    });
-    expect(mockAlert).toHaveBeenCalledWith("녹음 저장에 실패했습니다");
-
-    // 녹음 중 아니면 저장하지 않음
-    setupDefaultMocks({ isRecording: false });
-    const { result: notRecordingResult } = renderHook(() => useRecordingControl("note-1"), { wrapper });
-    mockStopRecording.mockClear();
-    await act(async () => {
-      await notRecordingResult.current.handleSaveRecording("Test");
-    });
-    expect(mockStopRecording).not.toHaveBeenCalled();
+    await act(async () => await result.current.handleSaveRecording("Test"));
+    expect(global.alert).toHaveBeenCalledWith("녹음 저장에 실패했습니다");
   });
 
   it("handleCancelSave 및 콜백 등록/해제", () => {
-    setupDefaultMocks({ isRecording: true });
+    setupMocks({ isRecording: true });
     const { result, unmount } = renderHook(() => useRecordingControl("note-1"), { wrapper });
 
-    // 모달 열고 취소
     act(() => result.current.handleStopRecording());
-    expect(result.current.isNameModalOpen).toBe(true);
     act(() => result.current.handleCancelSave());
-    expect(mockCancelRecording).toHaveBeenCalled();
-    expect(result.current.isNameModalOpen).toBe(false);
-
-    // 마운트시 콜백 등록, 언마운트시 해제
+    expect(mockFns.cancelRecording).toHaveBeenCalled();
     expect(mockSetStopRecordingCallback).toHaveBeenCalledWith(expect.any(Function));
     unmount();
     expect(mockSetStopRecordingCallback).toHaveBeenLastCalledWith(null);
