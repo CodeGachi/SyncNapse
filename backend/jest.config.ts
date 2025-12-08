@@ -22,7 +22,6 @@ const config: Config = {
     '!src/main.ts',
     '!src/**/*.module.ts',
     '!src/**/*.dto.ts',
-    '!src/**/*.decorator.ts',
     '!src/**/index.ts',
     '!src/**/*.interface.ts',
     '!src/**/types/*.ts',
@@ -79,3 +78,4 @@ const config: Config = {
 };
 
 export default config;
+
