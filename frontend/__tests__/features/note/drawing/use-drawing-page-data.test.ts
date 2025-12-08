@@ -1,18 +1,20 @@
-/**
- * useDrawingPageData 훅 테스트
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
+
+vi.mock("@/lib/db/drawings", () => ({ getDrawing: vi.fn() }));
+
 import { useDrawingPageData } from "@/features/note/drawing/use-drawing-page-data";
-
-vi.mock("@/stores", () => ({ useNoteEditorStore: () => ({ currentPage: 1 }) }));
-
-beforeEach(() => { vi.clearAllMocks(); });
 
 describe("useDrawingPageData", () => {
   it("초기 상태", () => {
-    const { result } = renderHook(() => useDrawingPageData({ noteId: "note-1" }));
-    expect(result.current.currentPage).toBe(1);
+    const fabricCanvasRef = { current: null };
+    const { result } = renderHook(() => useDrawingPageData({
+      fabricCanvasRef,
+      noteId: "note-1",
+      pageNum: 1,
+      isCollaborative: false,
+      isCanvasReady: false,
+    }));
+    expect(result.current.isLoading).toBe(true);
   });
 });

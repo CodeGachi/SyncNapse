@@ -1,21 +1,18 @@
-/**
- * note.adapter 테스트
- */
-
 import { describe, it, expect } from "vitest";
-import { toFrontendNote, toBackendNote } from "@/lib/api/adapters/note.adapter";
+import { apiToNote, dbToNote } from "@/lib/api/adapters/note.adapter";
 
 describe("note.adapter", () => {
-  it("toFrontendNote 변환", () => {
-    const backend = { id: "1", title: "Test", content: "", created_at: "2024-01-01", updated_at: "2024-01-01" };
-    const result = toFrontendNote(backend as any);
+  it("apiToNote 변환", () => {
+    const apiNote = { id: "1", title: "Test", folder_id: null, type: "student", created_at: "2024-01-01", updated_at: "2024-01-01" };
+    const result = apiToNote(apiNote as any);
     expect(result.id).toBe("1");
     expect(result.title).toBe("Test");
   });
 
-  it("toBackendNote 변환", () => {
-    const frontend = { id: "1", title: "Test", content: "", createdAt: new Date(), updatedAt: new Date() };
-    const result = toBackendNote(frontend as any);
+  it("dbToNote 변환", () => {
+    const dbNote = { id: "1", title: "Test", folderId: null, type: "student" as const, createdAt: 1000, updatedAt: 2000 };
+    const result = dbToNote(dbNote);
+    expect(result.id).toBe("1");
     expect(result.title).toBe("Test");
   });
 });
