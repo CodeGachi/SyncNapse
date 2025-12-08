@@ -7,10 +7,11 @@
 
 import { createLogger } from "@/lib/utils/logger";
 import { getAccessToken } from "@/lib/auth/token-manager";
+import { API_CONFIG } from "@/lib/constants/config";
 
 const log = createLogger("FileUpload");
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_URL = API_CONFIG.BASE_URL;
 
 export interface FileUploadResponse {
   id: string;

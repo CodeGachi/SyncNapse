@@ -9,6 +9,7 @@ import {
   fetchAllNotes,
   fetchNote,
   fetchNotesByFolder,
+  fetchNoteFromServer,
 } from "../services/notes.api"; // ✅ V2 API로 변경
 import type { Note } from "@/lib/types";
 
@@ -74,6 +75,30 @@ export function useNotesByFolder(
     queryFn: () => fetchNotesByFolder(folderId),
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
+    ...options,
+  });
+}
+
+/**
+ * 공유 모드용 노트 조회 (백엔드에서 직접 가져옴, 로컬 DB 건너뜀)
+ *
+ * @example
+ * const { data: note, isLoading } = useSharedNote("note-123");
+ */
+export function useSharedNote(
+  noteId: string | null,
+  options?: Omit<UseQueryOptions<Note | null, Error>, "queryKey" | "queryFn">
+) {
+  return useQuery({
+    queryKey: ["notes", "shared", noteId],
+    queryFn: () => {
+      if (!noteId) return null;
+      return fetchNoteFromServer(noteId);
+    },
+    enabled: !!noteId,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    retry: 2,
     ...options,
   });
 }

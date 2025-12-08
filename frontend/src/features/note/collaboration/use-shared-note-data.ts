@@ -9,11 +9,13 @@
 import { useEffect, useState } from "react";
 import { useStorage } from "@/lib/liveblocks/liveblocks.config";
 import { createLogger } from "@/lib/utils/logger";
+import { decodeFilename } from "@/lib/utils/decode-filename";
 
 const log = createLogger("SharedNoteData");
 import { useNoteEditorStore } from "@/stores";
 import { initDB } from "@/lib/db";
 import type { DBNote } from "@/lib/db";
+import { getAccessToken } from "@/lib/auth/token-manager";
 
 interface UseSharedNoteDataProps {
   isSharedView: boolean;
@@ -34,7 +36,7 @@ export function useSharedNoteData({
   const currentFileId = useStorage((root) => root.currentFileId);
 
   const {
-    setFiles,
+    loadFiles,
     setSelectedFileId,
     setCurrentPage,
     setPageNotes,
@@ -140,40 +142,153 @@ export function useSharedNoteData({
     ensureNoteExists();
   }, [isSharedView, noteId, noteCreated]);
 
-  // 공유 모드일 때 Liveblocks Storage의 데이터를 로컬 store에 동기화
+  // 파일 fetch 완료 여부 추적
+  const [filesFetched, setFilesFetched] = useState(false);
+
+  // 공유 모드일 때 백엔드에서 파일을 가져오기 (한 번만 실행)
   useEffect(() => {
-    if (!isSharedView || !noteInfo) {
-      log.debug("대기 중:", { isSharedView, hasNoteInfo: !!noteInfo });
+    if (!isSharedView || !noteInfo || filesFetched) {
       return;
     }
 
-    log.debug("Liveblocks Storage에서 노트 데이터 로드 중...");
+    log.debug("⭐ 공유 모드 - 백엔드에서 파일 로드 시작...");
     log.debug("noteInfo:", noteInfo);
-    log.debug("files 수:", files?.length || 0);
 
-    // 파일 목록 동기화
-    if (files && files.length > 0) {
-      // TODO: 백엔드 API 구현 후 실제 파일 다운로드
-      // Student는 Liveblocks Storage에서 파일 메타데이터를 받고,
-      // 백엔드 API를 통해 실제 파일을 다운로드하여 IndexedDB에 저장
+    // ⭐ 백엔드에서 파일 목록 + 실제 파일 데이터 가져오기
+    const fetchFilesFromBackend = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) {
+          log.warn("API URL이 설정되지 않음");
+          setFilesFetched(true);
+          return;
+        }
 
-      log.debug(`파일 메타데이터 ${files.length}개 발견`);
-      log.debug("TODO: 백엔드 API로 파일 다운로드 필요");
+        // 1. 파일 목록 가져오기
+        const filesUrl = `${apiUrl}/notes/${noteId}/files`;
+        log.debug(`백엔드에서 파일 목록 fetch: ${filesUrl}`);
 
-      const fileData = files.map((file) => ({
-        id: file.id,
-        name: file.fileName,
-        type: file.fileType,
-        size: file.fileSize,
-        url: file.fileUrl || "", // Backend URL (영구 URL)
-        uploadedAt: new Date(file.uploadedAt).toISOString(),
-      }));
+        const token = getAccessToken();
+        const response = await fetch(filesUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
 
-      setFiles(fileData);
-      log.debug(`파일 ${fileData.length}개 메타데이터 로드 완료`);
-    } else {
-      // 파일이 없으면 빈 배열로 설정 (임시 - 백엔드 구현 시 파일 다운로드)
-      log.debug("파일 없음 - 협업 기능만 사용 가능");
+        if (!response.ok) {
+          const errorText = await response.text();
+          log.warn(`파일 목록 fetch 실패: ${response.status}`, errorText);
+          setFilesFetched(true);
+          return;
+        }
+
+        const responseData = await response.json();
+        log.debug("백엔드 파일 목록 응답:", responseData);
+
+        // HAL 형식 지원: items 배열 또는 직접 배열
+        const backendFiles = Array.isArray(responseData)
+          ? responseData
+          : (responseData.items || responseData.files || []);
+
+        log.debug(`백엔드에서 파일 ${backendFiles.length}개 메타데이터 받음`);
+
+        if (backendFiles.length === 0) {
+          log.debug("백엔드에 파일 없음");
+          setFilesFetched(true);
+          return;
+        }
+
+        // 2. 각 파일의 실제 데이터 다운로드 (Base64 -> Blob URL)
+        const fileDataPromises = backendFiles.map(async (backendFile: any) => {
+          const backendFileId = backendFile.id;
+          const rawFileName = backendFile.file_name || backendFile.fileName;
+          const fileName = decodeFilename(rawFileName);
+          const fileType = backendFile.file_type || backendFile.fileType;
+          const fileSize = backendFile.file_size || backendFile.fileSize;
+          const uploadedAt = backendFile.uploaded_at || backendFile.uploadedAt || backendFile.createdAt || new Date().toISOString();
+
+          // Liveblocks에서 같은 파일 찾기 (드로잉 동기화용 ID)
+          const liveblocksFile = files?.find(
+            (f) => f.fileName === fileName || decodeFilename(f.fileName) === fileName || f.id === backendFileId
+          );
+          const fileId = liveblocksFile?.id || backendFileId;
+
+          try {
+            // 파일 다운로드 (Base64로 받음)
+            const downloadUrl = `${apiUrl}/notes/${noteId}/files/${backendFileId}/download`;
+            log.debug(`파일 다운로드: ${fileName} from ${downloadUrl}`);
+
+            const downloadRes = await fetch(downloadUrl, {
+              headers: {
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+            });
+
+            if (!downloadRes.ok) {
+              log.error(`파일 다운로드 실패 ${fileName}: ${downloadRes.status}`);
+              return null;
+            }
+
+            const downloadData = await downloadRes.json();
+
+            if (!downloadData.data) {
+              log.error(`파일 데이터 없음: ${fileName}`);
+              return null;
+            }
+
+            // Base64 -> Blob -> Blob URL
+            const base64Data = downloadData.data;
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: fileType });
+            const blobUrl = URL.createObjectURL(blob);
+
+            log.debug(`✅ 파일 다운로드 완료: ${fileName}, Blob URL 생성`);
+
+            return {
+              id: fileId,
+              name: fileName,
+              type: fileType,
+              size: fileSize,
+              url: blobUrl, // ⭐ Blob URL (PDF 뷰어에서 사용)
+              uploadedAt: uploadedAt,
+              backendId: backendFileId,
+            };
+          } catch (error) {
+            log.error(`파일 다운로드 오류 ${fileName}:`, error);
+            return null;
+          }
+        });
+
+        const fileDataResults = await Promise.all(fileDataPromises);
+        const validFileData = fileDataResults.filter((f): f is NonNullable<typeof f> => f !== null);
+
+        if (validFileData.length > 0) {
+          loadFiles(validFileData);
+          log.debug(`⭐ 파일 ${validFileData.length}개 다운로드 및 스토어 로드 완료`);
+        } else {
+          log.warn("다운로드된 파일 없음");
+        }
+
+        setFilesFetched(true);
+      } catch (error) {
+        log.error("백엔드 파일 fetch 오류:", error);
+        setFilesFetched(true);
+      }
+    };
+
+    fetchFilesFromBackend();
+  }, [isSharedView, noteId, noteInfo, filesFetched, files, loadFiles]);
+
+  // Liveblocks 상태 동기화 (파일 제외, 페이지/필기 데이터만)
+  useEffect(() => {
+    if (!isSharedView || !noteInfo) {
+      return;
     }
 
     // 현재 파일 및 페이지 동기화
@@ -210,11 +325,9 @@ export function useSharedNoteData({
   }, [
     isSharedView,
     noteInfo,
-    files,
     pageNotes,
     currentFileId,
     currentPage,
-    setFiles,
     setSelectedFileId,
     setCurrentPage,
     setPageNotes,
@@ -226,10 +339,10 @@ export function useSharedNoteData({
     pageNotes,
     currentPage,
     currentFileId,
-    // Liveblocks 연결 대기: noteInfo가 undefined면 아직 로딩 중
-    // noteInfo가 null이면 연결은 됐지만 데이터가 없는 상태 (빈 노트)
-    // 공유 모드에서는 임시 노트 생성 완료 여부도 확인
-    // files가 undefined면 Storage 초기화 대기 중 (빈 배열과 구분)
-    isLoading: isSharedView && (!noteCreated || noteInfo === undefined || files === undefined),
+    // 공유 모드 로딩 조건:
+    // 1. 임시 노트 생성 완료 대기 (noteCreated)
+    // 2. Liveblocks noteInfo 로드 대기
+    // 3. 백엔드 파일 fetch 완료 대기 (filesFetched)
+    isLoading: isSharedView && (!noteCreated || noteInfo === undefined || !filesFetched),
   };
 }

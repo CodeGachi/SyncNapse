@@ -7,7 +7,6 @@
 
 import type { UploadedFile } from "@/lib/types";
 import type { useFileUpload } from "@/hooks/use-file-upload";
-import { useFileList } from "@/features/dashboard/notes/use-file-list";
 
 interface FileListProps {
   uploadedFiles: UploadedFile[];
@@ -20,7 +19,24 @@ export function FileList({
   uploadQueue,
   onRemoveFile,
 }: FileListProps) {
-  const { handleRetry, handleCancel } = useFileList(uploadQueue);
+  const handleRetry = (fileName: string, fileSize: number) => {
+    const queueFile = uploadQueue.files.find(
+      (qf) => qf.file.name === fileName && qf.file.size === fileSize
+    );
+    if (queueFile) {
+      uploadQueue.retryFailed();
+      uploadQueue.startUpload();
+    }
+  };
+
+  const handleCancel = (fileName: string, fileSize: number) => {
+    const queueFile = uploadQueue.files.find(
+      (qf) => qf.file.name === fileName && qf.file.size === fileSize
+    );
+    if (queueFile) {
+      uploadQueue.removeFile(queueFile.id);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-3 bg-background-elevated rounded-xl p-4">

@@ -44,8 +44,8 @@ export function EducatorNoteContent({
   }, [resetPanels]);
 
   return (
-    <div className="flex items-start bg-background-surface h-screen w-full">
-      {/* 헤더 - 제목 + 녹음바 */}
+    <div className="relative bg-background-surface h-screen w-full">
+      {/* 헤더 - 제목 + 녹음바 (fixed, 항상 표시) */}
       <NoteHeader
         noteId={noteId}
         noteTitle={noteTitle}
@@ -57,7 +57,7 @@ export function EducatorNoteContent({
       <SharingSettingsModal />
 
       {/* 데이터 로더 - 파일 목록 로드 + 노트 검증 */}
-      <NoteDataLoader noteId={noteId}>
+      <NoteDataLoader noteId={noteId} isSharedView={isSharedView}>
         {/* 협업 데이터 핸들러 - Liveblocks 데이터 동기화 */}
         <CollaborationDataHandler
           noteId={noteId}

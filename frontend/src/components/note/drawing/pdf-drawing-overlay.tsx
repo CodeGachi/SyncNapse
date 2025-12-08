@@ -3,6 +3,8 @@
  *
  * PDF 뷰어 위에 그리기 기능을 제공하는 캔버스 오버레이
  * Fabric.js 캔버스 초기화 및 렌더링만 담당 (비즈니스 로직은 훅에서 처리)
+ *
+ * ⚠️ 중요: 로드 완료 전/실패 시 그리기를 차단하여 기존 데이터 보호
  */
 
 "use client";
@@ -13,6 +15,7 @@ import React, {
   useRef,
   useEffect,
   useState,
+  useCallback,
 } from "react";
 import * as fabric from "fabric";
 import type { DrawingData } from "@/lib/types/drawing";
@@ -22,6 +25,9 @@ import {
   useDrawingTools,
   useCanvasUndoRedo,
 } from "@/features/note/drawing";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("PDFDrawingOverlay");
 
 export interface PDFDrawingOverlayHandle {
   handleUndo: () => void;
@@ -65,7 +71,7 @@ export const PDFDrawingOverlay = forwardRef<
       isPdf,
       onSave,
       isCollaborative = false,
-      isSharedView: _isSharedView = false,
+      isSharedView = false,
     },
     ref
   ) => {
@@ -80,42 +86,116 @@ export const PDFDrawingOverlay = forwardRef<
     const currentCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
     const initialCanvasSizeRef = useRef<{ width: number; height: number } | null>(null);
 
+    // ⭐ v2: 원격 업데이트 트리거 (Liveblocks → IndexedDB 저장 후 증가)
+    const [remoteUpdateTrigger, setRemoteUpdateTrigger] = useState(0);
+
+    // ⭐ v2: 원격 업데이트 수신 콜백 (Liveblocks가 IndexedDB에 저장 후 호출)
+    const handleRemoteUpdate = useCallback(() => {
+      setRemoteUpdateTrigger((prev) => prev + 1);
+    }, []);
+
     // 페이지 데이터 로드/저장 훅
-    const { triggerAutoSave } = useDrawingPageData({
-      fabricCanvas: fabricCanvasRef.current,
+    // ref를 전달하여 항상 최신 값을 참조하도록 함
+    // isCanvasReady가 true일 때만 IndexedDB에서 로드
+    // ⚠️ isLoadSuccess: 로드 성공 여부 - 실패 시 그리기/저장 차단
+    const { triggerAutoSave, isLoadSuccess, isLoading } = useDrawingPageData({
+      fabricCanvasRef,
       noteId,
-      fileId,
       pageNum,
       isCollaborative,
+      isCanvasReady,
       onSave,
-      syncToStorage: syncToStorageRef.current ?? undefined,
+      syncToStorageRef,
+      remoteUpdateTrigger,  // ⭐ v2: 원격 업데이트 시 재로드 트리거
     });
 
+    // ⭐ 실제 그리기 가능 여부: 로드 성공 + 로딩 완료
+    const canDraw = isLoadSuccess && !isLoading;
+
+    // 디버깅 로그
+    useEffect(() => {
+      log.debug("상태 변경:", {
+        isCanvasReady,
+        isLoadSuccess,
+        isLoading,
+        canDraw,
+        isCollaborative,
+        renderedWidth,
+        renderedHeight,
+        hasFabricCanvas: !!fabricCanvasRef.current,
+      });
+    }, [isCanvasReady, isLoadSuccess, isLoading, canDraw, isCollaborative, renderedWidth, renderedHeight]);
+
     // Undo/Redo에 triggerAutoSave 연결
+    // ref를 전달하여 항상 최신 캔버스 참조
     const undoRedoWithSave = useCanvasUndoRedo({
-      fabricCanvas: fabricCanvasRef.current,
+      fabricCanvasRef,
       onAutoSave: triggerAutoSave,
     });
 
     // 드로잉 도구 이벤트 훅
+    // ref를 전달하여 항상 최신 캔버스 참조
+    // ⭐ 로드 완료 전까지 그리기 비활성화
     useDrawingTools({
-      fabricCanvas: fabricCanvasRef.current,
-      isDrawingMode,
-      isEnabled,
+      fabricCanvasRef,
+      isDrawingMode: isDrawingMode && canDraw,  // ⭐ 로드 완료 시에만 그리기 활성화
+      isEnabled: isEnabled && canDraw,           // ⭐ 로드 완료 시에만 활성화
       pdfScale,
       undoStackRef: undoRedoWithSave.undoStackRef,
       onAutoSave: triggerAutoSave,
     });
 
-    // Canvas 초기화 (최초 1회만 실행)
+    // 렌더링 크기 ref (의존성 문제 해결용)
+    const renderedSizeRef = useRef<{ width: number; height: number } | null>(null);
+
+    // renderedWidth/Height가 설정될 때 ref 업데이트
     useEffect(() => {
-      if (!containerRef.current || !isEnabled) return;
-      if (!renderedWidth || !renderedHeight) return;
-      if (fabricCanvasRef.current) return;
+      if (renderedWidth && renderedHeight) {
+        renderedSizeRef.current = { width: renderedWidth, height: renderedHeight };
+      }
+    }, [renderedWidth, renderedHeight]);
+
+    // Canvas 초기화 트리거 (renderedWidth/Height가 설정되면 트리거)
+    const [canvasInitTrigger, setCanvasInitTrigger] = useState(0);
+
+    // renderedWidth/Height가 처음 설정될 때 초기화 트리거
+    useEffect(() => {
+      if (renderedWidth && renderedHeight && !fabricCanvasRef.current) {
+        log.debug("캔버스 초기화 트리거 증가:", { renderedWidth, renderedHeight });
+        setCanvasInitTrigger((prev) => prev + 1);
+      }
+    }, [renderedWidth, renderedHeight]);
+
+    // Canvas 초기화 (최초 1회만 실행)
+    // ⚠️ 중요: renderedWidth/Height를 의존성에서 제외!
+    // 크기 변경 시 캔버스 재생성하면 드로잉 데이터가 사라짐
+    // 크기 변경은 별도 effect에서 처리
+    useEffect(() => {
+      const size = renderedSizeRef.current;
+
+      log.debug("캔버스 초기화 effect 실행:", {
+        hasContainer: !!containerRef.current,
+        size,
+        hasFabricCanvas: !!fabricCanvasRef.current,
+        canvasInitTrigger,
+      });
+
+      if (!containerRef.current) {
+        log.debug("캔버스 초기화 스킵 - containerRef 없음");
+        return;
+      }
+      if (!size) {
+        log.debug("캔버스 초기화 스킵 - 크기 없음");
+        return;
+      }
+      if (fabricCanvasRef.current) {
+        log.debug("캔버스 초기화 스킵 - 이미 존재");
+        return;
+      }
 
       const container = containerRef.current;
-      const finalWidth = renderedWidth;
-      const finalHeight = renderedHeight;
+      const finalWidth = size.width;
+      const finalHeight = size.height;
 
       container.innerHTML = "";
 
@@ -174,7 +254,8 @@ export const PDFDrawingOverlay = forwardRef<
           fabricCanvasRef.current = null;
         }
       };
-    }, [containerRef, isEnabled, isPdf, renderedWidth, renderedHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPdf, canvasInitTrigger]);  // ⚠️ renderedWidth/Height 대신 canvasInitTrigger 사용
 
     // Canvas 크기 변경 처리 (줌/리사이즈)
     useEffect(() => {
@@ -230,21 +311,27 @@ export const PDFDrawingOverlay = forwardRef<
             left: 0,
             width: containerSize?.width ?? renderedWidth,
             height: containerSize?.height ?? renderedHeight,
-            cursor: isEnabled && isDrawingMode ? "crosshair" : "default",
-            opacity: isEnabled ? 1 : 0,
-            pointerEvents: isEnabled && isDrawingMode ? "auto" : "none",
+            // ⭐ 로드 완료 시에만 그리기 커서 활성화
+            cursor: isEnabled && isDrawingMode && canDraw ? "crosshair" : "default",
+            // 캔버스는 항상 표시하여 드로잉 데이터 유지 (협업 모드에서 다른 사용자 드로잉도 보여야 함)
+            opacity: 1,
+            // ⭐ 로드 완료 전/실패 시 상호작용 차단 (기존 데이터 보호)
+            pointerEvents: isEnabled && isDrawingMode && canDraw ? "auto" : "none",
             zIndex: isDrawingMode ? 5 : 1,
-            display: isEnabled ? "block" : "none",
+            // 캔버스를 항상 표시 (isEnabled=false여도 드로잉 데이터는 보여야 함)
+            display: "block",
           }}
         />
 
         {isCollaborative && isCanvasReady && fabricCanvasRef.current && (
           <CollaborativeCanvasWrapper
             fabricCanvas={fabricCanvasRef.current}
-            fileId={fileId}
+            noteId={noteId}  // ⭐ v2: IndexedDB 저장에 필요
             pageNum={pageNum}
             syncToStorageRef={syncToStorageRef}
-            readOnly={false}
+            readOnly={isSharedView}
+            showStatusIndicator={false}
+            onRemoteUpdate={handleRemoteUpdate}  // ⭐ v2: 원격 업데이트 콜백
           />
         )}
       </>

@@ -12,9 +12,22 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'happy-dom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+    testTimeout: 10000,
+    teardownTimeout: 3000,
+    fileParallelism: false,
+    isolate: false,
+    sequence: {
+      shuffle: false,
+    },
   },
 });

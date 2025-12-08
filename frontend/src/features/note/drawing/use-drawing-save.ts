@@ -13,7 +13,7 @@ import { createLogger } from "@/lib/utils/logger";
 const log = createLogger("useDrawingSave");
 
 export interface UseDrawingSaveProps {
-  fileId?: string;
+  noteId?: string;
   pageNum: number;
 }
 
@@ -26,19 +26,19 @@ export interface UseDrawingSaveReturn {
  * 드로잉 저장 훅
  */
 export function useDrawingSave({
-  fileId,
+  noteId,
   pageNum,
 }: UseDrawingSaveProps): UseDrawingSaveReturn {
   const handleDrawingSave = useCallback(
     async (data: DrawingData) => {
       try {
         await saveDrawing(data);
-        log.debug(`드로잉 저장 완료 - 파일: ${fileId}, 페이지: ${pageNum}, ID: ${data.id}`);
+        log.debug(`드로잉 저장 완료 - 노트: ${noteId}, 페이지: ${pageNum}, ID: ${data.id}`);
       } catch (error) {
         log.error("드로잉 저장 실패:", error);
       }
     },
-    [fileId, pageNum]
+    [noteId, pageNum]
   );
 
   return {

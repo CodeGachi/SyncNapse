@@ -4,6 +4,11 @@
  * Liveblocks Storage를 사용한 실시간 캔버스 동기화
  * pdf-drawing-overlay.tsx와 함께 사용하여 실시간 협업 기능 추가
  *
+ * ⭐ v2 아키텍처: IndexedDB가 Single Source of Truth
+ * - Educator 저장: Canvas → IndexedDB → Liveblocks broadcast
+ * - Student 수신: Liveblocks receive → IndexedDB 저장 → onRemoteUpdate 콜백
+ * - Canvas 로드는 use-drawing-page-data.ts가 IndexedDB에서 담당
+ *
  * 주요 기능:
  * - Promise 기반 완료 처리
  * - 재시도 로직 (최대 3회)
@@ -19,8 +24,10 @@ import {
   useStatus,
 } from "@/lib/liveblocks/liveblocks.config";
 import { getCanvasKey } from "@/lib/liveblocks/liveblocks.config";
+import { saveDrawing } from "@/lib/db/drawings";
 import { createLogger } from "@/lib/utils/logger";
 import type * as fabric from "fabric";
+import type { DrawingData } from "@/lib/types/drawing";
 
 const log = createLogger("useCollaborativeCanvasSync");
 
@@ -33,7 +40,7 @@ const SYNC_CONFIG = {
 } as const;
 
 export interface UseCollaborativeCanvasSyncProps {
-  fileId: string;
+  noteId: string;  // ⭐ IndexedDB 저장에 필요
   pageNum: number;
   fabricCanvas: fabric.Canvas | null;
   isEnabled: boolean;
@@ -43,6 +50,8 @@ export interface UseCollaborativeCanvasSyncProps {
   onSyncError?: (error: Error) => void;
   /** 연결 상태 변경 콜백 */
   onConnectionChange?: (status: string) => void;
+  /** ⭐ 원격 업데이트 수신 콜백 - IndexedDB 저장 후 호출되어 Canvas 재로드 트리거 */
+  onRemoteUpdate?: () => void;
 }
 
 interface SyncState {
@@ -51,6 +60,13 @@ interface SyncState {
   lastSyncedAt: number | null;
   error: Error | null;
   retryCount: number;
+}
+
+/** Liveblocks Storage에 저장되는 Canvas JSON 타입 */
+interface CanvasJSON {
+  version: string;
+  objects: any[];
+  background: string;
 }
 
 export interface UseCollaborativeCanvasSyncReturn {
@@ -67,19 +83,24 @@ export interface UseCollaborativeCanvasSyncReturn {
 
 /**
  * Liveblocks Storage와 Fabric.js 캔버스를 동기화하는 훅
+ *
+ * ⭐ v2: IndexedDB가 Single Source of Truth
+ * - Educator: Canvas → Liveblocks broadcast (IndexedDB 저장은 use-drawing-page-data에서)
+ * - Student: Liveblocks receive → IndexedDB 저장 → onRemoteUpdate 콜백
  */
 export function useCollaborativeCanvasSync({
-  fileId,
+  noteId,
   pageNum,
   fabricCanvas,
   isEnabled,
   readOnly = false,
   onSyncError,
   onConnectionChange,
+  onRemoteUpdate,
 }: UseCollaborativeCanvasSyncProps): UseCollaborativeCanvasSyncReturn {
-  const canvasKey = getCanvasKey(fileId, pageNum);
+  const canvasKey = getCanvasKey(noteId, pageNum);
   const isUpdatingFromStorage = useRef(false); // 무한 루프 방지
-  const pendingChanges = useRef<object | null>(null); // 오프라인 동안 쌓인 변경사항
+  const pendingChanges = useRef<CanvasJSON | null>(null); // 오프라인 동안 쌓인 변경사항
 
   // 동기화 상태 관리
   const [syncState, setSyncState] = useState<SyncState>({
@@ -94,27 +115,70 @@ export function useCollaborativeCanvasSync({
   const connectionStatus = useStatus();
   const prevConnectionStatus = useRef(connectionStatus);
 
-  // Liveblocks Storage에서 전체 캔버스 데이터 가져오기
-  const allCanvasData = useStorage((root) => root.canvasData || null);
+  // Liveblocks Storage에서 전체 캔버스 데이터 가져오기 (LiveMap)
+  const allCanvasData = useStorage((root) => root.canvasData);
 
-  // 현재 페이지의 캔버스 데이터 (canvasKey로 접근)
-  const canvasDataFromStorage = allCanvasData?.[canvasKey] || null;
+  // 현재 페이지의 캔버스 데이터 (LiveMap.get()으로 접근)
+  // 마이그레이션 전 Record 형식인 경우도 처리
+  const canvasDataFromStorage = (() => {
+    if (!allCanvasData) return null;
+    // LiveMap인 경우
+    if (typeof allCanvasData.get === "function") {
+      return allCanvasData.get(canvasKey) || null;
+    }
+    // Record 형식인 경우 (마이그레이션 전)
+    return (allCanvasData as any)[canvasKey] || null;
+  })();
+
+  // ⭐ 디버깅: canvasKey와 Storage 상태 확인
+  useEffect(() => {
+    // LiveMap 또는 Record의 keys를 배열로 변환
+    const keys = (() => {
+      if (!allCanvasData) return [];
+      if (typeof allCanvasData.keys === "function") {
+        return Array.from(allCanvasData.keys());
+      }
+      return Object.keys(allCanvasData);
+    })();
+    log.debug("⭐⭐⭐ 캔버스 동기화 상태:", {
+      canvasKey,
+      noteId,
+      pageNum,
+      isEnabled,
+      readOnly,
+      hasFabricCanvas: !!fabricCanvas,
+      connectionStatus,
+      hasAllCanvasData: !!allCanvasData,
+      allCanvasKeysCount: keys.length,
+      allCanvasKeys: keys.slice(0, 5),  // 처음 5개만 표시
+      hasMatchingData: !!canvasDataFromStorage,
+      matchingDataObjects: (canvasDataFromStorage as any)?.objects?.length || 0,
+    });
+
+    // Student(readOnly)가 데이터를 못 받는 경우 추가 디버깅
+    if (readOnly && keys.length > 0 && !canvasDataFromStorage) {
+      log.warn("⚠️ Student: Storage에 데이터 있지만 현재 페이지 키 불일치!", {
+        찾는키: canvasKey,
+        존재하는키들: keys,
+      });
+    }
+  }, [canvasKey, noteId, pageNum, isEnabled, readOnly, allCanvasData, canvasDataFromStorage, fabricCanvas, connectionStatus]);
 
   // Storage에 캔버스 데이터 저장 (Mutation)
+  // ⭐ LiveMap 사용: canvasData.set(key, value)로 개별 키 수정 시 자동 동기화됨
   const updateCanvasInStorage = useMutation(
-    ({ storage }, canvasJSON: object) => {
-      let canvasData = storage.get("canvasData");
+    ({ storage }, canvasJSON: { version: string; objects: any[]; background: string }) => {
+      // LiveMap 가져오기
+      const canvasData = storage.get("canvasData");
 
-      // canvasData가 없으면 초기화
-      if (!canvasData) {
-        storage.set("canvasData", {});
-        canvasData = storage.get("canvasData");
-      }
+      // ⭐ LiveMap.set() - 개별 키 수정이 자동으로 다른 클라이언트에 동기화됨
+      canvasData.set(canvasKey, canvasJSON);
 
-      // 타입 체크
-      if (canvasData && typeof canvasData === "object") {
-        (canvasData as Record<string, object>)[canvasKey] = canvasJSON;
-      }
+      log.debug("✅ LiveMap.set() 완료:", {
+        canvasKey,
+        objectCount: canvasJSON?.objects?.length || 0,
+        totalKeys: canvasData.size,
+      });
     },
     [canvasKey]
   );
@@ -159,9 +223,12 @@ export function useCollaborativeCanvasSync({
     }
   }, [connectionStatus, updateCanvasInStorage, onConnectionChange, readOnly]);
 
+  // ⭐ 참고: 초기 드로잉 동기화는 useSyncNoteToLiveblocks에서 일괄 처리
+  // 여기서는 실시간 변경사항만 처리
+
   // 재시도 로직이 포함된 Storage 업데이트
   const syncToStorageWithRetry = useCallback(
-    async (canvasJSON: object, retryCount = 0): Promise<boolean> => {
+    async (canvasJSON: CanvasJSON, retryCount = 0): Promise<boolean> => {
       try {
         // 오프라인이면 pending에 저장
         if (connectionStatus !== "connected") {
@@ -267,30 +334,41 @@ export function useCollaborativeCanvasSync({
     [isEnabled, syncToStorageWithRetry, onSyncError, readOnly, canvasKey]
   );
 
-  // Storage에서 캔버스 로드 (Promise 기반, 재시도 포함)
-  const loadFromStorage = useCallback(
+  /**
+   * ⭐ v2: Liveblocks 데이터를 IndexedDB에 저장 (Canvas 직접 로드 X)
+   * Canvas 로드는 use-drawing-page-data.ts가 담당
+   */
+  const saveToIndexedDB = useCallback(
     async (
-      canvas: fabric.Canvas,
-      data: object,
+      canvasData: { version?: string; objects?: any[]; background?: string },
       retryCount = 0
     ): Promise<boolean> => {
       try {
         isUpdatingFromStorage.current = true;
 
-        // Fabric.js v6: loadFromJSON은 Promise 반환
-        await canvas.loadFromJSON(data);
+        // IndexedDB에 저장할 DrawingData 구성
+        const drawingData: DrawingData = {
+          id: `${noteId}-${pageNum}`,
+          noteId,
+          pageNum,
+          canvas: {
+            version: canvasData.version || "6.0.0",
+            objects: canvasData.objects || [],
+            background: canvasData.background || "transparent",
+            width: fabricCanvas?.width || 0,
+            height: fabricCanvas?.height || 0,
+          },
+          image: "",  // ⭐ 원격 수신 시 이미지는 생략 (용량 최적화)
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
 
-        // 렌더링 안정화 대기
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => {
-            canvas.renderAll();
-            // 짧은 안정화 시간 후 플래그 해제
-            setTimeout(() => {
-              isUpdatingFromStorage.current = false;
-              resolve();
-            }, SYNC_CONFIG.RENDER_STABILIZE_MS);
-          });
-        });
+        await saveDrawing(drawingData);
+        log.debug("Liveblocks 데이터 → IndexedDB 저장 완료:", canvasKey);
+
+        // ⭐ onRemoteUpdate 콜백 호출 → use-drawing-page-data가 IndexedDB에서 로드
+        isUpdatingFromStorage.current = false;
+        onRemoteUpdate?.();
 
         setSyncState((prev) => ({
           ...prev,
@@ -300,41 +378,44 @@ export function useCollaborativeCanvasSync({
 
         return true;
       } catch (error) {
-        const loadError =
-          error instanceof Error ? error : new Error("캔버스 로드 실패");
+        const saveError =
+          error instanceof Error ? error : new Error("IndexedDB 저장 실패");
 
         if (retryCount < SYNC_CONFIG.MAX_RETRIES) {
           log.warn(
-            `로드 실패, 재시도 ${retryCount + 1}/${SYNC_CONFIG.MAX_RETRIES}`
+            `IndexedDB 저장 실패, 재시도 ${retryCount + 1}/${SYNC_CONFIG.MAX_RETRIES}`
           );
 
           await new Promise((resolve) =>
             setTimeout(resolve, SYNC_CONFIG.RETRY_DELAY_MS)
           );
-          return loadFromStorage(canvas, data, retryCount + 1);
+          return saveToIndexedDB(canvasData, retryCount + 1);
         }
 
         // 최대 재시도 초과
-        log.error("캔버스 로드 최종 실패:", loadError);
+        log.error("IndexedDB 저장 최종 실패:", saveError);
         isUpdatingFromStorage.current = false;
 
         setSyncState((prev) => ({
           ...prev,
           isLoading: false,
-          error: loadError,
+          error: saveError,
         }));
 
-        onSyncError?.(loadError);
+        onSyncError?.(saveError);
         return false;
       }
     },
-    [onSyncError]
+    [noteId, pageNum, canvasKey, fabricCanvas, onSyncError, onRemoteUpdate]
   );
 
-  // Storage → 로컬 캔버스로 동기화 (실시간 수신)
+  /**
+   * ⭐ v2: Liveblocks Storage 변경 감지 → IndexedDB 저장 → onRemoteUpdate 콜백
+   * Canvas 로드는 use-drawing-page-data.ts가 IndexedDB에서 담당
+   */
   useEffect(() => {
-    if (!isEnabled || !fabricCanvas) {
-      log.debug("동기화 스킵:", { isEnabled, hasFabricCanvas: !!fabricCanvas });
+    if (!isEnabled) {
+      log.debug("Liveblocks 수신 스킵 - 비활성화");
       return;
     }
 
@@ -344,24 +425,26 @@ export function useCollaborativeCanvasSync({
     if (isPageChanged) {
       log.debug("페이지 변경 감지:", { canvasKey });
 
-      // 캔버스 클리어 (이전 페이지 내용 제거)
-      fabricCanvas.clear();
-      fabricCanvas.renderAll();
-
-      // 캐시 리셋
+      // 캐시 리셋 (Canvas 클리어는 use-drawing-page-data에서 처리)
       lastSavedJSON.current = null;
       lastLoadedKeyRef.current = canvasKey;
 
       setSyncState((prev) => ({ ...prev, isLoading: true }));
 
-      // 데이터가 있으면 바로 로드
+      // ⭐ Liveblocks에 데이터가 있으면 IndexedDB에 저장
       if (canvasDataFromStorage) {
-        log.debug("Storage에서 초기 데이터 로드");
+        const objectCount = (canvasDataFromStorage as any).objects?.length || 0;
+        log.debug("⭐ Liveblocks 초기 데이터 수신:", {
+          canvasKey,
+          objectCount,
+          readOnly,
+          hasData: !!canvasDataFromStorage,
+        });
         const storageJSON = JSON.stringify(canvasDataFromStorage);
         lastSavedJSON.current = storageJSON;
-        loadFromStorage(fabricCanvas, canvasDataFromStorage);
+        saveToIndexedDB(canvasDataFromStorage);
       } else {
-        log.debug("Storage에 데이터 없음");
+        log.debug("Liveblocks Storage에 데이터 없음:", { canvasKey, readOnly });
         setSyncState((prev) => ({ ...prev, isLoading: false }));
       }
       return;
@@ -369,7 +452,7 @@ export function useCollaborativeCanvasSync({
 
     // 페이지 전환이 아닌 경우: 다른 사용자의 변경사항 동기화
     if (isUpdatingFromStorage.current) {
-      log.debug("업데이트 중 - 스킵");
+      log.debug("IndexedDB 업데이트 중 - 스킵");
       return;
     }
 
@@ -377,23 +460,27 @@ export function useCollaborativeCanvasSync({
       return;
     }
 
-    // 실제로 데이터가 변경되었는지 확인 (불필요한 로드 방지)
+    // 실제로 데이터가 변경되었는지 확인 (불필요한 저장 방지)
     const storageJSON = JSON.stringify(canvasDataFromStorage);
     if (lastSavedJSON.current === storageJSON) {
       // 이미 같은 데이터 - 스킵
       return;
     }
 
-    // 실시간 동기화: 다른 사용자가 그린 내용 수신
-    log.debug("실시간 동기화 수신:", { readOnly });
+    // ⭐ 실시간 동기화: Liveblocks 변경 → IndexedDB 저장 → onRemoteUpdate
+    const objectCount = (canvasDataFromStorage as any).objects?.length || 0;
+    log.debug("⭐ 실시간 동기화 수신:", {
+      canvasKey,
+      objectCount,
+      readOnly,
+    });
     lastSavedJSON.current = storageJSON;
-    loadFromStorage(fabricCanvas, canvasDataFromStorage);
+    saveToIndexedDB(canvasDataFromStorage);
   }, [
     canvasDataFromStorage,
-    fabricCanvas,
     isEnabled,
     canvasKey,
-    loadFromStorage,
+    saveToIndexedDB,
     readOnly,
   ]);
 

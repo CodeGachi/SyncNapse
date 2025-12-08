@@ -8,6 +8,7 @@
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setupAuthInterceptor } from "@/lib/api/client";
+import { CACHE_CONFIG, API_CONFIG } from "@/lib/constants/config";
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -15,20 +16,19 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 1000 * 60 * 5, // Fresh for 5 minutes
-            gcTime: 1000 * 60 * 10, // Cache retention for 10 minutes (formerly cacheTime)
-            retry: 2, // Retry 2 times on failure
+            staleTime: CACHE_CONFIG.QUERY_STALE_TIME_MS,
+            gcTime: CACHE_CONFIG.QUERY_GC_TIME_MS,
+            retry: 2,
             retryDelay: (attemptIndex) =>
-              Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-            refetchOnWindowFocus: true, // Revalidate on window focus
-            refetchOnReconnect: true, // Revalidate on network reconnect
+              Math.min(API_CONFIG.RETRY_DELAY_MS * 2 ** attemptIndex, API_CONFIG.TIMEOUT_MS),
+            refetchOnWindowFocus: true,
+            refetchOnReconnect: true,
           },
           mutations: {
             retry: 1,
-            retryDelay: 1000,
+            retryDelay: API_CONFIG.RETRY_DELAY_MS,
           },
         },
-        // Consider applying QueryCache / MutationCache
       })
   );
 

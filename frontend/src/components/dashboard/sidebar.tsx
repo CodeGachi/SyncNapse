@@ -5,8 +5,6 @@
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Logo } from "@/components/common/logo";
 import { CreateFolderModal } from "@/components/dashboard/folder-management/create-folder-modal";
@@ -30,28 +28,40 @@ export function Sidebar({
   onSelectFolder,
   onCloseMobile,
 }: SidebarProps) {
-  const router = useRouter();
   const { user } = useAuth();
   const { buildFolderTree } = useFolders();
   const { handleCreateNote } = useDashboard();
 
-  // UI 상태
-  const [isNoteDropdownOpen, setIsNoteDropdownOpen] = useState(false);
-  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-  const [selectedNoteType, setSelectedNoteType] = useState<"student" | "educator">("student");
-
   const {
+    // 노트 생성 UI 상태
+    isNoteDropdownOpen,
+    isNoteModalOpen,
+    selectedNoteType,
+
+    // 노트 생성 핸들러
+    toggleNoteDropdown,
+    closeNoteDropdown,
+    openNoteModal,
+    closeNoteModal,
+
+    // 네비게이션 핸들러
+    navigateToProfile,
+    navigateToTrash,
+    navigateToHome,
+    navigateToLogout,
+
+    // 폴더 모달 상태
     isCreateFolderModalOpen,
-    setIsCreateFolderModalOpen,
     createSubfolderParentId,
-    setCreateSubfolderParentId,
     renamingFolder,
     setRenamingFolder,
     deletingFolder,
     setDeletingFolder,
     deletingNote,
     setDeletingNote,
-    handleCreateFolderModal,
+    setIsCreateFolderModalOpen,
+
+    // 핸들러
     handleCreateSubFolder,
     handleRenameFolder,
     handleRenameSubmit,
@@ -59,6 +69,7 @@ export function Sidebar({
     handleDeleteSubmit,
     handleDeleteNote,
     handleDeleteNoteSubmit,
+    closeCreateFolderModal,
   } = useDashboardSidebar({
     selectedFolderId,
     onSelectFolder,
@@ -97,7 +108,7 @@ export function Sidebar({
 
               {/* User Info - 클릭하면 마이페이지로 이동 */}
               <button
-                onClick={() => router.push("/dashboard/profile")}
+                onClick={navigateToProfile}
                 className="flex items-center gap-2 w-full h-[52px] hover:bg-foreground/5 rounded-xl transition-all duration-300 p-2 -ml-1 bg-foreground/5 border border-border-subtle backdrop-blur-sm group"
               >
                 {user?.picture ? (
@@ -134,13 +145,13 @@ export function Sidebar({
                   {isNoteDropdownOpen && (
                     <div
                       className="fixed inset-0 z-40"
-                      onClick={() => setIsNoteDropdownOpen(false)}
+                      onClick={closeNoteDropdown}
                     />
                   )}
 
                   {/* 새 노트 Button */}
                   <button
-                    onClick={() => setIsNoteDropdownOpen(!isNoteDropdownOpen)}
+                    onClick={toggleNoteDropdown}
                     className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] z-50 relative bg-gradient-to-br from-brand to-brand-secondary shadow-[0_0_20px_rgba(175,192,43,0.3)] hover:shadow-[0_0_30px_rgba(175,192,43,0.5)] hover:scale-105 transition-all duration-300 border border-[#6B7A20] dark:border-brand"
                   >
                     <div className="flex items-center gap-1">
@@ -161,11 +172,7 @@ export function Sidebar({
                       className="absolute top-full left-0 mt-1 w-[120px] rounded-[10px] overflow-hidden z-50 shadow-lg bg-brand-secondary"
                     >
                       <button
-                        onClick={() => {
-                          setSelectedNoteType("student");
-                          setIsNoteModalOpen(true);
-                          setIsNoteDropdownOpen(false);
-                        }}
+                        onClick={() => openNoteModal("student")}
                         className="w-full px-3 py-2.5 text-left text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2"
                       >
                         {/* 개인 노트 아이콘 - 사람 */}
@@ -178,11 +185,7 @@ export function Sidebar({
                       {/* 구분선 */}
                       <div className="mx-2 border-t border-white/30" />
                       <button
-                        onClick={() => {
-                          setSelectedNoteType("educator");
-                          setIsNoteModalOpen(true);
-                          setIsNoteDropdownOpen(false);
-                        }}
+                        onClick={() => openNoteModal("educator")}
                         className="w-full px-3 py-2.5 text-left text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2"
                       >
                         {/* 강의 노트 아이콘 - 칠판 */}
@@ -201,9 +204,7 @@ export function Sidebar({
 
                 {/* 새 폴더 Button */}
                 <button
-                  onClick={() => {
-                    setIsCreateFolderModalOpen(true);
-                  }}
+                  onClick={() => setIsCreateFolderModalOpen(true)}
                   className="flex justify-center items-center gap-2.5 w-[120px] h-[46px] rounded-[12px] bg-foreground/5 border border-border hover:bg-foreground/10 hover:scale-105 transition-all duration-300"
                 >
                   <div className="flex items-center gap-1 text-foreground">
@@ -222,7 +223,7 @@ export function Sidebar({
             <div className="flex flex-col items-start py-3 px-3 gap-[14px] w-full border-b border-border-subtle">
               {/* 휴지통 */}
               <button
-                onClick={() => router.push("/dashboard/trash")}
+                onClick={navigateToTrash}
                 className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 hover:backdrop-blur-sm transition-all duration-200 group"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground opacity-70 group-hover:opacity-100 transition-opacity">
@@ -236,10 +237,7 @@ export function Sidebar({
 
               {/* 홈 */}
               <button
-                onClick={() => {
-                  onSelectFolder(null);
-                  router.push("/dashboard/main");
-                }}
+                onClick={navigateToHome}
                 className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-foreground/5 hover:backdrop-blur-sm transition-all duration-200 group"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground opacity-70 group-hover:opacity-100 transition-opacity">
@@ -278,7 +276,7 @@ export function Sidebar({
             {/* 로그아웃 버튼 */}
             <div className="py-3 px-3 border-t border-border-subtle">
               <button
-                onClick={() => router.push("/auth/logout")}
+                onClick={navigateToLogout}
                 className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-red-500/10 transition-all duration-200 group"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-foreground/70 group-hover:text-red-500 transition-colors">
@@ -300,7 +298,7 @@ export function Sidebar({
       {isNoteModalOpen && (
         <NoteSettingsModal
           isOpen={isNoteModalOpen}
-          onClose={() => setIsNoteModalOpen(false)}
+          onClose={closeNoteModal}
           onSubmit={handleCreateNote}
           defaultFolderId={selectedFolderId}
           noteType={selectedNoteType}
@@ -309,10 +307,7 @@ export function Sidebar({
 
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}
-        onClose={() => {
-          setIsCreateFolderModalOpen(false);
-          setCreateSubfolderParentId(null);
-        }}
+        onClose={closeCreateFolderModal}
         parentId={createSubfolderParentId}
       />
 

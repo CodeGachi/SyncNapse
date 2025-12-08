@@ -13,7 +13,6 @@ import Image from "next/image";
 import {
   usePdfLoader,
   usePdfControls,
-  usePdfPan,
   usePdfThumbnails,
   usePdfTextLayer,
   usePdfSearch,
@@ -24,6 +23,25 @@ import { PdfThumbnailSidebar } from "./pdf-thumbnail-sidebar";
 import { PDFDrawingOverlay, type PDFDrawingOverlayHandle } from "@/components/note/drawing/pdf-drawing-overlay";
 import type { DrawingData } from "@/lib/types/drawing";
 import { LoadingScreen } from "@/components/common/loading-screen";
+import { CursorOverlay } from "@/components/note/collaboration/cursor-overlay";
+import { useCursorBroadcast } from "@/features/note/collaboration";
+
+/**
+ * 협업 모드에서만 커서 브로드캐스트를 활성화하는 래퍼 컴포넌트
+ * RoomProvider 내부에서만 렌더링되어야 함
+ */
+function CursorBroadcaster({
+  containerRef,
+  isDrawingMode,
+  enabled,
+}: {
+  containerRef: React.RefObject<HTMLElement>;
+  isDrawingMode: boolean;
+  enabled: boolean;
+}) {
+  useCursorBroadcast(containerRef, isDrawingMode, enabled);
+  return null;
+}
 
 interface CustomPdfViewerProps {
   fileUrl?: string | null;
@@ -69,6 +87,7 @@ export function CustomPdfViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const pdfWrapperRef = useRef<HTMLDivElement>(null);
 
   // 썸네일 사이드바 토글 상태
   const [isThumbnailOpen, setIsThumbnailOpen] = useState(true);
@@ -108,13 +127,37 @@ export function CustomPdfViewer({
     handleRotateRight,
   } = usePdfControls(numPages);
 
-  const {
-    isPanning,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    handleMouseLeave,
-  } = usePdfPan(containerRef);
+  // PDF Pan (UI 상태만 관리)
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+    setScrollStart({
+      x: containerRef.current.scrollLeft,
+      y: containerRef.current.scrollTop,
+    });
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !containerRef.current) return;
+    const dx = e.clientX - panStart.x;
+    const dy = e.clientY - panStart.y;
+    containerRef.current.scrollLeft = scrollStart.x - dx;
+    containerRef.current.scrollTop = scrollStart.y - dy;
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPanning(false);
+  };
 
   // 썸네일 생성
   const { thumbnails } = usePdfThumbnails({
@@ -213,6 +256,8 @@ export function CustomPdfViewer({
     onUndo: drawingOverlayRef?.current?.handleUndo,
     onRedo: drawingOverlayRef?.current?.handleRedo,
   });
+
+  // 협업 모드일 때 커서 위치 브로드캐스트는 아래 JSX에서 CursorBroadcaster 컴포넌트로 처리
 
   // 썸네일 클릭 핸들러
   const handleThumbnailClick = (pageNum: number) => {
@@ -502,7 +547,11 @@ export function CustomPdfViewer({
                   </div>
                 )}
 
-                <div className="inline-block relative" style={{ overflow: "hidden", contain: "paint" }}>
+                <div
+                  ref={pdfWrapperRef}
+                  className="inline-block relative"
+                  style={{ overflow: "hidden", contain: "paint" }}
+                >
                   {/* PDF Canvas */}
                   <canvas
                     ref={canvasRef}
@@ -546,6 +595,26 @@ export function CustomPdfViewer({
                       isPdf={isPdf}
                       onSave={onDrawingSave}
                     />
+                  )}
+
+                  {/* Cursor Overlay - 협업 모드에서만 렌더링 */}
+                  {isCollaborative && pdfRenderState && (
+                    <>
+                      {/* 커서 브로드캐스트: 공유 뷰(학생)는 자신의 커서를 브로드캐스트하지 않음 */}
+                      {!isSharedView && (
+                        <CursorBroadcaster
+                          containerRef={pdfWrapperRef}
+                          isDrawingMode={drawingMode}
+                          enabled={isPdf}
+                        />
+                      )}
+                      {/* 커서 오버레이: 공유 뷰(학생)는 교육자 커서만 표시 */}
+                      <CursorOverlay
+                        width={pdfRenderState.renderedWidth}
+                        height={pdfRenderState.renderedHeight}
+                        educatorOnly={isSharedView}
+                      />
+                    </>
                   )}
                 </div>
               </>
