@@ -39,7 +39,6 @@ export class BM25SearchService {
 
     // 1. 쿼리 토큰화
     const queryTokens = this.tokenize(query);
-    this.logger.debug(`Query tokens: ${JSON.stringify(queryTokens)}`);
     if (queryTokens.length === 0) {
       this.logger.warn('Query tokenization resulted in empty tokens');
       return [];
@@ -53,7 +52,6 @@ export class BM25SearchService {
 
     // 4. IDF 계산
     const idf = this.calculateIDF(queryTokens, docTokens);
-    this.logger.debug(`IDF: ${JSON.stringify(Array.from(idf.entries()))}`);
 
     // 5. 각 문서에 대한 BM25 점수 계산
     const scores: BM25Result[] = documents.map((doc, idx) => {
@@ -63,8 +61,6 @@ export class BM25SearchService {
         avgDocLen,
         idf,
       );
-      
-      this.logger.debug(`Doc ${idx} score: ${score}, tokens: ${JSON.stringify(docTokens[idx])}`);
 
       return {
         document: doc,
@@ -129,8 +125,10 @@ export class BM25SearchService {
     const N = docTokens.length;
 
     for (const token of queryTokens) {
-      // 해당 토큰을 포함한 문서 개수
-      const df = docTokens.filter(tokens => tokens.includes(token)).length;
+      // 해당 토큰을 포함한 문서 개수 (한국어 조사 처리를 위해 부분 문자열 매칭 사용)
+      const df = docTokens.filter(tokens => 
+        tokens.some(t => t.includes(token) || token.includes(t))
+      ).length;
 
       if (df > 0) {
         // 표준 BM25 IDF 공식: log((N - df + 0.5) / (df + 0.5))
@@ -163,8 +161,8 @@ export class BM25SearchService {
     let score = 0;
 
     for (const token of queryTokens) {
-      // 1. 문서 내 토큰 빈도 (TF)
-      const tf = docTokens.filter(t => t === token).length;
+      // 1. 문서 내 토큰 빈도 (TF) - 한국어 조사 처리를 위해 부분 문자열 매칭 사용
+      const tf = docTokens.filter(t => t.includes(token) || token.includes(t)).length;
 
       if (tf === 0) continue; // 이 토큰이 문서에 없으면 건너뜀
 
