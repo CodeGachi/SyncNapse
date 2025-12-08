@@ -16,16 +16,16 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: false,
-    pool: 'threads',
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        minThreads: 1,
-        maxThreads: 4,
+      forks: {
+        singleFork: true,
       },
     },
-    testTimeout: 30000,
-    teardownTimeout: 10000,
-    fileParallelism: true,
+    testTimeout: 10000,
+    teardownTimeout: 3000,
+    fileParallelism: false,
+    isolate: false,
     sequence: {
       shuffle: false,
     },

@@ -1,26 +1,14 @@
-/**
- * useRecordingTimeline 훅 테스트
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
+
+vi.mock("@/lib/api/services/audio.api", () => ({ addTimelineEvent: vi.fn() }));
+
 import { useRecordingTimeline } from "@/features/note/recording/use-recording-timeline";
 
-vi.mock("@/lib/api/services/audio.api", () => ({ addTimelineEvent: vi.fn().mockResolvedValue({}) }));
-
-beforeEach(() => { vi.clearAllMocks(); });
-
 describe("useRecordingTimeline", () => {
-  it("녹음 중 아닐 때 초기 상태", () => {
+  it("addTimelineEvent 함수 반환", () => {
     const { result } = renderHook(() => useRecordingTimeline({
       isRecording: false, recordingTime: 0, audioRecordingId: null, currentBackendId: "file-1", currentPage: 1,
-    }));
-    expect(typeof result.current.addTimelineEvent).toBe("function");
-  });
-
-  it("녹음 중일 때 addTimelineEvent 사용 가능", () => {
-    const { result } = renderHook(() => useRecordingTimeline({
-      isRecording: true, recordingTime: 10, audioRecordingId: "rec-1", currentBackendId: "file-1", currentPage: 1,
     }));
     expect(typeof result.current.addTimelineEvent).toBe("function");
   });

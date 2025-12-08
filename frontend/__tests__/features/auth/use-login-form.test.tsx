@@ -1,10 +1,16 @@
-/**
- * useLoginForm 훅 테스트
- */
+import { describe, it, expect, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+vi.mock("@/features/auth/use-auth", () => ({
+  useAuth: () => ({ isAuthenticated: false, loading: false }),
+}));
+
 import { useLoginForm } from "@/features/auth/use-login-form";
-import { ReactNode } from "react";
 
+describe("useLoginForm", () => {
+  it("초기 상태", () => {
+    const { result } = renderHook(() => useLoginForm());
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.loading).toBe(false);
+  });
+});
