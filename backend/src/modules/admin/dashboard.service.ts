@@ -191,13 +191,13 @@ export class DashboardService {
       const activeRate = (stats.activeSessions / stats.totalUsers) * 100;
 
       if (activeRate < 2) {
-        return 'error';
+        return SystemStatus.ERROR;
       } else if (activeRate < 5) {
-        return 'warning';
+        return SystemStatus.WARNING;
       }
     }
 
-    return 'healthy';
+    return SystemStatus.HEALTHY;
   }
 
   /**
@@ -244,7 +244,7 @@ export class DashboardService {
         // 3. Redis Cache
         new ServerStatusDto({
           name: 'Redis Cache',
-          status: 'healthy',
+          status: SystemStatus.HEALTHY,
           responseTime: this.getStableMetric(2, 1),
           cpu: this.getStableMetric(12, 5),
           memory: this.getStableMetric(38, 8),
@@ -254,7 +254,7 @@ export class DashboardService {
         // 4. Storage (S3/MinIO)
         new ServerStatusDto({
           name: 'Object Storage',
-          status: 'healthy',
+          status: SystemStatus.HEALTHY,
           responseTime: this.getStableMetric(28, 12),
           cpu: this.getStableMetric(18, 6),
           memory: this.getStableMetric(45, 10),
@@ -337,11 +337,11 @@ export class DashboardService {
    */
   private determineServerStatus(cpu: number, memory: number): SystemStatus {
     if (cpu > 80 || memory > 85) {
-      return 'error';
+      return SystemStatus.ERROR;
     } else if (cpu > 65 || memory > 75) {
-      return 'warning';
+      return SystemStatus.WARNING;
     }
-    return 'healthy';
+    return SystemStatus.HEALTHY;
   }
 }
 

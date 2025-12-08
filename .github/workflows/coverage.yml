@@ -1,0 +1,218 @@
+name: Test Coverage
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================
+  # Backend Coverage Report
+  # ============================================
+  backend-coverage:
+    # Run when CI succeeds on main branch OR manual trigger
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For workflow_run, checkout the commit that triggered CI
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Install system dependencies for canvas (native module)
+      - name: Install canvas build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-backend-${{ hashFiles('backend/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-backend-
+
+      - name: Install dependencies
+        run: cd backend && bun install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: cd backend && npx prisma generate
+
+      - name: Run tests with coverage
+        id: coverage
+        run: |
+          cd backend
+          npm run test:coverage 2>&1 | tee coverage-output.txt
+          
+          # Extract coverage summary
+          STATEMENTS=$(grep "Statements" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
+          BRANCHES=$(grep "Branches" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
+          FUNCTIONS=$(grep "Functions" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
+          LINES=$(grep "Lines" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
+          
+          echo "statements=$STATEMENTS" >> $GITHUB_OUTPUT
+          echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
+          echo "functions=$FUNCTIONS" >> $GITHUB_OUTPUT
+          echo "lines=$LINES" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Generate Coverage Summary
+        run: |
+          echo "## 📊 Backend Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Helper function to determine status emoji
+          get_status() {
+            local value=$1
+            local threshold=$2
+            if (( $(echo "$value >= $threshold" | bc -l) )); then
+              echo "✅"
+            elif (( $(echo "$value >= $(echo "$threshold * 0.8" | bc -l)" | bc -l) )); then
+              echo "⚠️"
+            else
+              echo "❌"
+            fi
+          }
+          
+          STATEMENTS="${{ steps.coverage.outputs.statements }}"
+          BRANCHES="${{ steps.coverage.outputs.branches }}"
+          FUNCTIONS="${{ steps.coverage.outputs.functions }}"
+          LINES="${{ steps.coverage.outputs.lines }}"
+          
+          # Thresholds (current: 25/15/30/25, target: 60)
+          STMT_STATUS=$(get_status "$STATEMENTS" 60)
+          BRANCH_STATUS=$(get_status "$BRANCHES" 50)
+          FUNC_STATUS=$(get_status "$FUNCTIONS" 60)
+          LINE_STATUS=$(get_status "$LINES" 60)
+          
+          echo "| Statements | ${STATEMENTS}% | ${STMT_STATUS} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches | ${BRANCHES}% | ${BRANCH_STATUS} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Functions | ${FUNCTIONS}% | ${FUNC_STATUS} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines | ${LINES}% | ${LINE_STATUS} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📈 Coverage Thresholds" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Current | Minimum | Target |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|---------|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Statements | ${STATEMENTS}% | 25% | 60% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches | ${BRANCHES}% | 15% | 50% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Functions | ${FUNCTIONS}% | 30% | 60% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines | ${LINES}% | 25% | 60% |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### ℹ️ Legend" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Good**: Meets target threshold (60%)" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ **Warning**: Above minimum but below target" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Low**: Below minimum threshold" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/coverage/
+          retention-days: 30
+        if: always()
+
+  # ============================================
+  # Frontend Coverage Report (optional)
+  # ============================================
+  frontend-coverage:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Install system dependencies for canvas (native module)
+      - name: Install canvas build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-frontend-${{ hashFiles('frontend/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-frontend-
+
+      - name: Install dependencies
+        run: cd frontend && bun install --frozen-lockfile
+
+      - name: Setup environment
+        env:
+          GITHUB_TOKEN: ${{ secrets.ENV_REPO_PAT }}
+          ENV_REPO_URL: https://x-access-token:${{ secrets.ENV_REPO_PAT }}@github.com/CodeGachi/.env.git
+        run: |
+          bun install --ignore-scripts
+          bun run env:sync || echo "Using fallback env"
+          cp .env.dev frontend/.env 2>/dev/null || touch frontend/.env
+
+      - name: Run tests with coverage
+        id: coverage
+        run: |
+          cd frontend
+          bun run test:ci --coverage 2>&1 | tee coverage-output.txt || true
+          
+          # Extract coverage if available
+          STATEMENTS=$(grep "Statements" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "N/A")
+          BRANCHES=$(grep "Branches" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "N/A")
+          FUNCTIONS=$(grep "Functions" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "N/A")
+          LINES=$(grep "Lines" coverage-output.txt | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "N/A")
+          
+          echo "statements=$STATEMENTS" >> $GITHUB_OUTPUT
+          echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
+          echo "functions=$FUNCTIONS" >> $GITHUB_OUTPUT
+          echo "lines=$LINES" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Generate Frontend Coverage Summary
+        run: |
+          echo "## 📊 Frontend Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          STATEMENTS="${{ steps.coverage.outputs.statements }}"
+          BRANCHES="${{ steps.coverage.outputs.branches }}"
+          FUNCTIONS="${{ steps.coverage.outputs.functions }}"
+          LINES="${{ steps.coverage.outputs.lines }}"
+          
+          if [ "$STATEMENTS" = "N/A" ]; then
+            echo "⚠️ Coverage data not available for frontend" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Statements | ${STATEMENTS}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branches | ${BRANCHES}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Functions | ${FUNCTIONS}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Lines | ${LINES}% |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_STEP_SUMMARY
+

@@ -55,6 +55,8 @@ Thumbs.db
 
 # Keep sample/test files in storage
 backend/var/storage/**/*
+backend/.jest-cache
+backend/coverage
 !backend/var/storage/.gitkeep
 !backend/var/storage/**/.gitkeep
 !backend/var/storage/**/README.md

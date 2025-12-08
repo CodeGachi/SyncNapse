@@ -279,7 +279,8 @@ describe('PlansService', () => {
       prismaService.subscription.count.mockResolvedValue(0);
       prismaService.plan.delete.mockResolvedValue(newPlan);
 
-      await expect(service.deletePlan(newPlan.id)).resolves.not.toThrow();
+      const result = await service.deletePlan(newPlan.id);
+      expect(result).toHaveProperty('message');
     });
 
     it('should throw NotFoundException for non-existent plan', async () => {

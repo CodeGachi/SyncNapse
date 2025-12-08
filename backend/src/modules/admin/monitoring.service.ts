@@ -1,6 +1,7 @@
 import { Injectable, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { ServerStatusDto, ServerMetricsQueryDto, ServerMetricsDto, MetricPointDto } from './dto';
+import { SystemStatus } from './dto/dashboard-stats-response.dto';
 
 @Injectable()
 export class MonitoringService {
@@ -31,7 +32,7 @@ export class MonitoringService {
       // Mock 데이터 (SERVER_CONFIGS 기반)
       const servers: ServerStatusDto[] = this.SERVER_CONFIGS.map((config) => {
         // AI Service는 warning, 나머지는 healthy
-        const status = config.name === 'AI Service' ? 'warning' : 'healthy';
+        const status = config.name === 'AI Service' ? SystemStatus.WARNING : SystemStatus.HEALTHY;
         
         // Database와 Redis는 storage 있음
         const storage = ['Database Server', 'Redis Cache'].includes(config.name)
