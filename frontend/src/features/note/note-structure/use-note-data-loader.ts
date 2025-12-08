@@ -53,7 +53,7 @@ export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
       files: filesWithId.map(f => ({ id: f.id, name: f.file.name, backendId: f.backendId })),
     });
 
-    // 파일 로드 (ID 정보 유지, backendId 포함)
+    // 파일 로드 (ID 정보 유지, backendId, backendUrl 포함)
     const fileItems = filesWithId.map((fileWithId) => ({
       id: fileWithId.id, // IndexedDB DBFile ID 사용 (고유성 보장)
       name: fileWithId.file.name,
@@ -62,6 +62,7 @@ export function useNoteDataLoader({ noteId }: UseNoteDataLoaderProps) {
       uploadedAt: new Date(fileWithId.createdAt).toISOString(),
       url: URL.createObjectURL(fileWithId.file),
       backendId: fileWithId.backendId, // Backend File ID (for timeline events)
+      backendUrl: fileWithId.backendUrl, // Backend storage URL for Liveblocks sharing
     }));
 
     log.debug("Store에 파일 로드:", fileItems.length, "개");

@@ -52,6 +52,21 @@ describe('NotesService', () => {
     audioTimelineEvent: {
       create: jest.fn(),
     },
+    transcriptionSession: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    transcriptRevision: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    transcriptionSegment: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    transcriptionWord: {
+      create: jest.fn(),
+    },
   };
 
   const mockStorageService = {
@@ -309,6 +324,7 @@ describe('NotesService', () => {
 
       mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
       mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
+      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
 
       const result = await service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId);
 
@@ -400,6 +416,7 @@ describe('NotesService', () => {
       mockPrismaService.file.findMany.mockResolvedValue([]);
       mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
       mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
+      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
 
       const result = await service.copyNoteToMyFolder(userId, sourceNoteId);
 
@@ -473,6 +490,7 @@ describe('NotesService', () => {
       mockPrismaService.file.findMany.mockResolvedValue([]);
       mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
       mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
+      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
 
       const result = await service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId, customTitle);
 
@@ -531,6 +549,7 @@ describe('NotesService', () => {
       mockPrismaService.file.findMany.mockResolvedValue([]);
       mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
       mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
+      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
 
       // Pass empty string as customTitle
       const result = await service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId, '   ');

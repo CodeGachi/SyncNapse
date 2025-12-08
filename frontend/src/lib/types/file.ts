@@ -20,6 +20,7 @@ export interface FileItem {
   url: string; // Blob URL for display
   file?: File; // Original file object
   backendId?: string; // Backend File ID (for timeline events)
+  backendUrl?: string; // Backend storage URL for sharing via Liveblocks
 }
 
 // ============================================================================
