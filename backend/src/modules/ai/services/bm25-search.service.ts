@@ -39,6 +39,7 @@ export class BM25SearchService {
 
     // 1. 쿼리 토큰화
     const queryTokens = this.tokenize(query);
+    this.logger.debug(`Query tokens: ${JSON.stringify(queryTokens)}`);
     if (queryTokens.length === 0) {
       this.logger.warn('Query tokenization resulted in empty tokens');
       return [];
@@ -52,6 +53,7 @@ export class BM25SearchService {
 
     // 4. IDF 계산
     const idf = this.calculateIDF(queryTokens, docTokens);
+    this.logger.debug(`IDF: ${JSON.stringify(Array.from(idf.entries()))}`);
 
     // 5. 각 문서에 대한 BM25 점수 계산
     const scores: BM25Result[] = documents.map((doc, idx) => {
@@ -61,6 +63,8 @@ export class BM25SearchService {
         avgDocLen,
         idf,
       );
+      
+      this.logger.debug(`Doc ${idx} score: ${score}, tokens: ${JSON.stringify(docTokens[idx])}`);
 
       return {
         document: doc,
@@ -90,18 +94,18 @@ export class BM25SearchService {
     const lower = text.toLowerCase();
 
     // 2. 특수문자 제거 (한글, 영문, 숫자, 공백만 남김)
-    const cleaned = lower.replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ');
+    const cleaned = lower.replace(/[^a-z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]/g, ' ');
 
     // 3. 공백으로 분리
     const tokens = cleaned.split(/\s+/).filter(t => t.length > 0);
 
     // 4. 불용어 제거 (간단한 버전)
     const stopwords = new Set([
-      '이', '그', '저', '것', '등', '및', '에', '의', '를', '을', '가', '이',
+      '이', '그', '저', '것', '등', '및', '에', '의', '를', '을', '가',
       'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
       'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
     ]);
-    const filtered = tokens.filter(t => !stopwords.has(t) && t.length > 1);
+    const filtered = tokens.filter(t => !stopwords.has(t) && t.length > 0);
 
     return filtered;
   }
@@ -130,7 +134,8 @@ export class BM25SearchService {
 
       if (df > 0) {
         // 표준 BM25 IDF 공식: log((N - df + 0.5) / (df + 0.5))
-        const idfValue = Math.log((N - df + 0.5) / (df + 0.5));
+        // 모든 문서에 나타나는 단어도 최소 0.01의 IDF 값을 가지도록 함
+        const idfValue = Math.max(0.01, Math.log((N - df + 0.5) / (df + 0.5)));
         idf.set(token, idfValue);
       } else {
         // 문서에 없는 토큰은 0

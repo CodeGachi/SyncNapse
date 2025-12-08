@@ -17,6 +17,23 @@ describe('BM25SearchService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('tokenize', () => {
+    it('should tokenize Korean text correctly', () => {
+      // @ts-ignore - accessing private method for testing
+      const tokens = service['tokenize']('인공지능 학습');
+      console.log('Tokenized "인공지능 학습":', tokens);
+      expect(tokens).toContain('인공지능');
+      expect(tokens).toContain('학습');
+    });
+
+    it('should tokenize mixed text', () => {
+      // @ts-ignore - accessing private method for testing
+      const tokens = service['tokenize']('AI 인공지능 기술');
+      console.log('Tokenized "AI 인공지능 기술":', tokens);
+      expect(tokens.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('search', () => {
     it('should return relevant documents based on BM25 scoring', () => {
       const documents = [
@@ -40,6 +57,10 @@ describe('BM25SearchService', () => {
 
       const query = '인공지능 학습';
       const results = service.search(query, documents, 3);
+
+      console.log('Query:', query);
+      console.log('Results:', results);
+      console.log('Results length:', results.length);
 
       expect(results).toBeDefined();
       expect(results.length).toBeGreaterThan(0);
