@@ -1,7 +1,3 @@
-/**
- * useTrash 훅 테스트
- */
-
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -13,14 +9,6 @@ vi.mock("@/lib/api/services/notes.api", () => ({
   fetchTrashedNotes: vi.fn(),
   restoreNote: vi.fn(),
   permanentlyDeleteNote: vi.fn(),
-}));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
 }));
 
 const mockConfirm = vi.fn();

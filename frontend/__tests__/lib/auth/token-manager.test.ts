@@ -14,9 +14,6 @@ vi.mock("@/lib/utils/cookie", () => {
   };
 });
 vi.mock("@/lib/api/hal/api-discovery", () => ({ getCachedHref: vi.fn(() => "http://api.test.com/auth/refresh") }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: vi.fn() }),
-}));
 
 beforeEach(() => { vi.clearAllMocks(); });
 

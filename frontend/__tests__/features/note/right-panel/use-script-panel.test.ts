@@ -9,14 +9,6 @@ import { useScriptPanel } from "@/features/note/right-panel/use-script-panel";
 vi.mock("@/lib/api/services/audio.api", () => ({
   getPageContextAtTime: vi.fn(() => ({ fileId: "file-1", page: 1 })),
 }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
 
 beforeEach(() => { vi.clearAllMocks(); });
 
@@ -26,8 +18,14 @@ describe("useScriptPanel", () => {
     expect(result.current.currentTime).toBe(0);
   });
 
-  it("handleSegmentClick으로 시간 설정", () => {
-    const mockAudioRef = { current: { currentTime: 0 } as HTMLAudioElement };
+  it("handleSegmentClick으로 시간 설정", async () => {
+    const mockAudioRef = {
+      current: {
+        currentTime: 0,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      } as unknown as HTMLAudioElement
+    };
     const { result } = renderHook(() => useScriptPanel({
       audioRef: mockAudioRef,
       timelineEvents: [],
@@ -37,7 +35,13 @@ describe("useScriptPanel", () => {
   });
 
   it("handleWordClick으로 시간 설정", () => {
-    const mockAudioRef = { current: { currentTime: 0 } as HTMLAudioElement };
+    const mockAudioRef = {
+      current: {
+        currentTime: 0,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      } as unknown as HTMLAudioElement
+    };
     const { result } = renderHook(() => useScriptPanel({
       audioRef: mockAudioRef,
       timelineEvents: [],

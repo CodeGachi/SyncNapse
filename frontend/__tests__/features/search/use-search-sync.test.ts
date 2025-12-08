@@ -19,14 +19,6 @@ vi.mock("@/stores/search-sync-store", () => ({
   useSearchSyncStore: vi.fn(() => mockStoreState),
 }));
 
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  }),
-}));
 
 describe("useSearchSync", () => {
   beforeEach(() => {

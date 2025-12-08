@@ -7,9 +7,6 @@ import { renderHook } from "@testing-library/react";
 import { useRecordingTimeline } from "@/features/note/recording/use-recording-timeline";
 
 vi.mock("@/lib/api/services/audio.api", () => ({ addTimelineEvent: vi.fn().mockResolvedValue({}) }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
-}));
 
 beforeEach(() => { vi.clearAllMocks(); });
 

@@ -10,14 +10,6 @@ import { renderHook } from "@testing-library/react";
 import { usePdfTextLayer } from "@/features/note/viewer/use-pdf-text-layer";
 import { createRef } from "react";
 
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  }),
-}));
 
 describe("usePdfTextLayer", () => {
   let textLayerRef: React.RefObject<HTMLDivElement | null>;

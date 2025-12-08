@@ -9,9 +9,6 @@ import { useDashboardSidebar } from "@/features/dashboard/sidebar/use-dashboard-
 import { ReactNode } from "react";
 
 const mockRouterPush = vi.fn();
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockRouterPush }),
-}));
 
 const mockCreateFolder = vi.fn();
 const mockRenameFolder = vi.fn();

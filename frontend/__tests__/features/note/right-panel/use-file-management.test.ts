@@ -23,9 +23,6 @@ vi.mock("@/lib/api/services/files.api", () => ({
   deleteFile: (id: string) => mockDeleteFile(id),
 }));
 
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
-}));
 
 describe("useFileManagement", () => {
   beforeEach(() => vi.clearAllMocks());

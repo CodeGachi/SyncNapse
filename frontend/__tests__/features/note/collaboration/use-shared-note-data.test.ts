@@ -10,9 +10,6 @@ vi.mock("@/stores", () => ({
   useNoteEditorStore: vi.fn(() => ({ setFiles: vi.fn(), setSelectedFileId: vi.fn(), setCurrentPage: vi.fn(), setPageNotes: vi.fn() })),
 }));
 vi.mock("@/lib/db", () => ({ initDB: vi.fn() }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
-}));
 
 import { useStorage } from "@/lib/liveblocks/liveblocks.config";
 import { useSharedNoteData } from "@/features/note/collaboration/use-shared-note-data";

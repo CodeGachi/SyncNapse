@@ -12,9 +12,6 @@ vi.mock("@/lib/liveblocks/liveblocks.config", () => ({
   useBroadcastEvent: () => mockBroadcast,
   useEventListener: vi.fn(),
 }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
-}));
 
 import { useStorage } from "@/lib/liveblocks/liveblocks.config";
 import { usePoll } from "@/features/note/collaboration/use-poll";

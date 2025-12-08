@@ -9,9 +9,6 @@ import { saveDrawing } from "@/lib/db/drawings";
 import type { DrawingData } from "@/lib/types/drawing";
 
 vi.mock("@/lib/db/drawings", () => ({ saveDrawing: vi.fn() }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
-}));
 
 describe("useDrawingSave", () => {
   const mockDrawingData: DrawingData = {

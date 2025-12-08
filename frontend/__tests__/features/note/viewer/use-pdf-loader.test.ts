@@ -1,20 +1,21 @@
-/**
- * usePdfLoader 훅 테스트
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
+
+vi.mock("@/stores", () => ({
+  useNoteEditorStore: () => ({
+    setCurrentPage: vi.fn(),
+    selectedFileId: null,
+    initializePageNotes: vi.fn(),
+  }),
+}));
+
 import { usePdfLoader } from "@/features/note/viewer/use-pdf-loader";
 
-vi.mock("pdfjs-dist", () => ({ getDocument: vi.fn(() => ({ promise: Promise.resolve({ numPages: 5 }) })) }));
-
-beforeEach(() => { vi.clearAllMocks(); });
-
 describe("usePdfLoader", () => {
-  it("초기 상태", () => {
-    const { result } = renderHook(() => usePdfLoader({ url: null }));
+  it("URL 없이 초기 상태 반환", () => {
+    const { result } = renderHook(() => usePdfLoader(null, null));
     expect(result.current.pdfDoc).toBeNull();
     expect(result.current.numPages).toBe(0);
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.loading).toBe(false);
   });
 });

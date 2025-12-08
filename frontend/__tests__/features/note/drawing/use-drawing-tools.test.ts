@@ -13,14 +13,6 @@ vi.mock("@/features/note/drawing/shapes", () => ({
   createShapeByDrag: vi.fn(() => ({ selectable: true, evented: true, opacity: 1, set: vi.fn() })),
 }));
 vi.mock("fabric", () => ({ PencilBrush: vi.fn(() => ({ color: "", width: 1 })) }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
 
 beforeEach(() => { vi.clearAllMocks(); });
 

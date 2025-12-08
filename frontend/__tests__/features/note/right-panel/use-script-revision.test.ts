@@ -17,9 +17,6 @@ vi.mock("@/lib/api/services/transcription.api", () => ({
   getRevisions: (id: string) => mockGetRevisions(id),
 }));
 
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
-}));
 
 describe("useScriptRevision", () => {
   const mockSetScriptSegments = vi.fn();

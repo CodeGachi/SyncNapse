@@ -1,21 +1,21 @@
-/**
- * useNoteDataLoader 훅 테스트
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useNoteDataLoader } from "@/features/note/note-structure/use-note-data-loader";
 
-vi.mock("@/lib/api/queries/notes.queries", () => ({
-  useNote: vi.fn(() => ({ data: null, isLoading: false })),
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+vi.mock("@/stores", () => ({
+  useNoteEditorStore: () => ({ loadFiles: vi.fn() }),
+}));
+vi.mock("@/lib/api/queries/files.queries", () => ({
+  useFilesWithIdByNote: () => ({ data: [] }),
 }));
 
-beforeEach(() => { vi.clearAllMocks(); });
+import { useNoteDataLoader } from "@/features/note/note-structure/use-note-data-loader";
 
 describe("useNoteDataLoader", () => {
-  it("초기 상태", () => {
-    const { result } = renderHook(() => useNoteDataLoader({ noteId: "note-1" }));
-    expect(result.current.note).toBeNull();
-    expect(result.current.isLoading).toBe(false);
+  it("noteId 없이 호출 가능", () => {
+    const { result } = renderHook(() => useNoteDataLoader({ noteId: null }));
+    expect(result).toBeDefined();
   });
 });

@@ -19,9 +19,6 @@ vi.mock("@/lib/utils", () => ({
   generateSafeFileName: vi.fn((name: string) => `${name}_copy`),
   calculateStorageUsage: vi.fn(() => ({ used: 0, total: 100 * 1024 * 1024, percentage: 0 })),
 }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
-}));
 
 const mockReset = vi.fn();
 const defaultStore = {

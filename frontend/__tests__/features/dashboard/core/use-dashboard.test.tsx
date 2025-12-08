@@ -11,8 +11,6 @@ import * as notesMutations from "@/lib/api/mutations/notes.mutations";
 import { ReactNode } from "react";
 
 const mockRouterPush = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockRouterPush, replace: vi.fn() }) }));
-vi.mock("@/lib/api/queries/notes.queries", () => ({ useNotes: vi.fn() }));
 vi.mock("@/lib/api/mutations/notes.mutations", () => ({ useCreateNote: vi.fn() }));
 
 let queryClient: QueryClient;

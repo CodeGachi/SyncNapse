@@ -16,9 +16,6 @@ vi.mock("@/lib/api/services/questions.api", () => ({
   toggleQuestionUpvote: vi.fn().mockResolvedValue({}),
   deleteQuestion: vi.fn().mockResolvedValue({}),
 }));
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
-}));
 
 import { useStorage } from "@/lib/liveblocks/liveblocks.config";
 import { useQA } from "@/features/note/collaboration/use-qa";

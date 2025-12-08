@@ -9,14 +9,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { usePdfThumbnails } from "@/features/note/viewer/use-pdf-thumbnails";
 
-vi.mock("@/lib/utils/logger", () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  }),
-}));
 
 describe("usePdfThumbnails", () => {
   beforeEach(() => {
