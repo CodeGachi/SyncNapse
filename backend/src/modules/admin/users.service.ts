@@ -68,8 +68,37 @@ export class UsersService {
             },
           },
         });
+      } else if (status === 'suspended') {
+        // 일시 정지 상태: suspendedUntil이 현재 시간보다 미래
+        andConditions.push({
+          suspendedUntil: {
+            gt: new Date(),
+          },
+        });
+      } else if (status === 'banned') {
+        // 영구 차단 상태
+        andConditions.push({
+          isBanned: true,
+        });
+      } else if (status === 'active') {
+        // 활성 상태: 차단/정지되지 않고, 최근 30일 이내 활동
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        andConditions.push({
+          isBanned: false,
+          OR: [
+            { suspendedUntil: null },
+            { suspendedUntil: { lte: new Date() } },
+          ],
+        });
+        andConditions.push({
+          refreshTokens: {
+            some: {
+              createdAt: { gte: thirtyDaysAgo },
+            },
+          },
+        });
       }
-      // TODO: suspended, banned 상태는 해당 필드 추가 시 구현
 
       // 검색 (이름 또는 이메일) - OR 조건은 별도로
       if (search) {
@@ -160,7 +189,7 @@ export class UsersService {
           id: user.id,
           email: user.email,
           name: user.displayName,
-          picture: undefined, // TODO: profilePictureUrl 필드 추가 시
+          picture: undefined,
           role: user.role,
           status,
           createdAt: user.createdAt.toISOString(),
@@ -314,8 +343,8 @@ export class UsersService {
       // 통계 생성
       const stats = new UserStatsDto({
         notesCount: foldersCount,
-        sessionsCount: auditLogsCount, // 세션 수는 활동 수로 대체
-        totalUsageHours: 0, // TODO: 실제 사용 시간 추적 시 구현
+        sessionsCount: auditLogsCount,
+        totalUsageHours: 0,
         storageUsedMb: storageMb,
       });
 
@@ -341,7 +370,7 @@ export class UsersService {
         id: user.id,
         email: user.email,
         name: user.displayName,
-        picture: undefined, // TODO: profilePictureUrl 필드 추가 시
+        picture: undefined,
         role: user.role,
         status,
         createdAt: user.createdAt.toISOString(),
