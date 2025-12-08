@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ==========================================
 # Bun Alpine Frontend Dockerfile
 # ==========================================
