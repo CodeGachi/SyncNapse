@@ -3,7 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 /**
  * 시스템 상태
  */
-export type SystemStatus = 'healthy' | 'warning' | 'error';
+export enum SystemStatus {
+  HEALTHY = 'healthy',
+  WARNING = 'warning',
+  ERROR = 'error',
+}
 
 /**
  * 대시보드 통계 응답 DTO
