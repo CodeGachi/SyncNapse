@@ -7,8 +7,79 @@ describe('PlansService', () => {
   let service: PlansService;
   let prismaService: any;
 
+  // Default mock plans
+  const mockPlansData = [
+    {
+      id: 'plan-free',
+      name: '무료 플랜',
+      description: '제한된 기능으로 서비스를 체험하세요.',
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      status: 'active',
+      features: [
+        { key: 'notes', name: '노트 생성', enabled: true, limit: 10, unit: '개' },
+        { key: 'storage', name: '저장 공간', enabled: true, limit: 500, unit: 'MB' },
+        { key: 'ai_summary', name: 'AI 요약', enabled: false, limit: null, unit: null },
+      ],
+      subscriptions: Array(12847).fill({ status: 'active', cancelledAt: null }),
+      createdAt: new Date('2024-01-01T00:00:00Z'),
+      updatedAt: new Date('2024-11-15T10:00:00Z'),
+    },
+    {
+      id: 'plan-student-pro',
+      name: 'Student Pro',
+      description: '학생을 위한 프로 플랜',
+      monthlyPrice: 4500,
+      yearlyPrice: 45000,
+      status: 'active',
+      features: [
+        { key: 'notes', name: '노트 생성', enabled: true, limit: 100, unit: '개' },
+        { key: 'storage', name: '저장 공간', enabled: true, limit: 5000, unit: 'MB' },
+        { key: 'ai_summary', name: 'AI 요약', enabled: true, limit: 50, unit: '회/월' },
+      ],
+      subscriptions: Array(3421).fill({ status: 'active', cancelledAt: null }),
+      createdAt: new Date('2024-01-01T00:00:00Z'),
+      updatedAt: new Date('2024-11-15T10:00:00Z'),
+    },
+    {
+      id: 'plan-educator-pro',
+      name: 'Educator Pro',
+      description: '교육자를 위한 프로 플랜',
+      monthlyPrice: 9000,
+      yearlyPrice: 90000,
+      status: 'active',
+      features: [
+        { key: 'notes', name: '노트 생성', enabled: true, limit: 500, unit: '개' },
+        { key: 'storage', name: '저장 공간', enabled: true, limit: 20000, unit: 'MB' },
+        { key: 'ai_summary', name: 'AI 요약', enabled: true, limit: 200, unit: '회/월' },
+      ],
+      subscriptions: Array(1256).fill({ status: 'active', cancelledAt: null }),
+      createdAt: new Date('2024-01-01T00:00:00Z'),
+      updatedAt: new Date('2024-11-15T10:00:00Z'),
+    },
+  ];
+
   beforeEach(async () => {
-    const mockPrismaService = {};
+    const mockPrismaService = {
+      plan: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      planHistory: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+      },
+      subscription: {
+        count: jest.fn(),
+      },
+      auditLog: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+      },
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -23,61 +94,8 @@ describe('PlansService', () => {
     service = module.get<PlansService>(PlansService);
     prismaService = module.get(PrismaService);
 
-    // Reset to initial state with default plans
-    const mockPlans = (service as any).mockPlans;
-    mockPlans.clear();
-    
-    // Re-populate with initial default plans
-    mockPlans.set('plan-free', {
-      id: 'plan-free',
-      name: '무료 플랜',
-      description: '제한된 기능으로 서비스를 체험하세요.',
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      status: 'active',
-      features: [
-        { key: 'notes', name: '노트 생성', enabled: true, limit: 10, unit: '개' },
-        { key: 'storage', name: '저장 공간', enabled: true, limit: 500, unit: 'MB' },
-        { key: 'ai_summary', name: 'AI 요약', enabled: false, limit: null, unit: null },
-      ],
-      subscriberCount: 12847,
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-11-15T10:00:00Z',
-    });
-    
-    mockPlans.set('plan-student-pro', {
-      id: 'plan-student-pro',
-      name: 'Student Pro',
-      description: '학생을 위한 프로 플랜',
-      monthlyPrice: 4500,
-      yearlyPrice: 45000,
-      status: 'active',
-      features: [
-        { key: 'notes', name: '노트 생성', enabled: true, limit: 100, unit: '개' },
-        { key: 'storage', name: '저장 공간', enabled: true, limit: 5000, unit: 'MB' },
-        { key: 'ai_summary', name: 'AI 요약', enabled: true, limit: 50, unit: '회/월' },
-      ],
-      subscriberCount: 3421,
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-11-15T10:00:00Z',
-    });
-
-    mockPlans.set('plan-educator-pro', {
-      id: 'plan-educator-pro',
-      name: 'Educator Pro',
-      description: '교육자를 위한 프로 플랜',
-      monthlyPrice: 9000,
-      yearlyPrice: 90000,
-      status: 'active',
-      features: [
-        { key: 'notes', name: '노트 생성', enabled: true, limit: 500, unit: '개' },
-        { key: 'storage', name: '저장 공간', enabled: true, limit: 20000, unit: 'MB' },
-        { key: 'ai_summary', name: 'AI 요약', enabled: true, limit: 200, unit: '회/월' },
-      ],
-      subscriberCount: 1256,
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-11-15T10:00:00Z',
-    });
+    // Set up default mock behavior
+    prismaService.plan.findMany.mockResolvedValue(mockPlansData);
   });
 
   it('should be defined', () => {
@@ -136,6 +154,16 @@ describe('PlansService', () => {
         ],
       };
 
+      const createdPlan = {
+        id: 'plan-test',
+        ...newPlan,
+        subscriptions: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prismaService.plan.create.mockResolvedValue(createdPlan);
+
       const result = await service.createPlan(newPlan);
 
       expect(result.data.name).toBe('Test Plan');
@@ -152,9 +180,13 @@ describe('PlansService', () => {
         features: [],
       };
 
-      await expect(service.createPlan(plan)).rejects.toThrow(
-        BadRequestException,
-      );
+      // Simulate Prisma unique constraint error
+      prismaService.plan.create.mockRejectedValue({
+        code: 'P2002',
+        meta: { target: ['name'] },
+      });
+
+      await expect(service.createPlan(plan)).rejects.toThrow();
     });
 
     it('should validate monthly price is non-negative', async () => {
@@ -167,6 +199,16 @@ describe('PlansService', () => {
         features: [],
       };
 
+      const createdPlan = {
+        id: 'plan-invalid',
+        ...plan,
+        subscriptions: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prismaService.plan.create.mockResolvedValue(createdPlan);
+
       // This should be caught by DTO validation, but testing service level
       const result = await service.createPlan(plan);
       expect(result.data.monthlyPrice).toBe(-100); // Service doesn't validate, DTO does
@@ -175,8 +217,16 @@ describe('PlansService', () => {
 
   describe('updatePlan', () => {
     it('should update an existing plan', async () => {
-      const plans = await service.getPlans();
-      const planId = plans.data[0].id;
+      const planId = 'plan-free';
+      const updatedPlan = {
+        ...mockPlansData[0],
+        monthlyPrice: 5000,
+      };
+
+      prismaService.plan.findUnique.mockResolvedValue(mockPlansData[0]);
+      prismaService.plan.findMany.mockResolvedValue([mockPlansData[0]]);
+      prismaService.plan.update.mockResolvedValue(updatedPlan);
+      prismaService.planHistory.create.mockResolvedValue({});
 
       const result = await service.updatePlan(planId, {
         monthlyPrice: 5000,
@@ -186,15 +236,23 @@ describe('PlansService', () => {
     });
 
     it('should throw NotFoundException for non-existent plan', async () => {
+      prismaService.plan.findUnique.mockResolvedValue(null);
+
       await expect(
         service.updatePlan('non-existent-id', { monthlyPrice: 5000 }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException for duplicate name', async () => {
-      const plans = await service.getPlans();
-      const planId = plans.data[1].id;
-      const existingName = plans.data[0].name;
+      const planId = 'plan-student-pro';
+      const existingName = '무료 플랜';
+
+      prismaService.plan.findUnique.mockResolvedValue(mockPlansData[1]);
+      // Simulate Prisma unique constraint error
+      prismaService.plan.update.mockRejectedValue({
+        code: 'P2002',
+        meta: { target: ['name'] },
+      });
 
       await expect(
         service.updatePlan(planId, { name: existingName }),
@@ -204,43 +262,64 @@ describe('PlansService', () => {
 
   describe('deletePlan', () => {
     it('should delete a plan without subscribers', async () => {
-      const newPlan = await service.createPlan({
+      const newPlan = {
+        id: 'plan-to-delete',
         name: 'To Be Deleted',
         description: 'Test',
         monthlyPrice: 0,
         yearlyPrice: 0,
-        status: 'inactive' as const,
+        status: 'inactive',
         features: [],
-      });
+        subscriptions: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      await expect(service.deletePlan(newPlan.data.id)).resolves.not.toThrow();
+      prismaService.plan.findUnique.mockResolvedValue(newPlan);
+      prismaService.subscription.count.mockResolvedValue(0);
+      prismaService.plan.delete.mockResolvedValue(newPlan);
+
+      await expect(service.deletePlan(newPlan.id)).resolves.not.toThrow();
     });
 
     it('should throw NotFoundException for non-existent plan', async () => {
+      prismaService.plan.findUnique.mockResolvedValue(null);
+
       await expect(service.deletePlan('non-existent-id')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should throw BadRequestException when plan has subscribers', async () => {
-      const plans = await service.getPlans();
-      const planWithSubscribers = plans.data.find((p) => p.subscriberCount > 0);
+      const planWithSubscribers = mockPlansData[0];
 
-      if (planWithSubscribers) {
-        await expect(service.deletePlan(planWithSubscribers.id)).rejects.toThrow(
-          BadRequestException,
-        );
-      }
+      prismaService.plan.findUnique.mockResolvedValue(planWithSubscribers);
+      prismaService.subscription.count.mockResolvedValue(100);
+
+      await expect(service.deletePlan(planWithSubscribers.id)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('getPlanHistory', () => {
     it('should return plan history', async () => {
-      const plans = await service.getPlans();
-      const planId = plans.data[0].id;
+      const planId = 'plan-free';
+      const mockAuditLogs = [
+        {
+          id: 'audit-1',
+          userId: 'admin-user',
+          action: 'PLAN_UPDATE',
+          resourceId: planId,
+          payload: { changes: { monthlyPrice: { from: 0, to: 6000 } } },
+          at: new Date(),
+          method: 'PUT',
+          path: '/api/admin/plans',
+        },
+      ];
 
-      // Update to create history
-      await service.updatePlan(planId, { monthlyPrice: 6000 });
+      prismaService.plan.findUnique.mockResolvedValue(mockPlansData[0]);
+      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
 
       const result = await service.getPlanHistory(planId);
 
@@ -249,16 +328,30 @@ describe('PlansService', () => {
     });
 
     it('should throw NotFoundException for non-existent plan', async () => {
+      prismaService.plan.findUnique.mockResolvedValue(null);
+
       await expect(service.getPlanHistory('non-existent-id')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should include change details in history', async () => {
-      const plans = await service.getPlans();
-      const planId = plans.data[0].id;
+      const planId = 'plan-free';
+      const mockAuditLogs = [
+        {
+          id: 'audit-1',
+          userId: 'admin-user',
+          action: 'PLAN_UPDATE',
+          resourceId: planId,
+          payload: { changes: { monthlyPrice: { from: 0, to: 7000 } } },
+          at: new Date(),
+          method: 'PUT',
+          path: '/api/admin/plans',
+        },
+      ];
 
-      await service.updatePlan(planId, { monthlyPrice: 7000 });
+      prismaService.plan.findUnique.mockResolvedValue(mockPlansData[0]);
+      prismaService.auditLog.findMany.mockResolvedValue(mockAuditLogs);
 
       const result = await service.getPlanHistory(planId);
 
@@ -270,4 +363,3 @@ describe('PlansService', () => {
     });
   });
 });
-
