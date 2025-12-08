@@ -42,6 +42,7 @@ export class SubscriptionsService {
       // 30일 전 활성 구독자 수 (30일 전 시점에 활성 상태였던 구독)
       const subscriberCountThirtyDaysAgo = await this.prisma.subscription.count({
         where: {
+          status: 'active',
           createdAt: { lte: thirtyDaysAgo },
           OR: [
             { cancelledAt: null },
@@ -75,6 +76,7 @@ export class SubscriptionsService {
       // 30일 전 MRR 계산 (30일 전 시점에 활성 상태였던 구독)
       const subscriptionsThirtyDaysAgo = await this.prisma.subscription.findMany({
         where: {
+          status: 'active',
           createdAt: { lte: thirtyDaysAgo },
           OR: [
             { cancelledAt: null },
@@ -194,6 +196,7 @@ export class SubscriptionsService {
         // 해당 월 말일 기준 활성 구독 수 (월 말일 시점에 활성 상태였던 구독)
         const subscriptions = await this.prisma.subscription.count({
           where: {
+            status: 'active',
             createdAt: { lte: monthEnd },
             OR: [
               { cancelledAt: null },
@@ -216,6 +219,7 @@ export class SubscriptionsService {
         // 해당 월 수익 계산 (월 말일 시점에 활성 상태였던 구독의 월간 금액 합계)
         const activeSubs = await this.prisma.subscription.findMany({
           where: {
+            status: 'active',
             createdAt: { lte: monthEnd },
             OR: [
               { cancelledAt: null },
@@ -315,6 +319,7 @@ export class SubscriptionsService {
         this.prisma.subscription.count({
           where: {
             planId,
+            status: 'active',
             createdAt: { lte: thirtyDaysAgo },
             OR: [
               { cancelledAt: null },
@@ -330,7 +335,7 @@ export class SubscriptionsService {
       const avgLengthPromises = plans.map(plan =>
         plan.subscriptions.length > 0
           ? this.calculateAvgSubscriptionLength(plan.id)
-          : Promise.resolve(undefined)
+          : Promise.resolve(0)
       );
 
       const avgLengths = await Promise.all(avgLengthPromises);
@@ -470,6 +475,7 @@ export class SubscriptionsService {
         const planActiveCountThirtyDaysAgo = await this.prisma.subscription.count({
           where: {
             planId,
+            status: 'active',
             createdAt: { lte: thirtyDaysAgo },
             OR: [
               { cancelledAt: null },
