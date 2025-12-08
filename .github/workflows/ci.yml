@@ -30,6 +30,12 @@ jobs:
         with:
           bun-version: latest
 
+      # Install system dependencies for canvas (native module - transitive dep)
+      - name: Install canvas build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
       - name: Cache bun dependencies
         uses: actions/cache@v4
         with:
@@ -75,6 +81,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      # Install system dependencies for canvas (native module)
+      - name: Install canvas build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
       - name: Cache bun dependencies
         uses: actions/cache@v4
