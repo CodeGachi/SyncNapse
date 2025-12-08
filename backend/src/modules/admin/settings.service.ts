@@ -79,33 +79,49 @@ export class SettingsService {
     try {
       const updates: Promise<any>[] = [];
 
-      // general 설정 저장
+      // general 설정 저장 (Deep merge)
       if (dto.general) {
+        const existing = await this.prisma.systemSettings.findUnique({
+          where: { key: 'general' },
+        });
+        
+        const merged = existing?.value
+          ? { ...(existing.value as any), ...dto.general }
+          : dto.general;
+
         updates.push(
           this.prisma.systemSettings.upsert({
             where: { key: 'general' },
             create: {
               key: 'general',
-              value: dto.general as any,
+              value: merged as any,
             },
             update: {
-              value: dto.general as any,
+              value: merged as any,
             },
           })
         );
       }
 
-      // security 설정 저장
+      // security 설정 저장 (Deep merge)
       if (dto.security) {
+        const existing = await this.prisma.systemSettings.findUnique({
+          where: { key: 'security' },
+        });
+        
+        const merged = existing?.value
+          ? { ...(existing.value as any), ...dto.security }
+          : dto.security;
+
         updates.push(
           this.prisma.systemSettings.upsert({
             where: { key: 'security' },
             create: {
               key: 'security',
-              value: dto.security as any,
+              value: merged as any,
             },
             update: {
-              value: dto.security as any,
+              value: merged as any,
             },
           })
         );
