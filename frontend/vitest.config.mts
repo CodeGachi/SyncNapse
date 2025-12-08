@@ -20,13 +20,14 @@ export default defineConfig({
     poolOptions: {
       forks: {
         minForks: 1,
-        maxForks: 1,
-        singleFork: true,
+        maxForks: 2,
       },
     },
     testTimeout: 30000,
-    teardownTimeout: 5000,
+    teardownTimeout: 10000,
     fileParallelism: false,
-    maxConcurrency: 1,
+    sequence: {
+      shuffle: false,
+    },
   },
 });

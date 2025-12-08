@@ -9,6 +9,14 @@ import { useScriptPanel } from "@/features/note/right-panel/use-script-panel";
 vi.mock("@/lib/api/services/audio.api", () => ({
   getPageContextAtTime: vi.fn(() => ({ fileId: "file-1", page: 1 })),
 }));
+vi.mock("@/lib/utils/logger", () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
 
 beforeEach(() => { vi.clearAllMocks(); });
 

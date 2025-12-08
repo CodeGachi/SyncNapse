@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
+import { useRef } from "react";
 
 const mockUpdateMyPresence = vi.fn();
 vi.mock("@/lib/liveblocks", () => ({
@@ -16,16 +17,19 @@ import { useCursorBroadcast, useOthersCursors } from "@/features/note/collaborat
 beforeEach(() => { vi.clearAllMocks(); });
 
 describe("useCursorBroadcast", () => {
-  it("containerRef와 handlePointerMove 반환", () => {
-    const { result } = renderHook(() => useCursorBroadcast());
-    expect(result.current.containerRef).toBeDefined();
-    expect(typeof result.current.handlePointerMove).toBe("function");
+  it("containerRef가 주어지면 정상 동작", () => {
+    const { result } = renderHook(() => {
+      const containerRef = useRef<HTMLDivElement>(null);
+      useCursorBroadcast(containerRef, false, false);
+      return containerRef;
+    });
+    expect(result.current).toBeDefined();
   });
 });
 
 describe("useOthersCursors", () => {
   it("빈 커서 목록 반환", () => {
-    const { result } = renderHook(() => useOthersCursors());
+    const { result } = renderHook(() => useOthersCursors({ educatorOnly: false }));
     expect(result.current).toEqual([]);
   });
 });

@@ -13,12 +13,31 @@ vi.mock("@/features/note/drawing/shapes", () => ({
   createShapeByDrag: vi.fn(() => ({ selectable: true, evented: true, opacity: 1, set: vi.fn() })),
 }));
 vi.mock("fabric", () => ({ PencilBrush: vi.fn(() => ({ color: "", width: 1 })) }));
+vi.mock("@/lib/utils/logger", () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
 
 beforeEach(() => { vi.clearAllMocks(); });
 
 describe("useDrawingTools", () => {
   it("canvas 없으면 초기 상태", () => {
-    const { result } = renderHook(() => useDrawingTools(null));
+    const fabricCanvasRef = { current: null };
+    const undoStackRef = { current: [] };
+    const onAutoSave = vi.fn();
+
+    const { result } = renderHook(() => useDrawingTools({
+      fabricCanvasRef,
+      isDrawingMode: false,
+      isEnabled: false,
+      pdfScale: 1,
+      undoStackRef,
+      onAutoSave,
+    }));
     expect(result.current).toBeUndefined();
   });
 
@@ -30,8 +49,20 @@ describe("useDrawingTools", () => {
       add: vi.fn(),
       on: vi.fn(),
       off: vi.fn(),
+      forEachObject: vi.fn(),
     };
-    renderHook(() => useDrawingTools(mockCanvas as any));
+    const fabricCanvasRef = { current: mockCanvas };
+    const undoStackRef = { current: [] };
+    const onAutoSave = vi.fn();
+
+    renderHook(() => useDrawingTools({
+      fabricCanvasRef: fabricCanvasRef as any,
+      isDrawingMode: true,
+      isEnabled: true,
+      pdfScale: 1,
+      undoStackRef,
+      onAutoSave,
+    }));
     // 에러 없이 실행되면 성공
   });
 });

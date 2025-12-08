@@ -10,7 +10,7 @@
     "format": "npx prettier --write .",
     "test": "npx vitest run -c vitest.config.mts",
     "test:watch": "npx vitest -c vitest.config.mts",
-    "test:ci": "npx vitest run --reporter=dot -c vitest.config.mts"
+    "test:ci": "NODE_OPTIONS='--max-old-space-size=8192 --expose-gc' npx vitest run --reporter=dot -c vitest.config.mts"
   },
   "dependencies": {
     "@blocknote/core": "^0.41.1",

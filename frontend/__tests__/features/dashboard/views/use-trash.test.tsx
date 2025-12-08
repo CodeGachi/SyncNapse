@@ -14,6 +14,14 @@ vi.mock("@/lib/api/services/notes.api", () => ({
   restoreNote: vi.fn(),
   permanentlyDeleteNote: vi.fn(),
 }));
+vi.mock("@/lib/utils/logger", () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
 
 const mockConfirm = vi.fn();
 const mockAlert = vi.fn();

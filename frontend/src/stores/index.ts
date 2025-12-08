@@ -8,7 +8,6 @@ export { useToolsStore } from "./tools-store";
 export { useAudioPlayerStore } from "./audio-player-store";
 export { useSearchSyncStore } from "./search-sync-store";
 export { useRecordingStore } from "./recording-store";
-export { useGlobalLoadingStore } from "./global-loading-store";
 
 // UI Stores
 export { useNoteUIStore } from "./ui/note-ui-store";
