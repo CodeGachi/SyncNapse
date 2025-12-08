@@ -5,8 +5,9 @@
 
 "use client";
 
+import { useState } from "react";
 import type { FolderTreeNode } from "@/features/dashboard";
-import { useFolderTree, useFolderDragDrop } from "@/features/dashboard";
+import { useFolderDragDrop } from "@/features/dashboard";
 import { FolderOptionsMenu } from "./folder-options-menu";
 import { FolderNotes } from "./folder-notes";
 
@@ -31,14 +32,44 @@ export function FolderTree({
   onDeleteNote,
   level = 0,
 }: FolderTreeProps) {
-  const {
-    expandedFolders,
-    contextMenu,
-    toggleFolder,
-    handleContextMenu,
-    closeContextMenu,
-    handleContextMenuAction,
-  } = useFolderTree();
+  // UI state: 폴더 확장/축소
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    folderId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      folderId,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleContextMenuAction = (action: () => void) => {
+    action();
+    closeContextMenu();
+  };
 
   const {
     draggedItem,

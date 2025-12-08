@@ -1,3 +1,7 @@
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("SpeechRecognition");
+
 export interface SpeechSegment {
   id: string;
   text: string;
@@ -87,7 +91,7 @@ export class SpeechRecognitionService {
       // IMPORTANT: Only reset timestamps on the FIRST start, not on auto-restarts
       // This ensures timestamps are continuous across speech recognition restarts
       if (this.isFirstStart) {
-        console.log('[SpeechRecognition] ✅ Initial start - recording from 0:00');
+        log.info('Initial start - recording from 0:00');
         this.startTimestamp = Date.now();
         this.lastSegmentEndTime = 0;
         this.currentSegmentStartTime = 0;
@@ -96,7 +100,7 @@ export class SpeechRecognitionService {
         this.callbacks.onStart?.();
       } else {
         const elapsedTime = ((Date.now() - this.startTimestamp) / 1000).toFixed(2);
-        console.log('[SpeechRecognition] 🔄 Auto-restart - preserving timeline', {
+        log.debug('Auto-restart - preserving timeline', {
           elapsedTime: elapsedTime + 's',
           lastSegmentEndTime: this.lastSegmentEndTime.toFixed(2) + 's',
         });
@@ -119,7 +123,7 @@ export class SpeechRecognitionService {
       if (this.config.autoDetectLanguage && isFinal) {
         detectedLang = this.detectLanguage(transcript.trim());
         this.detectedLanguage = detectedLang;
-        console.log(`[SpeechRecognition] 🌐 Detected language: ${detectedLang}`);
+        log.debug(`Detected language: ${detectedLang}`);
       }
 
       const now = Date.now();
@@ -131,7 +135,7 @@ export class SpeechRecognitionService {
       // The segment ends only when Web Speech API gives us a FINAL result
       if (this.currentSegmentStartTime === 0) {
         this.currentSegmentStartTime = currentAudioTime;
-        console.log(`[SpeechRecognition] 🎬 Segment starting at ${this.currentSegmentStartTime.toFixed(2)}s`);
+        log.debug(`Segment starting at ${this.currentSegmentStartTime.toFixed(2)}s`);
       }
       
       // Update last speech time for continuous recording
@@ -154,52 +158,52 @@ export class SpeechRecognitionService {
         this.lastSegmentEndTime = currentAudioTime;
         // Reset for next segment (will be set to actual time when new speech detected)
         this.currentSegmentStartTime = 0;
-        console.log(`[SpeechRecognition] Final: "${segment.text}" (${segment.language}) at ${segment.startTime.toFixed(2)}s`);
+        log.debug(`Final: "${segment.text}" (${segment.language}) at ${segment.startTime.toFixed(2)}s`);
         this.callbacks.onSegment?.(segment);
       } else if (!isFinal) {
-        console.log(`[SpeechRecognition] Interim: "${segment.text}" at ${segment.startTime.toFixed(2)}s`);
+        log.debug(`Interim: "${segment.text}" at ${segment.startTime.toFixed(2)}s`);
         this.callbacks.onSegment?.(segment);
       }
     };
 
     this.recognition.onerror = (event: any) => {
-      console.error('[SpeechRecognition] Error:', event.error);
-      
+      log.error('Error:', event.error);
+
       // Ignore 'no-speech' error and continue
       if (event.error === 'no-speech') {
-        console.log('[SpeechRecognition] No speech detected, continuing...');
+        log.debug('No speech detected, continuing...');
         return;
       }
 
       // Handle 'aborted' error (user manually stopped)
       if (event.error === 'aborted') {
-        console.log('[SpeechRecognition] Aborted by user');
+        log.debug('Aborted by user');
         this.isRunning = false;
         return;
       }
 
       // Handle network errors with retry logic
       if (event.error === 'network') {
-        console.error('[SpeechRecognition] ❌ Network error - Google Speech API unreachable');
-        
+        log.error('Network error - Google Speech API unreachable');
+
         if (this.retryCount < this.maxRetries) {
           this.retryCount++;
           const delay = this.retryDelay * this.retryCount; // Exponential backoff
-          console.log(`[SpeechRecognition] 🔄 Retrying in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})...`);
-          
+          log.info(`Retrying in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})...`);
+
           setTimeout(() => {
             if (this.recognition && this.isRunning) {
-              console.log('[SpeechRecognition] 🔄 Restarting after network error...');
+              log.debug('Restarting after network error...');
               try {
                 this.recognition.start();
               } catch (err) {
-                console.error('[SpeechRecognition] Failed to restart:', err);
+                log.error('Failed to restart:', err);
               }
             }
           }, delay);
           return;
         } else {
-          console.error('[SpeechRecognition] ❌ Max retries reached. Please check your internet connection.');
+          log.error('Max retries reached. Please check your internet connection.');
           const error = new Error('Speech recognition network error: Unable to reach Google Speech API. Please check your internet connection.');
           this.callbacks.onError?.(error);
           this.isRunning = false;
@@ -213,27 +217,27 @@ export class SpeechRecognitionService {
     };
 
     this.recognition.onend = () => {
-      console.log('[SpeechRecognition] Ended, isRunning:', this.isRunning);
-      
+      log.debug('Ended, isRunning:', this.isRunning);
+
       // If we're still supposed to be running (continuous mode), restart
       if (this.isRunning && this.config.continuous) {
-        console.log('[SpeechRecognition] 🔄 Auto-restarting (continuous mode)...');
+        log.debug('Auto-restarting (continuous mode)...');
         setTimeout(() => {
           if (this.recognition && this.isRunning) {
             try {
               this.recognition.start();
-              console.log('[SpeechRecognition] ✅ Restarted successfully');
+              log.info('Restarted successfully');
             } catch (err) {
-              console.error('[SpeechRecognition] ❌ Failed to restart:', err);
+              log.error('Failed to restart:', err);
               // If already running, ignore the error
               if ((err as Error).message?.includes('already started')) {
-                console.log('[SpeechRecognition] Already running, ignoring error');
+                log.debug('Already running, ignoring error');
               }
             }
           }
         }, 100);
       } else {
-        console.log('[SpeechRecognition] Not restarting (isRunning:', this.isRunning, ', continuous:', this.config.continuous, ')');
+        log.debug('Not restarting (isRunning:', this.isRunning, ', continuous:', this.config.continuous, ')');
         this.isRunning = false;
         this.callbacks.onEnd?.();
       }
@@ -242,7 +246,7 @@ export class SpeechRecognitionService {
 
   start() {
     if (this.isRunning) {
-      console.warn('[SpeechRecognition] Already running');
+      log.warn('Already running');
       return;
     }
 
@@ -251,17 +255,17 @@ export class SpeechRecognitionService {
       this.lastSegmentEndTime = 0;
       this.retryCount = 0; // Reset retry count on new start
       this.isFirstStart = true; // Mark this as a fresh start (not an auto-restart)
-      console.log('[SpeechRecognition] 🎬 Starting fresh recording session');
+      log.info('Starting fresh recording session');
       this.recognition.start();
     } catch (error) {
-      console.error('[SpeechRecognition] Start failed:', error);
+      log.error('Start failed:', error);
       throw error;
     }
   }
 
   stop() {
     if (!this.isRunning) {
-      console.warn('[SpeechRecognition] Not running');
+      log.warn('Not running');
       return;
     }
 
@@ -269,7 +273,7 @@ export class SpeechRecognitionService {
       this.isRunning = false;
       this.recognition.stop();
     } catch (error) {
-      console.error('[SpeechRecognition] Stop failed:', error);
+      log.error('Stop failed:', error);
     }
   }
 
@@ -278,7 +282,7 @@ export class SpeechRecognitionService {
       this.isRunning = false;
       this.recognition.abort();
     } catch (error) {
-      console.error('[SpeechRecognition] Abort failed:', error);
+      log.error('Abort failed:', error);
     }
   }
 
@@ -294,7 +298,7 @@ export class SpeechRecognitionService {
     this.config.language = language;
     if (this.recognition) {
       this.recognition.lang = language;
-      console.log(`[SpeechRecognition] Language changed to: ${language}`);
+      log.debug(`Language changed to: ${language}`);
     }
   }
 

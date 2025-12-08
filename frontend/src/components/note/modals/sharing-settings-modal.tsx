@@ -280,9 +280,9 @@ export function SharingSettingsModal() {
       isOpen={isSharingModalOpen}
       onClose={closeSharingModal}
       title="공유 설정"
-      contentClassName="bg-background-base border border-border shadow-2xl shadow-black/50 rounded-3xl p-0 flex flex-col w-[90vw] md:w-full max-w-[560px] overflow-hidden max-h-[85vh]"
+      contentClassName="bg-background-base border border-border shadow-2xl shadow-black/50 rounded-3xl p-0 w-[90vw] md:w-full max-w-[560px] max-h-[85vh] flex flex-col"
     >
-      <div className="p-6 flex flex-col gap-5 overflow-y-auto">
+      <div className="p-6 flex flex-col gap-5 overflow-y-auto flex-1 min-h-0">
         {/* 1. 공개 범위 설정 카드 */}
         <div className="bg-background-surface rounded-2xl p-5 border border-border flex flex-col gap-4">
           <div className="flex items-center gap-3">

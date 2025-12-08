@@ -19,6 +19,9 @@ import { KeyboardShortcutsModal } from "@/components/note/modals/keyboard-shortc
 import type { Note, NoteData } from "@/lib/types";
 import { LoadingScreen } from "@/components/common/loading-screen";
 import { copyNoteToMyFolder } from "@/lib/api/services/sharing.api";
+import { createLogger } from "@/lib/utils/logger";
+
+const log = createLogger("HeaderMenu");
 
 interface HeaderMenuProps {
   isOpen: boolean;
@@ -528,7 +531,7 @@ export function HeaderMenu({ isOpen, onClose, noteId, isSharedView = false, sour
       // 복사된 노트로 이동
       router.push(`/note/student/${copiedNote.id}`);
     } catch (error) {
-      console.error("Failed to copy note:", error);
+      log.error("Failed to copy note:", error);
       alert(error instanceof Error ? error.message : "노트 복사에 실패했습니다");
     } finally {
       setIsCopying(false);

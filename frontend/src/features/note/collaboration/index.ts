@@ -37,3 +37,10 @@ export {
   type UseCollaborativeCanvasSyncProps,
   type UseCollaborativeCanvasSyncReturn,
 } from "./use-collaborative-canvas-sync";
+
+// 커서 Presence
+export {
+  useCursorBroadcast,
+  useOthersCursors,
+  type CursorData,
+} from "./use-cursor-presence";

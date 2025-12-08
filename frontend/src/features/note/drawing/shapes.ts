@@ -4,7 +4,7 @@
  */
 
 import * as fabric from 'fabric';
-import { createLogger } from "./logger";
+import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("Shapes");
 
