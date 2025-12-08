@@ -18,20 +18,23 @@ const log = createLogger("CollaborativeCanvasWrapper");
 
 interface CollaborativeCanvasWrapperProps {
   fabricCanvas: fabric.Canvas | null;
-  fileId: string;
+  noteId: string;  // ⭐ v2: IndexedDB 저장에 필요
   pageNum: number;
   syncToStorageRef?: React.MutableRefObject<((canvas: fabric.Canvas) => void) | null>;
   showStatusIndicator?: boolean; // 상태 표시 UI 활성화 여부
   readOnly?: boolean;            // 읽기 전용 모드 (학생용)
+  /** ⭐ v2: 원격 업데이트 수신 콜백 */
+  onRemoteUpdate?: () => void;
 }
 
 export function CollaborativeCanvasWrapper({
   fabricCanvas,
-  fileId,
+  noteId,
   pageNum,
   syncToStorageRef,
   showStatusIndicator = true,
   readOnly = false,
+  onRemoteUpdate,
 }: CollaborativeCanvasWrapperProps) {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -69,13 +72,14 @@ export function CollaborativeCanvasWrapper({
     connectionStatus,
     isSyncing,
   } = useCollaborativeCanvasSync({
-    fileId,
+    noteId,  // ⭐ v2: IndexedDB 저장에 필요
     pageNum,
     fabricCanvas,
     isEnabled: true,
     readOnly,
     onSyncError: handleSyncError,
     onConnectionChange: handleConnectionChange,
+    onRemoteUpdate,  // ⭐ v2: 원격 업데이트 콜백
   });
 
   // syncToStorage를 부모 ref에 저장

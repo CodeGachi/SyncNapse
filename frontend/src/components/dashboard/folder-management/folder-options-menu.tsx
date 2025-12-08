@@ -5,9 +5,8 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { DBFolder } from "@/lib/db/folders";
-import { useFolderOptionsMenu } from "@/features/dashboard";
 
 // 메뉴 크기 상수
 const MENU_HEIGHT_ROOT = 50; // Root 폴더 메뉴 높이 (항목 1개)
@@ -28,8 +27,37 @@ export function FolderOptionsMenu({
   onAddSubfolder,
   onDelete,
 }: FolderOptionsMenuProps) {
-  const { isOpen, menuRef, buttonRef, handleToggle, handleOptionClick } =
-    useFolderOptionsMenu();
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // 외부 클릭 시 메뉴 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        buttonRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const handleOptionClick = (callback: () => void) => {
+    callback();
+    setIsOpen(false);
+  };
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+  };
 
   // Root 폴더인지 확인
   const isRootFolder = folder.name === "Root" && folder.parentId === null;

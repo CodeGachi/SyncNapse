@@ -31,13 +31,15 @@ export class LiveblocksService {
       throw new ForbiddenException('Access denied');
     }
 
+    // Determine role: EDITOR = educator, VIEWER = student
+    const role = permission === 'EDITOR' ? 'educator' : 'student';
+
     // Prepare session
     const session = this.liveblocks.prepareSession(user.id, {
       userInfo: {
         name: user.displayName,
         email: user.email,
-        // avatar: user.avatarUrl, // Add if available
-        // color: ... // Add if needed
+        role,
       },
     });
 

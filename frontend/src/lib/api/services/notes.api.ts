@@ -199,9 +199,10 @@ export async function fetchNote(noteId: string): Promise<Note | null> {
 }
 
 /**
- * Fetch note from server (synchronous)
+ * Fetch note from server directly (without local DB check)
+ * Used for shared view where local DB doesn't have the note
  */
-async function fetchNoteFromServer(noteId: string): Promise<Note | null> {
+export async function fetchNoteFromServer(noteId: string): Promise<Note | null> {
   try {
     const url = await getNoteUrl(noteId);
     log.debug("Fetching from backend API:", url);
@@ -511,6 +512,61 @@ export async function fetchNoteContent(
       throw error;
     }
   }
+}
+
+/**
+ * Fetch note by shortCode (noteId prefix)
+ * Used for short URL resolution
+ */
+export async function fetchNoteByShortCode(shortCode: string): Promise<Note | null> {
+  log.debug("fetchNoteByShortCode called with shortCode:", shortCode);
+
+  // 1. Check local data first - find notes starting with shortCode
+  try {
+    const dbNotes = await getNotesFromDB();
+    const matchingNote = dbNotes.find(note => note.id.startsWith(shortCode));
+
+    if (matchingNote) {
+      log.debug("Found matching note in IndexedDB:", matchingNote.id);
+      return dbToNote(matchingNote);
+    }
+  } catch (error) {
+    log.error("Failed to search IndexedDB:", error);
+  }
+
+  // 2. Try fetching from server with shortCode as prefix search
+  try {
+    const url = `${getApiBaseUrl()}/notes/by-short-code/${shortCode}`;
+    log.debug("Fetching from backend API:", url);
+
+    const response = await halFetchUrl<NoteResource>(url, { method: "GET" });
+
+    if (response && response.id) {
+      log.debug("Found note via shortCode API:", response.id);
+      const serverNote = apiToNote(response);
+
+      // Save to IndexedDB
+      const { noteToDb } = await import("../adapters/note.adapter");
+      const { saveNote } = await import("@/lib/db/notes");
+      const dbNote = noteToDb(serverNote);
+      await saveNote(dbNote);
+
+      return serverNote;
+    }
+  } catch (error) {
+    if (error instanceof HalError && error.status === 404) {
+      log.debug("Note not found by shortCode (404)");
+    } else {
+      log.error("Failed to fetch by shortCode:", error);
+    }
+  }
+
+  // 3. Fallback: try direct noteId fetch (in case shortCode is actually a full UUID)
+  if (shortCode.length > 8) {
+    return await fetchNote(shortCode);
+  }
+
+  return null;
 }
 
 /**

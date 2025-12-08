@@ -1,151 +1,47 @@
+/**
+ * 프로필 컨텐츠 컴포넌트
+ * 사용자 프로필 정보 표시 및 수정 기능 제공
+ */
+
 "use client";
 
-import { useState, useEffect } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/features/auth/use-auth";
-import { updateUserProfile, deleteAccount } from "@/lib/api/services/auth.api";
 import { AccountDeleteConfirmModal } from "@/components/dashboard/account-delete-confirm-modal";
 import { motion, AnimatePresence } from "framer-motion";
-import { createLogger } from "@/lib/utils/logger";
-import { useTheme } from "next-themes";
-
-const log = createLogger("ProfileContent");
-
-// 모달 타입
-type ModalType =
-  | { type: "info"; title: string; message: string; onClose?: () => void }
-  | { type: "success"; title: string; message: string; onClose?: () => void }
-  | { type: "error"; title: string; message: string; onClose?: () => void }
-  | { type: "confirm"; title: string; message: string; onConfirm: () => void }
-  | null;
+import { useProfile, type ModalType } from "@/features/dashboard/views/use-profile";
 
 export function ProfileContent() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const {
+    // 사용자 데이터
+    user,
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+    // 테마
+    theme,
+    mounted,
+    toggleTheme,
 
-  // 편집 모드 상태
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+    // 편집 상태
+    isEditing,
+    editName,
+    setEditName,
+    isSaving,
 
-  // 모달 상태
-  const [modal, setModal] = useState<ModalType>(null);
+    // 모달 상태
+    modal,
+    isDeleteModalOpen,
 
-  // 계정 삭제 모달 상태
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  // user가 로드되면 editName 초기화
-  useEffect(() => {
-    if (user?.name) {
-      setEditName(user.name);
-    }
-  }, [user?.name]);
-
-  // 모달 닫기
-  const closeModal = () => setModal(null);
-
-  // 저장 핸들러
-  const handleSave = async () => {
-    if (!editName.trim()) {
-      setModal({
-        type: "error",
-        title: "입력 오류",
-        message: "이름을 입력해주세요.",
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // 백엔드 API로 사용자 정보 업데이트
-      await updateUserProfile({ displayName: editName.trim() });
-
-      // 사용자 정보 캐시 무효화 (사이드바도 업데이트됨)
-      await queryClient.invalidateQueries({ queryKey: ["auth", "currentUser"] });
-
-      setModal({
-        type: "success",
-        title: "저장 완료",
-        message: "프로필이 저장되었습니다.",
-      });
-      setIsEditing(false);
-    } catch (error) {
-      log.error("프로필 저장 실패:", error);
-      setModal({
-        type: "error",
-        title: "저장 실패",
-        message: "프로필 저장에 실패했습니다.",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // 취소 핸들러
-  const handleCancel = () => {
-    setEditName(user?.name || "");
-    setIsEditing(false);
-  };
-
-  // 프로필 이미지 변경 핸들러
-  const handleImageChange = () => {
-    setModal({
-      type: "info",
-      title: "준비 중",
-      message: "프로필 이미지 변경 기능은 준비 중입니다.",
-    });
-  };
-
-  // 알림 설정 핸들러
-  const handleNotificationSettings = () => {
-    setModal({
-      type: "info",
-      title: "준비 중",
-      message: "알림 설정 기능은 준비 중입니다.",
-    });
-  };
-
-  // 계정 삭제 핸들러
-  const handleDeleteAccount = () => {
-    setIsDeleteModalOpen(true);
-  };
-
-  // 실제 계정 삭제 처리
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteAccount();
-
-      // 모달 닫기
-      setIsDeleteModalOpen(false);
-
-      // 성공 메시지 표시 - 확인 버튼 클릭 시 로그아웃
-      setModal({
-        type: "success",
-        title: "계정 삭제 완료",
-        message: "계정이 삭제되었습니다.\n\n30일 내에 다시 로그인하면 계정을 복구할 수 있습니다.",
-        onClose: () => {
-          window.location.href = "/auth/logout";
-        },
-      });
-    } catch (error) {
-      log.error("계정 삭제 실패:", error);
-      setIsDeleteModalOpen(false);
-      setModal({
-        type: "error",
-        title: "삭제 실패",
-        message: "계정 삭제에 실패했습니다. 다시 시도해주세요.",
-      });
-    }
-  };
+    // 핸들러
+    handleBack,
+    startEditing,
+    handleSave,
+    handleCancel,
+    handleImageChange,
+    handleNotificationSettings,
+    handleDeleteAccount,
+    closeDeleteModal,
+    handleConfirmDelete,
+    closeModal,
+  } = useProfile();
 
   return (
     <div className="flex flex-col w-full h-screen bg-background-deep">
@@ -157,7 +53,7 @@ export function ProfileContent() {
         className="flex flex-row items-center px-6 py-4 h-[74px] bg-background-modal/80 backdrop-blur-md border-b border-border-subtle z-10"
       >
         <button
-          onClick={() => router.back()}
+          onClick={handleBack}
           className="flex items-center gap-2 text-foreground-secondary hover:text-foreground transition-colors mr-4 group"
         >
           <div className="p-2 rounded-full group-hover:bg-foreground/10 transition-colors">
@@ -305,7 +201,7 @@ export function ProfileContent() {
               ) : (
                 <button
                   className="w-full bg-gradient-to-br from-brand to-brand-secondary hover:shadow-[0_0_20px_rgba(175,192,43,0.3)] text-white font-bold py-3 px-4 rounded-xl transition-all"
-                  onClick={() => setIsEditing(true)}
+                  onClick={startEditing}
                 >
                   프로필 편집
                 </button>
@@ -325,7 +221,7 @@ export function ProfileContent() {
             <div className="space-y-3">
               {/* 테마 설정 - Brand Aligned Design */}
               <motion.button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                onClick={toggleTheme}
                 className={`relative w-full overflow-hidden rounded-xl border p-0 group transition-colors duration-300 ${mounted && theme === "dark"
                     ? "bg-background-base border-border-subtle"
                     : "bg-background-elevated border-border-subtle"
@@ -540,7 +436,7 @@ export function ProfileContent() {
       {/* 계정 삭제 확인 모달 */}
       <AccountDeleteConfirmModal
         isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        onClose={closeDeleteModal}
         onDelete={handleConfirmDelete}
       />
     </div>

@@ -38,10 +38,10 @@ export interface DrawingTool {
  * Fabric.js Canvas 상태를 포함한 그림 데이터
  */
 export interface DrawingData {
-  id: string;                          // 그림 고유 ID (noteId-fileId-pageNum)
+  id: string;                          // 그림 고유 ID (noteId-pageNum)
   noteId: string;                      // 노트 ID
-  fileId: string;                      // 파일 ID (페이지별 구분)
   pageNum: number;                     // PDF 페이지 번호
+  fileId?: string;                     // (deprecated) 파일 ID - 하위 호환성용
 
   // Fabric.js Canvas JSON (객체 메타데이터)
   canvas: {

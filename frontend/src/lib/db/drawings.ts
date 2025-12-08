@@ -32,16 +32,14 @@ export async function getAllDrawings(): Promise<DrawingData[]> {
 /**
  * 특정 노트의 필기 데이터 가져오기
  * @param noteId - 노트 ID
- * @param fileId - 파일 ID
  * @param pageNum - 페이지 번호
  */
 export async function getDrawing(
   noteId: string,
-  fileId: string,
   pageNum: number
 ): Promise<DrawingData | undefined> {
   const db = await initDB();
-  const key = `${noteId}-${fileId}-${pageNum}`;
+  const key = `${noteId}-${pageNum}`;
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([DRAWINGS_STORE], "readonly");
@@ -82,15 +80,15 @@ export async function getDrawingsByNote(noteId: string): Promise<DrawingData[]> 
 
 /**
  * 필기 데이터 저장
- * @param data - 저장할 필기 데이터 (fileId 포함)
+ * @param data - 저장할 필기 데이터
  */
 export async function saveDrawing(data: DrawingData): Promise<void> {
   const db = await initDB();
-  const key = `${data.noteId}-${data.fileId}-${data.pageNum}`;
+  const key = `${data.noteId}-${data.pageNum}`;
 
   const drawingData: DrawingData = {
     ...data,
-    id: key, // ID를 noteId-fileId-pageNum 형식으로 설정
+    id: key, // ID를 noteId-pageNum 형식으로 설정
     updatedAt: Date.now(),
   };
 
@@ -116,16 +114,14 @@ export async function saveDrawing(data: DrawingData): Promise<void> {
 /**
  * 필기 데이터 삭제
  * @param noteId - 노트 ID
- * @param fileId - 파일 ID
  * @param pageNum - 페이지 번호
  */
 export async function deleteDrawing(
   noteId: string,
-  fileId: string,
   pageNum: number
 ): Promise<void> {
   const db = await initDB();
-  const key = `${noteId}-${fileId}-${pageNum}`;
+  const key = `${noteId}-${pageNum}`;
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([DRAWINGS_STORE], "readwrite");
@@ -149,7 +145,7 @@ export async function deleteDrawing(
 export async function deleteDrawingsByNote(noteId: string): Promise<void> {
   const drawings = await getDrawingsByNote(noteId);
   await Promise.all(
-    drawings.map((drawing) => deleteDrawing(noteId, drawing.fileId, drawing.pageNum))
+    drawings.map((drawing) => deleteDrawing(noteId, drawing.pageNum))
   );
 }
 

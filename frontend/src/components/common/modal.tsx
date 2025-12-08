@@ -113,7 +113,7 @@ export function Modal({
               )}
 
               {/* Body */}
-              <div className={title ? "p-6" : "p-0"}>{children}</div>
+              <div className={cn(title ? "p-6 flex-1 min-h-0 overflow-y-auto" : "p-0 flex-1 min-h-0 flex flex-col")}>{children}</div>
             </motion.div>
           </div>
         </>

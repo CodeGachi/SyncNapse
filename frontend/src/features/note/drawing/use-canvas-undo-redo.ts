@@ -11,7 +11,8 @@ import { createLogger } from "@/lib/utils/logger";
 const log = createLogger("useCanvasUndoRedo");
 
 export interface UseCanvasUndoRedoProps {
-  fabricCanvas: fabric.Canvas | null;
+  /** Fabric.js Canvas 참조 (ref로 전달하여 항상 최신 값 사용) */
+  fabricCanvasRef: React.MutableRefObject<fabric.Canvas | null>;
   /** 자동 저장 트리거 */
   onAutoSave: () => void;
 }
@@ -33,7 +34,7 @@ export interface UseCanvasUndoRedoReturn {
  * 캔버스 Undo/Redo 관리 훅
  */
 export function useCanvasUndoRedo({
-  fabricCanvas,
+  fabricCanvasRef,
   onAutoSave,
 }: UseCanvasUndoRedoProps): UseCanvasUndoRedoReturn {
   const undoStackRef = useRef<fabric.FabricObject[]>([]);
@@ -47,6 +48,7 @@ export function useCanvasUndoRedo({
 
   // Undo (createdAt 기준 가장 최근 객체 삭제)
   const handleUndo = useCallback(() => {
+    const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas) return;
 
     const objects = fabricCanvas.getObjects();
@@ -70,10 +72,11 @@ export function useCanvasUndoRedo({
       fabricCanvas.renderAll();
       onAutoSave();
     }
-  }, [fabricCanvas, onAutoSave]);
+  }, [fabricCanvasRef, onAutoSave]);
 
   // Redo (Undo 스택에서 복원)
   const handleRedo = useCallback(() => {
+    const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas) return;
     if (undoStackRef.current.length === 0) return;
 
@@ -84,10 +87,11 @@ export function useCanvasUndoRedo({
       fabricCanvas.renderAll();
       onAutoSave();
     }
-  }, [fabricCanvas, onAutoSave]);
+  }, [fabricCanvasRef, onAutoSave]);
 
   // Clear
   const handleClear = useCallback(() => {
+    const fabricCanvas = fabricCanvasRef.current;
     if (!fabricCanvas) return;
 
     undoStackRef.current = [];
@@ -106,7 +110,7 @@ export function useCanvasUndoRedo({
     } catch (e) {
       log.warn("캔버스 클리어 스킵 - 컨텍스트 사용 불가");
     }
-  }, [fabricCanvas, onAutoSave]);
+  }, [fabricCanvasRef, onAutoSave]);
 
   return {
     handleUndo,

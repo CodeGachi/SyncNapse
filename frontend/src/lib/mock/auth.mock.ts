@@ -6,6 +6,7 @@
 import type { User, LoginResponse } from "../api/services/auth.api";
 import { setAccessToken, getAccessToken, clearTokens } from "../auth/token-manager";
 import { setCookie, getCookie } from "../utils/cookie";
+import { AUTH_CONFIG } from "@/lib/constants/config";
 
 const MOCK_USER: User = {
   id: "mock-user-123",
@@ -19,7 +20,7 @@ const MOCK_USER: User = {
  * Performs immediate login instead of opening a popup window
  */
 export async function mockGoogleLogin(): Promise<LoginResponse> {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, AUTH_CONFIG.MOCK_AUTH_DELAY_MS));
 
   const token = `mock-jwt-token-${Date.now()}`;
 

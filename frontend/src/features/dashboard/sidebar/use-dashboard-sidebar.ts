@@ -3,7 +3,8 @@
  * 폴더 CRUD 비즈니스 로직 및 상태 관리
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("DashboardSidebar");
@@ -20,8 +21,14 @@ export function useDashboardSidebar({
   selectedFolderId,
   onSelectFolder,
 }: UseDashboardSidebarProps) {
+  const router = useRouter();
   const { folders, createFolder, renameFolder, deleteFolder } = useFolders();
   const deleteNoteMutation = useDeleteNote();
+
+  // 노트 생성 UI 상태
+  const [isNoteDropdownOpen, setIsNoteDropdownOpen] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [selectedNoteType, setSelectedNoteType] = useState<"student" | "educator">("student");
 
   // 폴더 모달 상태
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
@@ -31,6 +38,46 @@ export function useDashboardSidebar({
   const [renamingFolder, setRenamingFolder] = useState<DBFolder | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<DBFolder | null>(null);
   const [deletingNote, setDeletingNote] = useState<{ id: string; title: string } | null>(null);
+
+  // 노트 드롭다운 토글
+  const toggleNoteDropdown = useCallback(() => {
+    setIsNoteDropdownOpen((prev) => !prev);
+  }, []);
+
+  // 노트 드롭다운 닫기
+  const closeNoteDropdown = useCallback(() => {
+    setIsNoteDropdownOpen(false);
+  }, []);
+
+  // 노트 타입 선택 및 모달 열기
+  const openNoteModal = useCallback((type: "student" | "educator") => {
+    setSelectedNoteType(type);
+    setIsNoteModalOpen(true);
+    setIsNoteDropdownOpen(false);
+  }, []);
+
+  // 노트 모달 닫기
+  const closeNoteModal = useCallback(() => {
+    setIsNoteModalOpen(false);
+  }, []);
+
+  // 네비게이션 핸들러
+  const navigateToProfile = useCallback(() => {
+    router.push("/dashboard/profile");
+  }, [router]);
+
+  const navigateToTrash = useCallback(() => {
+    router.push("/dashboard/trash");
+  }, [router]);
+
+  const navigateToHome = useCallback(() => {
+    onSelectFolder(null);
+    router.push("/dashboard/main");
+  }, [router, onSelectFolder]);
+
+  const navigateToLogout = useCallback(() => {
+    router.push("/auth/logout");
+  }, [router]);
 
   // 폴더 생성 핸들러
   const handleCreateFolderModal = async (
@@ -114,7 +161,30 @@ export function useDashboardSidebar({
     }
   };
 
+  // 폴더 생성 모달 닫기
+  const closeCreateFolderModal = useCallback(() => {
+    setIsCreateFolderModalOpen(false);
+    setCreateSubfolderParentId(null);
+  }, []);
+
   return {
+    // 노트 생성 UI 상태
+    isNoteDropdownOpen,
+    isNoteModalOpen,
+    selectedNoteType,
+
+    // 노트 생성 핸들러
+    toggleNoteDropdown,
+    closeNoteDropdown,
+    openNoteModal,
+    closeNoteModal,
+
+    // 네비게이션 핸들러
+    navigateToProfile,
+    navigateToTrash,
+    navigateToHome,
+    navigateToLogout,
+
     // 폴더 모달 상태
     isCreateFolderModalOpen,
     setIsCreateFolderModalOpen,
@@ -136,5 +206,6 @@ export function useDashboardSidebar({
     handleDeleteSubmit,
     handleDeleteNote,
     handleDeleteNoteSubmit,
+    closeCreateFolderModal,
   };
 }
