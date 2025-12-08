@@ -118,8 +118,8 @@ export class SubscriptionByPlanDto {
   @ApiProperty({ description: '비율 (%)', example: 75.6 })
   percentage!: number;
 
-  @ApiProperty({ description: '평균 구독 기간 (일)', example: 195 })
-  avgSubscriptionLengthDays!: number;
+  @ApiProperty({ description: '평균 구독 기간 (일)', example: 195, required: false })
+  avgSubscriptionLengthDays?: number;
 }
 
 /**

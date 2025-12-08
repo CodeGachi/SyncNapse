@@ -20,7 +20,10 @@ export class PlansService {
         orderBy: { createdAt: 'desc' },
         include: {
           subscriptions: {
-            where: { status: 'active' },
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
           },
         },
       });
@@ -53,21 +56,10 @@ export class PlansService {
     this.logger.debug(`createPlan name=${dto.name}`);
 
     try {
-      // 이름 중복 체크
-      const existingPlan = await this.prisma.plan.findFirst({
-        where: { name: dto.name },
-      });
-      
-      if (existingPlan) {
-        throw new BadRequestException('이미 존재하는 요금제 이름입니다.');
-      }
-
-      // ID 생성 (unique ID 보장)
-      const id = `plan-${Date.now()}-${dto.name.toLowerCase().replace(/\s+/g, '-')}`;
-
+      // Prisma가 자동으로 ID 생성하도록 함 (cuid)
+      // 이름 중복은 DB의 @unique 제약으로 처리
       const newPlan = await this.prisma.plan.create({
         data: {
-          id,
           name: dto.name,
           description: dto.description,
           monthlyPrice: dto.monthlyPrice,
@@ -77,12 +69,15 @@ export class PlansService {
         },
         include: {
           subscriptions: {
-            where: { status: 'active' },
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
           },
         },
       });
 
-      this.logger.log(`Plan created: ${id}`);
+      this.logger.log(`Plan created: ${newPlan.id}`);
 
       return {
         data: new PlanDto({
@@ -98,9 +93,10 @@ export class PlansService {
           updatedAt: newPlan.updatedAt.toISOString(),
         }),
       };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
+    } catch (error: any) {
+      // Prisma unique constraint 에러 처리
+      if (error?.code === 'P2002') {
+        throw new BadRequestException('이미 존재하는 요금제 이름입니다.');
       }
       this.logger.error('Failed to create plan', error);
       throw new InternalServerErrorException('요금제 생성에 실패했습니다.');
@@ -119,7 +115,10 @@ export class PlansService {
         where: { id: planId },
         include: {
           subscriptions: {
-            where: { status: 'active' },
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
           },
         },
       });
@@ -128,19 +127,7 @@ export class PlansService {
         throw new NotFoundException('요금제를 찾을 수 없습니다.');
       }
 
-      // 이름 변경 시 중복 체크
-      if (dto.name && dto.name !== plan.name) {
-        const existingPlan = await this.prisma.plan.findFirst({
-          where: {
-            name: dto.name,
-            id: { not: planId },
-          },
-        });
-        
-        if (existingPlan) {
-          throw new BadRequestException('이미 존재하는 요금제 이름입니다.');
-        }
-      }
+      // 이름 변경 시 중복 체크는 Prisma unique constraint가 처리
 
       // 업데이트
       const updatedPlan = await this.prisma.plan.update({
@@ -155,7 +142,10 @@ export class PlansService {
         },
         include: {
           subscriptions: {
-            where: { status: 'active' },
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
           },
         },
       });
@@ -176,9 +166,13 @@ export class PlansService {
           updatedAt: updatedPlan.updatedAt.toISOString(),
         }),
       };
-    } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+    } catch (error: any) {
+      if (error instanceof NotFoundException) {
         throw error;
+      }
+      // Prisma unique constraint 에러 처리
+      if (error?.code === 'P2002') {
+        throw new BadRequestException('이미 존재하는 요금제 이름입니다.');
       }
       this.logger.error('Failed to update plan', error);
       throw new InternalServerErrorException('요금제 수정에 실패했습니다.');
@@ -197,7 +191,10 @@ export class PlansService {
         where: { id: planId },
         include: {
           subscriptions: {
-            where: { status: 'active' },
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
           },
         },
       });

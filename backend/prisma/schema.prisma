@@ -504,7 +504,7 @@ model TrustedDevice {
 // Plan (요금제)
 model Plan {
   id            String   @id @default(cuid())
-  name          String
+  name          String   @unique
   description   String
   monthlyPrice  Int      @default(0) // 원 단위
   yearlyPrice   Int      @default(0) // 원 단위
@@ -536,6 +536,7 @@ model Subscription {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan                Plan     @relation(fields: [planId], references: [id])
   
+  @@unique([userId, planId])
   @@index([userId])
   @@index([planId])
   @@index([status])

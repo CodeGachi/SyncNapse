@@ -301,23 +301,44 @@ export class SubscriptionsService {
         },
       });
 
-      const byPlan: SubscriptionByPlanDto[] = [];
+      // 전체 활성 구독자 수 (루프 밖에서 한 번만 조회)
+      const totalSubscribers = await this.prisma.subscription.count({
+        where: {
+          status: 'active',
+          cancelledAt: null,
+        },
+      });
 
-      for (const plan of plans) {
-        const subscribers = plan.subscriptions.length;
-
-        // 30일 전 구독자 수 (30일 전 시점에 활성 상태였던 구독)
-        // createdAt이 30일 전 이하이고, cancelledAt이 null이거나 30일 전 이후인 구독
-        const subscribersThirtyDaysAgo = await this.prisma.subscription.count({
+      // 각 플랜별로 30일 전 구독자 수를 병렬로 조회
+      const planIds = plans.map(p => p.id);
+      const thirtyDaysAgoCountsPromises = planIds.map(planId =>
+        this.prisma.subscription.count({
           where: {
-            planId: plan.id,
+            planId,
             createdAt: { lte: thirtyDaysAgo },
             OR: [
               { cancelledAt: null },
               { cancelledAt: { gt: thirtyDaysAgo } },
             ],
           },
-        });
+        })
+      );
+
+      const thirtyDaysAgoCounts = await Promise.all(thirtyDaysAgoCountsPromises);
+
+      // 각 플랜별로 평균 구독 기간을 병렬로 조회
+      const avgLengthPromises = plans.map(plan =>
+        plan.subscriptions.length > 0
+          ? this.calculateAvgSubscriptionLength(plan.id)
+          : Promise.resolve(undefined)
+      );
+
+      const avgLengths = await Promise.all(avgLengthPromises);
+
+      // 결과 조합
+      const byPlan: SubscriptionByPlanDto[] = plans.map((plan, index) => {
+        const subscribers = plan.subscriptions.length;
+        const subscribersThirtyDaysAgo = thirtyDaysAgoCounts[index];
 
         // 수익 계산
         let revenue = 0;
@@ -329,20 +350,7 @@ export class SubscriptionsService {
           }
         }
 
-        // 전체 활성 구독자 수
-        const totalSubscribers = await this.prisma.subscription.count({
-          where: {
-            status: 'active',
-            cancelledAt: null,
-          },
-        });
-
-        // 평균 구독 기간 계산 (간단히 생성일 기준)
-        const avgSubscriptionLengthDays = subscribers > 0
-          ? await this.calculateAvgSubscriptionLength(plan.id)
-          : undefined;
-
-        byPlan.push({
+        return {
           planId: plan.id,
           planName: plan.name,
           subscribers,
@@ -351,9 +359,9 @@ export class SubscriptionsService {
           percentage: totalSubscribers > 0
             ? Math.round((subscribers / totalSubscribers) * 100 * 10) / 10
             : 0,
-          avgSubscriptionLengthDays,
-        });
-      }
+          avgSubscriptionLengthDays: avgLengths[index],
+        };
+      });
 
       return { data: byPlan };
     } catch (error) {
