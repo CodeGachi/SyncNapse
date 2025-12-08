@@ -1,7 +1,7 @@
-import { Controller, Get, Delete, Query, Param, Body, UseGuards, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards, Logger } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminRoleGuard, AdminOnlyGuard } from './guards';
+import { AdminRoleGuard } from './guards';
 import { SubscriptionsService } from './subscriptions.service';
 import {
   SubscriptionStatsQueryDto,
@@ -14,7 +14,6 @@ import {
   SubscriptionItemDto,
   PlanDistributionDto,
   PaginationDto,
-  CancelSubscriptionDto,
 } from './dto';
 
 /**
@@ -147,41 +146,6 @@ export class SubscriptionsController {
   ): Promise<{ data: SubscriptionItemDto[]; pagination: PaginationDto }> {
     this.logger.debug('GET /api/admin/subscriptions');
     return await this.subscriptionsService.getSubscriptions(query);
-  }
-
-  /**
-   * 5.7 구독 취소
-   * DELETE /api/admin/subscriptions/:subscriptionId
-   */
-  @Delete(':subscriptionId')
-  @UseGuards(JwtAuthGuard, AdminOnlyGuard)
-  @ApiOperation({
-    summary: '구독 취소',
-    description: '특정 구독을 취소합니다. (admin 권한 필요)',
-  })
-  @ApiParam({
-    name: 'subscriptionId',
-    description: '구독 ID',
-    example: 'sub-001',
-  })
-  @ApiResponse({
-    status: 200,
-    description: '구독 취소 성공',
-  })
-  @ApiResponse({
-    status: 400,
-    description: '잘못된 요청 (이미 취소된 구독)',
-  })
-  @ApiResponse({
-    status: 404,
-    description: '구독을 찾을 수 없음',
-  })
-  async cancelSubscription(
-    @Param('subscriptionId') subscriptionId: string,
-    @Body() dto: CancelSubscriptionDto,
-  ): Promise<{ message: string }> {
-    this.logger.debug(`DELETE /api/admin/subscriptions/${subscriptionId}`);
-    return await this.subscriptionsService.cancelSubscription(subscriptionId, dto.reason);
   }
 }
 
