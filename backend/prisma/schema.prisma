@@ -20,6 +20,11 @@ model User {
   folders       Folder[]
   authProvider  String   // e.g., cognito, credentials, oauth
   role          String   // e.g., user, admin
+  
+  // Suspend/Ban 관련
+  isBanned      Boolean  @default(false)
+  banReason     String?
+  suspendedUntil DateTime?
 
   // Back-relations
   uploads                Upload[]     @relation("UserUploads")
@@ -32,6 +37,12 @@ model User {
   
   // Sharing relations
   collaborations         NoteCollaborator[]
+  
+  // Subscription relations
+  subscriptions         Subscription[]
+  
+  @@index([isBanned])
+  @@index([suspendedUntil])
 }
 
 model Folder {
@@ -494,4 +505,61 @@ model TrustedDevice {
 
   @@index([userId])
   @@index([fingerprint])
+}
+
+// === Subscription & Plans ===
+
+// Plan (요금제)
+model Plan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String
+  monthlyPrice  Int      @default(0) // 원 단위
+  yearlyPrice   Int      @default(0) // 원 단위
+  status        String   @default("active") // active, inactive, deprecated
+  features      Json     // PlanFeature[] 형식
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  subscriptions Subscription[]
+  
+  @@index([status])
+}
+
+// Subscription (구독)
+model Subscription {
+  id                  String   @id @default(cuid())
+  userId              String
+  planId              String
+  status              String   @default("active") // active, cancelled, past_due
+  amount              Int      // 현재 구독 금액 (원)
+  billingCycle        String   // monthly, yearly
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelledAt         DateTime?
+  cancelReason        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                Plan     @relation(fields: [planId], references: [id])
+  
+  @@unique([userId, planId])
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+// === System Settings ===
+
+// SystemSettings (시스템 설정)
+model SystemSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique  // 설정 키 (예: 'general', 'security')
+  value     Json     // 설정 값 (JSON 형식)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([key])
 }

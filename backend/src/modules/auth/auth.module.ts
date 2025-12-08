@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ScheduleModule } from '@nestjs/schedule';
 import { UsersModule } from '../users/users.module';
+import { DbModule } from '../db/db.module';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -18,6 +19,7 @@ import { AuthConfig } from './config/auth.config';
 @Module({
   imports: [
     UsersModule,
+    DbModule,
     PassportModule,
     ScheduleModule.forRoot(), // Enable scheduled tasks
     JwtModule.register({
