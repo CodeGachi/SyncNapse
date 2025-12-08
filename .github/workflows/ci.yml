@@ -59,13 +59,19 @@ jobs:
         run: NODE_ENV=production bun run --cwd frontend build
 
   # ============================================
-  # Backend: Test, Lint, Build (parallel)
+  # Backend: Test, Lint, Build
+  # Uses bun for fast install + npm for stable Jest execution
   # ============================================
   backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -77,17 +83,17 @@ jobs:
           key: ${{ runner.os }}-bun-backend-${{ hashFiles('backend/bun.lockb') }}
           restore-keys: ${{ runner.os }}-bun-backend-
 
-      - name: Install dependencies
+      - name: Install dependencies (bun - fast)
         run: cd backend && bun install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: bun run --cwd backend prisma:generate
+        run: cd backend && npx prisma generate
 
-      - name: Test
-        run: bun run --cwd backend test:ci
+      - name: Test (npm/jest - stable)
+        run: cd backend && npm run test:ci
 
       - name: Lint
-        run: bun run --cwd backend lint
+        run: cd backend && npm run lint
 
       - name: Build
-        run: NODE_ENV=production bun run --cwd backend build
+        run: cd backend && NODE_ENV=production npm run build

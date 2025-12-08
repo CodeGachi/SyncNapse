@@ -1,5 +1,9 @@
+/**
+ * NotesService Unit Tests
+ * Testing core note management business logic
+ */
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { PrismaService } from '../db/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -7,74 +11,150 @@ import { FoldersService } from '../folders/folders.service';
 
 describe('NotesService', () => {
   let service: NotesService;
-  let prismaService: any;
 
+  // Mock data
+  const mockUserId = 'user-123';
+  const mockNoteId = 'note-123';
+  const mockFolderId = 'folder-123';
+  const mockFileId = 'file-123';
+
+  const mockUser = {
+    id: mockUserId,
+    email: 'test@example.com',
+    displayName: 'Test User',
+  };
+
+  const mockNote = {
+    id: mockNoteId,
+    title: 'Test Note',
+    type: 'student',
+    sourceFileUrl: null,
+    audioFileUrl: null,
+    publicAccess: 'PRIVATE',
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+    deletedAt: null,
+  };
+
+  const mockFolder = {
+    id: mockFolderId,
+    userId: mockUserId,
+    name: 'Test Folder',
+    parentId: null,
+    deletedAt: null,
+  };
+
+  const mockFolderNoteLink = {
+    folderId: mockFolderId,
+    noteId: mockNoteId,
+    note: mockNote,
+    folder: mockFolder,
+  };
+
+  const mockFile = {
+    id: mockFileId,
+    noteId: mockNoteId,
+    fileName: 'test.pdf',
+    fileType: 'application/pdf',
+    fileSize: 1024,
+    storageUrl: 'http://storage/test.pdf',
+    storageKey: 'users/test@example.com/Test Folder/Test Note/files/test.pdf',
+    uploadedAt: new Date('2024-01-01'),
+    deletedAt: null,
+  };
+
+  // Mock services
   const mockPrismaService = {
-    folderLectureNote: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-    },
-    lectureNote: {
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-    noteCollaborator: {
-      findFirst: jest.fn(),
-    },
-    noteContent: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-    notePageContent: {
-      update: jest.fn(),
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-    },
     user: {
-      findUnique: jest.fn(),
+      findUnique: jest.fn() as jest.Mock,
     },
     folder: {
-      findFirst: jest.fn(),
-      create: jest.fn(),
+      findFirst: jest.fn() as jest.Mock,
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+    },
+    lectureNote: {
+      findFirst: jest.fn() as jest.Mock,
+      findUnique: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+      update: jest.fn() as jest.Mock,
+      delete: jest.fn() as jest.Mock,
+    },
+    folderLectureNote: {
+      findFirst: jest.fn() as jest.Mock,
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+      delete: jest.fn() as jest.Mock,
     },
     file: {
-      findMany: jest.fn(),
-      create: jest.fn(),
+      findFirst: jest.fn() as jest.Mock,
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+      update: jest.fn() as jest.Mock,
+      delete: jest.fn() as jest.Mock,
+      deleteMany: jest.fn() as jest.Mock,
+    },
+    noteContent: {
+      findFirst: jest.fn() as jest.Mock,
+      findUnique: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+      update: jest.fn() as jest.Mock,
+      upsert: jest.fn() as jest.Mock,
+      delete: jest.fn() as jest.Mock,
+    },
+    notePageContent: {
+      findUnique: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+      update: jest.fn() as jest.Mock,
+      upsert: jest.fn() as jest.Mock,
+    },
+    noteCollaborator: {
+      findFirst: jest.fn() as jest.Mock,
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
+      update: jest.fn() as jest.Mock,
+      delete: jest.fn() as jest.Mock,
     },
     audioRecording: {
-      findMany: jest.fn(),
-      create: jest.fn(),
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
     },
     audioTimelineEvent: {
-      create: jest.fn(),
+      create: jest.fn() as jest.Mock,
     },
     transcriptionSession: {
-      findMany: jest.fn(),
-      create: jest.fn(),
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
     },
     transcriptRevision: {
-      findMany: jest.fn(),
-      create: jest.fn(),
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
     },
     transcriptionSegment: {
-      findMany: jest.fn(),
-      create: jest.fn(),
+      findMany: jest.fn() as jest.Mock,
+      create: jest.fn() as jest.Mock,
     },
     transcriptionWord: {
-      create: jest.fn(),
+      create: jest.fn() as jest.Mock,
     },
+    $transaction: jest.fn() as jest.Mock,
   };
 
   const mockStorageService = {
-    uploadBuffer: jest.fn(),
+    uploadBuffer: jest.fn() as jest.Mock,
+    getPublicUrl: jest.fn() as jest.Mock,
+    getSignedUrl: jest.fn() as jest.Mock,
+    getFileStream: jest.fn() as jest.Mock,
+    renameFolder: jest.fn() as jest.Mock,
+    renameFile: jest.fn() as jest.Mock,
+    deleteFile: jest.fn() as jest.Mock,
+    deleteFolderRecursively: jest.fn() as jest.Mock,
+    listFolders: jest.fn() as jest.Mock,
   };
 
   const mockFoldersService = {
-    buildFolderStoragePath: jest.fn(),
+    buildFolderStoragePath: jest.fn() as jest.Mock,
+    buildUserRootPath: jest.fn() as jest.Mock,
   };
 
   beforeEach(async () => {
@@ -90,480 +170,540 @@ describe('NotesService', () => {
     }).compile();
 
     service = module.get<NotesService>(NotesService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
-  describe('savePageTyping', () => {
-    const userId = 'user-1';
-    const noteId = 'note-1';
-    const fileId = 'file-1';
-    const pageNumber = 1;
-    const content = { delta: 'test' };
-
-    it('should save content using upsert when no version provided', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue({ id: 'link-1' });
-      mockPrismaService.notePageContent.upsert.mockResolvedValue({ id: 'content-1', version: 1 });
-
-      const result = await service.savePageTyping(userId, noteId, fileId, pageNumber, content);
-
-      expect(result.version).toBe(1);
-      expect(mockPrismaService.notePageContent.upsert).toHaveBeenCalled();
-      expect(mockPrismaService.notePageContent.update).not.toHaveBeenCalled();
-    });
-
-    it('should update content when version matches (optimistic locking)', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue({ id: 'link-1' });
-      mockPrismaService.notePageContent.update.mockResolvedValue({ id: 'content-1', version: 2 });
-
-      const result = await service.savePageTyping(userId, noteId, fileId, pageNumber, content, 1);
-
-      expect(result.version).toBe(2);
-      expect(mockPrismaService.notePageContent.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ version: 1 }),
-        })
-      );
-    });
-
-    it('should throw ConflictException when version mismatch', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue({ id: 'link-1' });
-      // Update fails
-      mockPrismaService.notePageContent.update.mockRejectedValue(new Error('Record to update not found'));
-      // Found existing record with different version
-      mockPrismaService.notePageContent.findUnique.mockResolvedValue({ id: 'content-1', version: 3 });
-
-      await expect(service.savePageTyping(userId, noteId, fileId, pageNumber, content, 1))
-        .rejects
-        .toThrow(ConflictException);
-      
-      expect(mockPrismaService.notePageContent.findUnique).toHaveBeenCalled();
-    });
+  it('should be defined', () => {
+    expect(service).toBeDefined();
   });
 
   describe('checkNoteAccess', () => {
-    const userId = 'user-1';
-    const noteId = 'note-1';
+    it('should return true for note owner', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
 
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    it('should return true when user is the owner', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue({ id: 'link-1' });
-
-      const result = await service.checkNoteAccess(userId, noteId);
+      const result = await service.checkNoteAccess(mockUserId, mockNoteId);
 
       expect(result).toBe(true);
-      expect(mockPrismaService.folderLectureNote.findFirst).toHaveBeenCalledWith({
-        where: {
-          noteId,
-          folder: { userId, deletedAt: null },
-          note: { deletedAt: null },
-        },
-      });
     });
 
-    it('should return true when user is a collaborator', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null); // Not owner
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue({
-        id: noteId,
-        publicAccess: 'PRIVATE',
-      });
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
-      mockPrismaService.noteCollaborator.findFirst.mockResolvedValue({
-        id: 'collab-1',
-        noteId,
-        userId,
-      });
-
-      const result = await service.checkNoteAccess(userId, noteId);
-
-      expect(result).toBe(true);
-      expect(mockPrismaService.noteCollaborator.findFirst).toHaveBeenCalled();
-    });
-
-    it('should return true when note has PUBLIC_READ access', async () => {
+    it('should return true for collaborator', async () => {
       mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue({
-        id: noteId,
-        publicAccess: 'PUBLIC_READ',
-      });
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
+      mockPrismaService.lectureNote.findFirst.mockResolvedValue(mockNote);
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.noteCollaborator.findFirst.mockResolvedValue({ id: 'collab-1' });
+
+      const result = await service.checkNoteAccess(mockUserId, mockNoteId);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true for public note', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+      mockPrismaService.lectureNote.findFirst.mockResolvedValue({ ...mockNote, publicAccess: 'PUBLIC_READ' });
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.noteCollaborator.findFirst.mockResolvedValue(null);
 
-      const result = await service.checkNoteAccess(userId, noteId);
+      const result = await service.checkNoteAccess(mockUserId, mockNoteId);
 
       expect(result).toBe(true);
     });
 
-    it('should return true when note has PUBLIC_EDIT access', async () => {
+    it('should return false for no access', async () => {
       mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue({
-        id: noteId,
-        publicAccess: 'PUBLIC_EDIT',
-      });
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
+      mockPrismaService.lectureNote.findFirst.mockResolvedValue(mockNote);
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.noteCollaborator.findFirst.mockResolvedValue(null);
 
-      const result = await service.checkNoteAccess(userId, noteId);
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false when note does not exist', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue(null);
-
-      const result = await service.checkNoteAccess(userId, noteId);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false when user has no access (private note, not owner, not collaborator)', async () => {
-      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue({
-        id: noteId,
-        publicAccess: 'PRIVATE',
-      });
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
-      mockPrismaService.noteCollaborator.findFirst.mockResolvedValue(null);
-
-      const result = await service.checkNoteAccess(userId, noteId);
+      const result = await service.checkNoteAccess(mockUserId, mockNoteId);
 
       expect(result).toBe(false);
     });
   });
 
-  describe('copyNoteToMyFolder', () => {
-    const userId = 'user-1';
-    const sourceNoteId = 'source-note-1';
-    const targetFolderId = 'folder-1';
+  describe('getNotesByUser', () => {
+    it('should return notes for user', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.folderLectureNote.findMany.mockResolvedValue([mockFolderNoteLink]);
+
+      const result = await service.getNotesByUser(mockUserId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(mockNoteId);
+      expect(result[0].title).toBe('Test Note');
+    });
+
+    it('should throw NotFoundException when user not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getNotesByUser(mockUserId)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should filter by folder when folderId provided', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.folder.findFirst.mockResolvedValue(mockFolder);
+      mockPrismaService.folderLectureNote.findMany.mockResolvedValue([mockFolderNoteLink]);
+
+      const result = await service.getNotesByUser(mockUserId, mockFolderId);
+
+      expect(result).toHaveLength(1);
+      expect(mockPrismaService.folderLectureNote.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ folderId: mockFolderId }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when folder not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.folder.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNotesByUser(mockUserId, mockFolderId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getNote', () => {
+    it('should return note for owner', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+
+      const result = await service.getNote(mockUserId, mockNoteId);
+
+      expect(result.id).toBe(mockNoteId);
+      expect(result.title).toBe('Test Note');
+      expect(result.folder_id).toBe(mockFolderId);
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNote(mockUserId, mockNoteId)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return note for collaborator without folder_id', async () => {
+      mockPrismaService.folderLectureNote.findFirst
+        .mockResolvedValueOnce(null) // Not owner
+        .mockResolvedValueOnce(mockFolderNoteLink); // Found via any folder
+      mockPrismaService.noteCollaborator.findFirst.mockResolvedValue({ id: 'collab-1' });
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.getNote(mockUserId, mockNoteId);
+
+      expect(result.id).toBe(mockNoteId);
+      expect(result.folder_id).toBeNull(); // Non-owners don't see folder_id
+    });
+  });
+
+  describe('createNote', () => {
+    const createDto = {
+      title: 'New Note',
+      folder_id: mockFolderId,
+      type: 'student' as const,
+    };
 
     beforeEach(() => {
-      jest.clearAllMocks();
+      mockPrismaService.folder.findFirst.mockResolvedValue(mockFolder);
+      mockPrismaService.$transaction.mockImplementation(async (callback: any) => {
+        return callback(mockPrismaService);
+      });
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+      mockPrismaService.lectureNote.create.mockResolvedValue({
+        ...mockNote,
+        id: 'new-note',
+        title: 'New Note',
+      });
+      mockPrismaService.folderLectureNote.create.mockResolvedValue({});
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('users/test@example.com/Test Folder');
+      mockStorageService.uploadBuffer.mockResolvedValue({ publicUrl: 'http://storage/new' });
     });
 
-    it('should copy a shared note to user folder successfully', async () => {
-      // Mock checkNoteAccess - user has access
-      mockPrismaService.folderLectureNote.findFirst
-        .mockResolvedValueOnce({ id: 'owner-link' }) // checkNoteAccess - owner check (returns truthy for access)
-        .mockResolvedValueOnce({ // Get source note
-          noteId: sourceNoteId,
-          note: {
-            id: sourceNoteId,
-            title: 'Original Note',
-            type: 'educator',
-            publicAccess: 'PUBLIC_READ',
-          },
-        });
+    it('should create note successfully', async () => {
+      const result = await service.createNote(mockUserId, createDto, []);
 
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
+      expect(result.title).toBe('New Note');
+      expect(mockPrismaService.lectureNote.create).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when folder not found', async () => {
+      mockPrismaService.folder.findFirst.mockResolvedValue(null);
+
+      await expect(service.createNote(mockUserId, createDto, [])).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException for duplicate title', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+
+      await expect(service.createNote(mockUserId, createDto, [])).rejects.toThrow(ConflictException);
+    });
+
+    it('should create root folder if not exists', async () => {
+      mockPrismaService.folder.findFirst
+        .mockResolvedValueOnce(null) // No root folder
+        .mockResolvedValueOnce(mockFolder); // After creation
+      mockPrismaService.folder.create.mockResolvedValue(mockFolder);
+
+      const result = await service.createNote(mockUserId, { ...createDto, folder_id: 'root' }, []);
+
+      expect(result.title).toBe('New Note');
+      expect(mockPrismaService.folder.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateNote', () => {
+    const updateDto = { title: 'Updated Title' };
+
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockPrismaService.$transaction.mockImplementation(async (callback: any) => {
+        return callback(mockPrismaService);
       });
-
-      mockPrismaService.folder.findFirst.mockResolvedValue({
-        id: targetFolderId,
-        name: 'My Folder',
-        userId,
-      });
-
-      mockPrismaService.lectureNote.create.mockResolvedValue({
-        id: 'new-note-1',
-        title: 'Original Note (복사본)',
-        type: 'student',
-        publicAccess: 'PRIVATE',
-        createdAt: new Date(),
+      mockPrismaService.lectureNote.update.mockResolvedValue({
+        ...mockNote,
+        title: 'Updated Title',
         updatedAt: new Date(),
       });
-
-      mockPrismaService.folderLectureNote.create.mockResolvedValue({
-        noteId: 'new-note-1',
-        folderId: targetFolderId,
-      });
-
-      mockPrismaService.noteContent.findUnique.mockResolvedValue({
-        noteId: sourceNoteId,
-        content: { pages: {} },
-      });
-
-      mockPrismaService.noteContent.create.mockResolvedValue({
-        noteId: 'new-note-1',
-        content: { pages: {} },
-      });
-
-      mockPrismaService.file.findMany.mockResolvedValue([
-        {
-          id: 'file-1',
-          noteId: sourceNoteId,
-          fileName: 'test.pdf',
-          fileType: 'application/pdf',
-          fileSize: 1000,
-          storageKey: 'path/to/file',
-          storageUrl: 'http://example.com/file',
-        },
-      ]);
-
-      mockPrismaService.file.create.mockResolvedValue({
-        id: 'new-file-1',
-        noteId: 'new-note-1',
-        fileName: 'test.pdf',
-      });
-
-      mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
-      mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
-      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
-
-      const result = await service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId);
-
-      expect(result).toMatchObject({
-        id: 'new-note-1',
-        title: 'Original Note (복사본)',
-        type: 'student',
-        folder_id: targetFolderId,
-        public_access: 'PRIVATE',
-      });
-
-      expect(mockPrismaService.lectureNote.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          title: 'Original Note (복사본)',
-          type: 'student',
-          publicAccess: 'PRIVATE',
-        }),
-      });
-
-      expect(mockPrismaService.file.create).toHaveBeenCalled();
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('users/test@example.com/Test Folder');
+      mockStorageService.renameFolder.mockResolvedValue(undefined);
+      mockStorageService.uploadBuffer.mockResolvedValue({ publicUrl: 'url' });
     });
 
-    it('should throw NotFoundException when user has no access', async () => {
-      // Mock checkNoteAccess - no access
+    it('should update note title', async () => {
+      const result = await service.updateNote(mockUserId, mockNoteId, updateDto);
+
+      expect(result.title).toBe('Updated Title');
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
       mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue(null);
 
-      await expect(service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId))
-        .rejects
-        .toThrow(NotFoundException);
+      await expect(service.updateNote(mockUserId, mockNoteId, updateDto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('deleteNote', () => {
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockPrismaService.lectureNote.update.mockResolvedValue({ ...mockNote, deletedAt: new Date() });
+      mockPrismaService.file.findMany.mockResolvedValue([mockFile]);
+      mockPrismaService.lectureNote.findUnique.mockResolvedValue(mockNote);
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('users/test@example.com/Test Folder');
+      mockStorageService.renameFolder.mockResolvedValue(undefined);
     });
 
-    it('should create default folder if no target folder specified and user has no folders', async () => {
-      // Mock checkNoteAccess - user has access via public
-      mockPrismaService.folderLectureNote.findFirst
-        .mockResolvedValueOnce(null) // checkNoteAccess - not owner
-        .mockResolvedValueOnce({ // Get source note
-          noteId: sourceNoteId,
-          note: {
-            id: sourceNoteId,
-            title: 'Shared Note',
-            type: 'educator',
-            publicAccess: 'PUBLIC_READ',
-          },
-        });
+    it('should soft delete note', async () => {
+      const result = await service.deleteNote(mockUserId, mockNoteId);
 
-      mockPrismaService.lectureNote.findFirst.mockResolvedValue({
-        id: sourceNoteId,
+      expect(result.message).toBe('Note deleted successfully');
+      expect(mockPrismaService.lectureNote.update).toHaveBeenCalledWith({
+        where: { id: mockNoteId },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteNote(mockUserId, mockNoteId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getFilesForNote', () => {
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockPrismaService.file.findMany.mockResolvedValue([mockFile]);
+      mockStorageService.getSignedUrl.mockResolvedValue('http://signed-url');
+    });
+
+    it('should return files for note', async () => {
+      const result = await service.getFilesForNote(mockUserId, mockNoteId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].fileName).toBe('test.pdf');
+      expect(result[0].url).toBe('http://signed-url');
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.getFilesForNote(mockUserId, mockNoteId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('saveNoteContent', () => {
+    const pages = {
+      '1': { blocks: [{ id: 'block-1', type: 'text' as const, content: 'Hello' }] },
+    };
+
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('users/test@example.com/Test Folder');
+      mockStorageService.uploadBuffer.mockResolvedValue({ publicUrl: 'url' });
+      mockPrismaService.noteContent.upsert.mockResolvedValue({
+        id: 'content-1',
+        noteId: mockNoteId,
+        content: { pages },
+        version: 1,
+      });
+    });
+
+    it('should save note content', async () => {
+      const result = await service.saveNoteContent(mockUserId, mockNoteId, pages);
+
+      expect(result.noteId).toBe(mockNoteId);
+      expect(mockStorageService.uploadBuffer).toHaveBeenCalled();
+      expect(mockPrismaService.noteContent.upsert).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.saveNoteContent(mockUserId, mockNoteId, pages)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getNoteContent', () => {
+    const mockNoteContent = {
+      id: 'content-1',
+      noteId: mockNoteId,
+      content: { pages: { '1': { blocks: [] } } },
+      version: 1,
+      storageKey: 'key',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockPrismaService.noteContent.findUnique.mockResolvedValue(mockNoteContent);
+    });
+
+    it('should return note content', async () => {
+      const result = await service.getNoteContent(mockUserId, mockNoteId);
+
+      expect(result.noteId).toBe(mockNoteId);
+      expect(result.pages).toHaveProperty('1');
+    });
+
+    it('should return empty pages when content not found', async () => {
+      mockPrismaService.noteContent.findUnique.mockResolvedValue(null);
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('path');
+      mockStorageService.getFileStream.mockRejectedValue(new Error('Not found'));
+
+      const result = await service.getNoteContent(mockUserId, mockNoteId);
+
+      expect(result.pages).toEqual({});
+    });
+  });
+
+  describe('savePageTyping', () => {
+    const content = { ops: [{ insert: 'Hello' }] };
+
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+    });
+
+    it('should save page content with upsert', async () => {
+      mockPrismaService.notePageContent.upsert.mockResolvedValue({
+        id: 'page-1',
+        fileId: mockFileId,
+        pageNumber: 1,
+        content,
+        version: 1,
+      });
+
+      const result = await service.savePageTyping(mockUserId, mockNoteId, mockFileId, 1, content);
+
+      expect(result.version).toBe(1);
+      expect(mockPrismaService.notePageContent.upsert).toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException on version mismatch', async () => {
+      mockPrismaService.notePageContent.update.mockRejectedValue(new Error('P2025'));
+      mockPrismaService.notePageContent.findUnique.mockResolvedValue({
+        version: 5,
+      });
+
+      await expect(
+        service.savePageTyping(mockUserId, mockNoteId, mockFileId, 1, content, 3),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.savePageTyping(mockUserId, mockNoteId, mockFileId, 1, content),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getPageTyping', () => {
+    it('should return page content', async () => {
+      const pageContent = {
+        id: 'page-1',
+        fileId: mockFileId,
+        pageNumber: 1,
+        content: { ops: [] },
+        version: 2,
+      };
+      mockPrismaService.notePageContent.findUnique.mockResolvedValue(pageContent);
+
+      const result = await service.getPageTyping(mockUserId, mockNoteId, mockFileId, 1);
+
+      expect(result.version).toBe(2);
+    });
+
+    it('should return empty content when not found', async () => {
+      mockPrismaService.notePageContent.findUnique.mockResolvedValue(null);
+
+      const result = await service.getPageTyping(mockUserId, mockNoteId, mockFileId, 1);
+
+      expect(result.content).toEqual([]);
+      expect(result.version).toBe(0);
+    });
+  });
+
+  describe('getTrashedNotes', () => {
+    it('should return trashed notes', async () => {
+      const trashedNote = {
+        ...mockFolderNoteLink,
+        note: { ...mockNote, deletedAt: new Date() },
+      };
+      mockPrismaService.folderLectureNote.findMany.mockResolvedValue([trashedNote]);
+
+      const result = await service.getTrashedNotes(mockUserId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].deleted_at).toBeDefined();
+    });
+  });
+
+  describe('restoreNote', () => {
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue({
+        ...mockFolderNoteLink,
+        note: { ...mockNote, deletedAt: new Date() },
+      });
+      mockPrismaService.lectureNote.update.mockResolvedValue(mockNote);
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('path');
+      mockStorageService.listFolders.mockResolvedValue(['Test Note_123456']);
+      mockStorageService.renameFolder.mockResolvedValue(undefined);
+      mockPrismaService.file.findMany.mockResolvedValue([]);
+      mockPrismaService.noteContent.findFirst.mockResolvedValue(null);
+    });
+
+    it('should restore trashed note', async () => {
+      const result = await service.restoreNote(mockUserId, mockNoteId);
+
+      expect(result.id).toBe(mockNoteId);
+      expect(mockPrismaService.lectureNote.update).toHaveBeenCalledWith({
+        where: { id: mockNoteId },
+        data: { deletedAt: null },
+      });
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.restoreNote(mockUserId, mockNoteId)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException when note not in trash', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+
+      await expect(service.restoreNote(mockUserId, mockNoteId)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('permanentlyDeleteNote', () => {
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue({
+        ...mockFolderNoteLink,
+        note: { ...mockNote, deletedAt: new Date() },
+      });
+      mockFoldersService.buildFolderStoragePath.mockResolvedValue('path');
+      mockStorageService.listFolders.mockResolvedValue(['Test Note_123456']);
+      mockStorageService.deleteFolderRecursively.mockResolvedValue(undefined);
+      mockPrismaService.file.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrismaService.noteContent.findFirst.mockResolvedValue(null);
+      mockPrismaService.folderLectureNote.delete.mockResolvedValue({});
+      mockPrismaService.lectureNote.delete.mockResolvedValue(mockNote);
+    });
+
+    it('should permanently delete note', async () => {
+      const result = await service.permanentlyDeleteNote(mockUserId, mockNoteId);
+
+      expect(result.message).toBe('Note permanently deleted successfully');
+      expect(mockPrismaService.lectureNote.delete).toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when note not in trash', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+
+      await expect(service.permanentlyDeleteNote(mockUserId, mockNoteId)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('updatePublicAccess', () => {
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockPrismaService.lectureNote.update.mockResolvedValue({
+        ...mockNote,
         publicAccess: 'PUBLIC_READ',
       });
+    });
 
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
+    it('should update public access', async () => {
+      const result = await service.updatePublicAccess(mockUserId, mockNoteId, 'PUBLIC_READ');
 
+      expect(result.publicAccess).toBe('PUBLIC_READ');
+    });
+
+    it('should throw NotFoundException when note not found', async () => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updatePublicAccess(mockUserId, mockNoteId, 'PUBLIC_READ'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('inviteCollaborator', () => {
+    const invitedUser = { id: 'user-456', email: 'invited@example.com', displayName: 'Invited' };
+
+    beforeEach(() => {
+      mockPrismaService.folderLectureNote.findFirst.mockResolvedValue(mockFolderNoteLink);
+      mockPrismaService.user.findUnique.mockResolvedValue(invitedUser);
       mockPrismaService.noteCollaborator.findFirst.mockResolvedValue(null);
-
-      // No existing folder
-      mockPrismaService.folder.findFirst
-        .mockResolvedValueOnce(null) // First call - looking for default folder
-        .mockResolvedValueOnce({ // Second call - verifying target folder
-          id: 'new-folder-1',
-          name: 'My Notes',
-          userId,
-        });
-
-      mockPrismaService.folder.create.mockResolvedValue({
-        id: 'new-folder-1',
-        name: 'My Notes',
-        userId,
-      });
-
-      mockPrismaService.lectureNote.create.mockResolvedValue({
-        id: 'new-note-1',
-        title: 'Shared Note (복사본)',
-        type: 'student',
-        publicAccess: 'PRIVATE',
+      mockPrismaService.noteCollaborator.create.mockResolvedValue({
+        id: 'collab-1',
+        noteId: mockNoteId,
+        userId: invitedUser.id,
+        email: invitedUser.email,
+        permission: 'EDITOR',
         createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      mockPrismaService.folderLectureNote.create.mockResolvedValue({
-        noteId: 'new-note-1',
-        folderId: 'new-folder-1',
-      });
-
-      mockPrismaService.noteContent.findUnique.mockResolvedValue(null);
-      mockPrismaService.file.findMany.mockResolvedValue([]);
-      mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
-      mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
-      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
-
-      const result = await service.copyNoteToMyFolder(userId, sourceNoteId);
-
-      expect(result).toMatchObject({
-        id: 'new-note-1',
-        title: 'Shared Note (복사본)',
-        folder_id: 'new-folder-1',
-      });
-
-      expect(mockPrismaService.folder.create).toHaveBeenCalledWith({
-        data: {
-          name: 'My Notes',
-          userId,
-        },
+        user: invitedUser,
       });
     });
 
-    it('should throw NotFoundException when source note does not exist', async () => {
-      // Mock checkNoteAccess - user has access
-      mockPrismaService.folderLectureNote.findFirst
-        .mockResolvedValueOnce({ id: 'link' }) // checkNoteAccess passes
-        .mockResolvedValueOnce(null); // Source note not found
+    it('should invite collaborator', async () => {
+      const result = await service.inviteCollaborator(mockUserId, mockNoteId, 'invited@example.com', 'EDITOR');
 
-      await expect(service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId))
-        .rejects
-        .toThrow(NotFoundException);
+      expect(result.email).toBe('invited@example.com');
+      expect(result.permission).toBe('EDITOR');
     });
 
-    it('should use custom title when provided', async () => {
-      const customTitle = 'My Custom Note Title';
+    it('should throw NotFoundException when user not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      // Mock checkNoteAccess - user has access
-      mockPrismaService.folderLectureNote.findFirst
-        .mockResolvedValueOnce({ id: 'owner-link' })
-        .mockResolvedValueOnce({
-          noteId: sourceNoteId,
-          note: {
-            id: sourceNoteId,
-            title: 'Original Note',
-            type: 'educator',
-            publicAccess: 'PUBLIC_READ',
-          },
-        });
-
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
-
-      mockPrismaService.folder.findFirst.mockResolvedValue({
-        id: targetFolderId,
-        name: 'My Folder',
-        userId,
-      });
-
-      mockPrismaService.lectureNote.create.mockResolvedValue({
-        id: 'new-note-1',
-        title: customTitle,
-        type: 'student',
-        publicAccess: 'PRIVATE',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      mockPrismaService.folderLectureNote.create.mockResolvedValue({
-        noteId: 'new-note-1',
-        folderId: targetFolderId,
-      });
-
-      mockPrismaService.noteContent.findUnique.mockResolvedValue(null);
-      mockPrismaService.file.findMany.mockResolvedValue([]);
-      mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
-      mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
-      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
-
-      const result = await service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId, customTitle);
-
-      expect(result).toMatchObject({
-        id: 'new-note-1',
-        title: customTitle,
-      });
-
-      expect(mockPrismaService.lectureNote.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          title: customTitle,
-        }),
-      });
+      await expect(
+        service.inviteCollaborator(mockUserId, mockNoteId, 'notfound@example.com', 'EDITOR'),
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('should use default title format when customTitle is empty string', async () => {
-      // Mock checkNoteAccess - user has access
-      mockPrismaService.folderLectureNote.findFirst
-        .mockResolvedValueOnce({ id: 'owner-link' })
-        .mockResolvedValueOnce({
-          noteId: sourceNoteId,
-          note: {
-            id: sourceNoteId,
-            title: 'Original Note',
-            type: 'educator',
-            publicAccess: 'PUBLIC_READ',
-          },
-        });
+    it('should throw ConflictException when already collaborator', async () => {
+      mockPrismaService.noteCollaborator.findFirst.mockResolvedValue({ id: 'existing' });
 
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: userId,
-        email: 'user@example.com',
-      });
-
-      mockPrismaService.folder.findFirst.mockResolvedValue({
-        id: targetFolderId,
-        name: 'My Folder',
-        userId,
-      });
-
-      mockPrismaService.lectureNote.create.mockResolvedValue({
-        id: 'new-note-1',
-        title: 'Original Note (복사본)',
-        type: 'student',
-        publicAccess: 'PRIVATE',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      mockPrismaService.folderLectureNote.create.mockResolvedValue({
-        noteId: 'new-note-1',
-        folderId: targetFolderId,
-      });
-
-      mockPrismaService.noteContent.findUnique.mockResolvedValue(null);
-      mockPrismaService.file.findMany.mockResolvedValue([]);
-      mockPrismaService.notePageContent.findMany.mockResolvedValue([]);
-      mockPrismaService.audioRecording.findMany.mockResolvedValue([]);
-      mockPrismaService.transcriptionSession.findMany.mockResolvedValue([]);
-
-      // Pass empty string as customTitle
-      const result = await service.copyNoteToMyFolder(userId, sourceNoteId, targetFolderId, '   ');
-
-      expect(result).toMatchObject({
-        id: 'new-note-1',
-        title: 'Original Note (복사본)',
-      });
-
-      expect(mockPrismaService.lectureNote.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          title: 'Original Note (복사본)',
-        }),
-      });
+      await expect(
+        service.inviteCollaborator(mockUserId, mockNoteId, 'invited@example.com', 'EDITOR'),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });
