@@ -27,18 +27,115 @@ export class SubscriptionsService {
     this.logger.debug(`getStats period=${query.period}`);
 
     try {
-      // Mock 데이터
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+      // 현재 활성 구독자 수 (status가 'active'이고 cancelledAt이 null)
+      const subscriberCount = await this.prisma.subscription.count({
+        where: {
+          status: 'active',
+          cancelledAt: null,
+        },
+      });
+
+      // 30일 전 활성 구독자 수 (30일 전 시점에 활성 상태였던 구독)
+      const subscriberCountThirtyDaysAgo = await this.prisma.subscription.count({
+        where: {
+          createdAt: { lte: thirtyDaysAgo },
+          OR: [
+            { cancelledAt: null },
+            { cancelledAt: { gt: thirtyDaysAgo } },
+          ],
+        },
+      });
+
+      // 총 수익 (모든 활성 구독의 월간 금액 합계)
+      // status가 'active'이고 cancelledAt이 null인 구독만 활성으로 간주
+      const activeSubscriptions = await this.prisma.subscription.findMany({
+        where: {
+          status: 'active',
+          cancelledAt: null,
+        },
+        select: { amount: true, billingCycle: true },
+      });
+
+      let totalRevenue = 0;
+      let mrr = 0; // Monthly Recurring Revenue
+      for (const sub of activeSubscriptions) {
+        if (sub.billingCycle === 'monthly') {
+          totalRevenue += sub.amount * 12; // 연간 수익으로 환산
+          mrr += sub.amount;
+        } else if (sub.billingCycle === 'yearly') {
+          totalRevenue += sub.amount;
+          mrr += Math.round(sub.amount / 12); // 연간을 월간으로 환산
+        }
+      }
+
+      // 30일 전 MRR 계산 (30일 전 시점에 활성 상태였던 구독)
+      const subscriptionsThirtyDaysAgo = await this.prisma.subscription.findMany({
+        where: {
+          createdAt: { lte: thirtyDaysAgo },
+          OR: [
+            { cancelledAt: null },
+            { cancelledAt: { gt: thirtyDaysAgo } },
+          ],
+        },
+        select: { amount: true, billingCycle: true },
+      });
+
+      let mrrThirtyDaysAgo = 0;
+      for (const sub of subscriptionsThirtyDaysAgo) {
+        if (sub.billingCycle === 'monthly') {
+          mrrThirtyDaysAgo += sub.amount;
+        } else if (sub.billingCycle === 'yearly') {
+          mrrThirtyDaysAgo += Math.round(sub.amount / 12);
+        }
+      }
+
+      // 이탈률 계산 (최근 30일간 취소된 구독)
+      const churnedCount = await this.prisma.subscription.count({
+        where: {
+          status: 'cancelled',
+          cancelledAt: { gte: thirtyDaysAgo },
+        },
+      });
+
+      // 이탈률은 기간 시작 시점의 활성 구독자 수로 나눠야 함
+      const churnRate = subscriberCountThirtyDaysAgo > 0
+        ? (churnedCount / subscriberCountThirtyDaysAgo) * 100
+        : 0;
+
+      // 30-60일 전 이탈자 수
+      const churnedCountPrevious = await this.prisma.subscription.count({
+        where: {
+          status: 'cancelled',
+          cancelledAt: {
+            gte: sixtyDaysAgo,
+            lt: thirtyDaysAgo,
+          },
+        },
+      });
+
+      // ARPU (Average Revenue Per User)
+      const arpu = subscriberCount > 0 ? Math.round(mrr / subscriberCount) : 0;
+
+      // LTV (Lifetime Value) - 간단히 ARPU * 평균 구독 기간 (월)로 계산
+      // 실제로는 더 복잡한 계산이 필요하지만 데모용으로 단순화
+      const avgSubscriptionMonths = 12; // 가정
+      const ltv = arpu * avgSubscriptionMonths;
+
       const stats = new SubscriptionStatsDto({
-        totalRevenue: 156789000,
-        totalRevenueChange: 15.3,
-        subscriberCount: 6818,
-        subscriberCountChange: 8.2,
-        mrr: 34220000,
-        mrrChange: 12.1,
-        churnRate: 3.6,
-        churnRateChange: -0.5,
-        arpu: 5020,
-        ltv: 125500,
+        totalRevenue,
+        totalRevenueChange: this.calculateChangeRate(0, totalRevenue), // 이전 데이터 없으므로 0
+        subscriberCount,
+        subscriberCountChange: this.calculateChangeRate(subscriberCountThirtyDaysAgo, subscriberCount),
+        mrr,
+        mrrChange: this.calculateChangeRate(mrrThirtyDaysAgo, mrr),
+        churnRate: Math.round(churnRate * 10) / 10,
+        churnRateChange: this.calculateChangeRate(churnedCountPrevious, churnedCount),
+        arpu,
+        ltv,
       });
 
       return { data: stats };
@@ -49,6 +146,17 @@ export class SubscriptionsService {
   }
 
   /**
+   * 변화율 계산 (백분율)
+   */
+  private calculateChangeRate(oldValue: number, newValue: number): number {
+    if (oldValue === 0) {
+      return newValue > 0 ? 100 : 0;
+    }
+    const change = ((newValue - oldValue) / oldValue) * 100;
+    return Math.round(change * 10) / 10;
+  }
+
+  /**
    * 5.2 수익 추이 조회
    * GET /api/admin/subscriptions/revenue
    */
@@ -56,57 +164,111 @@ export class SubscriptionsService {
     this.logger.debug(`getRevenue startDate=${query.startDate} endDate=${query.endDate}`);
 
     try {
-      // Mock 데이터 (최근 6개월)
-      const revenue: RevenueItemDto[] = [
-        {
-          date: '2024-06',
-          revenue: 28500000,
-          subscriptions: 5420,
-          newSubscriptions: 420,
-          renewals: 4800,
-          cancellations: 180,
-        },
-        {
-          date: '2024-07',
-          revenue: 30200000,
-          subscriptions: 5680,
-          newSubscriptions: 460,
-          renewals: 5100,
-          cancellations: 200,
-        },
-        {
-          date: '2024-08',
-          revenue: 32100000,
-          subscriptions: 6020,
-          newSubscriptions: 510,
-          renewals: 5290,
-          cancellations: 220,
-        },
-        {
-          date: '2024-09',
-          revenue: 33800000,
-          subscriptions: 6340,
-          newSubscriptions: 550,
-          renewals: 5580,
-          cancellations: 230,
-        },
-        {
-          date: '2024-10',
-          revenue: 35500000,
-          subscriptions: 6650,
-          newSubscriptions: 590,
-          renewals: 5850,
-          cancellations: 210,
-        },
-        {
-          date: '2024-11',
-          revenue: 37200000,
-          subscriptions: 6980,
-          newSubscriptions: 620,
-          renewals: 6170,
-          cancellations: 190,
-        },
-      ];
+      const startDate = query.startDate ? new Date(query.startDate) : new Date();
+      startDate.setMonth(startDate.getMonth() - 6); // 기본 6개월
+      const endDate = query.endDate ? new Date(query.endDate) : new Date();
+
+      // 월별로 그룹화하여 수익 계산
+      const revenue: RevenueItemDto[] = [];
+      const current = new Date(startDate);
+      current.setDate(1); // 월 초일로 설정
+      current.setHours(0, 0, 0, 0);
+
+      while (current <= endDate) {
+        const monthStart = new Date(current);
+        const monthEnd = new Date(current);
+        monthEnd.setMonth(monthEnd.getMonth() + 1);
+        monthEnd.setDate(0); // 월 말일
+        monthEnd.setHours(23, 59, 59, 999);
+
+        // 해당 월 신규 구독
+        const newSubscriptions = await this.prisma.subscription.count({
+          where: {
+            createdAt: {
+              gte: monthStart,
+              lte: monthEnd,
+            },
+          },
+        });
+
+        // 해당 월 말일 기준 활성 구독 수 (월 말일 시점에 활성 상태였던 구독)
+        const subscriptions = await this.prisma.subscription.count({
+          where: {
+            createdAt: { lte: monthEnd },
+            OR: [
+              { cancelledAt: null },
+              { cancelledAt: { gt: monthEnd } },
+            ],
+          },
+        });
+
+        // 해당 월 취소된 구독
+        const cancellations = await this.prisma.subscription.count({
+          where: {
+            status: 'cancelled',
+            cancelledAt: {
+              gte: monthStart,
+              lte: monthEnd,
+            },
+          },
+        });
+
+        // 해당 월 수익 계산 (월 말일 시점에 활성 상태였던 구독의 월간 금액 합계)
+        const activeSubs = await this.prisma.subscription.findMany({
+          where: {
+            createdAt: { lte: monthEnd },
+            OR: [
+              { cancelledAt: null },
+              { cancelledAt: { gt: monthEnd } },
+            ],
+          },
+          select: { 
+            amount: true, 
+            billingCycle: true,
+            currentPeriodStart: true,
+            createdAt: true,
+          },
+        });
+
+        let monthlyRevenue = 0;
+        let renewals = 0;
+        for (const sub of activeSubs) {
+          if (sub.billingCycle === 'monthly') {
+            monthlyRevenue += sub.amount;
+            // 갱신: currentPeriodStart가 해당 월에 있고, createdAt이 그보다 이전이면 갱신
+            if (
+              sub.currentPeriodStart >= monthStart &&
+              sub.currentPeriodStart <= monthEnd &&
+              sub.createdAt < sub.currentPeriodStart
+            ) {
+              renewals++;
+            }
+          } else if (sub.billingCycle === 'yearly') {
+            monthlyRevenue += Math.round(sub.amount / 12);
+            // 연간 구독도 마찬가지로 갱신 체크
+            if (
+              sub.currentPeriodStart >= monthStart &&
+              sub.currentPeriodStart <= monthEnd &&
+              sub.createdAt < sub.currentPeriodStart
+            ) {
+              renewals++;
+            }
+          }
+        }
+
+        const month = current.getMonth() + 1;
+        const dateStr = `${current.getFullYear()}-${month < 10 ? '0' : ''}${month}`;
+        revenue.push({
+          date: dateStr,
+          revenue: monthlyRevenue,
+          subscriptions,
+          newSubscriptions,
+          renewals,
+          cancellations,
+        });
+
+        current.setMonth(current.getMonth() + 1);
+      }
 
       return { data: revenue };
     } catch (error) {
@@ -123,33 +285,105 @@ export class SubscriptionsService {
     this.logger.debug('getByPlan');
 
     try {
-      // Mock 데이터
-      const byPlan: SubscriptionByPlanDto[] = [
-        {
-          planId: 'plan-student-pro',
-          planName: 'Student Pro',
-          subscribers: 3856,
-          revenue: 19280000,
-          change: 12.5,
-          percentage: 75.6,
-          avgSubscriptionLengthDays: 195,
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      // 모든 활성 요금제 조회
+      const plans = await this.prisma.plan.findMany({
+        where: { status: 'active' },
+        include: {
+          subscriptions: {
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
+          },
         },
-        {
-          planId: 'plan-educator-pro',
-          planName: 'Educator Pro',
-          subscribers: 1524,
-          revenue: 15240000,
-          change: 8.3,
-          percentage: 18.2,
-          avgSubscriptionLengthDays: 220,
-        },
-      ];
+      });
+
+      const byPlan: SubscriptionByPlanDto[] = [];
+
+      for (const plan of plans) {
+        const subscribers = plan.subscriptions.length;
+
+        // 30일 전 구독자 수 (30일 전 시점에 활성 상태였던 구독)
+        // createdAt이 30일 전 이하이고, cancelledAt이 null이거나 30일 전 이후인 구독
+        const subscribersThirtyDaysAgo = await this.prisma.subscription.count({
+          where: {
+            planId: plan.id,
+            createdAt: { lte: thirtyDaysAgo },
+            OR: [
+              { cancelledAt: null },
+              { cancelledAt: { gt: thirtyDaysAgo } },
+            ],
+          },
+        });
+
+        // 수익 계산
+        let revenue = 0;
+        for (const sub of plan.subscriptions) {
+          if (sub.billingCycle === 'monthly') {
+            revenue += sub.amount * 12; // 연간 수익으로 환산
+          } else if (sub.billingCycle === 'yearly') {
+            revenue += sub.amount;
+          }
+        }
+
+        // 전체 활성 구독자 수
+        const totalSubscribers = await this.prisma.subscription.count({
+          where: {
+            status: 'active',
+            cancelledAt: null,
+          },
+        });
+
+        // 평균 구독 기간 계산 (간단히 생성일 기준)
+        const avgSubscriptionLengthDays = subscribers > 0
+          ? await this.calculateAvgSubscriptionLength(plan.id)
+          : undefined;
+
+        byPlan.push({
+          planId: plan.id,
+          planName: plan.name,
+          subscribers,
+          revenue,
+          change: this.calculateChangeRate(subscribersThirtyDaysAgo, subscribers),
+          percentage: totalSubscribers > 0
+            ? Math.round((subscribers / totalSubscribers) * 100 * 10) / 10
+            : 0,
+          avgSubscriptionLengthDays,
+        });
+      }
 
       return { data: byPlan };
     } catch (error) {
       this.logger.error('Failed to get by-plan analysis', error);
       throw new InternalServerErrorException('요금제별 분석 조회에 실패했습니다.');
     }
+  }
+
+  /**
+   * 평균 구독 기간 계산 (일 단위)
+   */
+  private async calculateAvgSubscriptionLength(planId: string): Promise<number> {
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: {
+        planId,
+        status: 'active',
+        cancelledAt: null,
+      },
+      select: { createdAt: true },
+    });
+
+    if (subscriptions.length === 0) return 0;
+
+    const now = new Date();
+    const totalDays = subscriptions.reduce((sum, sub) => {
+      const days = Math.floor((now.getTime() - sub.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      return sum + days;
+    }, 0);
+
+    return Math.round(totalDays / subscriptions.length);
   }
 
   /**
@@ -160,22 +394,98 @@ export class SubscriptionsService {
     this.logger.debug(`getChurn period=${query.period}`);
 
     try {
-      // Mock 데이터
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // 최근 30일간 취소된 구독
+      const churnedSubscriptions = await this.prisma.subscription.findMany({
+        where: {
+          status: 'cancelled',
+          cancelledAt: { gte: thirtyDaysAgo },
+        },
+        include: { plan: true },
+      });
+
+      const totalChurned = churnedSubscriptions.length;
+
+      // 현재 활성 구독자 수 (status가 'active'이고 cancelledAt이 null)
+      const activeSubscriptions = await this.prisma.subscription.count({
+        where: {
+          status: 'active',
+          cancelledAt: null,
+        },
+      });
+
+      // 이탈률 계산
+      const churnRate = activeSubscriptions > 0
+        ? (totalChurned / activeSubscriptions) * 100
+        : 0;
+
+      // 손실 수익 계산
+      let revenueLost = 0;
+      for (const sub of churnedSubscriptions) {
+        if (sub.billingCycle === 'monthly') {
+          revenueLost += sub.amount;
+        } else if (sub.billingCycle === 'yearly') {
+          revenueLost += Math.round(sub.amount / 12);
+        }
+      }
+
+      // 취소 사유별 집계
+      const reasonMap = new Map<string, number>();
+      for (const sub of churnedSubscriptions) {
+        const reason = sub.cancelReason || 'other';
+        reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
+      }
+
+      const reasons = Array.from(reasonMap.entries()).map(([reason, count]) => ({
+        reason,
+        label: this.getReasonLabel(reason),
+        count,
+        percentage: totalChurned > 0 ? Math.round((count / totalChurned) * 100 * 10) / 10 : 0,
+      }));
+
+      // 요금제별 이탈 분석
+      const planChurnMap = new Map<string, { churned: number; planName: string }>();
+      for (const sub of churnedSubscriptions) {
+        const key = sub.planId;
+        const existing = planChurnMap.get(key) || { churned: 0, planName: sub.plan.name };
+        planChurnMap.set(key, {
+          churned: existing.churned + 1,
+          planName: existing.planName,
+        });
+      }
+
+      const byPlan = [];
+      for (const [planId, data] of planChurnMap.entries()) {
+        // 30일 전 시점의 활성 구독자 수로 이탈률 계산
+        const planActiveCountThirtyDaysAgo = await this.prisma.subscription.count({
+          where: {
+            planId,
+            createdAt: { lte: thirtyDaysAgo },
+            OR: [
+              { cancelledAt: null },
+              { cancelledAt: { gt: thirtyDaysAgo } },
+            ],
+          },
+        });
+
+        byPlan.push({
+          planId,
+          planName: data.planName,
+          churned: data.churned,
+          churnRate: planActiveCountThirtyDaysAgo > 0
+            ? Math.round((data.churned / planActiveCountThirtyDaysAgo) * 100 * 10) / 10
+            : 0,
+        });
+      }
+
       const churn = new ChurnAnalysisDto({
-        totalChurned: 185,
-        churnRate: 3.6,
-        revenueLost: 1250000,
-        reasons: [
-          { reason: 'price', label: '가격', count: 65, percentage: 35.1 },
-          { reason: 'features', label: '기능 부족', count: 45, percentage: 24.3 },
-          { reason: 'quality', label: '서비스 품질', count: 35, percentage: 18.9 },
-          { reason: 'not_using', label: '사용하지 않음', count: 25, percentage: 13.5 },
-          { reason: 'other', label: '기타', count: 15, percentage: 8.1 },
-        ],
-        byPlan: [
-          { planId: 'plan-student-pro', planName: 'Student Pro', churned: 142, churnRate: 3.7 },
-          { planId: 'plan-educator-pro', planName: 'Educator Pro', churned: 43, churnRate: 2.8 },
-        ],
+        totalChurned,
+        churnRate: Math.round(churnRate * 10) / 10,
+        revenueLost,
+        reasons,
+        byPlan,
       });
 
       return { data: churn };
@@ -186,6 +496,20 @@ export class SubscriptionsService {
   }
 
   /**
+   * 취소 사유 라벨 변환
+   */
+  private getReasonLabel(reason: string): string {
+    const labels: Record<string, string> = {
+      price: '가격',
+      features: '기능 부족',
+      quality: '서비스 품질',
+      not_using: '사용하지 않음',
+      other: '기타',
+    };
+    return labels[reason] || reason;
+  }
+
+  /**
    * 5.5 구독 목록 조회
    * GET /api/admin/subscriptions
    */
@@ -193,45 +517,63 @@ export class SubscriptionsService {
     this.logger.debug(`getSubscriptions query=${JSON.stringify(query)}`);
 
     try {
-      const { page = 1, limit = 20 } = query;
+      const { page = 1, limit = 20, status, planId } = query;
 
       if (page < 1 || limit < 1) {
         throw new BadRequestException('잘못된 페이지 파라미터입니다.');
       }
 
-      // Mock 데이터
-      const subscriptions: SubscriptionItemDto[] = [
-        {
-          id: 'sub-001',
-          userId: 'user-003',
-          userName: '김선생',
-          userEmail: 'kim@example.com',
-          planId: 'plan-educator-pro',
-          planName: 'Educator Pro',
-          status: 'active',
-          amount: 12000,
-          billingCycle: 'monthly',
-          currentPeriodStart: '2024-11-01T00:00:00Z',
-          currentPeriodEnd: '2024-12-01T00:00:00Z',
-          createdAt: '2024-03-15T10:00:00Z',
-        },
-        {
-          id: 'sub-002',
-          userId: 'user-005',
-          userName: '이학생',
-          userEmail: 'lee@example.com',
-          planId: 'plan-student-pro',
-          planName: 'Student Pro',
-          status: 'active',
-          amount: 4500,
-          billingCycle: 'monthly',
-          currentPeriodStart: '2024-11-15T00:00:00Z',
-          currentPeriodEnd: '2024-12-15T00:00:00Z',
-          createdAt: '2024-01-20T10:00:00Z',
-        },
-      ];
+      const where: any = {};
+      if (status) {
+        where.status = status;
+      }
+      if (planId) {
+        where.planId = planId;
+      }
 
-      const total = 156;
+      const skip = (page - 1) * limit;
+
+      // 구독 목록과 총 개수 병렬 조회
+      const [subscriptions, total] = await Promise.all([
+        this.prisma.subscription.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                displayName: true,
+              },
+            },
+            plan: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        }),
+        this.prisma.subscription.count({ where }),
+      ]);
+
+      const data: SubscriptionItemDto[] = subscriptions.map((sub) => ({
+        id: sub.id,
+        userId: sub.userId,
+        userName: sub.user.displayName,
+        userEmail: sub.user.email,
+        planId: sub.planId,
+        planName: sub.plan.name,
+        status: sub.status,
+        amount: sub.amount,
+        billingCycle: sub.billingCycle,
+        currentPeriodStart: sub.currentPeriodStart.toISOString(),
+        currentPeriodEnd: sub.currentPeriodEnd.toISOString(),
+        createdAt: sub.createdAt.toISOString(),
+      }));
+
       const totalPages = Math.max(Math.ceil(total / limit), 1);
       const pagination = new PaginationDto({
         page,
@@ -240,7 +582,7 @@ export class SubscriptionsService {
         totalPages,
       });
 
-      return { data: subscriptions, pagination };
+      return { data, pagination };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -258,12 +600,35 @@ export class SubscriptionsService {
     this.logger.debug('getDistribution');
 
     try {
-      // Mock 데이터
-      const distribution: PlanDistributionDto[] = [
-        { planId: 'plan-free', planName: '무료 플랜', userCount: 12847, percentage: 71.6 },
-        { planId: 'plan-student-pro', planName: 'Student Pro', userCount: 3856, percentage: 21.5 },
-        { planId: 'plan-educator-pro', planName: 'Educator Pro', userCount: 1242, percentage: 6.9 },
-      ];
+      // 모든 활성 요금제 조회
+      const plans = await this.prisma.plan.findMany({
+        where: { status: 'active' },
+        include: {
+          subscriptions: {
+            where: {
+              status: 'active',
+              cancelledAt: null,
+            },
+          },
+        },
+      });
+
+      // 전체 활성 구독자 수
+      const totalSubscribers = await this.prisma.subscription.count({
+        where: {
+          status: 'active',
+          cancelledAt: null,
+        },
+      });
+
+      const distribution: PlanDistributionDto[] = plans.map((plan) => ({
+        planId: plan.id,
+        planName: plan.name,
+        userCount: plan.subscriptions.length,
+        percentage: totalSubscribers > 0
+          ? Math.round((plan.subscriptions.length / totalSubscribers) * 100 * 10) / 10
+          : 0,
+      }));
 
       return { data: distribution };
     } catch (error) {

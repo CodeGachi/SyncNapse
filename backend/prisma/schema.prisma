@@ -32,6 +32,9 @@ model User {
   
   // Sharing relations
   collaborations         NoteCollaborator[]
+  
+  // Subscription relations
+  subscriptions         Subscription[]
 }
 
 model Folder {
@@ -494,4 +497,47 @@ model TrustedDevice {
 
   @@index([userId])
   @@index([fingerprint])
+}
+
+// === Subscription & Plans ===
+
+// Plan (요금제)
+model Plan {
+  id            String   @id @default(cuid())
+  name          String
+  description   String
+  monthlyPrice  Int      @default(0) // 원 단위
+  yearlyPrice   Int      @default(0) // 원 단위
+  status        String   @default("active") // active, inactive, deprecated
+  features      Json     // PlanFeature[] 형식
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  subscriptions Subscription[]
+  
+  @@index([status])
+}
+
+// Subscription (구독)
+model Subscription {
+  id                  String   @id @default(cuid())
+  userId              String
+  planId              String
+  status              String   @default("active") // active, cancelled, past_due
+  amount              Int      // 현재 구독 금액 (원)
+  billingCycle        String   // monthly, yearly
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelledAt         DateTime?
+  cancelReason        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                Plan     @relation(fields: [planId], references: [id])
+  
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@index([currentPeriodEnd])
 }

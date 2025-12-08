@@ -115,6 +115,24 @@ export class UsersService {
               take: 1,
               select: { createdAt: true },
             },
+            subscriptions: {
+              where: {
+                status: 'active',
+                cancelledAt: null,
+              },
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              select: {
+                planId: true,
+                plan: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                status: true,
+              },
+            },
           },
         }),
         this.prisma.user.count({ where }),
@@ -124,6 +142,16 @@ export class UsersService {
       const data = users.map((user) => {
         const lastLogin = user.refreshTokens[0]?.createdAt;
         const status = this.determineUserStatus(lastLogin);
+
+        // 활성 구독 정보 가져오기
+        const activeSubscription = user.subscriptions[0];
+        const subscription = activeSubscription
+          ? {
+              planId: activeSubscription.planId,
+              planName: activeSubscription.plan.name,
+              status: activeSubscription.status,
+            }
+          : undefined;
 
         return new UserListItemDto({
           id: user.id,
@@ -136,7 +164,7 @@ export class UsersService {
           lastLoginAt: lastLogin?.toISOString(),
           suspendedUntil: null, // TODO: 필드 추가 시
           banReason: null, // TODO: 필드 추가 시
-          subscription: undefined, // TODO: 구독 테이블 연동 시
+          subscription,
         });
       });
 
