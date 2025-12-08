@@ -101,7 +101,6 @@ export const PDFDrawingOverlay = forwardRef<
     const { triggerAutoSave, isLoadSuccess, isLoading } = useDrawingPageData({
       fabricCanvasRef,
       noteId,
-      fileId,
       pageNum,
       isCollaborative,
       isCanvasReady,
@@ -328,7 +327,6 @@ export const PDFDrawingOverlay = forwardRef<
           <CollaborativeCanvasWrapper
             fabricCanvas={fabricCanvasRef.current}
             noteId={noteId}  // ⭐ v2: IndexedDB 저장에 필요
-            fileId={fileId}
             pageNum={pageNum}
             syncToStorageRef={syncToStorageRef}
             readOnly={isSharedView}

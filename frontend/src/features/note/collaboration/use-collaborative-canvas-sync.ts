@@ -41,7 +41,6 @@ const SYNC_CONFIG = {
 
 export interface UseCollaborativeCanvasSyncProps {
   noteId: string;  // ⭐ IndexedDB 저장에 필요
-  fileId: string;
   pageNum: number;
   fabricCanvas: fabric.Canvas | null;
   isEnabled: boolean;
@@ -61,6 +60,13 @@ interface SyncState {
   lastSyncedAt: number | null;
   error: Error | null;
   retryCount: number;
+}
+
+/** Liveblocks Storage에 저장되는 Canvas JSON 타입 */
+interface CanvasJSON {
+  version: string;
+  objects: any[];
+  background: string;
 }
 
 export interface UseCollaborativeCanvasSyncReturn {
@@ -84,7 +90,6 @@ export interface UseCollaborativeCanvasSyncReturn {
  */
 export function useCollaborativeCanvasSync({
   noteId,
-  fileId,
   pageNum,
   fabricCanvas,
   isEnabled,
@@ -93,9 +98,9 @@ export function useCollaborativeCanvasSync({
   onConnectionChange,
   onRemoteUpdate,
 }: UseCollaborativeCanvasSyncProps): UseCollaborativeCanvasSyncReturn {
-  const canvasKey = getCanvasKey(fileId, pageNum);
+  const canvasKey = getCanvasKey(noteId, pageNum);
   const isUpdatingFromStorage = useRef(false); // 무한 루프 방지
-  const pendingChanges = useRef<object | null>(null); // 오프라인 동안 쌓인 변경사항
+  const pendingChanges = useRef<CanvasJSON | null>(null); // 오프라인 동안 쌓인 변경사항
 
   // 동기화 상태 관리
   const [syncState, setSyncState] = useState<SyncState>({
@@ -110,42 +115,70 @@ export function useCollaborativeCanvasSync({
   const connectionStatus = useStatus();
   const prevConnectionStatus = useRef(connectionStatus);
 
-  // Liveblocks Storage에서 전체 캔버스 데이터 가져오기
-  const allCanvasData = useStorage((root) => root.canvasData || null);
+  // Liveblocks Storage에서 전체 캔버스 데이터 가져오기 (LiveMap)
+  const allCanvasData = useStorage((root) => root.canvasData);
 
-  // 현재 페이지의 캔버스 데이터 (canvasKey로 접근)
-  const canvasDataFromStorage = allCanvasData?.[canvasKey] || null;
+  // 현재 페이지의 캔버스 데이터 (LiveMap.get()으로 접근)
+  // 마이그레이션 전 Record 형식인 경우도 처리
+  const canvasDataFromStorage = (() => {
+    if (!allCanvasData) return null;
+    // LiveMap인 경우
+    if (typeof allCanvasData.get === "function") {
+      return allCanvasData.get(canvasKey) || null;
+    }
+    // Record 형식인 경우 (마이그레이션 전)
+    return (allCanvasData as any)[canvasKey] || null;
+  })();
 
   // ⭐ 디버깅: canvasKey와 Storage 상태 확인
   useEffect(() => {
-    log.debug("⭐ 캔버스 동기화 상태:", {
+    // LiveMap 또는 Record의 keys를 배열로 변환
+    const keys = (() => {
+      if (!allCanvasData) return [];
+      if (typeof allCanvasData.keys === "function") {
+        return Array.from(allCanvasData.keys());
+      }
+      return Object.keys(allCanvasData);
+    })();
+    log.debug("⭐⭐⭐ 캔버스 동기화 상태:", {
       canvasKey,
-      fileId,
+      noteId,
       pageNum,
       isEnabled,
       readOnly,
+      hasFabricCanvas: !!fabricCanvas,
+      connectionStatus,
       hasAllCanvasData: !!allCanvasData,
-      allCanvasKeys: allCanvasData ? Object.keys(allCanvasData) : [],
+      allCanvasKeysCount: keys.length,
+      allCanvasKeys: keys.slice(0, 5),  // 처음 5개만 표시
       hasMatchingData: !!canvasDataFromStorage,
       matchingDataObjects: (canvasDataFromStorage as any)?.objects?.length || 0,
     });
-  }, [canvasKey, fileId, pageNum, isEnabled, readOnly, allCanvasData, canvasDataFromStorage]);
+
+    // Student(readOnly)가 데이터를 못 받는 경우 추가 디버깅
+    if (readOnly && keys.length > 0 && !canvasDataFromStorage) {
+      log.warn("⚠️ Student: Storage에 데이터 있지만 현재 페이지 키 불일치!", {
+        찾는키: canvasKey,
+        존재하는키들: keys,
+      });
+    }
+  }, [canvasKey, noteId, pageNum, isEnabled, readOnly, allCanvasData, canvasDataFromStorage, fabricCanvas, connectionStatus]);
 
   // Storage에 캔버스 데이터 저장 (Mutation)
+  // ⭐ LiveMap 사용: canvasData.set(key, value)로 개별 키 수정 시 자동 동기화됨
   const updateCanvasInStorage = useMutation(
-    ({ storage }, canvasJSON: object) => {
-      let canvasData = storage.get("canvasData");
+    ({ storage }, canvasJSON: { version: string; objects: any[]; background: string }) => {
+      // LiveMap 가져오기
+      const canvasData = storage.get("canvasData");
 
-      // canvasData가 없으면 초기화
-      if (!canvasData) {
-        storage.set("canvasData", {});
-        canvasData = storage.get("canvasData");
-      }
+      // ⭐ LiveMap.set() - 개별 키 수정이 자동으로 다른 클라이언트에 동기화됨
+      canvasData.set(canvasKey, canvasJSON);
 
-      // 타입 체크
-      if (canvasData && typeof canvasData === "object") {
-        (canvasData as Record<string, object>)[canvasKey] = canvasJSON;
-      }
+      log.debug("✅ LiveMap.set() 완료:", {
+        canvasKey,
+        objectCount: canvasJSON?.objects?.length || 0,
+        totalKeys: canvasData.size,
+      });
     },
     [canvasKey]
   );
@@ -195,7 +228,7 @@ export function useCollaborativeCanvasSync({
 
   // 재시도 로직이 포함된 Storage 업데이트
   const syncToStorageWithRetry = useCallback(
-    async (canvasJSON: object, retryCount = 0): Promise<boolean> => {
+    async (canvasJSON: CanvasJSON, retryCount = 0): Promise<boolean> => {
       try {
         // 오프라인이면 pending에 저장
         if (connectionStatus !== "connected") {
@@ -315,9 +348,8 @@ export function useCollaborativeCanvasSync({
 
         // IndexedDB에 저장할 DrawingData 구성
         const drawingData: DrawingData = {
-          id: `${noteId}-${fileId}-${pageNum}`,
+          id: `${noteId}-${pageNum}`,
           noteId,
-          fileId,
           pageNum,
           canvas: {
             version: canvasData.version || "6.0.0",
@@ -374,7 +406,7 @@ export function useCollaborativeCanvasSync({
         return false;
       }
     },
-    [noteId, fileId, pageNum, canvasKey, fabricCanvas, onSyncError, onRemoteUpdate]
+    [noteId, pageNum, canvasKey, fabricCanvas, onSyncError, onRemoteUpdate]
   );
 
   /**

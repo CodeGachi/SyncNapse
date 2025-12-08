@@ -19,6 +19,7 @@ import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 import { getAccessToken } from "@/lib/auth/token-manager";
 import { saveSharedReturnUrl } from "@/lib/auth/shared-return-url";
 import { createLogger } from "@/lib/utils/logger";
+import { fetchNoteByShortCode } from "@/lib/api/services/notes.api";
 
 const log = createLogger("SharedNote");
 
@@ -60,55 +61,76 @@ export default function SharedNotePage({ params }: SharedNotePageProps) {
     }
 
     // 로그인된 사용자 - 노트 페이지로 리다이렉트
-    try {
-      // 토큰에서 noteId 추출
-      // 토큰 형식 1: 순수 UUID (예: 533297d0-935f-4b59-b9a2-c722863c947d) - 36자, 하이픈 5개 부분
-      // 토큰 형식 2: {noteId}-{timestamp}-{randomString} - 7개 이상 부분
-      const parts = params.token.split("-");
+    const resolveAndRedirect = async () => {
+      try {
+        // 토큰에서 noteId 추출
+        // 토큰 형식 1: shortCode (8자리) - noteId의 첫 8자리 (예: 397b0801)
+        // 토큰 형식 2: 순수 UUID (예: 533297d0-935f-4b59-b9a2-c722863c947d) - 36자, 하이픈 5개 부분
+        // 토큰 형식 3: {noteId}-{timestamp}-{randomString} - 7개 이상 부분
+        const parts = params.token.split("-");
 
-      if (parts.length < 5) {
-        setError("유효하지 않은 공유 링크입니다.");
-        return;
+        let noteId: string;
+        let isShortCode = false;
+
+        // shortCode 형식 (8자리, 하이픈 없음)
+        if (parts.length === 1 && params.token.length === 8) {
+          // shortCode - noteId prefix로 사용하여 검색
+          isShortCode = true;
+          log.debug("ShortCode 감지, 실제 noteId 검색 중:", params.token);
+
+          // shortCode로 실제 노트 찾기
+          const note = await fetchNoteByShortCode(params.token);
+          if (!note) {
+            setError("해당 공유 링크의 노트를 찾을 수 없습니다.");
+            return;
+          }
+          noteId = note.id;
+          log.debug("ShortCode로 노트 발견:", noteId);
+        } else if (parts.length < 5) {
+          setError("유효하지 않은 공유 링크입니다.");
+          return;
+        } else {
+          // UUID는 정확히 5개 부분 (8-4-4-4-12 형식), 총 36자
+          const isValidUUID = parts.length === 5 && params.token.length === 36;
+
+          if (isValidUUID) {
+            // 순수 UUID 형식 - 토큰 전체가 noteId
+            noteId = params.token;
+          } else if (parts.length >= 7) {
+            // {noteId}-{timestamp}-{randomString} 형식
+            // 마지막 2개 부분은 timestamp와 randomString
+            noteId = parts.slice(0, parts.length - 2).join("-");
+          } else {
+            setError("유효하지 않은 공유 링크입니다.");
+            return;
+          }
+        }
+
+        if (!noteId) {
+          setError("노트 ID를 찾을 수 없습니다.");
+          return;
+        }
+
+        log.debug("토큰 파싱 완료:", {
+          원본토큰: params.token,
+          parts,
+          noteId,
+          noteIdLength: noteId.length,
+          isShortCode,
+          user: currentUser?.email,
+        });
+
+        // educator 노트 페이지로 리다이렉트 (공유 모드)
+        const redirectUrl = `/note/educator/${noteId}?view=shared&token=${params.token}`;
+        log.info("리다이렉트:", redirectUrl);
+        router.push(redirectUrl);
+      } catch (err) {
+        log.error("공유 링크 처리 오류:", err);
+        setError("공유 링크 처리 중 오류가 발생했습니다.");
       }
+    };
 
-      let noteId: string;
-
-      // UUID는 정확히 5개 부분 (8-4-4-4-12 형식), 총 36자
-      const isValidUUID = parts.length === 5 && params.token.length === 36;
-
-      if (isValidUUID) {
-        // 순수 UUID 형식 - 토큰 전체가 noteId
-        noteId = params.token;
-      } else if (parts.length >= 7) {
-        // {noteId}-{timestamp}-{randomString} 형식
-        // 마지막 2개 부분은 timestamp와 randomString
-        noteId = parts.slice(0, parts.length - 2).join("-");
-      } else {
-        setError("유효하지 않은 공유 링크입니다.");
-        return;
-      }
-
-      if (!noteId) {
-        setError("노트 ID를 찾을 수 없습니다.");
-        return;
-      }
-
-      log.debug("토큰 파싱 완료:", {
-        원본토큰: params.token,
-        parts,
-        noteId,
-        noteIdLength: noteId.length,
-        user: currentUser?.email,
-      });
-
-      // educator 노트 페이지로 리다이렉트 (공유 모드)
-      const redirectUrl = `/note/educator/${noteId}?view=shared&token=${params.token}`;
-      log.info("리다이렉트:", redirectUrl);
-      router.push(redirectUrl);
-    } catch (err) {
-      log.error("공유 링크 처리 오류:", err);
-      setError("공유 링크 처리 중 오류가 발생했습니다.");
-    }
+    resolveAndRedirect();
   }, [params.token, router, currentUser, isUserLoading]);
 
   // 로딩 중

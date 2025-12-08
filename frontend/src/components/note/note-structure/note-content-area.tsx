@@ -108,7 +108,7 @@ export function NoteContentArea({
 
   // 드로잉 저장 훅
   const { handleDrawingSave } = useDrawingSave({
-    fileId: selectedFile?.id.toString(),
+    noteId: noteId || undefined,
     pageNum: currentPdfPage,
   });
 

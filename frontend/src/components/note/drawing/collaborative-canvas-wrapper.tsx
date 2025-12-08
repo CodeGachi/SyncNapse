@@ -19,7 +19,6 @@ const log = createLogger("CollaborativeCanvasWrapper");
 interface CollaborativeCanvasWrapperProps {
   fabricCanvas: fabric.Canvas | null;
   noteId: string;  // ⭐ v2: IndexedDB 저장에 필요
-  fileId: string;
   pageNum: number;
   syncToStorageRef?: React.MutableRefObject<((canvas: fabric.Canvas) => void) | null>;
   showStatusIndicator?: boolean; // 상태 표시 UI 활성화 여부
@@ -31,7 +30,6 @@ interface CollaborativeCanvasWrapperProps {
 export function CollaborativeCanvasWrapper({
   fabricCanvas,
   noteId,
-  fileId,
   pageNum,
   syncToStorageRef,
   showStatusIndicator = true,
@@ -75,7 +73,6 @@ export function CollaborativeCanvasWrapper({
     isSyncing,
   } = useCollaborativeCanvasSync({
     noteId,  // ⭐ v2: IndexedDB 저장에 필요
-    fileId,
     pageNum,
     fabricCanvas,
     isEnabled: true,

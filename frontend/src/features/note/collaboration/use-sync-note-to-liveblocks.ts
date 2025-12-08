@@ -153,16 +153,12 @@ export function useSyncNoteToLiveblocks({
     []
   );
 
-  // ⭐ 드로잉 데이터를 Storage에 저장 (canvasData)
+  // ⭐ 드로잉 데이터를 Storage에 저장 (canvasData - LiveMap)
+  // LiveMap을 사용하므로 개별 키 수정 시 자동으로 동기화됨
   const syncDrawings = useMutation(
     ({ storage }, drawingsMap: Record<string, object>) => {
-      let canvasData = storage.get("canvasData");
-
-      // canvasData가 없으면 초기화
-      if (!canvasData) {
-        storage.set("canvasData", {});
-        canvasData = storage.get("canvasData");
-      }
+      // LiveMap 가져오기
+      const canvasData = storage.get("canvasData");
 
       // 드로잉이 비어있으면 스킵
       const drawingKeys = Object.keys(drawingsMap);
@@ -171,12 +167,12 @@ export function useSyncNoteToLiveblocks({
         return;
       }
 
-      // 각 페이지의 드로잉 데이터 동기화
+      // ⭐ LiveMap.set()으로 각 페이지 드로잉 저장 - 자동 동기화됨
       let totalObjects = 0;
       drawingKeys.forEach((canvasKey) => {
         const canvasJSON = drawingsMap[canvasKey] as any;
-        if (canvasJSON && typeof canvasData === "object") {
-          (canvasData as Record<string, object>)[canvasKey] = canvasJSON;
+        if (canvasJSON) {
+          canvasData.set(canvasKey, canvasJSON);
           const objectCount = canvasJSON.objects?.length || 0;
           totalObjects += objectCount;
           log.debug(`⭐ 드로잉 Liveblocks 전송: ${canvasKey}, 객체 수: ${objectCount}`);
@@ -237,12 +233,12 @@ export function useSyncNoteToLiveblocks({
             return;
           }
 
-          // canvasKey 형식으로 변환: fileId-pageNum -> canvasJSON
+          // canvasKey 형식으로 변환: noteId-pageNum -> canvasJSON
           const drawingsMap: Record<string, object> = {};
 
           drawings.forEach((drawing) => {
             if (drawing.canvas && drawing.canvas.objects?.length > 0) {
-              const canvasKey = getCanvasKey(drawing.fileId, drawing.pageNum);
+              const canvasKey = getCanvasKey(drawing.noteId, drawing.pageNum);
               drawingsMap[canvasKey] = drawing.canvas;
             }
           });

@@ -7,7 +7,7 @@
  * - 협업 기능 (손들기, 투표, 이모지, Q&A)
  */
 
-import { createClient, LiveList, LiveObject } from "@liveblocks/client";
+import { createClient, LiveList, LiveObject, LiveMap } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 import { getAccessToken } from "@/lib/auth/token-manager";
 import { getCachedHref } from "@/lib/api/hal/api-discovery";
@@ -120,8 +120,9 @@ type Storage = {
 
   // === Fabric.js Canvas 상태 ===
   // 페이지별 Canvas 오브젝트 저장
-  // Key: "fileId-pageNum", Value: Fabric.js JSON
-  canvasData: Record<string, {
+  // Key: "noteId-pageNum", Value: Fabric.js JSON
+  // ⭐ LiveMap 사용: 개별 키 수정 시 자동으로 다른 클라이언트에 동기화됨
+  canvasData: LiveMap<string, {
     version: string;
     objects: any[];
     background: string;
@@ -264,9 +265,10 @@ export function getNoteRoomId(noteId: string): string {
 }
 
 // Canvas Data Key 생성 헬퍼
-export function getCanvasKey(fileId: string, pageNum: number): string {
-  return `${fileId}-${pageNum}`;
+// 키 형식: noteId-pageNum (fileId 제거됨)
+export function getCanvasKey(noteId: string, pageNum: number): string {
+  return `${noteId}-${pageNum}`;
 }
 
-// LiveList, LiveObject export (Storage 초기화용)
-export { LiveList, LiveObject };
+// LiveList, LiveObject, LiveMap export (Storage 초기화용)
+export { LiveList, LiveObject, LiveMap };

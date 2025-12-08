@@ -25,7 +25,6 @@ export interface UseDrawingPageDataProps {
   /** Fabric.js Canvas 참조 (ref로 전달하여 항상 최신 값 사용) */
   fabricCanvasRef: React.MutableRefObject<fabric.Canvas | null>;
   noteId: string;
-  fileId: string;
   pageNum: number;
   /** 협업 모드 여부 (협업 모드에서는 Liveblocks가 처리) */
   isCollaborative: boolean;
@@ -56,7 +55,6 @@ export interface UseDrawingPageDataReturn {
 export function useDrawingPageData({
   fabricCanvasRef,
   noteId,
-  fileId,
   pageNum,
   isCollaborative,
   isCanvasReady,
@@ -138,8 +136,8 @@ export function useDrawingPageData({
     }
 
     const fabricCanvas = fabricCanvasRef.current;
-    if (!fabricCanvas || !noteId || !fileId) {
-      log.debug("페이지 로드 스킵 - 캔버스 또는 ID 없음:", { hasCanvas: !!fabricCanvas, noteId, fileId });
+    if (!fabricCanvas || !noteId) {
+      log.debug("페이지 로드 스킵 - 캔버스 또는 ID 없음:", { hasCanvas: !!fabricCanvas, noteId });
       return;
     }
     if (!shouldLoadContent || hasLoadedRef.current) {
@@ -152,7 +150,7 @@ export function useDrawingPageData({
       setIsLoading(true);
 
       try {
-        const drawingData = await getDrawing(noteId, fileId, pageNum);
+        const drawingData = await getDrawing(noteId, pageNum);
 
         if (drawingData?.canvas) {
           log.debug(`페이지 ${pageNum} IndexedDB 데이터 발견, 로드 중... 오브젝트 수:`, drawingData.canvas.objects?.length || 0);
@@ -194,7 +192,7 @@ export function useDrawingPageData({
     };
 
     loadPageData();
-  }, [isCanvasReady, shouldLoadContent, pageNum, noteId, fileId, isCollaborative, fabricCanvasRef]);
+  }, [isCanvasReady, shouldLoadContent, pageNum, noteId, isCollaborative, fabricCanvasRef]);
 
   /**
    * ⭐ v2: 원격 업데이트 수신 시 IndexedDB에서 재로드
@@ -208,7 +206,7 @@ export function useDrawingPageData({
     }
 
     const fabricCanvas = fabricCanvasRef.current;
-    if (!fabricCanvas || !noteId || !fileId || !isCanvasReady) {
+    if (!fabricCanvas || !noteId || !isCanvasReady) {
       log.debug("원격 업데이트 재로드 스킵 - 조건 불충족");
       return;
     }
@@ -217,7 +215,7 @@ export function useDrawingPageData({
       log.debug(`원격 업데이트 수신 → IndexedDB에서 재로드 (페이지 ${pageNum})`);
 
       try {
-        const drawingData = await getDrawing(noteId, fileId, pageNum);
+        const drawingData = await getDrawing(noteId, pageNum);
 
         if (drawingData?.canvas) {
           log.debug(`원격 데이터 로드 중... 오브젝트 수:`, drawingData.canvas.objects?.length || 0);
@@ -235,7 +233,7 @@ export function useDrawingPageData({
     };
 
     reloadFromIndexedDB();
-  }, [remoteUpdateTrigger, fabricCanvasRef, noteId, fileId, pageNum, isCanvasReady]);
+  }, [remoteUpdateTrigger, fabricCanvasRef, noteId, pageNum, isCanvasReady]);
 
   // 자동 저장 (디바운스)
   // 주의: fabricCanvasRef와 syncToStorageRef를 사용하여 항상 최신 값 참조
@@ -289,9 +287,8 @@ export function useDrawingPageData({
           const imageData = fabricCanvas.toDataURL({ format: "png", multiplier: 1 });
 
           const data: DrawingData = {
-            id: `${noteId}-${fileId}-${pageNum}`,
+            id: `${noteId}-${pageNum}`,
             noteId,
-            fileId,
             pageNum,
             canvas: canvasJSON,
             image: imageData,
@@ -308,7 +305,7 @@ export function useDrawingPageData({
         log.error("드로잉 자동 저장 실패:", error);
       }
     }, 1000);
-  }, [fabricCanvasRef, onSave, noteId, fileId, pageNum, isCollaborative, syncToStorageRef, isLoadSuccess]);
+  }, [fabricCanvasRef, onSave, noteId, pageNum, isCollaborative, syncToStorageRef, isLoadSuccess]);
 
   // Cleanup
   useEffect(() => {

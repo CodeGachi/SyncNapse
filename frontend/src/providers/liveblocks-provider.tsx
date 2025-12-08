@@ -11,7 +11,7 @@ import { createLogger } from "@/lib/utils/logger";
 
 const log = createLogger("Liveblocks");
 import { ClientSideSuspense } from "@liveblocks/react";
-import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage, useMutation, LiveList, LiveObject } from "@/lib/liveblocks/liveblocks.config";
+import { RoomProvider, getUserColor, getNoteRoomId, useStatus, useRoom, useStorage, useMutation, LiveList, LiveObject, LiveMap } from "@/lib/liveblocks/liveblocks.config";
 import { useCurrentUser } from "@/lib/api/queries/auth.queries";
 import { LoadingScreen } from "@/components/common/loading-screen";
 
@@ -104,7 +104,7 @@ export function LiveblocksProvider({ noteId, children }: LiveblocksProviderProps
         pageNotes: {},
         currentPage: 1,
         currentFileId: null,
-        canvasData: {},
+        canvasData: new LiveMap(),  // ⭐ LiveMap으로 초기화 - 개별 키 수정 시 자동 동기화
         handRaises: new LiveList([]),
         polls: new LiveList([]),
         questions: new LiveList([]),
@@ -198,11 +198,21 @@ function ConnectionMonitor() {
       log.debug(`[Liveblocks] pageNotes 초기화됨 (Record)`);
     }
 
-    // canvasData
+    // canvasData (LiveMap) - 기존 Record에서 LiveMap으로 마이그레이션
     const canvasDataField = storage.get("canvasData");
     if (canvasDataField === undefined || canvasDataField === null) {
-      storage.set("canvasData", {});
-      log.debug(`[Liveblocks] canvasData 초기화됨 (Record)`);
+      storage.set("canvasData", new LiveMap());
+      log.debug(`[Liveblocks] canvasData 초기화됨 (LiveMap)`);
+    } else if (canvasDataField && typeof canvasDataField === "object" && !(canvasDataField instanceof LiveMap)) {
+      // 기존 Record 형식 → LiveMap으로 마이그레이션
+      log.debug(`[Liveblocks] canvasData Record → LiveMap 마이그레이션 시작...`);
+      const existingData = canvasDataField as Record<string, any>;
+      const newLiveMap = new LiveMap<string, any>();
+      Object.entries(existingData).forEach(([key, value]) => {
+        newLiveMap.set(key, value);
+      });
+      storage.set("canvasData", newLiveMap);
+      log.debug(`[Liveblocks] canvasData LiveMap 마이그레이션 완료! (${Object.keys(existingData).length}개 항목)`);
     }
 
     // === 기타 필드 ===
@@ -252,7 +262,7 @@ function ConnectionMonitor() {
       filesData: files?.map(f => ({ id: f.id, fileName: f.fileName })),
       noteInfo: noteInfo ? { id: noteInfo.id, title: noteInfo.title } : 'null',
       pageNotes: pageNotes ? Object.keys(pageNotes).length : 'undefined',
-      canvasData: canvasData ? Object.keys(canvasData).length : 'undefined',
+      canvasData: canvasData ? (typeof canvasData.size === 'number' ? canvasData.size : Object.keys(canvasData).length) : 'undefined',
       currentPage: currentPage ?? 'undefined',
       currentFileId: currentFileId ?? 'undefined',
     });
