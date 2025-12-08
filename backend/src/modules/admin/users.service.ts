@@ -110,6 +110,9 @@ export class UsersService {
             displayName: true,
             role: true,
             createdAt: true,
+            isBanned: true,
+            banReason: true,
+            suspendedUntil: true,
             refreshTokens: {
               orderBy: { createdAt: 'desc' },
               take: 1,
@@ -141,7 +144,7 @@ export class UsersService {
       // DTO 변환
       const data = users.map((user) => {
         const lastLogin = user.refreshTokens[0]?.createdAt;
-        const status = this.determineUserStatus(lastLogin);
+        const status = this.determineUserStatus(lastLogin, user.isBanned, user.suspendedUntil);
 
         // 활성 구독 정보 가져오기
         const activeSubscription = user.subscriptions[0];
@@ -162,8 +165,8 @@ export class UsersService {
           status,
           createdAt: user.createdAt.toISOString(),
           lastLoginAt: lastLogin?.toISOString(),
-          suspendedUntil: null, // TODO: 필드 추가 시
-          banReason: null, // TODO: 필드 추가 시
+          suspendedUntil: user.suspendedUntil?.toISOString() || null,
+          banReason: user.banReason || null,
           subscription,
         });
       });
@@ -190,8 +193,20 @@ export class UsersService {
   /**
    * 사용자 상태 판단
    */
-  private determineUserStatus(lastLoginAt: Date | null | undefined): string {
-    // TODO: banReason, suspendedUntil 필드 추가 시 구현
+  private determineUserStatus(
+    lastLoginAt: Date | null | undefined,
+    isBanned: boolean,
+    suspendedUntil: Date | null | undefined
+  ): string {
+    // 영구 차단
+    if (isBanned) {
+      return 'banned';
+    }
+
+    // 일시 정지 (정지 기간이 아직 남아있으면)
+    if (suspendedUntil && new Date() < suspendedUntil) {
+      return 'suspended';
+    }
 
     if (!lastLoginAt) {
       return 'inactive';
@@ -226,6 +241,9 @@ export class UsersService {
           role: true,
           createdAt: true,
           deletedAt: true,
+          isBanned: true,
+          banReason: true,
+          suspendedUntil: true,
           refreshTokens: {
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -286,7 +304,7 @@ export class UsersService {
 
       // 상태 판단
       const lastLogin = user.refreshTokens[0]?.createdAt;
-      const status = this.determineUserStatus(lastLogin);
+      const status = this.determineUserStatus(lastLogin, user.isBanned, user.suspendedUntil);
 
       // 스토리지 MB 변환
       const storageMb = uploadsSize._sum?.totalSizeBytes
@@ -432,15 +450,12 @@ export class UsersService {
   /**
    * 사용자 일시 정지
    * POST /api/admin/users/:userId/suspend
-   * 
-   * Note: User 테이블에 suspendedUntil 필드가 없으므로
-   * AuditLog에 기록하는 방식으로 구현
    */
   async suspendUser(userId: string, dto: SuspendUserDto): Promise<UserStatusResponseDto> {
     this.logger.debug(`suspendUser userId=${userId} until=${dto.suspendUntil}`);
 
     try {
-      // 사용자 존재 확인
+      // 사용자 존재 확인 및 정지 처리
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, deletedAt: true },
@@ -449,6 +464,14 @@ export class UsersService {
       if (!user || user.deletedAt) {
         throw new NotFoundException('사용자를 찾을 수 없습니다.');
       }
+
+      // DB에 실제 정지 상태 업데이트
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          suspendedUntil: new Date(dto.suspendUntil),
+        },
+      });
 
       // AuditLog에 정지 기록 추가
       await this.prisma.auditLog.create({
@@ -485,15 +508,12 @@ export class UsersService {
   /**
    * 사용자 영구 차단
    * POST /api/admin/users/:userId/ban
-   * 
-   * Note: User 테이블에 banReason 필드가 없으므로
-   * AuditLog에 기록하는 방식으로 구현
    */
   async banUser(userId: string, dto: BanUserDto): Promise<UserStatusResponseDto> {
     this.logger.debug(`banUser userId=${userId} reason=${dto.reason}`);
 
     try {
-      // 사용자 존재 확인
+      // 사용자 존재 확인 및 차단 처리
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, deletedAt: true },
@@ -502,6 +522,15 @@ export class UsersService {
       if (!user || user.deletedAt) {
         throw new NotFoundException('사용자를 찾을 수 없습니다.');
       }
+
+      // DB에 실제 차단 상태 업데이트
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          isBanned: true,
+          banReason: dto.reason,
+        },
+      });
 
       // AuditLog에 차단 기록 추가
       await this.prisma.auditLog.create({
@@ -542,7 +571,7 @@ export class UsersService {
     this.logger.debug(`activateUser userId=${userId}`);
 
     try {
-      // 사용자 존재 확인
+      // 사용자 존재 확인 및 활성화 처리
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, deletedAt: true },
@@ -551,6 +580,16 @@ export class UsersService {
       if (!user || user.deletedAt) {
         throw new NotFoundException('사용자를 찾을 수 없습니다.');
       }
+
+      // DB에 실제 활성화 상태 업데이트
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          isBanned: false,
+          banReason: null,
+          suspendedUntil: null,
+        },
+      });
 
       // AuditLog에 활성화 기록 추가
       await this.prisma.auditLog.create({

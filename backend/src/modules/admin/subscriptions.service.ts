@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import {
   SubscriptionStatsQueryDto,
@@ -642,6 +642,75 @@ export class SubscriptionsService {
     } catch (error) {
       this.logger.error('Failed to get distribution', error);
       throw new InternalServerErrorException('요금제 분포 조회에 실패했습니다.');
+    }
+  }
+
+  /**
+   * 5.7 구독 취소
+   * DELETE /api/admin/subscriptions/:subscriptionId
+   */
+  async cancelSubscription(subscriptionId: string, reason: string): Promise<{ message: string }> {
+    this.logger.debug(`cancelSubscription subscriptionId=${subscriptionId} reason=${reason}`);
+
+    try {
+      // 구독 존재 확인
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { id: subscriptionId },
+        include: {
+          user: {
+            select: { id: true, email: true },
+          },
+          plan: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+
+      if (!subscription) {
+        throw new NotFoundException('구독을 찾을 수 없습니다.');
+      }
+
+      // 이미 취소된 구독인지 확인
+      if (subscription.status === 'cancelled') {
+        throw new BadRequestException('이미 취소된 구독입니다.');
+      }
+
+      // 구독 취소 처리
+      await this.prisma.subscription.update({
+        where: { id: subscriptionId },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancelReason: reason,
+        },
+      });
+
+      // AuditLog 기록
+      await this.prisma.auditLog.create({
+        data: {
+          userId: subscription.userId,
+          method: 'DELETE',
+          path: `/admin/subscriptions/${subscriptionId}`,
+          action: 'SUBSCRIPTION_CANCEL',
+          resourceId: subscriptionId,
+          payload: {
+            reason,
+            planId: subscription.planId,
+            planName: subscription.plan.name,
+            userEmail: subscription.user.email,
+          },
+        },
+      });
+
+      this.logger.log(`Subscription cancelled: ${subscriptionId} reason=${reason}`);
+
+      return { message: '구독이 취소되었습니다.' };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Failed to cancel subscription', error);
+      throw new InternalServerErrorException('구독 취소에 실패했습니다.');
     }
   }
 }

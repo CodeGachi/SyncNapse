@@ -20,6 +20,11 @@ model User {
   folders       Folder[]
   authProvider  String   // e.g., cognito, credentials, oauth
   role          String   // e.g., user, admin
+  
+  // Suspend/Ban 관련
+  isBanned      Boolean  @default(false)
+  banReason     String?
+  suspendedUntil DateTime?
 
   // Back-relations
   uploads                Upload[]     @relation("UserUploads")
@@ -35,6 +40,9 @@ model User {
   
   // Subscription relations
   subscriptions         Subscription[]
+  
+  @@index([isBanned])
+  @@index([suspendedUntil])
 }
 
 model Folder {
@@ -541,4 +549,17 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@index([currentPeriodEnd])
+}
+
+// === System Settings ===
+
+// SystemSettings (시스템 설정)
+model SystemSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique  // 설정 키 (예: 'general', 'security')
+  value     Json     // 설정 값 (JSON 형식)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([key])
 }

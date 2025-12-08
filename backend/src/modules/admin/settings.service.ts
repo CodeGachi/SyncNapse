@@ -13,12 +13,13 @@ import {
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
-  // Mock 설정 저장소 (In-memory)
-  private settings: SystemSettingsDto;
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(private readonly prisma: PrismaService) {
-    // 초기 설정값
-    this.settings = new SystemSettingsDto({
+  /**
+   * 기본 설정값
+   */
+  private getDefaultSettings(): SystemSettingsDto {
+    return new SystemSettingsDto({
       general: {
         maintenanceMode: false,
         maxUploadSize: 100,
@@ -33,7 +34,7 @@ export class SettingsService {
         version: '1.0.0',
         environment: process.env.NODE_ENV || 'development',
         apiUrl: process.env.API_URL || 'http://localhost:4000',
-        mockMode: true,
+        mockMode: process.env.NODE_ENV === 'development',
       },
     });
   }
@@ -46,7 +47,22 @@ export class SettingsService {
     this.logger.debug('getSettings');
 
     try {
-      return { data: this.settings };
+      // DB에서 설정 조회
+      const [generalSettings, securitySettings] = await Promise.all([
+        this.prisma.systemSettings.findUnique({ where: { key: 'general' } }),
+        this.prisma.systemSettings.findUnique({ where: { key: 'security' } }),
+      ]);
+
+      const defaults = this.getDefaultSettings();
+
+      // DB 값이 있으면 사용, 없으면 기본값
+      const settings = new SystemSettingsDto({
+        general: generalSettings ? (generalSettings.value as any) : defaults.general,
+        security: securitySettings ? (securitySettings.value as any) : defaults.security,
+        environment: defaults.environment, // 환경 설정은 항상 실시간 값 사용
+      });
+
+      return { data: settings };
     } catch (error) {
       this.logger.error('Failed to get settings', error);
       throw new InternalServerErrorException('설정 조회에 실패했습니다.');
@@ -61,23 +77,51 @@ export class SettingsService {
     this.logger.debug(`updateSettings dto=${JSON.stringify(dto)}`);
 
     try {
-      // 설정 업데이트 (부분 업데이트 지원)
+      const updates: Promise<any>[] = [];
+
+      // general 설정 저장
       if (dto.general) {
-        this.settings.general = { ...this.settings.general, ...dto.general };
+        updates.push(
+          this.prisma.systemSettings.upsert({
+            where: { key: 'general' },
+            create: {
+              key: 'general',
+              value: dto.general as any,
+            },
+            update: {
+              value: dto.general as any,
+            },
+          })
+        );
       }
 
+      // security 설정 저장
       if (dto.security) {
-        this.settings.security = { ...this.settings.security, ...dto.security };
+        updates.push(
+          this.prisma.systemSettings.upsert({
+            where: { key: 'security' },
+            create: {
+              key: 'security',
+              value: dto.security as any,
+            },
+            update: {
+              value: dto.security as any,
+            },
+          })
+        );
       }
 
-      // 환경 설정은 읽기 전용이므로 업데이트하지 않음
+      await Promise.all(updates);
+
+      // 업데이트된 설정 조회
+      const updatedSettings = await this.getSettings();
 
       this.logger.log('Settings updated successfully');
 
       return new UpdateSystemSettingsResponseDto({
         success: true,
         message: '설정이 저장되었습니다.',
-        data: this.settings,
+        data: updatedSettings.data,
       });
     } catch (error) {
       this.logger.error('Failed to update settings', error);
