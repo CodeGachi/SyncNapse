@@ -22,7 +22,7 @@ import {
  * 
  * 관리자용 구독 분석
  */
-@ApiTags('Admin - Subscriptions')
+@ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/subscriptions')
 @UseGuards(JwtAuthGuard, AdminRoleGuard)

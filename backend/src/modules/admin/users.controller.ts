@@ -21,7 +21,7 @@ import {
  * 
  * 관리자용 사용자 관리
  */
-@ApiTags('Admin - Users')
+@ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, AdminRoleGuard)

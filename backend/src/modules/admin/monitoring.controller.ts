@@ -11,7 +11,7 @@ import { ServerStatusDto, ServerMetricsQueryDto, ServerMetricsDto } from './dto'
  * 
  * 관리자용 서버 모니터링
  */
-@ApiTags('Admin - Monitoring')
+@ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/servers')
 @UseGuards(JwtAuthGuard, AdminRoleGuard)

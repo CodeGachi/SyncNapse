@@ -11,7 +11,7 @@ import { DashboardStatsResponseDto, ServerStatusDto } from './dto';
  * 
  * 대시보드 관련 통계 및 정보 조회
  */
-@ApiTags('Admin - Dashboard')
+@ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/dashboard')
 @UseGuards(JwtAuthGuard, AdminRoleGuard)

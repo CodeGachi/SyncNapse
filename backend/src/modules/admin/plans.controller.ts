@@ -12,7 +12,7 @@ import { CreatePlanDto, UpdatePlanDto, PlanDto, PlanHistoryDto } from './dto';
  * 
  * 관리자용 요금제 관리
  */
-@ApiTags('Admin - Plans')
+@ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/plans')
 @UseGuards(JwtAuthGuard, AdminRoleGuard)

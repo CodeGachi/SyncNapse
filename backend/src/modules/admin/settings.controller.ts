@@ -11,7 +11,7 @@ import { SystemSettingsDto, UpdateSystemSettingsDto, UpdateSystemSettingsRespons
  * 
  * 관리자용 시스템 설정
  */
-@ApiTags('Admin - Settings')
+@ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/settings')
 @UseGuards(JwtAuthGuard, AdminOnlyGuard)
