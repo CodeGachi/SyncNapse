@@ -64,7 +64,11 @@ describe('UsersService', () => {
           role: 'user',
           createdAt: new Date(),
           deletedAt: null,
+          isBanned: false,
+          banReason: null,
+          suspendedUntil: null,
           refreshTokens: [{ createdAt: new Date() }],
+          subscriptions: [],
         },
       ];
 
